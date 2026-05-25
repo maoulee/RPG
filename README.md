@@ -1,39 +1,57 @@
-# SubgraphKGQA: Subgraph Retrieval with Chain Decomposition for Knowledge Graph Question Answering
+# RPG: Relation-Prior Tree for Knowledge Graph Reasoning with Large Language Models
 
-A multi-stage pipeline for Knowledge Graph Question Answering (KGQA) over Freebase, supporting both WebQSP and ComplexWebQuestions (CWQ) datasets.
+**Prior is Enough: Relation-Prior Tree for Knowledge Graph Reasoning with Large Language Models**
 
-## Pipeline Overview
+RPG mitigates the accuracy-efficiency trade-off in LLM-based KG reasoning by using LLM-derived relation priors to construct a **Relation-Prior Tree** that guides efficient, low-noise evidence acquisition on the knowledge graph.
 
-The pipeline decomposes complex questions into step-by-step sub-questions, retrieves and prunes candidate relations via GTE embedding retrieval and LLM-based pruning, traverses the knowledge graph to build logical paths, and reasons over the resulting subgraph to produce answers.
+## Method
 
-**Stages:**
+RPG consists of two core mechanisms:
 
-1. **NER Entity Resolution** — GTE-based entity linking (or skip-NER using ground-truth entities)
-2. **Question Decomposition** — LLM-based chain decomposition into ordered sub-questions
-3. **GTE Relation Retrieval** — Embedding-based retrieval of candidate relations per sub-question
-4. **LLM Relation Pruning** — LLM selects top-k relevant relations per step
-5. **Graph Traversal** — BFS traversal building logical paths through the KG
-6. **Diagnosis & Retry** — Coverage-based retry with fallback strategies
-7. **Path Selection** — Deduplication and selection of final reasoning paths
-8. **Answer Reasoning** — LLM reads subgraph evidence and produces answers
+1. **Relation-Prior Tree Construction** — Decomposes the question into ordered relation requirements, aligns the resulting relation priors with KG relations, and organizes them into a tree of candidate reasoning patterns.
+
+2. **Logic-Constrained Pattern Walking** — Verifies KG realizations under the Relation-Prior Tree, pruning invalid branches and extracting compact evidence without iterative LLM calls during traversal.
+
+The final evidence is restricted to KG-instantiated patterns that are consistent with the relation-prior tree, reducing noisy graph evidence for downstream reasoning.
+
+## Pipeline Stages
+
+| Stage | Description |
+|-------|-------------|
+| Stage 0 | NER entity resolution (GTE-based or skip-NER) |
+| Stage 1 | Question decomposition (chain / cascade mode) |
+| Stage 2 | GTE relation retrieval + LLM pruning |
+| Stage 3 | Relation retrieval via embedding similarity |
+| Stage 4 | LLM-based relation pruning (top-k selection) |
+| Stage 5 | Graph traversal with k-queue BFS |
+| Stage 6 | Diagnosis and retry with fallback strategies |
+| Stage 7 | Path deduplication and selection |
+| Stage 8 | LLM answer reasoning over subgraph evidence |
+
+## Results
+
+| Dataset | F1 |
+|---------|----|
+| WebQSP | 84.3 |
+| CWQ | 76.6 |
+
+Achieved with a 9B-parameter model.
 
 ## Environment Setup
 
 ### Requirements
 
 - Python 3.10+
-- CUDA-capable GPU(s) for LLM and embedding model inference
-- [vLLM](https://github.com/vllm-project/vllm) >= 0.19.1 (for LLM serving)
+- CUDA-capable GPU(s)
+- [vLLM](https://github.com/vllm-project/vllm) >= 0.19.1
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
-### Install Dependencies
+### Install
 
 ```bash
-# Using uv (recommended)
 uv sync
-
-# Or using pip
-pip install -e ".[dev]"
+# or
+pip install -e .
 ```
 
 ### Required Models
@@ -43,128 +61,88 @@ pip install -e ".[dev]"
 | LLM | Qwen3.5-9B | Decomposition, pruning, reasoning |
 | Embedding | Qwen3-Embedding-0.6B | Entity/relation retrieval |
 
-Set model paths via environment variables:
-
 ```bash
-export LLM_MODEL="Qwen3.5-9B"           # or your local path
-export GTE_MODEL_PATH="Qwen3-Embedding-0.6B"  # or your local path
+export LLM_MODEL="Qwen3.5-9B"
+export GTE_MODEL_PATH="Qwen3-Embedding-0.6B"
 ```
 
 ## Data Preparation
 
-The pipeline requires pre-processed subgraph data in pickle format. Place the test data files in the `data/` directory:
+Place test data in the `data/` directory:
 
 ```
 data/
 ├── webqsp/
-│   └── test_fixed_path_completed.pkl    # WebQSP test subgraphs
+│   └── test_fixed_path_completed.pkl
 └── cwq_processed/
-    └── test_literal_and_language_fixed_path_completed.pkl  # CWQ test subgraphs
+    └── test_literal_and_language_fixed_path_completed.pkl
 ```
 
-These pkl files contain per-question subgraphs with entity lists, relation lists, and head/relation/tail index arrays.
+Download from the [Releases page](../../releases).
 
-### Download Data
+## Running
 
-Download the test data files from the [Releases page](../../releases) and place them in the `data/` directory as shown above.
-
-## Running the Pipeline
-
-### 1. Start the Embedding Server
+### 1. Start Services
 
 ```bash
+# Embedding server
 python scripts/gte_api_server.py --port 8003
-```
 
-### 2. Start the LLM Server
-
-The pipeline uses an OpenAI-compatible API. You can use vLLM to serve the LLM:
-
-```bash
-# Example: serve Qwen3.5-9B with vLLM
-python -m vllm serve Qwen3.5-9B \
-  --host 0.0.0.0 \
-  --port 8000 \
-  --tensor-parallel-size 1 \
-  --max-model-len 30000 \
-  --dtype auto
-```
-
-Or use the provided script:
-
-```bash
+# LLM server
 bash scripts/start_local_qwen35_server.sh
 ```
 
-### 3. Run Evaluation
+### 2. Run Evaluation
 
 ```bash
-# WebQSP evaluation
+# WebQSP
 python scripts/run_pipeline.py \
-  --dataset webqsp \
-  --mode stage \
-  --pilot-results reports/pilot_webqsp.json \
+  --dataset webqsp --mode stage \
   --cwq-pkl data/webqsp/test_fixed_path_completed.pkl \
   --output-dir reports/webqsp_test \
-  --limit 1639 \
-  --parallel 8
+  --limit 1639 --parallel 8
 
-# CWQ evaluation
+# CWQ
 python scripts/run_pipeline.py \
-  --dataset cwq \
-  --mode stage \
-  --pilot-results reports/pilot_cwq.json \
+  --dataset cwq --mode stage \
   --cwq-pkl data/cwq_processed/test_literal_and_language_fixed_path_completed.pkl \
   --output-dir reports/cwq_test \
-  --limit 3397 \
-  --parallel 8
+  --limit 3397 --parallel 8
 ```
 
 ### Key Arguments
 
 | Argument | Description | Default |
 |----------|-------------|---------|
-| `--dataset` | Dataset preset: `webqsp` or `cwq` | auto-detect |
-| `--mode` | Execution mode: `stage` (batch) or `case` | `case` |
-| `--limit` | Number of cases to process | 10 |
-| `--parallel` | Parallel case count | 1 |
-| `--skip-ner` | Skip GTE NER, use q_entity directly | auto (on for webqsp/cwq) |
-| `--decomp` | Decomposition mode: `v2` or `cascade` | `cascade` |
-| `--topk` | Max relations per step after pruning | 3 |
+| `--dataset` | `webqsp` or `cwq` | auto-detect |
+| `--decomp` | `v2` (chain) or `cascade` | `cascade` |
+| `--topk` | Max relations per step | 3 |
 | `--reason-style` | Reasoning prompt style | `v2` |
+| `--skip-ner` | Use q_entity directly | auto |
 | `--dump-trajectories` | Save per-case trajectory files | off |
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `LLM_API_URL` | LLM API endpoint | `http://localhost:8000/v1/chat/completions` |
-| `LLM_MODEL` | LLM model identifier | `Qwen3.5-9B` |
-| `GTE_API_URL` | Embedding API endpoint | `http://localhost:8003` |
-| `GTE_MODEL_PATH` | Embedding model path | `Qwen3-Embedding-0.6B` |
 
 ## Project Structure
 
 ```
 kgqa/
 ├── core/
-│   ├── config.py          # Pipeline configuration and prompts
+│   ├── config.py          # Configuration and prompt templates
 │   ├── case_state.py      # Per-case state container
-│   └── utils.py           # String normalization, matching, scoring
+│   └── utils.py           # Normalization, matching, scoring
 ├── llm/
 │   ├── client.py          # LLM API client with batch coalescing
 │   ├── batch.py           # Batch call coordination
-│   └── prompts.py         # Prompt templates for each stage
+│   └── prompts.py         # Stage-specific prompt templates
 ├── stages/
-│   ├── runner.py          # Stage-based batch execution orchestrator
+│   ├── runner.py          # Stage-based batch orchestrator
 │   ├── stage0_ner.py      # NER entity resolution
 │   ├── stage1_cascade.py  # Cascade decomposition
 │   ├── stage1_decomp.py   # Chain decomposition
-│   ├── stage2_gte_prune.py # Combined GTE + pruning
+│   ├── stage2_gte_prune.py
 │   ├── stage3_gte.py      # GTE relation retrieval
 │   ├── stage4_prune.py    # LLM relation pruning
 │   ├── stage5_traverse.py # Graph traversal
-│   ├── stage6_diagnosis.py # Diagnosis and retry
+│   ├── stage6_diagnosis.py
 │   ├── stage7_select.py   # Path selection
 │   └── stage8_reason.py   # Answer reasoning
 └── traversal/
@@ -174,20 +152,12 @@ kgqa/
     └── logical_paths.py   # Logical path construction
 ```
 
-## Results
-
-| Dataset | Hit@1 | F1 |
-|---------|-------|----|
-| WebQSP | 86.4 | 76.1 |
-| CWQ | 78.1 | 73.5 |
-
 ## Citation
 
 ```bibtex
-@inproceedings{anonymous2026subgraphkgqa,
-  title={SubgraphKGQA: Subgraph Retrieval with Chain Decomposition for Knowledge Graph Question Answering},
+@inproceedings{anonymous2026rpg,
+  title={Prior is Enough: Relation-Prior Tree for Knowledge Graph Reasoning with Large Language Models},
   author={Anonymous},
-  booktitle={Anonymous},
   year={2026}
 }
 ```
