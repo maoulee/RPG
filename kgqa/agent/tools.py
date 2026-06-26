@@ -341,6 +341,58 @@ def _paths_to_preview(paths, ctx, limit: int = 10) -> List[str]:
     return out
 
 
+def _hint_match_rank(patterns, fact_rel_sets, fids):
+    """Rank relation-pattern branches by how well they align with the
+    decomposed facts' relation hints.
+
+    Coarse ranking (the system does this; the model does the fine selection
+    by expanding branches). For each branch path, align the per-fact hint
+    relation-id sets against the path's relation-id sequence in order:
+
+        hints = [set_f1, set_f2, ...]   (one id-set per fact, in fact order)
+        path  = [r1, r2, ...]           (relation id sequence of the branch)
+
+    Walk the path hops left-to-right; consume hints left-to-right. Hop i
+    counts as a "level hit" if it belongs to the next unconsumed hint's set,
+    and that hint is then consumed (so a single hint is matched at most once —
+    this avoids a step-1 relation matching at both hop 1 and hop 2 and being
+    double-counted).
+
+    Rank key: (#level-hits desc, path-length asc) — more aligned hops first,
+    shorter paths break ties. Branches with zero hits sink to the bottom but
+    are NOT dropped (the model may still want them).
+
+    Returns the patterns list sorted by this key (stable).
+    """
+    if not fact_rel_sets:
+        # No hints available (e.g. decompose/retrieve skipped) — leave as-is.
+        return list(patterns)
+
+    def _key(lp):
+        rels = (lp.get("best_raw_path") or {}).get("relations", [])
+        rel_seq = [r for r in rels if r is not None]
+        hints_iter = iter(fact_rel_sets)
+        try:
+            cur_hint = next(hints_iter)
+        except StopIteration:
+            cur_hint = None
+        hits = 0
+        consumed_any = False
+        for r in rel_seq:
+            if cur_hint is not None and r in cur_hint:
+                hits += 1
+                consumed_any = True
+                try:
+                    cur_hint = next(hints_iter)
+                except StopIteration:
+                    cur_hint = None
+                    # remaining hops can't raise hits further
+                    break
+        return (-hits, len(rel_seq))
+
+    return sorted(patterns, key=_key)
+
+
 async def _do_select(ctx) -> str:
     """Run the FULL multi-step traversal (stage_5_graph_traversal) over all
     facts' hinted relations, then build a TREE overview of evidence.
@@ -389,6 +441,15 @@ async def _do_select(ctx) -> str:
         patterns = cs.logical_paths or []
     ctx.logical_paths = patterns
 
+    # ── Coarse rank by hint alignment (system does this; model does fine
+    # selection via expand_branch). Aligns each branch's relation-id sequence
+    # against the per-fact hint relation sets, in fact order. More aligned
+    # hops + shorter path = more relevant. All patterns are kept — the model
+    # sees the whole ranked tree and decides which branches to expand.
+    fids = [fid for fid in ctx.fact_ids if fid in ctx.fact_relations]
+    fact_rel_sets = [ctx.fact_relations[fid] for fid in fids]
+    ranked_patterns = _hint_match_rank(patterns, fact_rel_sets, fids)
+
     # ── Build CVT-aware evidence via the proven Stage-8 builder ──
     # build_pattern_evidence_triples returns dict[label -> PatternEvidence]
     # where each PatternEvidence has:
@@ -397,16 +458,20 @@ async def _do_select(ctx) -> str:
     #   .tree_data   — nested trie (display-named nodes) for _render_path_tree
     # This fixes Blocker A (candidates now include CVT-expanded entities) and
     # Blocker B (overview rendered as a tree, not a flat list).
-    valid_patterns = [lp for lp in patterns if isinstance(lp, dict) and lp.get("best_raw_path")]
+    valid_patterns = [lp for lp in ranked_patterns if isinstance(lp, dict) and lp.get("best_raw_path")]
     pat_evidence = build_pattern_evidence_triples(
         valid_patterns, ctx.ents, ctx.rels, ctx.h_ids, ctx.r_ids, ctx.t_ids,
         ctx.anchor_idx, max_grouped_lines=120)
 
-    # Rank by candidate count desc (most informative branches first) → top-20
-    ranked = sorted(
-        pat_evidence.items(),
-        key=lambda kv: (-len(kv[1].candidates), kv[0]),
-    )[:20]
+    # Preserve the hint-alignment order in the evidence dict output.
+    # build_pattern_evidence_triples labels patterns P1, P2, ... in input
+    # order, so iterating pat_evidence in insertion order == ranked order.
+    ranked = list(pat_evidence.items())
+
+    # Cap the overview to keep it readable (the model can still expand any
+    # branch whose #N appears). Hint-aligned order means the most relevant
+    # branches are always at the top.
+    ranked = ranked[:30]
 
     # ── Build numbered tree overview (numbers on the RIGHT, per user spec) ──
     ctx.branches = {}
@@ -466,11 +531,13 @@ async def _do_select(ctx) -> str:
     overview_text = (
         f"RETRIEVED CANDIDATES ({len(dedup)} entities, your answer pool):\n"
         + ", ".join(dedup[:40])
-        + f"\n\nEVIDENCE TREE OVERVIEW ({len(ranked)} branches; #N on the right "
-        "marks each branch):\n"
-        "This overview is your PATH SELECTION (Stage 7). ANALYZE which branch "
-        "best answers the question. Call expand_branch(N) on the branch you "
-        "chose to see its full triples + CVT attributes, then answer.\n\n"
+        + f"\n\nEVIDENCE TREE (ranked by relevance; #N on the right marks each "
+        "branch):\n"
+        "Branches are pre-ranked by how well their relation chain aligns with "
+        "your decomposed facts (most aligned, shortest paths first). ANALYZE "
+        "the tree, decide which branches are relevant to the question, and call "
+        "expand_branch(N) on each you choose to see its full triples + CVT "
+        "attributes. Then answer from what you expanded.\n\n"
         + "\n\n".join(overview_blocks)
     )
 
