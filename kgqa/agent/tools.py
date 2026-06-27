@@ -155,11 +155,49 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "select_relations",
+            "description": (
+                "After retrieve, each fact has structurally-pruned candidate "
+                "relations (GTE-15 intersected with anchor's reachable edges). "
+                "Pick the relation(s) that form the answer chain for each fact. "
+                "This is your judgment on chain semantics — the system only "
+                "guarantees structural reachability, you decide which relations "
+                "actually answer the question. Call ONCE after all facts are "
+                "retrieved, before select."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "selections": {
+                        "type": "array",
+                        "description": "One entry per fact.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "fact_id": {"type": "string"},
+                                "relations": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Relation names chosen from that fact's candidate_relations.",
+                                },
+                            },
+                            "required": ["fact_id", "relations"],
+                        },
+                    },
+                },
+                "required": ["selections"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "select",
             "description": (
-                "Traverse the KG over all facts' hinted relations and return a "
-                "numbered evidence-tree overview. Call exactly ONCE after every "
-                "fact has been retrieved. The overview shows each branch with a "
+                "Traverse the KG over all facts' chosen relations and return a "
+                "numbered evidence-tree overview. Call exactly ONCE after "
+                "select_relations (or after retrieve if you skipped "
+                "select_relations). The overview shows each branch with a "
                 "right-side number (#1, #2, ...). Use expand_branch(N) to drill "
                 "into relevant branches."
             ),
@@ -228,6 +266,7 @@ def tools_for_state(state_name: str) -> List[Dict[str, Any]]:
     allowed = {
         "INIT": {"decompose"},
         "RETRIEVE": {"retrieve"},
+        "SELECT_RELATIONS": {"select_relations"},
         "SELECT": {"select"},
         "EXPAND": {"expand_branch", "answer"},
         "ANSWER": {"answer"},
@@ -259,6 +298,9 @@ async def dispatch(tool_name: str, args: Dict[str, Any], ctx, session) -> str:
     if tool_name == "retrieve":
         return await _do_retrieve(args, ctx, session)
 
+    if tool_name == "select_relations":
+        return _do_select_relations(args, ctx)
+
     if tool_name == "select":
         return await _do_select(ctx)
 
@@ -272,53 +314,130 @@ async def dispatch(tool_name: str, args: Dict[str, Any], ctx, session) -> str:
 
 
 async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
-    """MODEL-DRIVEN GTE: relation_hint is the query, not the raw question.
+    """MODEL-DRIVEN GTE + STRUCTURAL PRUNING.
 
-    Pipeline: gte_retrieve(hint) → top relation ids → relation_prior_expand
-    (CVT-aware, same engine as stage_5_graph_traversal) from anchor → collect
-    candidate entities + witness paths into ctx.
+    Pipeline: gte_retrieve(hint, top_k=15) → intersect with anchor's outgoing
+    relations (structural reachability) → store as CANDIDATES for the model to
+    pick from in select_relations.
+
+    The structural prune removes relations that are semantically close (high GTE
+    score) but graph-unreachable from the anchor (e.g. geography.mountain_range.*
+    when the answer needs location.location.containedby). It is pure gain —
+    validated to drop 0 correct relations while cutting GTE-15 to median 4-5.
+
+    This does NOT decide the final relations — the model picks from these
+    pruned candidates via select_relations, because only the model can judge
+    whether the full relation chain answers the question.
     """
     fact_id = str(args.get("fact_id", ""))
     hint = (args.get("relation_hint") or "").strip()
     if not hint:
-        # Fall back to the fact text if the model forgot the hint
         hint = ctx.fact_texts.get(fact_id, ctx.question)
     if ctx.anchor_idx is None:
         return _json_result({"fact_id": fact_id, "error": "no_anchor",
                              "candidates": []})
 
-    # 1. Model-driven GTE over relations — hint as query
-    top_k = 15
+    # 1. GTE over ALL case relations — hint as query, keep top-15
     try:
         rows = await gte_retrieve(
             session, hint, ctx.rels,
-            candidate_texts=ctx.rel_texts, top_k=top_k)
+            candidate_texts=ctx.rel_texts, top_k=15)
     except Exception as e:
         return _json_result({"fact_id": fact_id, "error": f"gte_failed: {e}",
                              "candidates": []})
 
-    # Map GTE candidates (relation names) to indices in ctx.rels
-    rel_indices: List[int] = []
+    gte_rel_ids: List[int] = []
     for r in rows:
         cand = r.get("candidate")
         if cand and cand in ctx.rels:
-            rel_indices.append(ctx.rels.index(cand))
-        if len(rel_indices) >= 8:
-            break
+            gte_rel_ids.append(ctx.rels.index(cand))
 
-    # 2. Store the hinted relations for THIS fact only (NO traversal here).
-    #    The multi-step traversal runs ONCE in `select` via
-    #    stage_5_graph_traversal, which chains across all facts and expands
-    #    CVTs — per-fact single-step traverse from the anchor cannot reach
-    #    multi-hop / CVT candidates (the cause of the 2-hop regression).
-    ctx.fact_relations[fact_id] = set(rel_indices)
+    # 2. Structural prune: intersect GTE-15 with anchor's outgoing relations.
+    #    Outgoing = relations where anchor is head (directed). This keeps only
+    #    relations the traversal can actually follow from the anchor.
+    outgoing_rel_ids = _anchor_outgoing_rel_ids(ctx)
+    pruned_rel_ids = [ri for ri in gte_rel_ids if ri in outgoing_rel_ids]
+
+    # Fallback: if prune empties everything (rare — anchor has few outgoing
+    # and GTE missed them all), keep the raw GTE-15 so the model still has
+    # something to choose from.
+    if not pruned_rel_ids:
+        pruned_rel_ids = gte_rel_ids[:8]
+
+    # 3. Store as CANDIDATES (not final). Model picks via select_relations.
+    #    Also init fact_relations as the full candidate set so that if the
+    #    model skips select_relations, the traversal still has something.
+    ctx.fact_relation_candidates[fact_id] = list(pruned_rel_ids)
+    ctx.fact_relations[fact_id] = set(pruned_rel_ids)  # default = all candidates
 
     return _json_result({
         "fact_id": fact_id,
         "relation_hint": hint,
-        "top_relations": [ctx.rels[i] for i in rel_indices],
-        "n_relations": len(rel_indices),
-        "note": "relations stored; multi-step traversal runs at select()",
+        "gte_relations": [ctx.rels[i] for i in gte_rel_ids[:15]],
+        "candidate_relations": [ctx.rels[i] for i in pruned_rel_ids],
+        "n_candidates": len(pruned_rel_ids),
+        "note": (f"GTE-15 pruned to {len(pruned_rel_ids)} structurally-reachable "
+                 "relations. Call select_relations to pick the ones that form "
+                 "the answer chain, then select to traverse."),
+    })
+
+
+def _anchor_outgoing_rel_ids(ctx) -> set:
+    """Relation indices where anchor is the head (directed outgoing edges)."""
+    out = set()
+    ai = ctx.anchor_idx
+    if ai is None:
+        return out
+    for h, r in zip(ctx.h_ids, ctx.r_ids):
+        if h == ai:
+            out.add(r)
+    return out
+
+
+def _do_select_relations(args: Dict[str, Any], ctx) -> str:
+    """Model decision: pick the relation(s) forming the answer chain, per fact.
+
+    After retrieve, each fact has structurally-pruned candidate relations
+    (GTE-15 ∩ anchor-outgoing). The model sees these and selects which ones
+    form a coherent answer chain. This is the model's judgment on chain
+    semantics — structure only guarantees reachability, not that the chain
+    answers the question.
+
+    Args:
+        selections: [{"fact_id": "f1", "relations": ["people.person.parents"]}, ...]
+    Each relation must be among that fact's candidates (validated).
+    """
+    selections = args.get("selections") or []
+    if not selections:
+        return _json_result({"error": "no selections provided"})
+
+    chosen = {}
+    skipped = []
+    for sel in selections:
+        fid = str(sel.get("fact_id", ""))
+        rels_chosen = sel.get("relations") or []
+        candidates = ctx.fact_relation_candidates.get(fid, [])
+        cand_names = {ctx.rels[i] for i in candidates}
+        valid_ids = []
+        invalid = []
+        for rn in rels_chosen:
+            if rn in cand_names:
+                valid_ids.append(ctx.rels.index(rn))
+            else:
+                invalid.append(rn)
+        if valid_ids:
+            chosen[fid] = set(valid_ids)
+            ctx.fact_relations[fid] = set(valid_ids)
+        if invalid:
+            skipped.append({"fact_id": fid, "invalid": invalid})
+        if not valid_ids:
+            # model picked nothing valid — keep all candidates as fallback
+            chosen[fid] = set(candidates)
+
+    return _json_result({
+        "selected": {fid: [ctx.rels[i] for i in ids] for fid, ids in chosen.items()},
+        "skipped_invalid": skipped,
+        "note": "relations locked. Call select to traverse the relation chain.",
     })
 
 

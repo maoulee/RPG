@@ -64,6 +64,7 @@ class CaseContext:
     fact_ids: List[str] = field(default_factory=list)       # ordered fact ids (from decompose)
     fact_texts: Dict[str, str] = field(default_factory=dict)
     fact_relations: Dict[str, set] = field(default_factory=dict)  # fact_id -> GTE relation idx set
+    fact_relation_candidates: Dict[str, list] = field(default_factory=dict)  # fact_id -> pruned candidate rel idx (model picks from these)
     fact_paths: Dict[str, list] = field(default_factory=dict)
     all_paths: list = field(default_factory=list)
     all_candidates: List[str] = field(default_factory=list)

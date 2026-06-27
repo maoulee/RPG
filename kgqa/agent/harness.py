@@ -19,13 +19,14 @@ from typing import Optional
 # State constants
 INIT = "INIT"
 RETRIEVE = "RETRIEVE"
+SELECT_RELATIONS = "SELECT_RELATIONS"
 SELECT = "SELECT"
 EXPAND = "EXPAND"
 ANSWER = "ANSWER"
 DONE = "DONE"
 
 # Order, for the "allowed next" hint
-_ORDER = [INIT, RETRIEVE, SELECT, EXPAND, ANSWER]
+_ORDER = [INIT, RETRIEVE, SELECT_RELATIONS, SELECT, EXPAND, ANSWER]
 
 
 @dataclass
@@ -171,7 +172,18 @@ def validate(state: AgentState, tool_calls) -> tuple:
         # Accept this retrieve
         state.retrieved.append(fid)
         if not state.pending_facts:
-            state.state = SELECT
+            state.state = SELECT_RELATIONS
+        return (True, "", state)
+
+    # ── SELECT_RELATIONS: only select_relations, exactly once ──
+    if state.state == SELECT_RELATIONS:
+        if name != "select_relations":
+            return (False,
+                    f"Wrong order: '{name}' called before select_relations. "
+                    "Call `select_relations` once to pick the relation chain "
+                    "from each fact's candidates, then `select`.",
+                    state)
+        state.state = SELECT
         return (True, "", state)
 
     # ── SELECT: only select, exactly once ──
