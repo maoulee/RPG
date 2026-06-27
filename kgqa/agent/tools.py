@@ -352,14 +352,18 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
         if cand and cand in ctx.rels:
             gte_rel_ids.append(ctx.rels.index(cand))
 
-    # 2. Structural prune: intersect GTE-15 with anchor's outgoing relations.
-    #    Outgoing = relations where anchor is head (directed). This keeps only
-    #    relations the traversal can actually follow from the anchor.
-    outgoing_rel_ids = _anchor_outgoing_rel_ids(ctx)
-    pruned_rel_ids = [ri for ri in gte_rel_ids if ri in outgoing_rel_ids]
+    # 2. Structural prune: intersect GTE-15 with the structural scope for this
+    #    fact. For fact_1 this is the anchor's neighbors. For fact_i (i>1) it's
+    #    the neighbors of entities reached via prior facts' selected relations
+    #    (the chain: anchor --[f1]--> entity --[f2]--> ...). This ensures fact2
+    #    sees relations matching the entity-type fact1 arrives at, not the
+    #    anchor's type — fixing CWQ multi-hop (e.g. person→country→religion:
+    #    fact2 gets country.religions, not person.religion).
+    scope_rel_ids = _chained_source_rel_ids(ctx, fact_id)
+    pruned_rel_ids = [ri for ri in gte_rel_ids if ri in scope_rel_ids]
 
-    # Fallback: if prune empties everything (rare — anchor has few outgoing
-    # and GTE missed them all), keep the raw GTE-15 so the model still has
+    # Fallback: if prune empties everything (chain broken or GTE missed all
+    # structurally-reachable rels), keep the raw GTE-15 so the model still has
     # something to choose from.
     if not pruned_rel_ids:
         pruned_rel_ids = gte_rel_ids[:8]
@@ -383,7 +387,15 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
 
 
 def _anchor_outgoing_rel_ids(ctx) -> set:
-    """Relation indices where anchor is the head (directed outgoing edges)."""
+    """Relation indices touching the anchor (undirected: h==anchor OR t==anchor).
+
+    Undirected because Freebase stores some relations with reversed edge
+    direction vs semantic intuition (e.g. `book.author.works_written` is stored
+    as Work→Author, not Author→Work). Using only directed outgoing (h==anchor)
+    would prune these correct relations. Undirected keeps the structural-
+    reachability benefit (only relations the anchor actually touches) without
+    losing reversed edges.
+    """
     out = set()
     ai = ctx.anchor_idx
     if ai is None:
@@ -391,7 +403,99 @@ def _anchor_outgoing_rel_ids(ctx) -> set:
     for h, r in zip(ctx.h_ids, ctx.r_ids):
         if h == ai:
             out.add(r)
+    for t, r in zip(ctx.t_ids, ctx.r_ids):
+        if t == ai:
+            out.add(r)
     return out
+
+
+def _reachable_rel_ids_from(entities, ctx) -> set:
+    """Relation indices reachable from a set of entity indices (outgoing only).
+
+    Directed (h==entity): we only follow edges where the entity is the HEAD.
+    This prevents loops where a CVT reached from anchor connects back to the
+    anchor (or to a person entity), which would re-admit all of that person's
+    relations into the scope — defeating the chain narrowing.
+    """
+    out = set()
+    ent_set = set(entities)
+    for h, r in zip(ctx.h_ids, ctx.r_ids):
+        if h in ent_set:
+            out.add(r)
+    return out
+
+
+def _entities_via_relations(source_entities, rel_ids, ctx, exclude_source=True) -> set:
+    """Entities reachable from source via the given relation set (1 hop).
+
+    Used by chained retrieve: given fact_{i-1}'s selected relations and the
+    anchor (or the entities fact_{i-2} reached), compute where fact_{i-1}
+    arrives — those entities' neighbors become fact_i's structural scope.
+
+    exclude_source: if True (default), do not return entities that are in the
+    source set — prevents the chain from looping back to where it started
+    (e.g. anchor→CVT→anchor via the reverse edge of the same relation).
+    """
+    rel_set = set(rel_ids)
+    src = set(source_entities)
+    reached = set()
+    for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+        if r not in rel_set:
+            continue
+        if h in src:
+            reached.add(t)
+        if t in src:
+            reached.add(h)
+    if exclude_source:
+        reached -= src  # prevent loops
+    return reached
+
+
+def _chained_source_rel_ids(ctx, fact_id) -> set:
+    """Structural scope for fact_i: which relations are reachable?
+
+    - fact_1 (first fact): anchor's neighbor relations (undirected).
+    - fact_i (i>1): relations reachable from the entities that fact_{i-1}'s
+      selected relations reach from the anchor (or from fact_{i-2}'s endpoint).
+      This is the chain: anchor --[f1 rels]--> entity --[f2 rels]--> ...
+    """
+    # Determine fact order from ctx.fact_ids (all facts from decompose, in order)
+    fids = list(ctx.fact_ids)
+    if not fids:
+        return _anchor_outgoing_rel_ids(ctx)
+
+    try:
+        idx = fids.index(fact_id)
+    except ValueError:
+        return _anchor_outgoing_rel_ids(ctx)
+
+    if idx == 0:
+        # First fact: scope = anchor neighbors
+        return _anchor_outgoing_rel_ids(ctx)
+
+    # Chained: walk from anchor through each prior fact's best-guess relation.
+    # At retrieve time, select_relations hasn't run yet, so we can't use the
+    # model's final choice. Instead use each prior fact's TOP-1 GTE candidate
+    # (the highest-scoring relation) as the chain link — it's the most likely
+    # relation, and keeps the scope tight (using ALL candidates spreads too wide
+    # and lets wrong-type relations like person.religion leak back in).
+    source = {ctx.anchor_idx} if ctx.anchor_idx is not None else set()
+    for prior_fid in fids[:idx]:
+        cands = ctx.fact_relation_candidates.get(prior_fid, [])
+        if not cands:
+            prior_rels = ctx.fact_relations.get(prior_fid, set())
+        else:
+            # Use only the top-1 GTE candidate (first in the pruned list)
+            prior_rels = {cands[0]} if cands else set()
+        if prior_rels:
+            source = _entities_via_relations(source, prior_rels, ctx)
+            if not source:
+                break  # chain broken, no entities reachable
+
+    if not source:
+        # Chain broken — fall back to anchor neighbors (best effort)
+        return _anchor_outgoing_rel_ids(ctx)
+    return _reachable_rel_ids_from(source, ctx)
 
 
 def _do_select_relations(args: Dict[str, Any], ctx) -> str:
