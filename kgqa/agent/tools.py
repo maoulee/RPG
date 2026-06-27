@@ -474,29 +474,30 @@ def _chained_source_rel_ids(ctx, fact_id) -> set:
         # First fact: scope = anchor neighbors
         return _anchor_outgoing_rel_ids(ctx)
 
-    # Chained: walk from anchor through each prior fact's best-guess relation.
-    # At retrieve time, select_relations hasn't run yet, so we can't use the
-    # model's final choice. Instead use each prior fact's TOP-1 GTE candidate
-    # (the highest-scoring relation) as the chain link — it's the most likely
-    # relation, and keeps the scope tight (using ALL candidates spreads too wide
-    # and lets wrong-type relations like person.religion leak back in).
+    # Chained: walk from anchor through each prior fact's FULL candidate set.
+    # At retrieve time, select_relations hasn't run yet, so we use all of each
+    # prior fact's GTE-pruned candidates as the chain link — NOT just top-1
+    # (top-1 is too fragile: if it's the wrong relation, the whole chain breaks
+    # and fact2's scope becomes garbage). Using ALL candidates means the chain
+    # reaches every entity reachable via any plausible first-hop relation,
+    # giving fact2 a complete picture of what entity-types it might need to
+    # handle. The scope stays tight because _reachable_rel_ids_from is directed
+    # (only outgoing edges), so CVT→person back-links don't re-admit person
+    # relations.
     #
-    # Loop prevention: track ALL entities visited across the entire chain
-    # (visited set). Each hop's _entities_via_relations excludes everything in
-    # visited, so the chain can never revisit an entity — no anchor→CVT→anchor,
-    # no A→B→A via a different relation.
+    # Loop prevention: track ALL entities visited across the chain (visited
+    # set). Each hop excludes everything in visited.
     source = {ctx.anchor_idx} if ctx.anchor_idx is not None else set()
-    visited = set(source)  # grows monotonically; every reached entity is added
+    visited = set(source)
     for prior_fid in fids[:idx]:
         cands = ctx.fact_relation_candidates.get(prior_fid, [])
-        if not cands:
-            prior_rels = ctx.fact_relations.get(prior_fid, set())
+        if cands:
+            prior_rels = set(cands)  # ALL pruned candidates, not just top-1
         else:
-            # Use only the top-1 GTE candidate (first in the pruned list)
-            prior_rels = {cands[0]} if cands else set()
+            prior_rels = ctx.fact_relations.get(prior_fid, set())
         if prior_rels:
             source = _entities_via_relations(source, prior_rels, ctx, exclude=visited)
-            visited |= source  # mark newly reached entities as visited
+            visited |= source
             if not source:
                 break  # chain broken, no entities reachable
 
