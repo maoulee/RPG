@@ -387,41 +387,72 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
 
 
 def _anchor_outgoing_rel_ids(ctx) -> set:
-    """Relation indices touching the anchor (undirected: h==anchor OR t==anchor).
+    """Structural scope for the anchor: direct neighbor relations PLUS
+    CVT-bridged 2-hop relations.
 
-    Undirected because Freebase stores some relations with reversed edge
-    direction vs semantic intuition (e.g. `book.author.works_written` is stored
-    as Work→Author, not Author→Work). Using only directed outgoing (h==anchor)
-    would prune these correct relations. Undirected keeps the structural-
-    reachability benefit (only relations the anchor actually touches) without
-    losing reversed edges.
+    Direct neighbors: relations where anchor is h or t (undirected, because
+    Freebase stores some relations with reversed edge direction).
+
+    CVT-bridged: if anchor → CVT → X, the relations on the CVT→X edges are
+    treated as equivalent to anchor's 1-hop domain. This is because a CVT
+    mediates a single logical step (e.g. national_anthem_of → CVT → country
+    is one logical hop). Without this, relations like
+    government.national_anthem_of_a_country.country (on the CVT, not the
+    anchor) would be pruned even though they're semantically the anchor's
+    domain.
     """
+    from kgqa.traversal.cvt import is_cvt_like
     out = set()
     ai = ctx.anchor_idx
     if ai is None:
         return out
-    for h, r in zip(ctx.h_ids, ctx.r_ids):
-        if h == ai:
+
+    # 1. Direct neighbors (undirected)
+    cvt_neighbors = set()
+    for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+        if h == ai or t == ai:
             out.add(r)
-    for t, r in zip(ctx.t_ids, ctx.r_ids):
-        if t == ai:
-            out.add(r)
+            # Track CVT nodes directly connected to anchor
+            other = t if h == ai else h
+            if 0 <= other < len(ctx.ents) and is_cvt_like(ctx.ents[other]):
+                cvt_neighbors.add(other)
+
+    # 2. CVT-bridged 2-hop: anchor → CVT → X, add relations on CVT→X edges
+    for cvt_idx in cvt_neighbors:
+        for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+            if h == cvt_idx or t == cvt_idx:
+                out.add(r)
+
     return out
 
 
 def _reachable_rel_ids_from(entities, ctx) -> set:
-    """Relation indices reachable from a set of entity indices (outgoing only).
+    """Relation indices reachable from a set of entity indices (outgoing only),
+    PLUS CVT-bridged 2-hop relations.
 
-    Directed (h==entity): we only follow edges where the entity is the HEAD.
-    This prevents loops where a CVT reached from anchor connects back to the
-    anchor (or to a person entity), which would re-admit all of that person's
-    relations into the scope — defeating the chain narrowing.
+    Directed (h==entity): only follow edges where the entity is the HEAD.
+    CVT-bridged: if entity → CVT → X, the CVT→X edge relations are also
+    included (same logic as _anchor_outgoing_rel_ids — CVT mediates one
+    logical step).
     """
+    from kgqa.traversal.cvt import is_cvt_like
     out = set()
     ent_set = set(entities)
+    cvt_neighbors = set()
     for h, r in zip(ctx.h_ids, ctx.r_ids):
         if h in ent_set:
             out.add(r)
+    # Also find CVT nodes directly connected to these entities (undirected)
+    for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+        if h in ent_set and 0 <= t < len(ctx.ents) and is_cvt_like(ctx.ents[t]):
+            cvt_neighbors.add(t)
+        if t in ent_set and 0 <= h < len(ctx.ents) and is_cvt_like(ctx.ents[h]):
+            cvt_neighbors.add(h)
+    # Add CVT-bridged relations
+    for cvt_idx in cvt_neighbors:
+        for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+            if h == cvt_idx or t == cvt_idx:
+                out.add(r)
     return out
 
 
