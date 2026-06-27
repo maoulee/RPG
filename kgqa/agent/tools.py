@@ -425,29 +425,30 @@ def _reachable_rel_ids_from(entities, ctx) -> set:
     return out
 
 
-def _entities_via_relations(source_entities, rel_ids, ctx, exclude_source=True) -> set:
+def _entities_via_relations(source_entities, rel_ids, ctx, exclude=None) -> set:
     """Entities reachable from source via the given relation set (1 hop).
 
     Used by chained retrieve: given fact_{i-1}'s selected relations and the
     anchor (or the entities fact_{i-2} reached), compute where fact_{i-1}
     arrives — those entities' neighbors become fact_i's structural scope.
 
-    exclude_source: if True (default), do not return entities that are in the
-    source set — prevents the chain from looping back to where it started
-    (e.g. anchor→CVT→anchor via the reverse edge of the same relation).
+    exclude: a set of entity indices that have ALREADY been visited earlier in
+    the chain. These are never returned, preventing loops where the chain
+    revisits an entity via a different relation (e.g. anchor→CVT→Israel→CVT).
     """
     rel_set = set(rel_ids)
     src = set(source_entities)
+    excl = set(exclude) if exclude else set()
     reached = set()
     for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
         if r not in rel_set:
             continue
-        if h in src:
+        if h in src and t not in excl:
             reached.add(t)
-        if t in src:
+        if t in src and h not in excl:
             reached.add(h)
-    if exclude_source:
-        reached -= src  # prevent loops
+    # Also exclude the source itself (don't stay in place)
+    reached -= src
     return reached
 
 
@@ -479,7 +480,13 @@ def _chained_source_rel_ids(ctx, fact_id) -> set:
     # (the highest-scoring relation) as the chain link — it's the most likely
     # relation, and keeps the scope tight (using ALL candidates spreads too wide
     # and lets wrong-type relations like person.religion leak back in).
+    #
+    # Loop prevention: track ALL entities visited across the entire chain
+    # (visited set). Each hop's _entities_via_relations excludes everything in
+    # visited, so the chain can never revisit an entity — no anchor→CVT→anchor,
+    # no A→B→A via a different relation.
     source = {ctx.anchor_idx} if ctx.anchor_idx is not None else set()
+    visited = set(source)  # grows monotonically; every reached entity is added
     for prior_fid in fids[:idx]:
         cands = ctx.fact_relation_candidates.get(prior_fid, [])
         if not cands:
@@ -488,7 +495,8 @@ def _chained_source_rel_ids(ctx, fact_id) -> set:
             # Use only the top-1 GTE candidate (first in the pruned list)
             prior_rels = {cands[0]} if cands else set()
         if prior_rels:
-            source = _entities_via_relations(source, prior_rels, ctx)
+            source = _entities_via_relations(source, prior_rels, ctx, exclude=visited)
+            visited |= source  # mark newly reached entities as visited
             if not source:
                 break  # chain broken, no entities reachable
 
