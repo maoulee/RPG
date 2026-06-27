@@ -527,19 +527,34 @@ def _chained_source_rel_ids(ctx, fact_id) -> set:
     for prior_fid in fids[:idx]:
         cands = ctx.fact_relation_candidates.get(prior_fid, [])
         if cands:
-            prior_rels = set(cands)  # ALL pruned candidates, not just top-1
+            prior_rels = set(cands)
         else:
             prior_rels = ctx.fact_relations.get(prior_fid, set())
         if prior_rels:
             source = _entities_via_relations(source, prior_rels, ctx, exclude=visited)
-            # CVT passthrough: if chain reached CVT nodes, extend through them
-            # to the named entities beyond (e.g. CVT → country). This gives
-            # fact_i the named entity's domain relations (form_of_government,
-            # capital) instead of just the CVT's attribute relations.
+            # CVT passthrough: extend through CVT nodes to named entities.
             source = _passthrough_cvts(source, ctx, exclude=visited)
             visited |= source
             if not source:
-                break  # chain broken, no entities reachable
+                # Boundary 2: chain broken — model may have under-planned steps
+                # (e.g. needed 3 facts but decomposed 2). Relax: try a 2-hop
+                # structural connectivity check from the PREVIOUS source (before
+                # this hop failed) through ALL its outgoing edges, not just the
+                # GTE-pruned candidates. This lets the chain skip a missed step
+                # by exploring one extra hop structurally.
+                # Recover the source from before this hop:
+                prev_source = visited - {ctx.anchor_idx} if len(visited) > 1 else {ctx.anchor_idx}
+                # Walk one hop from prev_source via ANY relation (not just GTE candidates)
+                relaxed = set()
+                for h_idx, r_idx in zip(ctx.h_ids, ctx.r_ids):
+                    if h_idx in prev_source:
+                        relaxed.add(r_idx)
+                if relaxed:
+                    source = _entities_via_relations(prev_source, relaxed, ctx, exclude=visited)
+                    source = _passthrough_cvts(source, ctx, exclude=visited)
+                    visited |= source
+                if not source:
+                    break  # chain truly broken
 
     if not source:
         # Chain broken — fall back to anchor neighbors (best effort)
