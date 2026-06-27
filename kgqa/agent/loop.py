@@ -275,8 +275,23 @@ def _ctx_to_result_dict(ctx: CaseContext, state, agent_failed: bool,
     gt = ctx.gt_answers
 
     llm_hit = candidate_hit(preds, gt) if preds else False
-    gt_hit = candidate_hit(ctx.all_candidates, gt) if ctx.all_candidates else False
-    gt_strict = strict_candidate_hit(ctx.all_candidates, gt) if ctx.all_candidates else False
+
+    # gt_hit should reflect what the model could ACTUALLY see at answer time —
+    # i.e. the expand_branch candidates (stage8), not just the stage5 pool.
+    # The stage5 pool (ctx.all_candidates) only has last-step BFS candidates
+    # WITHOUT sibling-CVT expansion, so it under-counts. We union with all
+    # expand_branch candidate lists from the trajectory.
+    expand_cands = list(ctx.all_candidates or [])
+    for step in ctx.trajectory:
+        if step.get("role") == "tool" and step.get("name") == "expand_branch":
+            try:
+                payload = json.loads(step.get("content", "{}"))
+                expand_cands.extend(payload.get("candidates", []))
+            except Exception:
+                pass
+
+    gt_hit = candidate_hit(expand_cands, gt) if expand_cands else False
+    gt_strict = strict_candidate_hit(expand_cands, gt) if expand_cands else False
     llm_stats = compute_match_stats(preds, gt)
     gt_stats = compute_match_stats(ctx.all_candidates, gt)
 

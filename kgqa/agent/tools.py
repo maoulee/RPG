@@ -452,6 +452,41 @@ def _entities_via_relations(source_entities, rel_ids, ctx, exclude=None) -> set:
     return reached
 
 
+def _passthrough_cvts(entities, ctx, exclude=None) -> set:
+    """Extend through CVT nodes to reach the named entities beyond them.
+
+    When the chain arrives at a CVT (e.g. national_anthem_of → CVT), the
+    actual entity of interest (e.g. the country) is one more hop beyond the
+    CVT. Without this passthrough, fact_i's scope is limited to the CVT's
+    own attributes (country, anthem, start_date...) and misses the named
+    entity's domain relations (form_of_government, capital, etc.).
+
+    This extends each CVT node one hop forward to its named (non-CVT) neighbors,
+    adding them to the entity set. Non-CVT entities pass through unchanged.
+    """
+    from kgqa.traversal.cvt import is_cvt_like
+    excl = set(exclude) if exclude else set()
+    result = set()
+    for idx in entities:
+        if idx >= len(ctx.ents):
+            continue
+        name = ctx.ents[idx]
+        if is_cvt_like(name):
+            # CVT: extend one hop to non-CVT neighbors
+            for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+                if h == idx and t not in excl:
+                    t_name = ctx.ents[t] if t < len(ctx.ents) else ""
+                    if t_name and not is_cvt_like(t_name):
+                        result.add(t)
+                if t == idx and h not in excl:
+                    h_name = ctx.ents[h] if h < len(ctx.ents) else ""
+                    if h_name and not is_cvt_like(h_name):
+                        result.add(h)
+        else:
+            result.add(idx)
+    return result
+
+
 def _chained_source_rel_ids(ctx, fact_id) -> set:
     """Structural scope for fact_i: which relations are reachable?
 
@@ -497,6 +532,11 @@ def _chained_source_rel_ids(ctx, fact_id) -> set:
             prior_rels = ctx.fact_relations.get(prior_fid, set())
         if prior_rels:
             source = _entities_via_relations(source, prior_rels, ctx, exclude=visited)
+            # CVT passthrough: if chain reached CVT nodes, extend through them
+            # to the named entities beyond (e.g. CVT → country). This gives
+            # fact_i the named entity's domain relations (form_of_government,
+            # capital) instead of just the CVT's attribute relations.
+            source = _passthrough_cvts(source, ctx, exclude=visited)
             visited |= source
             if not source:
                 break  # chain broken, no entities reachable
