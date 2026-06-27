@@ -10,6 +10,7 @@ from collections import deque, defaultdict
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from kgqa.traversal.cvt import is_cvt_like, expand_through_cvt, expand_node
+from kgqa.traversal.logical_paths import DIRECTED_TRAVERSAL
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +59,7 @@ def chain_expand(anchor_idx, step_relations, h_ids, r_ids, t_ids, entity_list):
         for path in paths:
             current = path["nodes"][-1]
             fwd = expand_node(current, rel_indices, h_ids, r_ids, t_ids)
-            rev = expand_node(current, rel_indices, h_ids, r_ids, t_ids, reverse=True)
+            rev = expand_node(current, rel_indices, h_ids, r_ids, t_ids, reverse=True) if not DIRECTED_TRAVERSAL else []
             all_children = fwd + rev
             if all_children:
                 seen = set(path["nodes"])
@@ -100,7 +101,7 @@ def _has_step_edges(node_idx, rel_indices, h_ids, r_ids, t_ids, entity_list):
     """
     # Direct check
     fwd = expand_node(node_idx, rel_indices, h_ids, r_ids, t_ids)
-    rev = expand_node(node_idx, rel_indices, h_ids, r_ids, t_ids, reverse=True)
+    rev = expand_node(node_idx, rel_indices, h_ids, r_ids, t_ids, reverse=True) if not DIRECTED_TRAVERSAL else []
     if fwd or rev:
         return True
     # 2-hop: node -> CVT -> [target rel]
@@ -119,7 +120,7 @@ def _has_step_edges(node_idx, rel_indices, h_ids, r_ids, t_ids, entity_list):
             continue
         seen.add(neighbor)
         fwd2 = expand_node(neighbor, rel_indices, h_ids, r_ids, t_ids)
-        rev2 = expand_node(neighbor, rel_indices, h_ids, r_ids, t_ids, reverse=True)
+        rev2 = expand_node(neighbor, rel_indices, h_ids, r_ids, t_ids, reverse=True) if not DIRECTED_TRAVERSAL else []
         if fwd2 or rev2:
             return True
     return False
@@ -148,12 +149,13 @@ def chain_expand_v2(anchor_idx, step_relations, h_ids, r_ids, t_ids, entity_list
     if n_steps == 0:
         return [], 0, 0
 
-    # Build adjacency list (undirected)
+    # Build adjacency list (directed if KGQA_DIRECTED_TRAVERSAL=1, else undirected)
     adj = {}
     for i in range(len(h_ids)):
         h, r, t = h_ids[i], r_ids[i], t_ids[i]
         adj.setdefault(h, []).append((t, r))
-        adj.setdefault(t, []).append((h, r))
+        if not DIRECTED_TRAVERSAL:
+            adj.setdefault(t, []).append((h, r))
 
     # Build rel_to_step mapping
     rel_to_step = {}
@@ -443,12 +445,13 @@ def bidirectional_expand(anchor_idx, target_idx, step_relations, h_ids, r_ids, t
             rel_to_steps.setdefault(rel, set()).add(step_idx)
             relation_pool.add(rel)
 
-    # Build undirected adjacency
+    # Build adjacency (directed if KGQA_DIRECTED_TRAVERSAL=1, else undirected)
     adj: Dict[int, List[tuple]] = {}
     for i in range(len(h_ids)):
         h, r, t = h_ids[i], r_ids[i], t_ids[i]
         adj.setdefault(h, []).append((t, r))
-        adj.setdefault(t, []).append((h, r))
+        if not DIRECTED_TRAVERSAL:
+            adj.setdefault(t, []).append((h, r))
 
     def _make_path(nodes, relations, depth, covered=frozenset(), matched=frozenset()):
         return {"nodes": nodes, "relations": relations, "depth": depth,
@@ -642,7 +645,7 @@ def relation_prior_expand(anchor_idx, step_relations, h_ids, r_ids, t_ids, entit
     if n_steps == 0:
         return [], 0, 0
 
-    # -- Build adjacency --
+    # -- Build adjacency (directed if KGQA_DIRECTED_TRAVERSAL=1, else undirected) --
     adj: Dict[int, tuple] = {}
     for i in range(len(h_ids)):
         h, r, t = h_ids[i], r_ids[i], t_ids[i]
@@ -650,10 +653,11 @@ def relation_prior_expand(anchor_idx, step_relations, h_ids, r_ids, t_ids, entit
             adj[h] = adj[h] + ((t, r),)
         else:
             adj[h] = ((t, r),)
-        if t in adj:
-            adj[t] = adj[t] + ((h, r),)
-        else:
-            adj[t] = ((h, r),)
+        if not DIRECTED_TRAVERSAL:
+            if t in adj:
+                adj[t] = adj[t] + ((h, r),)
+            else:
+                adj[t] = ((h, r),)
     adj_empty = ()
 
     # -- Pre-compute CVT mask (avoids re.match per hop) --
@@ -669,7 +673,19 @@ def relation_prior_expand(anchor_idx, step_relations, h_ids, r_ids, t_ids, entit
 
     # -- Helpers --
     def _real_hop_inc(curr_idx, next_idx):
-        """All hops count equally. CVT expansion is deferred to triple generation."""
+        """Real hop increment for the hop-limit check.
+
+        CVT nodes count as a hop (NOT passthrough). Rationale: a CVT-mediated
+        path (anchor -> CVT -> leaf) is 2 structural hops, and downstream logic
+        (compress_paths, candidate collection, pattern matching) all operate on
+        actual path length (len(rels)/len(nodes)). Treating CVT as 0-hop here
+        would let RPE explore longer *structural* paths than max_hops allows,
+        creating an inconsistency with logical_paths (which counts CVT as a hop)
+        and with compress_paths (which uses len(rels) for depth/tier).
+        With max_hops_per_step=2, single CVT chains (2 structural hops) are
+        reachable within one step. Only 3+-hop CVT chains would be truncated —
+        and those are rare (8% of GT is 2-hop CVT, ~0% need 3+ CVT hops).
+        """
         return 1
 
     def _coverage_rank_fast(path):
@@ -1126,11 +1142,13 @@ def frontier_expand_layers(anchor_idx, step_relations, steps,
         return [], 0, 0
 
     # Build adjacency: node_idx -> list of (neighbor_idx, rel_idx)
+    # (directed if KGQA_DIRECTED_TRAVERSAL=1, else undirected)
     adj: Dict[int, list] = {}
     for i in range(len(h_ids)):
         h, r, t = h_ids[i], r_ids[i], t_ids[i]
         adj.setdefault(h, []).append((t, r))
-        adj.setdefault(t, []).append((h, r))
+        if not DIRECTED_TRAVERSAL:
+            adj.setdefault(t, []).append((h, r))
 
     n_ents = len(entity_list)
 

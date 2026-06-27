@@ -5,7 +5,10 @@ Each watcher independently records when its step's relations are found.
 """
 from __future__ import annotations
 
+import os
 from typing import List
+
+from kgqa.traversal.logical_paths import DIRECTED_TRAVERSAL
 
 
 def _is_noisy_path_relation(rel_name):
@@ -84,14 +87,17 @@ def k_queue_traverse(anchor_idx, step_relations, h_ids, r_ids, t_ids, entity_lis
             if _is_noisy_path_relation(rname):
                 noisy_rel_ids.add(ri)
 
-    # Build adjacency (undirected, skip noisy rels)
+    # Build adjacency (directed if KGQA_DIRECTED_TRAVERSAL=1, else undirected).
+    # Directed mode respects Freebase's named-direction relations (contains vs
+    # containedby) instead of treating them as bidirectional.
     adj = {}
     for i in range(len(h_ids)):
         h, r, t = h_ids[i], r_ids[i], t_ids[i]
         if r in noisy_rel_ids:
             continue
         adj.setdefault(h, []).append((t, r))
-        adj.setdefault(t, []).append((h, r))
+        if not DIRECTED_TRAVERSAL:
+            adj.setdefault(t, []).append((h, r))
 
     # Build rel_to_step mapping: each relation → set of step indices it belongs to
     rel_to_step = {}
@@ -105,12 +111,14 @@ def k_queue_traverse(anchor_idx, step_relations, h_ids, r_ids, t_ids, entity_lis
     max_total_paths = 5000
 
     # -- Single BFS from anchor --
-    # State: flat arrays with bitmask loop detection
-    # Each entry tracks full path for check_order computation
+    # State: flat arrays with frozenset loop detection.
+    # (Previously used bigint bitmask `1 << node_idx`, which creates huge bigints
+    #  on large subgraphs — O(N/64) per bitwise op. frozenset is faster for
+    #  sparse visited sets and avoids the latent `1 << negative` crash.)
     flat_nodes = [anchor_idx]
     flat_parent = [-1]
     flat_rel = [-1]
-    flat_visited = [1 << anchor_idx]
+    flat_visited = [frozenset({anchor_idx})]
     flat_rels_list = [[]]  # accumulated path relations for check_order
     flat_depth = [0]
 
@@ -128,10 +136,9 @@ def k_queue_traverse(anchor_idx, step_relations, h_ids, r_ids, t_ids, entity_lis
             cur_depth = flat_depth[eidx]
 
             for nb, rel in adj.get(cur, []):
-                nb_bit = 1 << nb
-                if nb_bit & visited:
+                if nb in visited:
                     continue
-                new_visited = visited | nb_bit
+                new_visited = visited | {nb}
                 new_rels = path_rels + [rel]
                 new_depth = cur_depth + 1
 
@@ -164,7 +171,6 @@ def k_queue_traverse(anchor_idx, step_relations, h_ids, r_ids, t_ids, entity_lis
                         "covered_rels": frozenset(r for r in new_rels if r in all_target_rels),
                         "depth": new_depth,
                         "coverage_tier": tier,
-                        "_visited": new_visited,
                     })
 
                 # Continue expanding regardless — other watchers may need further hops
@@ -226,7 +232,6 @@ def k_queue_traverse(anchor_idx, step_relations, h_ids, r_ids, t_ids, entity_lis
 
     for p in output_paths:
         p["matched_relations"] = frozenset(p.get("covered_rels", frozenset()))
-        p.pop("_visited", None)
 
     max_depth = max(p["depth"] for p in output_paths)
     max_cov = max(len(p.get("covered_steps", frozenset())) for p in output_paths)

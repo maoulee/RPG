@@ -8,14 +8,20 @@ import re
 from collections import Counter
 
 
+_CVT_CACHE: dict = {}
+
+
 def is_cvt_like(name: str) -> bool:
     """Detect CVT (Compound Value Type) nodes.
-    Matches m.xxx / g.xxx pattern OR entities in non_text with no readable name."""
+    Matches m.xxx / g.xxx pattern. Results cached (called ~30k times/run)."""
     if not name or len(name) < 2:
         return False
-    if re.match(r"^[mg]\.[A-Za-z0-9_]+$", name):
-        return True
-    return False
+    cached = _CVT_CACHE.get(name)
+    if cached is not None:
+        return cached
+    result = name[0] in "mg" and len(name) > 2 and name[1] == "." and name[2:].replace("_", "").isalnum()
+    _CVT_CACHE[name] = result
+    return result
 
 
 def expand_cvt_leaves(ents, rels, h_ids, r_ids, t_ids):
