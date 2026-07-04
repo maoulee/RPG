@@ -22,6 +22,7 @@ from kgqa.stages.stage5_traverse import stage_5_graph_traversal
 from kgqa.stages.formatting import build_pattern_evidence_triples, _render_path_tree
 from kgqa.core.case_state import CaseState
 from kgqa.traversal.path_utils import compress_paths
+from kgqa.traversal.logical_paths import materialize_selected_logical_patterns
 
 
 def _candidates_from_triples(triples, anchor_name: str):
@@ -304,7 +305,7 @@ async def dispatch(tool_name: str, args: Dict[str, Any], ctx, session) -> str:
     if tool_name == "select":
         return await _do_select(ctx)
 
-    if tool_name == "expand_branch":
+    if tool_name in ("expand_branch", "expand_branches"):
         return _do_expand_branch(args, ctx)
 
     if tool_name == "answer":
@@ -777,6 +778,14 @@ async def _do_select(ctx) -> str:
     # This fixes Blocker A (candidates now include CVT-expanded entities) and
     # Blocker B (overview rendered as a tree, not a flat list).
     valid_patterns = [lp for lp in ranked_patterns if isinstance(lp, dict) and lp.get("best_raw_path")]
+    # ── Materialize logical patterns into ALL raw paths (Stage-7→8 bridge) ──
+    # The logical pattern carries one witness path; the proven Stage-8 builder
+    # expands evidence from the pattern's raw_paths. Without materialization,
+    # only the single witness is seen (e.g. only 1 of 5 languages). This mirrors
+    # the baseline case_runner exactly — keep the verified mechanism intact.
+    valid_patterns = materialize_selected_logical_patterns(
+        valid_patterns, ctx.ents, ctx.rels, ctx.h_ids, ctx.r_ids, ctx.t_ids,
+        ctx.anchor_idx, set((ctx.breakpoints or {}).values()))
     pat_evidence = build_pattern_evidence_triples(
         valid_patterns, ctx.ents, ctx.rels, ctx.h_ids, ctx.r_ids, ctx.t_ids,
         ctx.anchor_idx, max_grouped_lines=120)
@@ -815,13 +824,17 @@ async def _do_select(ctx) -> str:
                     cands.append(d)
                     seen_c.add(normalize(d))
 
-        # Store the full branch data for expand_branch to return verbatim.
+        # Store the full branch data for expand_branch to re-render later.
+        # Key: store the materialized pattern (with raw_paths) so expand can
+        # re-run build_pattern_evidence_triples and get ALL candidates (not just
+        # the witness). Without this, expand only sees the single witness path.
         ctx.branches[bid] = {
             "label": label,
             "candidates": cands,
             "triples": pe.triples,
             "readable": pe.readable,
             "tree_lines": tree_lines,
+            "pattern": valid_patterns[i] if i < len(valid_patterns) else None,
         }
 
         # Compose the branch block with the #N marker on the RIGHT of each leaf.
@@ -867,42 +880,70 @@ async def _do_select(ctx) -> str:
 
 
 def _do_expand_branch(args: Dict[str, Any], ctx) -> str:
-    """Expand one branch to show its FULL evidence for Stage-8 reasoning.
+    """Expand one or more branches to show their FULL evidence.
 
-    Returns (per spec §4 step 2):
-    - branch_id / readable: identity + the relation chain.
-    - candidates: the CVT-expanded named entities (e.g. Kasich, Strickland —
-      NOT the CVT node IDs). This is the PatternEvidence.candidates list.
-    - triples: the full (h, r, t) triples with CVT attributes expanded inline.
-    - tree: the rendered YAML-like trie (from _render_path_tree) showing the
-      CVT attributes at the leaves.
+    Accepts both the batch form (branch_ids: ['1','2']) and the legacy single
+    form (branch_id: '1'). Returns merged evidence across all selected branches
+    using the pre-built triples + tree from select (no re-build needed — the
+    select stage already ran build_pattern_evidence_triples with CVT expansion).
     """
-    bid = str(args.get("branch_id", ""))
-    br = ctx.branches.get(bid)
-    if not br:
-        return _json_result({"error": f"unknown branch_id '{bid}'",
+    bids = args.get("branch_ids") or args.get("branch_id_list") or []
+    if isinstance(bids, str):
+        bids = [bids]
+    bids = [str(b) for b in bids if str(b).strip()]
+    if not bids:
+        bids = [str(args.get("branch_id", ""))]
+    bids = [b for b in bids if b]
+    if not bids:
+        return _json_result({"error": "no branch_ids provided. Pass a list like ['1','2'].",
                              "valid_branches": list(ctx.branches.keys())})
-    cands = br.get("candidates", [])
-    triples = br.get("triples", [])
-    tree_lines = br.get("tree_lines", [])
 
-    # Triples as ["(h, r, t)", ...] strings for compact, LLM-friendly display.
-    triple_strs = [f"({h}, {r}, {t})" for h, r, t in triples[:40]]
+    unknown = [b for b in bids if b not in ctx.branches]
+    if unknown:
+        return _json_result({"error": f"unknown branch_ids {unknown}",
+                             "valid_branches": list(ctx.branches.keys())})
 
+    # Use pre-built evidence from select (triples + tree_lines already contain
+    # the full CVT-expanded data). Just merge across selected branches.
+    all_triples = []
+    seen_t = set()
+    all_cands = []
+    seen_c = set()
+    per_branch = []
+    tree_sections = []
+    for bid in bids:
+        br = ctx.branches[bid]
+        cands = br.get("candidates", [])
+        triples = br.get("triples", [])
+        tree_lines = br.get("tree_lines", [])
+        readable = br.get("readable", "")
+        for cand in cands:
+            nc = normalize(cand)
+            if nc not in seen_c:
+                seen_c.add(nc); all_cands.append(cand)
+        for tr in triples:
+            key = tuple(str(x) for x in tr)
+            if key not in seen_t:
+                seen_t.add(key); all_triples.append(tr)
+        per_branch.append({"branch_id": bid, "readable": readable,
+                           "candidates": cands[:15], "n_triples": len(triples)})
+        if tree_lines:
+            tree_sections.append(f"=== branch {bid}: {readable} ===\n" +
+                                 "\n".join(tree_lines))
+
+    triple_strs = [f"({h}, {r}, {t})" for h, r, t in all_triples[:80]]
     payload = {
-        "branch_id": bid,
-        "readable": br.get("readable", ""),
-        "candidates": cands[:30],
-        "n_candidates": len(cands),
+        "branches_expanded": bids,
+        "n_branches": len(bids),
+        "candidates": all_cands[:50],
+        "n_candidates": len(all_cands),
         "triples": triple_strs,
-        "n_triples": len(triples),
+        "n_triples": len(all_triples),
+        "per_branch": per_branch,
     }
-    # Prefer the rendered trie (it folds CVT attributes into the leaves); fall
-    # back to bare triples if the trie was empty (e.g. no support paths).
-    if tree_lines:
-        payload["tree"] = "\n".join(tree_lines)
+    if tree_sections:
+        payload["tree"] = "\n\n".join(tree_sections)
     return _json_result(payload)
-
 
 def _do_answer(args: Dict[str, Any], ctx) -> str:
     """Capture the model's answer entities. The `entities` array is the
