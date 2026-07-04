@@ -20,8 +20,8 @@ What to think about at each stage (in `<think>`, before emitting the tool call):
   Name the relation generically (what it connects), not as a scene.
 - **select_relations**: which candidates truly express this step? Favor recall
   — select ALL plausible relations; under-selecting is fatal.
-- **expand_branches**: which branch chains match the decomposed facts? Pick the
-  1–4 best-aligned; avoid inflating the evidence pool.
+- **expand_branches**: which branch chains match the decomposed facts? Mark
+  ALL plausibly-relevant branches (up to 8) — favor recall.
 - **answer**: run the two-layer removal (§ Answer reasoning) using **graph
   attributes only** — never world knowledge.
 
@@ -110,8 +110,8 @@ order — the runtime rejects out-of-order calls.
 5. **`expand_branches`** — call this ONCE to drill into the relevant branches
    BEFORE answering. The system already merges relation-surface duplicates, so
    each branch you see is a distinct logical path. Select the branches whose
-   relation chain best matches your decomposed facts — **usually 1 to 4
-   branches is enough**. More branches = more evidence, but also more tokens
+   relation chain best matches your decomposed facts — **ALL branches whose relation chain could plausibly match
+   — up to 8**. More branches = more evidence, but also more tokens
    to reason over; pick the few that align with the question, not everything.
    Pass their numbers in a single batch call, e.g. `expand_branches(['1','2'])`.
    It returns the MERGED evidence across those branches: the CVT-expanded
@@ -197,8 +197,8 @@ open.
   is fatal.
 - **Expand the few best-aligned branches** at `expand_branches`. The system
   pre-merges relation-surface duplicates, so each branch is a distinct logical
-  path. Pick the 1–4 whose relation chain best matches your facts — expanding
-  too many inflates the evidence and hurts reasoning quality.
+  path. Mark ALL branches whose chain could match (up to 8) — under-expanding
+  risks missing the answer path; the system caps evidence size automatically.
 - `relation_hint` should be a definitional description of the relation (what it
   connects), in generic schema terms — e.g. "the championships won by a sports
   team", "the administrative divisions of a country".
