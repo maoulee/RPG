@@ -457,6 +457,38 @@ async def run_react_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
                                   "content": result_str})
 
         if rc.state.state == "DONE":
+            # ── Boundary defense: empty-answer retry ──
+            # When the model emits `answer` with NO entities (an over-cautious
+            # "I can't verify the constraint, so no answer"), that is almost
+            # always worse than guessing from the candidate pool — empty scores
+            # 0 by definition, while a best-guess retains recall. Detect this
+            # and feed the signal back to the model ONCE, forcing it to pick the
+            # most likely candidate from the select-stage pool (which is fuller
+            # than the expand pool — expand can drop candidates). This is a
+            # boundary defense, not the harness choosing for the model: the
+            # model still picks which entity.
+            ans_entities = (parsed_args.get("entities")
+                            if tool_name == "answer" else None) or []
+            if (tool_name == "answer" and not ans_entities
+                    and not getattr(rc, "_empty_answer_retried", False)
+                    and rc.ctx.selected_candidates):
+                rc._empty_answer_retried = True
+                # Roll state back so `answer` is legal again on the next turn.
+                rc.state.state = "ANSWER"
+                cand_pool = rc.ctx.selected_candidates[:20]
+                nudge = (
+                    "Your answer was empty. An empty answer scores 0 — you must "
+                    "output your best guess. From the retrieved candidate pool "
+                    f"{cand_pool}, pick the entity (or entities) MOST likely to "
+                    "answer the question and call `answer` again. When you "
+                    "cannot verify a constraint from the graph, default to "
+                    "keeping the candidates that best match the rest of the "
+                    "question; never output an empty list."
+                )
+                rc.messages.append({"role": "user", "content": nudge})
+                rc.ctx.trajectory.append({"role": "tool", "name": "answer",
+                                          "content": nudge})
+                continue
             rc.done = True
             break
     else:
