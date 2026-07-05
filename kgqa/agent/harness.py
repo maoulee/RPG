@@ -35,6 +35,8 @@ class AgentState:
     state: str = INIT
     fact_ids: list = field(default_factory=list)       # all fact ids from decompose
     fact_texts: dict = field(default_factory=dict)     # id -> text (for guidance)
+    fact_satisfies: dict = field(default_factory=dict)  # id -> constraint text (if fact materializes a condition)
+    fact_start_types: dict = field(default_factory=dict)  # id -> start_type (anchor name for f1, type noun for f2+)
     retrieved: list = field(default_factory=list)      # fact_ids already retrieved
     n_selects: int = 0
     n_decomposes: int = 0
@@ -103,6 +105,19 @@ def validate(state: AgentState, tool_calls) -> tuple:
     name = _tool_name(call)
     args = _tool_args(call)
 
+    # ── expand_branch name/arg normalize (defensive) ──
+    # The schema/tool family was pluralized to `expand_branches` (batch), but
+    # a model under prompt pressure can still emit the legacy singular form
+    # `expand_branch` + `branch_id`. Normalize it here so the rest of validate
+    # and dispatch see the canonical plural form — never reject on name shape.
+    # (This was the latent bug behind the select-rules 0.80→0.15 regression:
+    # harness rejected singular while dispatch accepted it.)
+    if name == "expand_branch":
+        name = "expand_branches"
+        if "branch_id" in args and "branch_ids" not in args:
+            bid = args.pop("branch_id")
+            args["branch_ids"] = [bid] if isinstance(bid, str) else (bid or [])
+
     # ── INIT: only decompose ──
     if state.state == INIT:
         if name != "decompose":
@@ -118,6 +133,8 @@ def validate(state: AgentState, tool_calls) -> tuple:
                     state)
         ids = []
         texts = {}
+        satisfies = {}
+        start_types = {}
         for f in facts:
             if not isinstance(f, dict):
                 continue
@@ -127,6 +144,12 @@ def validate(state: AgentState, tool_calls) -> tuple:
             fid = str(fid)
             ids.append(fid)
             texts[fid] = f.get("text", "")
+            sat = f.get("satisfies")
+            if sat:
+                satisfies[fid] = str(sat)
+            st = f.get("start_type")
+            if st:
+                start_types[fid] = str(st)
         # Deduplicate while preserving order
         seen = set()
         unique_ids = []
@@ -141,6 +164,8 @@ def validate(state: AgentState, tool_calls) -> tuple:
                     state)
         state.fact_ids = unique_ids
         state.fact_texts = texts
+        state.fact_satisfies = satisfies
+        state.fact_start_types = start_types
         state.n_decomposes += 1
         state.state = RETRIEVE
         return (True, "", state)
@@ -197,14 +222,14 @@ def validate(state: AgentState, tool_calls) -> tuple:
         state.state = EXPAND
         return (True, "", state)
 
-    # ── EXPAND: expand_branch (0-N calls) or answer directly ──
+    # ── EXPAND: expand_branches (batch, 0-N calls) or answer directly ──
     if state.state == EXPAND:
-        if name == "expand_branch":
-            bid = args.get("branch_id")
-            if bid is None:
+        if name == "expand_branches":
+            bids = args.get("branch_ids")
+            if not bids:
                 return (False,
-                        "expand_branch missing `branch_id`. Use a branch number "
-                        "from the tree overview (e.g. '1', '2a').",
+                        "expand_branches missing `branch_ids`. Pass a list of "
+                        "branch numbers from the tree overview, e.g. ['1','2'].",
                         state)
             return (True, "", state)  # accept; loop executes
         if name == "answer":
@@ -212,8 +237,8 @@ def validate(state: AgentState, tool_calls) -> tuple:
             return (True, "", state)
         return (False,
                 f"Wrong order: '{name}' during expand phase. "
-                "Call `expand_branch(N)` for branches to drill into, or `answer` "
-                "if you have enough evidence.",
+                "Call `expand_branches(['1','2',...])` to see the full evidence "
+                "of relevant branches, or `answer` if you have enough evidence.",
                 state)
 
     # ── ANSWER: only answer, terminal ──
@@ -243,7 +268,7 @@ def _allowed_hint(state: AgentState) -> str:
     if state.state == SELECT:
         return "`select`"
     if state.state == EXPAND:
-        return "`expand_branch(N)` or `answer`"
+        return "`expand_branches(['1','2'])` or `answer`"
     if state.state == ANSWER:
         return "`answer`"
     return "(done)"

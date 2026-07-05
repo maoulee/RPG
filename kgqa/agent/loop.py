@@ -33,6 +33,36 @@ from kgqa.agent.loader import agents_md
 
 
 # ---------------------------------------------------------------------------
+# Relation definitions for symmetric GTE retrieval
+#
+# GTE matches the query (relation_hint) against candidate relation texts.
+# Originally candidate_texts were raw dot-notation IDs (rel_to_text is a no-op),
+# which put the query (natural language) and candidates (schema IDs) in
+# DIFFERENT semantic spaces — GTE matched on substring coincidences (e.g.
+# "champion" in the hint matching "championships" in the ID), and shared schema
+# prefixes (sports.sports_team.*) created false-positive similarity.
+#
+# Fix (validated): pre-generate a DEFINITIONAL sentence per relation (what the
+# relation semantically connects, noun-based). When BOTH the hint and the
+# candidate use definitional text, GTE rank-1 hits the correct relation with
+# noise suppressed. The skill guides the model to write definitional hints; the
+# candidate side uses these definitions here.
+# ---------------------------------------------------------------------------
+_REL_DEF_PATH = Path(__file__).resolve().parents[2] / "data" / "relation_richtext.json"
+_REL_DEFS: Dict[str, str] = {}
+try:
+    _REL_DEFS = json.loads(_REL_DEF_PATH.read_text())
+except (FileNotFoundError, json.JSONDecodeError):
+    pass
+
+
+def _rel_def(rel_id: str) -> str:
+    """Definition text for a relation, falling back to the raw id."""
+    return _REL_DEFS.get(rel_id, rel_id)
+
+
+
+# ---------------------------------------------------------------------------
 # Per-case context (built once from a pipeline sample dict)
 # ---------------------------------------------------------------------------
 
@@ -63,6 +93,8 @@ class CaseContext:
     # Agent-accumulated state
     fact_ids: List[str] = field(default_factory=list)       # ordered fact ids (from decompose)
     fact_texts: Dict[str, str] = field(default_factory=dict)
+    fact_satisfies: Dict[str, str] = field(default_factory=dict)  # id -> constraint text (if fact materializes a condition)
+    fact_start_types: Dict[str, str] = field(default_factory=dict)  # id -> start_type (anchor name for f1, type noun for f2+)
     fact_relations: Dict[str, set] = field(default_factory=dict)  # fact_id -> GTE relation idx set
     fact_relation_candidates: Dict[str, list] = field(default_factory=dict)  # fact_id -> pruned candidate rel idx (model picks from these)
     fact_paths: Dict[str, list] = field(default_factory=dict)
@@ -112,7 +144,16 @@ def build_context(sample: Dict[str, Any], pilot_row: Dict[str, Any], idx: int) -
     ctx.h_ids = h_ids
     ctx.r_ids = r_ids
     ctx.t_ids = t_ids
-    ctx.rel_texts = list(rels)
+    # GTE candidate texts: use RAW schema ids (rel_to_text is a no-op), NOT the
+    # _rel_def richtext. Batch verification (n=111 facts, WebQSP 100) showed
+    # raw-id beats richtext on GT-relation recall at every top-K (top3 84.7% vs
+    # 76.6%, top5 89.2% vs 84.7%). The richtext definitions inject semantic noise
+    # (high-frequency words like state/jurisdiction/location surface unrelated
+    # relations), pushing the correct relation down. The earlier "_rel_def
+    # validated to improve GTE" claim in the comment above _rel_def did not hold
+    # under the agent's natural-language hints.
+    from kgqa.core.utils import rel_to_text as _rel_to_text
+    ctx.rel_texts = [_rel_to_text(r) for r in rels]
     ctx.ent_candidates = [e for e in ents if e and len(e) > 1 and not is_cvt_like(e)]
 
     _resolve_anchor(ctx)
@@ -243,6 +284,7 @@ async def run_agent_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
         # Sync the ordered fact ids (from the harness state) so _do_select can
         # build multi-step step_relations in decompose order.
         ctx.fact_ids = list(getattr(state, "fact_ids", []) or [])
+        ctx.fact_satisfies = dict(getattr(state, "fact_satisfies", {}) or {})
         try:
             result_str = await T.dispatch(tool_name, parsed_args, ctx, session)
         except Exception as e:
@@ -268,6 +310,17 @@ async def run_agent_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
 # Result-dict shape (matches _case_state_to_result_dict so runner scoring works)
 # ---------------------------------------------------------------------------
 
+def _step_dict(fid: str, ctx: CaseContext) -> Dict[str, Any]:
+    """One entry of `steps_parsed`. Includes `satisfies` when the fact
+    materializes a question constraint (so decompose-level condition info
+    survives into the result dict for复盘 / trajectory training)."""
+    step = {"id": fid, "text": ctx.fact_texts.get(fid, "")}
+    sat = ctx.fact_satisfies.get(fid)
+    if sat:
+        step["satisfies"] = sat
+    return step
+
+
 def _ctx_to_result_dict(ctx: CaseContext, state, agent_failed: bool,
                         failure_reason: str) -> Dict[str, Any]:
     preds = ctx.llm_answer_preds
@@ -283,7 +336,9 @@ def _ctx_to_result_dict(ctx: CaseContext, state, agent_failed: bool,
     # expand_branch candidate lists from the trajectory.
     expand_cands = list(ctx.all_candidates or [])
     for step in ctx.trajectory:
-        if step.get("role") == "tool" and step.get("name") == "expand_branch":
+        # Accept both plural (current) and singular (legacy trajectory files)
+        # names so old runs can still be replayed/scored.
+        if step.get("role") == "tool" and step.get("name") in ("expand_branch", "expand_branches"):
             try:
                 payload = json.loads(step.get("content", "{}"))
                 expand_cands.extend(payload.get("candidates", []))
@@ -305,8 +360,7 @@ def _ctx_to_result_dict(ctx: CaseContext, state, agent_failed: bool,
         "anchor_name": ctx.anchor_name,
         "breakpoints": {k: ctx.ents[v] for k, v in ctx.breakpoints.items()
                         if v is not None and 0 <= v < len(ctx.ents)},
-        "steps_parsed": [{"id": fid, "text": ctx.fact_texts.get(fid, "")}
-                         for fid in state.fact_ids],
+        "steps_parsed": [_step_dict(fid, ctx) for fid in state.fact_ids],
         "n_paths": len(ctx.all_paths),
         "answer_candidates": ctx.all_candidates,
         "gt_hit": gt_hit,

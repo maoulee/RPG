@@ -132,15 +132,15 @@ def main():
     print(f"\n[Blocker B] overview has #N right markers: {has_hash_markers}")
     print(f"[Blocker B] overview is multi-line (tree-like): {tree_like}")
 
-    # ── Test expand_branch (Blocker C) ──
+    # ── Test expand_branches (Blocker C) ──
     print("\n" + "=" * 70)
-    print("SMOKE TEST: _do_expand_branch on branch 1")
+    print("SMOKE TEST: _do_expand_branch on ['1']")
     print("=" * 70)
     if ctx.branches:
-        exp_raw = T._do_expand_branch({"branch_id": "1"}, ctx)
+        exp_raw = T._do_expand_branch({"branch_ids": ["1"]}, ctx)
         exp = json.loads(exp_raw)
-        print(f"\nbranch_id: {exp.get('branch_id')}")
-        print(f"readable:  {exp.get('readable')}")
+        print(f"\nbranches_expanded: {exp.get('branches_expanded')}")
+        print(f"n_branches: {exp.get('n_branches')}")
         print(f"n_candidates: {exp.get('n_candidates')} -> {exp.get('candidates')}")
         print(f"n_triples: {exp.get('n_triples')}")
         triples = exp.get("triples", [])

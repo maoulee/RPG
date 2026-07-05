@@ -199,7 +199,7 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                 "numbered evidence-tree overview. Call exactly ONCE after "
                 "select_relations (or after retrieve if you skipped "
                 "select_relations). The overview shows each branch with a "
-                "right-side number (#1, #2, ...). Use expand_branch(N) to drill "
+                "right-side number (#1, #2, ...). Use expand_branches(['1','2']) to drill "
                 "into relevant branches."
             ),
             "parameters": {
@@ -215,22 +215,23 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "expand_branch",
+            "name": "expand_branches",
             "description": (
-                "Expand one branch of the evidence tree to see its detailed "
-                "candidates and CVT attributes. Call for branches whose overview "
-                "looks relevant to the question. You may expand multiple branches "
-                "or skip directly to answer."
+                "Expand one or more branches of the evidence tree to see their "
+                "detailed candidates and CVT attributes. Pass the branch numbers "
+                "whose overview looks relevant to the question, in a single batch "
+                "call. You may also skip directly to answer."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "branch_id": {
-                        "type": "string",
-                        "description": "The branch number from the tree overview, e.g. '1', '2', '3a'.",
+                    "branch_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Branch numbers from the tree overview, e.g. ['1','2']. Pass all branches you want to expand in one call.",
                     },
                 },
-                "required": ["branch_id"],
+                "required": ["branch_ids"],
             },
         },
     },
@@ -269,7 +270,7 @@ def tools_for_state(state_name: str) -> List[Dict[str, Any]]:
         "RETRIEVE": {"retrieve"},
         "SELECT_RELATIONS": {"select_relations"},
         "SELECT": {"select"},
-        "EXPAND": {"expand_branch", "answer"},
+        "EXPAND": {"expand_branches", "answer"},
         "ANSWER": {"answer"},
         "DONE": set(),
     }
@@ -338,11 +339,44 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
         return _json_result({"fact_id": fact_id, "error": "no_anchor",
                              "candidates": []})
 
-    # 1. GTE over ALL case relations — hint as query, keep top-15
+    # 1. GTE over ALL case relations — hint as query, keep top-15.
+    # Candidate texts are contextualized for relations in this fact's structural
+    # scope: "<start_type> <full schema>" instead of a bare dot-notation id.
+    # The start_type is the anchor name (f1) or the type noun the previous hop
+    # arrives at (f2+, e.g. "airport", "country"). The full schema (path turned
+    # to spaces, e.g. "location adjoining relationship adjoins") keeps the KG
+    # structure visible so a hint like "bordering countries of France" matches
+    # the adjoining_relationship schema domain — bridging the deep-semantic ↔
+    # surface-wording gap (model writes "bordering", KG stores "adjoins"). This
+    # is NOT answer leakage: the candidate carries the relation's own schema
+    # name (legitimate KG structure), and the hint carries only the model's
+    # natural-language wording with no adj-/schema-root leakage. Relations
+    # OUTSIDE the scope keep the bare id. Zero candidate-count change (same
+    # |rels|) — avoids 2-hop expansion overload.
+    scope_rel_ids = _chained_source_rel_ids(ctx, fact_id)
+    start_type = ctx.fact_start_types.get(fact_id) or ctx.anchor_name or ""
+    if start_type:
+        cand_texts = []
+        for ri, rid in enumerate(ctx.rels):
+            if ri in scope_rel_ids:
+                # Last two schema segments only (e.g. "adjoining relationship
+                # adjoins" from location.adjoining_relationship.adjoins). The
+                # leading domain (location/government/...) is a generic bucket
+                # word that pulls GTE toward every relation in that domain and
+                # disturbs well-functioning ordinary cases. The last two
+                # segments carry the relation's actual semantic identity.
+                parts = rid.split('.')
+                tail = ' '.join(p.replace('_', ' ') for p in parts[-2:])
+                cand_texts.append(f"{start_type} {tail}")
+            else:
+                cand_texts.append(rid)
+    else:
+        cand_texts = ctx.rel_texts
+
     try:
         rows = await gte_retrieve(
             session, hint, ctx.rels,
-            candidate_texts=ctx.rel_texts, top_k=15)
+            candidate_texts=cand_texts, top_k=15)
     except Exception as e:
         return _json_result({"fact_id": fact_id, "error": f"gte_failed: {e}",
                              "candidates": []})
@@ -354,13 +388,13 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
             gte_rel_ids.append(ctx.rels.index(cand))
 
     # 2. Structural prune: intersect GTE-15 with the structural scope for this
-    #    fact. For fact_1 this is the anchor's neighbors. For fact_i (i>1) it's
-    #    the neighbors of entities reached via prior facts' selected relations
-    #    (the chain: anchor --[f1]--> entity --[f2]--> ...). This ensures fact2
-    #    sees relations matching the entity-type fact1 arrives at, not the
-    #    anchor's type — fixing CWQ multi-hop (e.g. person→country→religion:
-    #    fact2 gets country.religions, not person.religion).
-    scope_rel_ids = _chained_source_rel_ids(ctx, fact_id)
+    #    fact (scope_rel_ids was computed above for candidate-text anchoring;
+    #    reuse it here). For fact_1 this is the anchor's neighbors. For fact_i
+    #    (i>1) it's the neighbors of entities reached via prior facts' selected
+    #    relations (the chain: anchor --[f1]--> entity --[f2]--> ...). This
+    #    ensures fact2 sees relations matching the entity-type fact1 arrives at,
+    #    not the anchor's type — fixing CWQ multi-hop (e.g. person→country→
+    #    religion: fact2 gets country.religions, not person.religion).
     pruned_rel_ids = [ri for ri in gte_rel_ids if ri in scope_rel_ids]
 
     # Fallback: if prune empties everything (chain broken or GTE missed all
@@ -723,7 +757,7 @@ async def _do_select(ctx) -> str:
     CVT node IDs) and a trie structure, not a flat list.
 
     The model uses this overview to SELECT which branch to expand (Stage 7's
-    role), then expand_branch(N) drills into the chosen branch (Stage 8's role).
+    role), then expand_branches(['N']) drills into the chosen branch (Stage 8's role).
     """
     fids = [fid for fid in ctx.fact_ids if fid in ctx.fact_relations]
     if not fids or ctx.anchor_idx is None:
@@ -761,7 +795,7 @@ async def _do_select(ctx) -> str:
     ctx.logical_paths = patterns
 
     # ── Coarse rank by hint alignment (system does this; model does fine
-    # selection via expand_branch). Aligns each branch's relation-id sequence
+    # selection via expand_branches). Aligns each branch's relation-id sequence
     # against the per-fact hint relation sets, in fact order. More aligned
     # hops + shorter path = more relevant. All patterns are kept — the model
     # sees the whole ranked tree and decides which branches to expand.
@@ -824,7 +858,7 @@ async def _do_select(ctx) -> str:
                     cands.append(d)
                     seen_c.add(normalize(d))
 
-        # Store the full branch data for expand_branch to re-render later.
+        # Store the full branch data for expand_branches to re-render later.
         # Key: store the materialized pattern (with raw_paths) so expand can
         # re-run build_pattern_evidence_triples and get ALL candidates (not just
         # the witness). Without this, expand only sees the single witness path.
@@ -867,8 +901,8 @@ async def _do_select(ctx) -> str:
         "Branches are pre-ranked by how well their relation chain aligns with "
         "your decomposed facts (most aligned, shortest paths first). ANALYZE "
         "the tree, decide which branches are relevant to the question, and call "
-        "expand_branch(N) on each you choose to see its full triples + CVT "
-        "attributes. Then answer from what you expanded.\n\n"
+        "expand_branches(['1','2']) on those you choose to see their full triples "
+        "+ CVT attributes. Then answer from what you expanded.\n\n"
         + "\n\n".join(overview_blocks)
     )
 
