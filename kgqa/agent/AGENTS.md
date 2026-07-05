@@ -43,14 +43,13 @@ order — the runtime rejects out-of-order calls.
    - `facts`: array of `{id, text, relation_hint, start_type}`. Give each fact a short stable
      `id` like `"f1"`, `"f2"`. `text` is the natural-language lookup for that step.
    - `start_type`: the **entity type this step starts from**. For `f1` this is the
-     anchor entity itself (e.g. `"France"`, `"Nijmegen"`). For `f2+` it is the
-     TYPE that the previous step arrives at — a noun like `"country"`,
-     `"airport"`, `"person"`, `"film"`, NOT a generic placeholder like "entity"
-     or "node". This type anchors the retrieval query so the matcher knows the
-     entity context of this hop. Example chain for "what country bordering
-     France contains an airport serving Nijmegen":
-     `f1 start_type="France"`, `f2 start_type="airport"` (f1 arrives at an
-     airport), `f3 start_type="country"` (f2 arrives at a country).
+     anchor entity itself (e.g. `"France"`, `"Albert Einstein"`). For `f2+` it is
+     the TYPE that the previous step arrives at — a noun like `"country"`,
+     `"airport"`, `"person"`, `"film"`, NOT a generic placeholder like `"entity"`
+     or `"node"`. This type anchors the retrieval query so the matcher knows the
+     entity context of this hop. Walk the chain when assigning it: f1's
+     start_type is the anchor; f2's is the type f1 arrives at; f3's is the type
+     f2 arrives at; and so on.
    - `relation_hint`: the **specific KG relation type or precise semantic** for
      THAT step, e.g. `"profession of the person"`, `"place of birth"`,
      `"capital of the country"`, `"director of the film"`. Name the actual
@@ -59,17 +58,15 @@ order — the runtime rejects out-of-order calls.
      DEFINITION of the relation (what it connects), in the form "the X of
      <start_type>".** The `<start_type>` provides the entity context that
      retrieval needs to match — without it the hint floats generically and
-     misses relations whose surface name differs from the natural-language
-     wording (e.g. "bordering countries" must retrieve `adjoining_relationship`
-     relations; the `France`/`country` anchor in the hint is what bridges that
-     gap).
-     - ✓ `"the bordering countries of France"` (f1 — anchored to the start entity)
-     - ✓ `"the country containing an airport"` (f2 — anchored to the start type "airport")
+     drifts toward high-frequency bucket words. Anchor each hint to its
+     start_type.
+     - ✓ `"the capital of a country"` (f1 — anchored to the country type)
+     - ✓ `"the airports serving a city"` (anchored to the city type)
      - ✗ `"year of most recent World Series championship won by the team"`
        (scene-specific — "World Series" pulls retrieval toward baseball noise)
-     - ✗ `"the countries bordering a country"` (too generic — no anchor/type, drifts)
-     Keep scene-specific EVENT words out (World Series, Olympics), but DO include
-     the start_type so retrieval has the entity context.
+     - ✗ `"the championships of a team"` (too generic — missing entity context)
+     Keep scene-specific EVENT words out (championship names, Olympics), but DO
+     include the start_type so retrieval has the entity context.
    - **Two hard rules (the only constraints on the decomposition itself):**
      1. **Each fact is ONE single step** — one relation type, one hop. If a step
         needs two different lookups, it is two facts.

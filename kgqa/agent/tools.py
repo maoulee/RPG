@@ -341,30 +341,23 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
 
     # 1. GTE over ALL case relations — hint as query, keep top-15.
     # Candidate texts are contextualized for relations in this fact's structural
-    # scope: "<start_type> <full schema>" instead of a bare dot-notation id.
-    # The start_type is the anchor name (f1) or the type noun the previous hop
-    # arrives at (f2+, e.g. "airport", "country"). The full schema (path turned
-    # to spaces, e.g. "location adjoining relationship adjoins") keeps the KG
-    # structure visible so a hint like "bordering countries of France" matches
-    # the adjoining_relationship schema domain — bridging the deep-semantic ↔
-    # surface-wording gap (model writes "bordering", KG stores "adjoins"). This
-    # is NOT answer leakage: the candidate carries the relation's own schema
-    # name (legitimate KG structure), and the hint carries only the model's
-    # natural-language wording with no adj-/schema-root leakage. Relations
-    # OUTSIDE the scope keep the bare id. Zero candidate-count change (same
-    # |rels|) — avoids 2-hop expansion overload.
+    # scope: "<start_type> <last-two-schema-segments>" instead of a bare
+    # dot-notation id. The start_type is the anchor name (f1) or the type noun
+    # the previous hop arrives at (f2+, e.g. "airport", "country"). Only the
+    # LAST TWO schema segments are kept (dropping the leading domain bucket word
+    # like "location"/"government" — it disturbs ordinary-case GTE ranking by
+    # pulling toward every relation in that domain). This bridges the
+    # deep-semantic ↔ surface-wording gap (model writes "bordering", KG stores
+    # "adjoining_relationship") without answer leakage: the candidate carries
+    # the relation's own schema name (legitimate KG structure), the hint carries
+    # only the model's natural-language wording. Relations OUTSIDE the scope
+    # keep the bare id. Zero candidate-count change — avoids 2-hop overload.
     scope_rel_ids = _chained_source_rel_ids(ctx, fact_id)
     start_type = ctx.fact_start_types.get(fact_id) or ctx.anchor_name or ""
     if start_type:
         cand_texts = []
         for ri, rid in enumerate(ctx.rels):
             if ri in scope_rel_ids:
-                # Last two schema segments only (e.g. "adjoining relationship
-                # adjoins" from location.adjoining_relationship.adjoins). The
-                # leading domain (location/government/...) is a generic bucket
-                # word that pulls GTE toward every relation in that domain and
-                # disturbs well-functioning ordinary cases. The last two
-                # segments carry the relation's actual semantic identity.
                 parts = rid.split('.')
                 tail = ' '.join(p.replace('_', ' ') for p in parts[-2:])
                 cand_texts.append(f"{start_type} {tail}")
