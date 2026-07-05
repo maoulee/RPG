@@ -66,20 +66,54 @@ not one-better.
 
 ### What's next (the open levers)
 
-1. **Multi-anchor convergence** — stage beats react on case 4/21 (multi-anchor)
-   because stage has `_endpoint_bridge_paths` + `_merge_constraint_steps`. react
-   currently runs a single anchor chain. The designed fix (validated on case 4):
-   - decompose supports two independent fact chains with distinct `start_entity`
-   - each chain retrieves/selects/traverses independently
-   - **leaf-node intersection** judges convergence (Path A leaves ∩ Path B
-     leaves = answer). Case 4 verified: {Germany} = GT, the unique intersection.
-   - Prerequisite met: retrieve now召回s adjoins (was the blocker).
-2. **Parallel constraints** — stage's `_merge_constraint_steps` pools same-level
-   constraint relations into a union at step k+1. react lacks this; case 11/13
-   (where react wins) suggest react's per-step reasoning already handles some of
-   it, but the explicit union would help structurally.
-3. **Training trajectory regeneration** — content protocol is now stable; ready
-   to regenerate trajectories for SFT/GRPO.
+**Multi-anchor convergence (multi-anchor = ≥2 named entities that each
+independently constrain the answer).** Diagnosed across the 100-case set:
+react misses 7 multi-anchor cases; the retrieve layer is NOT the bottleneck
+for 4 of them (key relations rank-1 reachable from each anchor) — what's
+missing is the dual-chain mechanism itself.
+
+- **Design (validated on case 4):** decompose supports two independent fact
+  chains with distinct `start_entity`; each chain retrieves/selects/traverses
+  independently; **leaf-node intersection** judges convergence (Path A leaves ∩
+  Path B leaves = answer). Case 4 verified: Path A (Nijmegen→airport→Germany)
+  and Path B (France→adjoins→Germany) leaves intersect at {Germany} = GT.
+  This is true dual-path convergence, NOT stage's `_endpoint_bridge_paths`
+  (which is single-path + 1-2 hop bridge patch, fails when the gap > 2 hops).
+- **Implementation status:** data-path layer DONE (commit `df2aed1`): the
+  optional `start_entity` field flows decompose → AgentState.fact_start_entities
+  → CaseContext → react_loop. Single-anchor cases are bit-identical (verified
+  case 1). The **core change is pending**: `tools.py _do_select` — group facts
+  by `start_entity`, run each chain through stage5 independently, intersect
+  leaf candidate sets. Leaf = CVT-expanded named entities (use the already-
+  expanded ents list, not bare path endpoints). Needs careful evidence/overview
+  adaptation.
+- **Implementation pitfall (recorded):** when resolving `start_entity` to a
+  graph idx, use EXACT string match — case 4 has "Belfries of Belgium and
+  France" which a fuzzy `in` check would mis-bind as France.
+- **Leverage:** +3 cases (21/23/33) → 83.8% → ~87%. Case 61 (WW2 president,
+  temporal) is NOT saved by this (retrieve can't recall the temporal relation).
+
+**Parallel constraints + CVT-value retrieval (single-anchor + value filter).**
+8 miss cases are single-anchor with an attached constraint (GDP/CPI values,
+language, timezone). Bottleneck is NOT retrieve and NOT multi-anchor — it is
+constraint acquisition: the value lives on a CVT node (e.g. CPI inflation rate)
+whose edges may be missing, or the constraint needs to be applied as a same-
+level filter. Two sub-mechanisms needed:
+- `_merge_constraint_steps`-style same-level relation union (stage has it;
+  react doesn't). Helps language/timezone-type constraints.
+- CVT-value expansion in retrieve/select (to fetch numeric values for filtering).
+
+**Training trajectory regeneration.** Content protocol is stable; ready to
+regenerate trajectories for SFT/GRPO.
+
+### Commits on agent-toolcall branch (this work)
+- `3707cac` content protocol (react_loop) + expand_branches plural fix + retrieve
+  candidate contextualization (start_type + last-two schema segments).
+- `81596bd` this spec update (§0).
+- `e82071d` quality: comment/code alignment (full→last-two) + de-case-ify
+  AGENTS.md examples.
+- `6d6201d` gitignore one-off experiment scripts + stray txt.
+- `df2aed1` multi-anchor data-path layer (start_entity field, no traversal change).
 
 ---
 
