@@ -50,6 +50,24 @@ order — the runtime rejects out-of-order calls.
      entity context of this hop. Walk the chain when assigning it: f1's
      start_type is the anchor; f2's is the type f1 arrives at; f3's is the type
      f2 arrives at; and so on.
+   - `start_entity` (optional, multi-anchor only): set this ONLY when a fact
+     starts from a DIFFERENT known entity than the main anchor — i.e. the
+     question has ≥2 named entities that each independently constrain the
+     answer. Most questions are single-anchor (leave this field out). When the
+     question is multi-anchor, emit each anchor's chain as its own facts and
+     mark each chain's first fact with `start_entity` = that entity's name;
+     give parallel-chain facts sibling ids (`f1a`, `f1b`). The system traverses
+     each chain independently and converges on entities reached by ALL chains.
+     - Single-anchor (default, most questions): one chain, all facts walk from
+       the anchor. No `start_entity` anywhere.
+     - Multi-anchor: two or more chains, each chain's first fact carries
+       `start_entity`. Each chain answers "what entities relate to <this
+       anchor> via <this relation>"; the answer is the entities reached by every
+       chain.
+     Reserve `start_entity` for genuine multi-anchor questions (two named
+     entities that BOTH must be satisfied). Do not use it just because two
+     entities are mentioned — only when the answer must satisfy constraints from
+     each independently.
    - `relation_hint`: the **specific KG relation type or precise semantic** for
      THAT step, e.g. `"profession of the person"`, `"place of birth"`,
      `"capital of the country"`, `"director of the film"`. Name the actual

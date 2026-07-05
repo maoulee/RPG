@@ -288,6 +288,7 @@ async def run_react_batch(cases_to_run, args, output_dir: str):
                 rc.ctx.fact_ids = list(getattr(rc.state, "fact_ids", []) or [])
                 rc.ctx.fact_satisfies = dict(getattr(rc.state, "fact_satisfies", {}) or {})
                 rc.ctx.fact_start_types = dict(getattr(rc.state, "fact_start_types", {}) or {})
+                rc.ctx.fact_start_entities = dict(getattr(rc.state, "fact_start_entities", {}) or {})
 
                 # Dispatch tool (reuses existing _do_* functions)
                 try:
@@ -447,6 +448,7 @@ async def run_react_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
         rc.ctx.fact_ids = list(getattr(rc.state, "fact_ids", []) or [])
         rc.ctx.fact_satisfies = dict(getattr(rc.state, "fact_satisfies", {}) or {})
         rc.ctx.fact_start_types = dict(getattr(rc.state, "fact_start_types", {}) or {})
+        rc.ctx.fact_start_entities = dict(getattr(rc.state, "fact_start_entities", {}) or {})
 
         try:
             result_str = await T.dispatch(tool_name, parsed_args, rc.ctx, session)

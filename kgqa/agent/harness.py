@@ -37,6 +37,7 @@ class AgentState:
     fact_texts: dict = field(default_factory=dict)     # id -> text (for guidance)
     fact_satisfies: dict = field(default_factory=dict)  # id -> constraint text (if fact materializes a condition)
     fact_start_types: dict = field(default_factory=dict)  # id -> start_type (anchor name for f1, type noun for f2+)
+    fact_start_entities: dict = field(default_factory=dict)  # id -> start_entity (only for multi-anchor chain roots)
     retrieved: list = field(default_factory=list)      # fact_ids already retrieved
     n_selects: int = 0
     n_decomposes: int = 0
@@ -135,6 +136,7 @@ def validate(state: AgentState, tool_calls) -> tuple:
         texts = {}
         satisfies = {}
         start_types = {}
+        start_entities = {}
         for f in facts:
             if not isinstance(f, dict):
                 continue
@@ -150,6 +152,9 @@ def validate(state: AgentState, tool_calls) -> tuple:
             st = f.get("start_type")
             if st:
                 start_types[fid] = str(st)
+            se = f.get("start_entity")
+            if se:
+                start_entities[fid] = str(se)
         # Deduplicate while preserving order
         seen = set()
         unique_ids = []
@@ -166,6 +171,7 @@ def validate(state: AgentState, tool_calls) -> tuple:
         state.fact_texts = texts
         state.fact_satisfies = satisfies
         state.fact_start_types = start_types
+        state.fact_start_entities = start_entities
         state.n_decomposes += 1
         state.state = RETRIEVE
         return (True, "", state)
