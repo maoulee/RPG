@@ -97,6 +97,38 @@ scripts/run_webqsp_glm_flash.sh
 scripts/train_grpo.sh
 scripts/start_graph_server_branch.sh
 
+# One-off experiment / diagnostic scripts (process artifacts, not pipeline)
+scripts/analyze_select_behavior.py
+scripts/build_advantage_dataset.py
+scripts/build_hybrid_dataset.py
+scripts/build_offline_dataset.py
+scripts/count_cwq_hops.py
+scripts/diag_walk_vs_select.py
+scripts/extract_bad_cases.py
+scripts/gen_relation_richtext.py
+scripts/rescore_tests.py
+scripts/sample_trajectories.py
+scripts/test_agent_rules_lite.py
+scripts/test_answer_style_ab.py
+scripts/test_bare_evidence.py
+scripts/test_bigmodel_proxy.sh
+scripts/test_nl_steps.py
+scripts/test_nl_v2.py
+scripts/test_nl_v3.py
+scripts/test_nl_v4.py
+scripts/test_nl_v5.py
+scripts/test_stage8_isolation.py
+scripts/trace_galapagos_noise.py
+scripts/train_offline_grpo.py
+scripts/train_sft.py
+scripts/verify_cwq_calibrated.py
+scripts/verify_cwq_fact_split.py
+scripts/verify_fact_split.py
+scripts/verify_richtext_vs_rawid.py
+scripts/run_grpo_single.sh
+scripts/run_grpo_zero2.sh
+scripts/run_hybrid_zero2.sh
+
 # Old RL source package
 src/
 
@@ -109,3 +141,8 @@ action_skill_correlation_analysis.txt
 reranker_comparison.json
 tmp_webqtest39.jsonl
 scripts/prompt_on_skill_data_results.json
+pasted-text-*.txt
+pipeline_prompts.txt
+
+# Archived legacy pipeline (RL-based, superseded by kgqa/)
+_archive/
