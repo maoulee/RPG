@@ -1,6 +1,85 @@
 # RPG Agent Redesign — Spec for Continuation
 
-> Status: model-driven retrieval SOLVED (gt_hit 97%), 1-hop winning (+6.2 F1). 2-hop answer blocked by evidence-presentation issue. This spec captures the full diagnosis + the user's design direction for the next phase.
+> **Current status (2026-07-05)** — see §0 below for the latest validated state.
+> The remainder of this document (§1+) is the historical spec from the
+> native-toolcall era; it is kept for context but §0 supersedes it where they
+> disagree.
+
+---
+
+## 0. Current State (2026-07-05, commit `3707cac`)
+
+### Protocol: content-only (NOT native tool_calls)
+
+The agent uses the **content protocol** (`react_loop.run_react_case`), not native
+tool_calls. Native tool_calls (`loop.py` + `tool_choice="required"`) was
+**abandoned** because vLLM's hermes parser fails on Qwen3.5's `<function=>` XML
+tool-call format (`JSONDecodeError`), which intermittently broke the
+`thinking_token_budget` hard cap and caused empty-output `max_iters` failures.
+`loop.py` is kept as a native-toolcall archive; all evaluation entry points
+(`run_agent_batch.py`, `run_cwq_react_eval.py`, `run_webqsp_agent_eval.py`) use
+`react_loop`.
+
+- Each turn: `call_llm` returns free-form content; `parse_react_output` extracts
+  the `tool: {"tool":..., "args":...}` anchor. Bypasses vLLM tool-call parsing
+  entirely → reasoning hard cap stays reliable → batch throughput preserved.
+
+### Tool flow (content protocol, 6 tools, strict order)
+`decompose → retrieve (per fact) → select_relations → select → expand_branches → answer`
+
+- `expand_branches` is **plural/batch** (the singular `expand_branch` was a
+  latent bug; harness normalizes legacy singular → plural defensively).
+- `decompose` facts now carry an optional **`start_type`** (anchor name for f1,
+  type noun like "airport"/"country" for f2+) used to contextualize retrieval.
+
+### Retrieve: candidate contextualization (GTE deep-semantic gap)
+
+The model writes natural-language hints ("bordering countries of France"); the
+KG stores schema names (`location.adjoining_relationship.adjoins`). Bare-id
+candidate texts make GTE miss these — `bordering`↔`adjoining_relationship` have
+no surface overlap, so adjoins never enters the top-15.
+
+Fix: for relations in the fact's structural scope, candidate_text becomes
+`"<start_type> <last-two-schema-segments>"` (e.g. `"France adjoining relationship
+adjoins"`). The leading domain segment is **dropped** — it is a generic bucket
+word (`location`/`government`) that disturbs ordinary-case ranking. Validated
+honestly (query contains no `adj-` root, simulating what the model actually
+writes): adjoins rises from "not in top-15" to rank 2-3, while ordinary cases
+(case 7 GTE ranking) stay bit-identical to bare id.
+
+This is **not answer leakage**: the candidate carries the relation's own schema
+name (legitimate KG structure), and the model's hint carries only natural
+language. The full-schema variant (keeping the leading domain) regressed
+ordinary cases and was rejected.
+
+### Results (100-case, content protocol + retrieve contextualization)
+
+| dataset | llm_hit | gt_hit | mean F1 | empty_answer |
+|---|---|---|---|---|
+| CWQ | 83.8% | 89.9% | 0.778 | 1/99 |
+| WebQSP | 91.0% | 93.0% | 0.804 | — |
+
+CWQ react vs stage (same 99 cases, both scored by `llm_hit`): **tied at 83.8%**,
+each with 7 unique-correct cases — react stronger on multi-constraint cases
+(11/13), stage stronger on multi-anchor cases (4/21). They are complementary,
+not one-better.
+
+### What's next (the open levers)
+
+1. **Multi-anchor convergence** — stage beats react on case 4/21 (multi-anchor)
+   because stage has `_endpoint_bridge_paths` + `_merge_constraint_steps`. react
+   currently runs a single anchor chain. The designed fix (validated on case 4):
+   - decompose supports two independent fact chains with distinct `start_entity`
+   - each chain retrieves/selects/traverses independently
+   - **leaf-node intersection** judges convergence (Path A leaves ∩ Path B
+     leaves = answer). Case 4 verified: {Germany} = GT, the unique intersection.
+   - Prerequisite met: retrieve now召回s adjoins (was the blocker).
+2. **Parallel constraints** — stage's `_merge_constraint_steps` pools same-level
+   constraint relations into a union at step k+1. react lacks this; case 11/13
+   (where react wins) suggest react's per-step reasoning already handles some of
+   it, but the explicit union would help structurally.
+3. **Training trajectory regeneration** — content protocol is now stable; ready
+   to regenerate trajectories for SFT/GRPO.
 
 ---
 
