@@ -7,9 +7,38 @@
 
 ---
 
-## 0. Current State (2026-07-06, commit `63af4ee`)
+## 0. Current State (2026-07-06, commit `ab7ec0a`)
 
-### Reasoning capture GAP (2026-07-06 discovery)
+### Tool workflow merge: 6→4 tools (2026-07-06, commit `ab7ec0a`)
+
+Merged redundant tool round-trips. Each LLM call now carries substantive
+information — no wasted turns:
+
+| step | tool | what it does |
+|---|---|---|
+| 1 | `decompose` | Model writes facts + picks anchor/endpoints (LLM ambiguity analysis). System runs GTE for each fact inline, returns candidate_relations. |
+| 2 | `select_relations` | Model picks relations from candidates. System traverses graph inline, returns evidence tree (≤3 candidates per branch + ellipsis, no entity list in header). |
+| 3 | `expand_branches` | Model expands relevant branches. Returns CVT-expanded candidates + triples + trie. |
+| 4 | `answer` | FROM→WHERE→SELECT reasoning, emit entities. |
+
+`retrieve` and `select` are no longer separate steps. retrieve remains as an
+optional fallback (re-fetch a fact's candidates with a revised hint).
+
+### Anchor/endpoint analysis (2026-07-06)
+
+The model now performs LLM ambiguity analysis during decompose, picking
+`anchor` (lowest-ambiguity concrete entity) and optional `endpoints`
+(constraint entities). This replaces the blind `q_entity[0]` heuristic in
+`_resolve_anchor` — the model's choice is authoritative, with q_entity as
+fallback. Mirrors stage's `ENTITY_ANALYSIS_PROMPT`:
+- Specific names (people, events, unique titles) → LOW ambiguity → good anchor
+- Generic type words (Country, Person, Sport) → HIGH ambiguity → NEVER use
+- Endpoints = constraint entities from remaining q_entity list
+
+10-case smoke: 7/10 hit, mean_f1=0.8182. Tool calls per case dropped from ~7
+to ~4.
+
+### Reasoning capture GAP (2026-07-06 discovery, fixed commit `5be7ef0`)
 
 vLLM with `thinking_token_budget` returns the model's chain-of-thought in a
 **separate `reasoning` field** on the response message — NOT inside `content`.
