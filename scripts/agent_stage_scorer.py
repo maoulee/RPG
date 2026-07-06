@@ -85,13 +85,21 @@ def parse_trajectory(case: Dict[str, Any]) -> Dict[str, Any]:
         branch_cand : {branch_id -> [candidate names]} from expand_branch calls
         expanded_ids: [branch_id, ...] in call order (deduped)
         Y           : final answer entity list (from the answer tool)
+        select_pool : candidate pool from the `select` tool = the full traversal
+                       over all select_relations-chosen relations. This is the
+                       data source for S_plan (plan-stage GT recall).
         answer_candidates: select-stage global pool (result-level fallback for U)
+        has_select_relations: whether select_relations was called
         has_select  : whether select was called
+        has_answer  : whether answer was called
     """
     traj = case.get("agent_trajectory") or []
     branch_cand: Dict[str, List[str]] = {}
     expanded_ids: List[str] = []
     Y: List[str] = []
+    select_pool: List[str] = []
+    selected_relations: Dict[str, List[str]] = {}
+    has_select_relations = False
     has_select = False
     has_answer = False
 
@@ -103,22 +111,58 @@ def parse_trajectory(case: Dict[str, Any]) -> Dict[str, Any]:
         if not data:
             continue
 
-        if name == "select":
+        if name == "select_relations":
+            has_select_relations = True
+            sel = data.get("selected") or {}
+            if isinstance(sel, dict):
+                for fid, rels in sel.items():
+                    selected_relations[str(fid)] = list(rels) if isinstance(rels, list) else []
+        elif name == "select":
             has_select = True
-        elif name == "expand_branch":
-            bid = str(data.get("branch_id", ""))
+            # select's `candidates` = full traversal pool over chosen relations
             cands = data.get("candidates") or []
-            if bid:
-                if bid not in branch_cand:
-                    expanded_ids.append(bid)
-                # Merge in case a branch is expanded twice.
-                merged = list(branch_cand.get(bid, []))
-                seen = {normalize(c) for c in merged}
-                for c in cands:
-                    if c and normalize(c) not in seen:
-                        merged.append(c)
-                        seen.add(normalize(c))
-                branch_cand[bid] = merged
+            if isinstance(cands, list):
+                select_pool = [str(c) for c in cands if c]
+        elif name in ("expand_branch", "expand_branches"):
+            # Current agent format: `expand_branches` returns branches_expanded
+            # (ordered id list) + per_branch [{branch_id, candidates}]. Older
+            # single-branch format used one branch_id + flat candidates.
+            per_branch = data.get("per_branch")
+            if per_branch and isinstance(per_branch, list):
+                # New format: per-branch candidate split.
+                ids_this = data.get("branches_expanded") or [
+                    str(pb.get("branch_id", "")) for pb in per_branch]
+                for bid_raw in ids_this:
+                    bid = str(bid_raw)
+                    if bid and bid not in branch_cand:
+                        expanded_ids.append(bid)
+                for pb in per_branch:
+                    bid = str(pb.get("branch_id", ""))
+                    if not bid:
+                        continue
+                    cands = pb.get("candidates") or []
+                    merged = list(branch_cand.get(bid, []))
+                    seen = {normalize(c) for c in merged}
+                    for c in cands:
+                        if c and normalize(c) not in seen:
+                            merged.append(c)
+                            seen.add(normalize(c))
+                    branch_cand[bid] = merged
+            else:
+                # Legacy single-branch format.
+                bid = str(data.get("branch_id", ""))
+                cands = data.get("candidates") or []
+                if bid:
+                    if bid not in branch_cand:
+                        expanded_ids.append(bid)
+                    # Merge in case a branch is expanded twice.
+                    merged = list(branch_cand.get(bid, []))
+                    seen = {normalize(c) for c in merged}
+                    for c in cands:
+                        if c and normalize(c) not in seen:
+                            merged.append(c)
+                            seen.add(normalize(c))
+                    branch_cand[bid] = merged
         elif name == "answer":
             ents = data.get("entities") or []
             if isinstance(ents, list):
@@ -129,6 +173,9 @@ def parse_trajectory(case: Dict[str, Any]) -> Dict[str, Any]:
         "branch_cand": branch_cand,
         "expanded_ids": expanded_ids,
         "Y": Y,
+        "select_pool": select_pool,           # full traversal pool from select tool
+        "selected_relations": selected_relations,  # {fact_id: [rels]} from select_relations
+        "has_select_relations": has_select_relations,
         "has_select": has_select,
         "has_answer": has_answer,
         "answer_candidates": list(case.get("answer_candidates") or []),
@@ -152,7 +199,26 @@ def _norm_set(items: List[str]) -> List[str]:
 
 
 def score_case(case: Dict[str, Any]) -> Dict[str, Any]:
-    """Compute S_select + S_reason + sub-metrics for one case."""
+    """Compute three stage scores per the canonical definition:
+
+    S_plan   (select_relations → traverse): GT recall in the full traversal
+             pool produced by the `select` tool (= every relation path the
+             plan unlocked). Did the plan unlock paths that reach GT?
+
+    S_select (expand_branch): precision of expanded branches — what fraction
+             of the branches the model chose to expand actually carry GT?
+             Capped by S_plan: you can't precisely expand what the plan never
+             reached.  S_select = branch_precision × S_plan.
+
+    S_reason (answer): F1 of the model's final answer vs the GT that was
+             actually reachable in the expanded pool U. Capped by S_select:
+             you can't reason out answers the selection never surfaced.
+             S_reason = answer_F1_in_U × S_select.
+
+    Each score is the upper bound (ceiling) of the next — plan gates select,
+    select gates reason. This mirrors the user's definition where each stage's
+    recall serves as the cap on the downstream stage.
+    """
     cid = case.get("case_id", "?")
     question = case.get("question", "")
     gt = list(case.get("gt_answers") or [])
@@ -161,131 +227,140 @@ def score_case(case: Dict[str, Any]) -> Dict[str, Any]:
     branch_cand = p["branch_cand"]
     expanded_ids = p["expanded_ids"]
     Y = p["Y"]
+    select_pool = p["select_pool"]
     notes: List[str] = []
 
-    # Stage-pipeline baseline compatibility: it has no agent_trajectory, so
-    # parse_trajectory yields Y=[]. Fall back to its own llm_answer / global
-    # candidate pool so S_reason is still computable for A/B reasoning compare.
+    # Stage-pipeline baseline compatibility (no agent_trajectory → Y from llm_answer)
     is_baseline = (not p["has_select"]) and (not p["has_answer"])
     if is_baseline:
         notes.append("stage_pipeline_baseline")
         raw_ans = case.get("llm_answer", "") or ""
         Y = [e.strip() for e in raw_ans.split("|") if e.strip()] if raw_ans else []
 
-    # Edge: no GT
     if not gt:
         return {
             "case_id": cid, "question": question, "gt_answers": gt,
-            "S_select": None, "S_reason": None,
+            "S_plan": None, "S_select": None, "S_reason": None,
             "detail": {}, "notes": ["no_gt"],
         }
 
+    if not p["has_select_relations"]:
+        notes.append("no_select_relations_call")
     if not p["has_select"]:
         notes.append("no_select_call")
     if not expanded_ids:
         notes.append("no_expand_call")
 
-    # ---- U: expanded-subgraph candidate pool (fallback to global pool) ----
+    gt_norm = [normalize(g) for g in gt]
+
+    def _recall_in(pool: List[str]) -> float:
+        """Fraction of GT present in a candidate pool (normalized match)."""
+        if not gt_norm:
+            return 0.0
+        pool_norm = [normalize(c) for c in pool] if pool else []
+        hit = sum(1 for g in gt_norm if any(_matches(g, u) for u in pool_norm))
+        return hit / len(gt_norm)
+
+    # ---- U: expanded-subgraph candidate pool (fallback chain) ----
     U_list: List[str] = []
     for bid in expanded_ids:
         U_list.extend(branch_cand.get(bid, []))
     U_source = "expanded"
     if not U_list:
-        # Fallback: no expand calls — use select's global candidate pool so the
-        # reason score (retention) is still meaningful, not forced to 0.
-        U_list = p["answer_candidates"]
+        U_list = select_pool          # fall back to plan-stage traversal pool
+        U_source = "select_pool_fallback"
+    if not U_list:
+        U_list = p["answer_candidates"]   # last resort: global pool
         U_source = "answer_candidates_fallback"
 
-    # ---- valid branches: expanded branches whose candidates hit GT ----
+    # =====================================================================
+    # S_plan: GT recall in the select-tool traversal pool (the plan's reach).
+    # The plan = select_relations choices; the `select` tool traverses every
+    # chosen relation, yielding select_pool. GT recall here = did the plan
+    # unlock paths that reach the answer?
+    # =====================================================================
+    S_plan = _recall_in(select_pool) if select_pool else None
+    if S_plan is None:
+        # No select call → can't measure plan reach; use answer_candidates as a
+        # coarse proxy so downstream scores aren't all forced to 0.
+        S_plan = _recall_in(p["answer_candidates"]) if p["answer_candidates"] else 0.0
+        notes.append("plan_from_global_pool")
+
+    # =====================================================================
+    # S_select: precision of expanded branches, capped by S_plan.
+    #   branch_precision = (#expanded branches carrying GT) / (#expanded branches)
+    #   S_select = branch_precision × S_plan   (plan is the ceiling)
+    # =====================================================================
+    n_expanded = len(expanded_ids)
     valid_ids = [bid for bid in expanded_ids
                  if candidate_hit(branch_cand.get(bid, []), gt)]
-
-    # ---- S_select = f1_path × ans_recall ----
-    # Two combined requirements for a good selection stage:
-    #   1. f1_path   — the chosen branches are valid (hit GT), not junk.
-    #                  (= precision of expanded branches; recall denominator is
-    #                   the expanded set itself, since the select overview
-    #                   truncates candidate lists to cands[:4] so the true count
-    #                   of ALL GT-bearing branches in the graph is unrecoverable.)
-    #   2. ans_recall — the union of chosen branches covers the GT well.
-    # "路径选得好" AND "这些路径把答案高召回" — both must hold. Multiplying
-    # encodes: great recall from a pile of junk branches (low f1_path) still
-    # scores low; a precise but partial selection (low ans_recall) also scores
-    # low. ans_recall also bounds S_reason's ceiling.
-    n_expanded = len(expanded_ids)
     n_valid = len(valid_ids)
-
-    select_precision = (n_valid / n_expanded) if n_expanded else 0.0
-    f1_path = select_precision   # recall=1 → F1 = precision
-
-    # ans_recall: GT items covered by the union of expanded branches (= U).
-    U_norm = _norm_set(U_list)
-    gt_norm = [normalize(g) for g in gt]
-    gt_hit_in_U = sum(1 for g in gt_norm
-                      if any(_matches(g, u) for u in (normalize(u) for u in U_list)))
-    ans_recall = gt_hit_in_U / len(gt_norm) if gt_norm else 0.0
-
-    # No expand calls → no selection happened; the sub-metrics via the
-    # global-pool fallback are still informative as diagnostics but the stage
-    # score is 0 (the model did not perform a selection action).
+    branch_precision = (n_valid / n_expanded) if n_expanded else 0.0
+    # If no expand happened, the selection stage is trivially "pass-through":
+    # precision = 1 (nothing was wrongly expanded), so S_select = S_plan.
     if n_expanded == 0:
-        S_select = 0.0
+        branch_precision = 1.0
+        notes.append("select_passthrough")
+    S_select = branch_precision * S_plan
+
+    # =====================================================================
+    # S_reason: answer F1 within the reachable pool U, capped by S_select.
+    #   answer_F1_in_U = F1 of (Y ∩ U) vs (GT ∩ U)  — only count answers the
+    #                    model could have reached in the expanded pool.
+    #   S_reason = answer_F1_in_U × S_select        (select is the ceiling)
+    # =====================================================================
+    U_correct = [g for g in gt if candidate_hit([g], U_list)]      # GT in U
+    Y_in_U = [y for y in Y if candidate_hit([y], U_list) or True]  # keep all Y for F1
+    # Compute F1 restricted to what's reachable: gold = GT∩U, pred = Y∩(GT∩U) hits
+    reachable_gold = U_correct
+    reachable_pred_hit = [y for y in Y if candidate_hit([y], reachable_gold)] if reachable_gold else []
+    if reachable_gold:
+        reason_precision = len(reachable_pred_hit) / max(len(Y), 1)
+        reason_recall = len(set(normalize(y) for y in reachable_pred_hit)) / len(reachable_gold)
+        # simpler: just use compute_match_stats on Y vs reachable_gold
+        rstats = compute_match_stats(Y, reachable_gold)
+        answer_f1_in_U = rstats.get("f1", 0.0)
     else:
-        S_select = f1_path * ans_recall
-
-    # ---- S_reason (V11: retention × final_F1) ----
-    # U_correct : GT items reachable in the expanded pool U
-    # Y_correct : GT items reachable in U AND actually answered by the model.
-    #   NB: Y_correct is INTERSECTED with U_correct (not |Y ∩ GT|) so that
-    #   retention = |Y_correct| / |U_correct| stays ≤ 1, matching V11's premise
-    #   that the model can only "retain" what was reachable in U. Answers the
-    #   model gave that were NOT in U (lucky guesses / from the global pool)
-    #   don't raise retention — they're already credited in final_F1.
-    U_correct = [g for g in gt if candidate_hit([g], U_list)]
-    Y_correct = [g for g in U_correct if candidate_hit([g], Y)]
-
-    retention = (len(Y_correct) / len(U_correct)) if U_correct else 0.0
-    final_stats = compute_match_stats(Y, gt)
-    final_f1 = final_stats.get("f1", 0.0)
-    S_reason = retention * final_f1
-
-    if not U_correct:
+        answer_f1_in_U = 0.0
         notes.append("gt_unreachable_in_U")
-    if U_correct and len(Y_correct) < len(U_correct):
-        notes.append("reason_leak")        # model could have reached more than it answered
-    if ans_recall == 0:
-        notes.append("select_fail")        # expanded pool missed GT entirely
+    S_reason = answer_f1_in_U * S_select
+
+    # diagnostics
+    if U_correct and len(reachable_pred_hit) < len(U_correct):
+        notes.append("reason_leak")
+    if (S_plan or 0) == 0:
+        notes.append("plan_fail")
 
     detail = {
+        "plan": {
+            "S_plan": round(S_plan, 4) if S_plan is not None else None,
+            "select_pool_size": len(select_pool),
+            "plan_recall": round(S_plan, 4) if S_plan is not None else None,
+            "selected_relations": p["selected_relations"],
+        },
         "select": {
             "S_select": round(S_select, 4),
-            "ans_recall": round(ans_recall, 4),
-            "f1_path": round(f1_path, 4),
-            "select_precision": round(select_precision, 4),
+            "branch_precision": round(branch_precision, 4),
             "n_expanded": n_expanded,
             "n_valid": n_valid,
             "expanded_ids": expanded_ids,
             "valid_ids": valid_ids,
-            "U_sel_size": len(U_norm),
+            "U_size": len(U_list),
             "U_source": U_source,
         },
         "reason": {
-            "final_F1": round(final_f1, 4),
-            "final_precision": round(final_stats.get("precision", 0.0), 4),
-            "final_recall": round(final_stats.get("recall", 0.0), 4),
-            "retention": round(retention, 4),
+            "S_reason": round(S_reason, 4),
+            "answer_f1_in_U": round(answer_f1_in_U, 4),
             "U_correct_n": len(U_correct),
-            "Y_correct_n": len(Y_correct),
+            "reachable_pred_hit_n": len(reachable_pred_hit) if reachable_gold else 0,
             "GT_n": len(gt),
             "U_correct": U_correct,
-            "Y_correct": Y_correct,
-            "missed_in_U": [g for g in gt if g not in U_correct],   # GT not reachable in expanded pool
-            "missed_in_Y": [g for g in U_correct if g not in Y_correct],  # reachable but not answered
         },
     }
 
     return {
         "case_id": cid, "question": question, "gt_answers": gt,
+        "S_plan": round(S_plan, 4) if S_plan is not None else None,
         "S_select": round(S_select, 4),
         "S_reason": round(S_reason, 4),
         "detail": detail,
@@ -324,19 +399,20 @@ def aggregate(labels: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     s_select = sum(l["S_select"] for l in scored) / n
     s_reason = sum(l["S_reason"] for l in scored) / n
+    s_plan = sum((l["S_plan"] or 0) for l in scored) / n
 
     return {
         "n": n,
+        "S_plan_avg": round(s_plan, 4),
         "S_select_avg": round(s_select, 4),
         "S_reason_avg": round(s_reason, 4),
-        "ans_recall_avg": round(_mean("detail.select.ans_recall"), 4),
-        "f1_path_avg": round(_mean("detail.select.f1_path"), 4),
-        "select_precision_avg": round(_mean("detail.select.select_precision"), 4),
-        "final_F1_avg": round(_mean("detail.reason.final_F1"), 4),
-        "retention_avg": round(_mean("detail.reason.retention"), 4),
+        "branch_precision_avg": round(_mean("detail.select.branch_precision"), 4),
+        "answer_f1_in_U_avg": round(_mean("detail.reason.answer_f1_in_U"), 4),
         "select_fail_n": sum(1 for l in scored if "select_fail" in l.get("notes", [])),
         "reason_leak_n": sum(1 for l in scored if "reason_leak" in l.get("notes", [])),
         "gt_unreachable_n": sum(1 for l in scored if "gt_unreachable_in_U" in l.get("notes", [])),
+        "plan_fail_n": sum(1 for l in scored if "plan_fail" in l.get("notes", [])),
+        "select_passthrough_n": sum(1 for l in scored if "select_passthrough" in l.get("notes", [])),
         "no_expand_n": sum(1 for l in scored if "no_expand_call" in l.get("notes", [])),
     }
 
@@ -354,24 +430,27 @@ def print_per_case(labels: List[Dict[str, Any]], sort_by: str = "S_reason",
         d = l["detail"]
         sel = d["select"]; rea = d["reason"]
         print(f"  [{l['case_id'][:22]:22s}] "
+              f"S_plan={l['S_plan'] if l['S_plan'] is not None else 0:.2f} "
               f"S_sel={l['S_select']:.2f} S_rea={l['S_reason']:.2f} "
-              f"[ansR={sel['ans_recall']:.2f} f1path={sel['f1_path']:.2f} "
-              f"exp={sel['n_expanded']}/{sel['n_valid']} | "
-              f"ret={rea['retention']:.2f} f1={rea['final_F1']:.2f} "
-              f"Uc={rea['U_correct_n']} Yc={rea['Y_correct_n']}/{rea['GT_n']}] "
+              f"[bprec={sel['branch_precision']:.2f} "
+              f"exp={sel['n_expanded']}/{sel['n_valid']}/{sel['U_size']} | "
+              f"f1U={rea['answer_f1_in_U']:.2f} "
+              f"Uc={rea['U_correct_n']} hit={rea['reachable_pred_hit_n']}/{rea['GT_n']}] "
               f"{','.join(l.get('notes', []))} | {l['question'][:34]}")
 
 
 def print_summary(agg: Dict[str, Any], label: str) -> None:
     print(f"\n=== {label} ({agg['n']} scored cases) ===")
-    print(f"  S_select_avg = {agg['S_select_avg']:.4f}   (= f1_path × ans_recall)")
-    print(f"    f1_path={agg['f1_path_avg']:.3f} (expanded branches hit GT), "
-          f"ans_recall={agg['ans_recall_avg']:.3f} (union covers GT; reason ceiling)")
+    print(f"  S_plan_avg   = {agg['S_plan_avg']:.4f}   (GT recall in plan traversal pool)")
+    print(f"  S_select_avg = {agg['S_select_avg']:.4f}   "
+          f"(branch_precision={agg['branch_precision_avg']:.3f} × S_plan)")
     print(f"  S_reason_avg = {agg['S_reason_avg']:.4f}   "
-          f"(final_F1={agg['final_F1_avg']:.3f}, retention={agg['retention_avg']:.3f})")
-    print(f"  diagnostics: select_fail={agg['select_fail_n']} "
+          f"(answer_f1_in_U={agg['answer_f1_in_U_avg']:.3f} × S_select)")
+    print(f"  diagnostics: plan_fail={agg['plan_fail_n']} "
+          f"select_fail={agg['select_fail_n']} "
           f"reason_leak={agg['reason_leak_n']} "
           f"gt_unreachable={agg['gt_unreachable_n']} "
+          f"select_passthrough={agg['select_passthrough_n']} "
           f"no_expand={agg['no_expand_n']}")
 
 
