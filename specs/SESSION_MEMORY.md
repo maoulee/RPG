@@ -90,7 +90,28 @@ runs traversal inline. Per-case turns dropped ~7 → ~4. Spec: `specs/agent_rede
 
 **Verdict**: merge held GT-hit (+1) and recall (~flat); small precision drop
 (−0.028) from over-emitting candidates. Net: noise-level, acceptable for the
-tool-count halving. **Not committed yet** (pending — see TODO).
+tool-count halving. Committed in `ab7ec0a`.
+
+### Workspace triage (2026-07-06)
+Cleaned a pile of uncommitted work on `agent-toolcall` into focused commits:
+- `110eafe` — two default-off experimental features: `--adaptive-routing`
+  (simple/complex split, zero-LLM classifier in `stage1_cascade.classify_complexity`)
+  and `KGQA_DIRECTED_TRAVERSAL=1` (directed Freebase edges). **Neither
+  benchmarked yet.** Also adds `agent`/`free` reason-styles to stage8.
+- `0f2d80c` — `agent_stage_scorer.py` now parses `select_pool` + reports
+  `S_plan`/`S_select`/`S_reason` (3-stage GT-recall decomposition).
+- `7c10abf` — `_BATCH_SIZE` 500→100 (vLLM prefill-queue at 500), plus
+  `KGQA_LLM_BATCH_TEMPERATURE`/`_TOP_P` env overrides.
+- `81696f4` — tracked the react entry scripts (`run_react.py`,
+  `run_cwq_react_eval.py`, `run_webqsp_agent_eval.py`, `render_trajectory.py`)
+  + `tests/test_skill_aggregation.py`. Were untracked despite being the
+  only way to run the already-committed agent.
+- `05b1362` — removed `start_graph_server.sh` (graph traversal is in-process
+  now) and `run_webqsp_qwen35_local.sh` (replaced by `start_local_qwen35_server.sh`).
+
+Three RL-era dirs (`config/`, `configs/`, `prompts/`) — unreferenced by active
+code — moved to `_archive/rl_{config,configs,prompts}/` (gitignored, kept on
+disk in case RL is revisited).
 
 ### Reference trajectory
 `tmp/case1_merged_trajectory.txt` (367 lines) — the canonical 4-tool example:
@@ -134,8 +155,12 @@ there's likely one already alive (health check returns 200).
 ---
 
 ## TODO / open levers
-- [ ] **Commit** the 4-tool merge + 100-case result + this memory file.
-- [ ] Update `specs/agent_redesign_spec.md` §0 with the `cwq_merged_100` numbers.
+- [x] **Commit** the 4-tool merge + 100-case result + this memory file. (done)
+- [x] Update `specs/agent_redesign_spec.md` §0 with the `cwq_merged_100` numbers. (done)
+- [ ] **Benchmark** the two new default-off features landed 2026-07-06:
+      `--adaptive-routing` (simple/complex split) and
+      `KGQA_DIRECTED_TRAVERSAL=1` (directed Freebase traversal). Neither
+      has a run in `reports/` yet. See commits `110eafe`.
 - [ ] Investigate the 1 flip-in / 2 flip-out cases (vs `cwq_fromwhere_100`)
       to localize the precision drop.
 - [ ] (optional) Harden `parse_react_output` against the `reasoning_end_str`
@@ -151,5 +176,7 @@ there's likely one already alive (health check returns 200).
   Record metrics here, not the files.
 - **Trajectories**: rendered into `tmp/` (gitignored — see trap above).
 - **Historical/reference docs**: `docs/` (legacy design notes, experiments).
+- **Archived RL-era code**: `_archive/rl_{config,configs,prompts}/`
+  (gitignored, kept on disk in case RL is revisited).
 - **Logs**: `logs/{gte,vllm}_server.log`, `logs/run_*.log`.
 - **Models**: `/zhaoshu/llm/Qwen3.5-9B`, `/zhaoshu/llm/Qwen3-Embedding-0.6B`.
