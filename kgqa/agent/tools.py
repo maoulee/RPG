@@ -739,6 +739,61 @@ def _hint_match_rank(patterns, fact_rel_sets, fids):
     return sorted(patterns, key=_key)
 
 
+def _group_parallel_facts(fids, fact_relations):
+    """Group sibling facts (f{N}.k parallel constraints) into single steps.
+
+    Returns two parallel lists:
+      step_fids      — each entry is either a single fid (plain step, e.g. 'f1')
+                       or a list of sibling fids that merge into one step
+                       (e.g. ['f2.1', 'f2.2']).
+      step_relations — each entry is the UNION of selected relations for that
+                       step (deduplicated, order-preserved).
+
+    Siblings are detected by the ``.`` in the id: ``f2.1`` and ``f2.2`` share
+    step number ``2`` and merge into one step. Plain ids (``f1``, ``f2``) stay
+    as their own step. The step sequence follows first-appearance order, so
+    [f1, f2.1, f2.2, f3] → steps [[f1], [f2.1, f2.2], [f3]].
+
+    This mirrors stage's ``_merge_constraint_steps``: parallel attribute
+    filters on the same entity are walked at one level (relation union), not
+    as sequential hops. Without this, f2.1→entity→f2.2 would chain them.
+    """
+    # Map step-number → list of sibling fids, in first-appearance order.
+    groups = {}            # step_key -> [fid, ...]
+    order = []             # step_keys in first-appearance order
+    for fid in fids:
+        if "." in fid:
+            step_key = fid.split(".", 1)[0]   # 'f2.1' -> 'f2'
+        else:
+            step_key = fid                    # 'f1' -> 'f1'
+        if step_key not in groups:
+            groups[step_key] = []
+            order.append(step_key)
+        groups[step_key].append(fid)
+
+    step_fids = []
+    step_relations = []
+    for step_key in order:
+        siblings = groups[step_key]
+        if len(siblings) == 1:
+            # Plain step (no siblings, or a lone f{N}.1 with no partner).
+            fid = siblings[0]
+            step_fids.append(fid)
+            step_relations.append(list(fact_relations.get(fid, [])))
+        else:
+            # Parallel constraints: union the siblings' relations.
+            merged = []
+            seen = set()
+            for fid in siblings:
+                for r in fact_relations.get(fid, []):
+                    if r not in seen:
+                        seen.add(r)
+                        merged.append(r)
+            step_fids.append(siblings)
+            step_relations.append(merged)
+    return step_fids, step_relations
+
+
 async def _do_select(ctx) -> str:
     """Run the FULL multi-step traversal (stage_5_graph_traversal) over all
     facts' hinted relations, then build a TREE overview of evidence.
@@ -751,12 +806,23 @@ async def _do_select(ctx) -> str:
 
     The model uses this overview to SELECT which branch to expand (Stage 7's
     role), then expand_branches(['N']) drills into the chosen branch (Stage 8's role).
+
+    Parallel constraints: facts whose ids follow the pattern ``f{N}.k``
+    (e.g. ``f2.1``, ``f2.2``) are sibling attribute filters on the SAME entity
+    reached by step N-1 — they are NOT sequential hops. Their selected
+    relations are UNIONED into one step (step N), mirroring stage's
+    ``_merge_constraint_steps``. Without this merge the traversal would walk
+    them in series (f2.1 → entity → f2.2), which is semantically wrong: both
+    filters read attributes of the entity reached by f1, they don't chain.
     """
     fids = [fid for fid in ctx.fact_ids if fid in ctx.fact_relations]
     if not fids or ctx.anchor_idx is None:
         return _json_result({"error": "no_facts_or_anchor",
                              "evidence": [], "candidates": []})
-    step_relations = [ctx.fact_relations[fid] for fid in fids]
+    # Group sibling facts f{N}.k into one step (relation union). Plain ids
+    # (f1, f2, ...) each remain their own step. Order is preserved by first
+    # appearance, so the step sequence stays [f1, f2(=union of f2.1,f2.2), f3].
+    step_fids, step_relations = _group_parallel_facts(fids, ctx.fact_relations)
 
     # Build a minimal CaseState and run the proven stage-5 traversal
     cs = CaseState(case_id=ctx.case_id or "agent", case_num=ctx.case_num or 0,
@@ -766,7 +832,8 @@ async def _do_select(ctx) -> str:
     cs.h_ids, cs.r_ids, cs.t_ids = ctx.h_ids, ctx.r_ids, ctx.t_ids
     cs.ents, cs.rels, cs.rel_texts = ctx.ents, ctx.rels, ctx.rel_texts
     cs.step_relations = step_relations
-    cs.steps = [{"id": fid} for fid in fids]   # n_steps = n_facts
+    cs.steps = [{"id": "+".join(g) if isinstance(g, list) else g}
+                for g in step_fids]   # n_steps = n_groups (siblings merged)
     cs.breakpoints = ctx.breakpoints or {}
     cs.active = True
     try:

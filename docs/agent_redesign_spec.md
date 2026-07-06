@@ -115,7 +115,7 @@ and the candidate side (program-built text) carry the same type context,
 which is what lets them match. **This mechanism is already shipped; no further
 work.**
 
-**Parallel constraints — PROMPT LANDED, traversal union PENDING.** When the
+**Parallel constraints — PROMPT + TRAVERSAL UNION LANDED.** When the
 answer must satisfy ≥2 independent attribute filters on the SAME entity (e.g.
 a leader whose term started before X AND ended after Y; a country whose
 GDP = A AND CPI = B), those filters are NOT sequential hops — they read
@@ -130,16 +130,26 @@ different attributes of one entity. Design (mirrors stage's
 - **Retrieve/select:** each sibling runs its own GTE retrieve + model
   `select_relations` (independent precision, like stage). Already works —
   harness parses `f2.1`/`f2.2` ids correctly (verified).
-- **Traversal (PENDING):** `_do_select` detects the `f{N}.{k}` id pattern,
-  unions the selected relations of all siblings with step N, and walks them
-  at the same level (one step, relation union). NOT two sequential hops.
-- **Tool presentation (PENDING):** `select` evidence tree shows each sibling
-  as its own block with continuing numbering (chain facts #1-5, f2.1 #6-10,
-  f2.2 #11-15), so `expand_branches(['3','7'])` works across blocks.
+- **Traversal union (DONE — `_group_parallel_facts` in tools.py):** `_do_select`
+  detects the `f{N}.{k}` id pattern, unions the selected relations of all
+  siblings with step N, and walks them at the same level (one step, relation
+  union). NOT two sequential hops. Without this, f2.1→entity→f2.2 would chain
+  them serially (verified bug on case 14 before fix). Unit-tested: plain
+  chains unchanged, siblings merged with dedup.
+- **Tool presentation (lightweight):** the evidence tree currently renders the
+  merged step as one block (id `f2.1+f2.2`). Per-sibling sub-blocks with
+  continuing numbering is a future refinement; the merged view is already
+  correct (all relations visible to the model at one level).
 - **System role (boundary only):** the system does NOT decide when to split —
   that's the model's job, guided by the abstract example. The system only
   enforces: no empty answer (existing retry), no missing relation selection
   (existing reject), and tolerates non-`.` ids (falls back to plain multi-hop).
+
+**Validation:** unit tests pass (plain chain unchanged, siblings merged with
+dedup, lone `f2.1` tolerated). 20-case smoke after fix: 19/20 bit-identical to
+pre-fix run; the 1 changed case (case 16) has NO parallel constraints in its
+decomposition (`['f1','f2','f3']`) so the fix never touched its path — the
+change is intrinsic model variance.
 
 **Stability test (2026-07-06, 20 cases × 3 runs):** 0 crashes / 0 format
 errors across 60 decompose calls. 13/20 cases fully stable (same fact count
@@ -179,6 +189,10 @@ regenerate trajectories for SFT/GRPO.
   constraint guidance (sibling ids `f{N}.1`/`f{N}.2` + abstract example). Spec:
   multi-anchor deferred, GTE confirmed, parallel-constraint design + stability
   test results.
+- (pending) tools.py: `_group_parallel_facts` merges `f{N}.k` siblings into one
+  step (relation union) in `_do_select`. Unit-tested; 20-case smoke shows
+  19/20 bit-identical (1 changed case has no parallel constraints, so the fix
+  never touched its path).
 
 ### Live probe (2026-07-06) — gold-grounded failure attribution
 
