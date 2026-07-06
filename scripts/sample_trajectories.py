@@ -46,6 +46,7 @@ import aiohttp
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
+ROOT = Path(_PROJECT_ROOT)
 
 from kgqa.core.config import DEFAULT_CWQ, MASK_WRONG_TYPE
 from kgqa.agent.react_loop import ReactCase, parse_react_output
@@ -53,6 +54,23 @@ from kgqa.agent.harness import validate, _allowed_hint
 from kgqa.agent import tools as T
 from kgqa.agent.loop import _ctx_to_result_dict
 from kgqa.llm.batch import batch_call_llm
+
+# All known GT-quality masks. Cases in any of these are skipped entirely —
+# their GT is wrong-type, noisy, or otherwise unusable for training.
+CWQ_GT_NOISE_MASK = ROOT / "data/cwq_processed/mask_gt_noise_ids.json"
+WEBQSP_MASK = ROOT / "data/webqsp/mask_wrong_type_final.json"
+
+
+def _load_all_masks(extra_paths=None):
+    """Union of all GT-quality masks (wrong-type + gt-noise, both datasets)."""
+    paths = [MASK_WRONG_TYPE, CWQ_GT_NOISE_MASK, WEBQSP_MASK]
+    if extra_paths:
+        paths += [Path(p) for p in extra_paths if p]
+    masked = set()
+    for p in paths:
+        if p and Path(p).exists():
+            masked |= set(json.loads(Path(p).read_text()))
+    return masked
 
 # Stage scorer lives under scripts/ — import by path to avoid package coupling.
 import importlib.util
@@ -76,9 +94,7 @@ def load_cases(args) -> List[tuple]:
         if sid:
             sample_map[sid] = s
 
-    masked = set()
-    if args.mask_wrong_type and MASK_WRONG_TYPE and Path(MASK_WRONG_TYPE).exists():
-        masked = set(json.loads(Path(MASK_WRONG_TYPE).read_text()))
+    masked = _load_all_masks()
 
     cases = []
     for idx, pr in enumerate(pilot_rows[:args.limit], 1):
@@ -115,19 +131,16 @@ def load_mixed_cases(args) -> List[tuple]:
     """
     cases: List[tuple] = []
     idx = 0
+    # Unified mask: skip any case flagged in any GT-quality mask (both datasets).
+    masked = _load_all_masks()
     sources = [
-        (args.cwq_pkl, getattr(args, "cwq_limit", args.limit), "cwq",
-         getattr(args, "cwq_mask", None)),
-        (args.webqsp_pkl, getattr(args, "webqsp_limit", 0), "webqsp",
-         getattr(args, "webqsp_mask", None)),
+        (args.cwq_pkl, getattr(args, "cwq_limit", args.limit), "cwq"),
+        (args.webqsp_pkl, getattr(args, "webqsp_limit", 0), "webqsp"),
     ]
-    for pkl_path, limit, tag, mask_path in sources:
+    for pkl_path, limit, tag in sources:
         if not pkl_path or not Path(pkl_path).exists() or limit <= 0:
             continue
         samples = pickle.loads(Path(pkl_path).read_bytes())
-        masked = set()
-        if mask_path and Path(mask_path).exists():
-            masked = set(json.loads(Path(mask_path).read_text()))
         for s in samples[:limit]:
             sid = s.get("id") or s.get("question_id") or ""
             if sid in masked:
@@ -412,6 +425,44 @@ def _write_and_summarize(records, output_path, wall, num_samples):
     for r in records:
         by_case.setdefault(r["case_id"], []).append(r)
 
+    # ── Classify each case into SFT / GRPO / GT-suspect ──
+    # A sample is "correct" when S_reason is at the threshold (fully correct).
+    # all-correct → SFT (pick best: highest total score, tie-break fewest steps)
+    # mixed       → GRPO (keep all samples for positive/negative pairs)
+    # all-wrong   → GT-suspect if best S_plan≈0 (answer never reachable →
+    #               GT likely not in subgraph), else genuinely-hard.
+    CORRECT = 1.0
+    GT_SUSPECT_PLAN = 0.01
+    sft_recs, grpo_recs, suspect = [], [], []
+    for cid, recs in by_case.items():
+        reasons = [(r.get("S_reason") or 0) for r in recs]
+        if all(x >= CORRECT for x in reasons):
+            # Pick best: max total score, tie-break fewest steps.
+            best = max(recs, key=lambda r: (
+                (r.get("S_plan") or 0) + (r.get("S_select") or 0) + (r.get("S_reason") or 0),
+                -(r.get("n_steps") or 0)))
+            sft_recs.append(best)
+        elif any(x >= CORRECT for x in reasons):
+            grpo_recs.extend(recs)
+        else:
+            best_plan = max((r.get("S_plan") or 0) for r in recs)
+            suspect.append({
+                "case_id": cid,
+                "question": recs[0].get("question", ""),
+                "gt_answers": recs[0].get("gt_answers", []),
+                "best_f1": max(r.get("llm_f1", 0) for r in recs),
+                "best_S_plan": best_plan,
+                "gt_suspect": best_plan < GT_SUSPECT_PLAN,
+            })
+
+    # Write split files next to the main samples file
+    base = out.parent
+    _write_jsonl_split(base / "sft.jsonl", sft_recs)
+    _write_jsonl_split(base / "grpo.jsonl", grpo_recs)
+    with open(base / "gt_suspect.jsonl", "w") as f:
+        for s in suspect:
+            f.write(json.dumps(s, ensure_ascii=False) + "\n")
+
     # Group variance check (GRPO needs within-group score spread)
     var_cases = 0
     for cid, recs in by_case.items():
@@ -432,7 +483,20 @@ def _write_and_summarize(records, output_path, wall, num_samples):
     print(f"Mean llm_f1: {mean_f1:.3f}")
     print(f"Cases with within-group score variance (GRPO-useful): "
           f"{var_cases}/{len(by_case)}")
+    print(f"  all-correct → SFT:      {len(sft_recs)} cases")
+    print(f"  mixed       → GRPO:     {len(grpo_recs)} samples "
+          f"({len(set(r['case_id'] for r in grpo_recs))} cases)")
+    n_sus = sum(1 for s in suspect if s["gt_suspect"])
+    print(f"  all-wrong   → flagged:  {len(suspect)} cases "
+          f"(GT-suspect: {n_sus}, genuinely-hard: {len(suspect)-n_sus})")
     print(f"Written to: {out}")
+    print(f"  splits: sft.jsonl, grpo.jsonl, gt_suspect.jsonl")
+
+
+def _write_jsonl_split(path, recs):
+    with open(path, "w") as f:
+        for r in recs:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
 
 # ---------------------------------------------------------------------------
