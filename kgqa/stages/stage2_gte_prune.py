@@ -29,7 +29,7 @@ _IMPLICIT_PROFESSION_PATTERNS = re.compile(
 )
 
 
-async def stage_2_gte_and_prune(session, cases):
+async def stage_2_gte_and_prune(session, cases, adaptive_routing: bool = False):
     """Per-triple GTE retrieval + LLM prune. Replaces old Stage 2 + 3 + 4."""
     _t0 = time.perf_counter()
     active = [cs for cs in cases if cs.active]
@@ -124,10 +124,33 @@ async def stage_2_gte_and_prune(session, cases):
     gte_dt = time.perf_counter() - _t0
     print(f"  Stage 2a (Per-triple GTE): {gte_dt:.2f}s | {len(gte_calls)} calls")
 
+    # ── Phase A.5: SIMPLE shortcut — take GTE top-PRUNE_TOPK directly (no LLM prune) ──
+    # Adaptive routing only. When disabled, every case is complexity="complex"
+    # and this branch is a no-op, so behavior is byte-identical to today.
+    # The resulting cs.step_relations has the SAME shape the LLM prune path
+    # produces: List[set[int]] of relation indices, one set per triple, merged
+    # by depth at the end of this stage (same merge block runs for all cases).
+    simple_cases = []
+    if adaptive_routing:
+        simple_cases = [cs for cs in active
+                        if cs.active and getattr(cs, 'complexity', 'complex') == 'simple']
+    for cs in simple_cases:
+        cs.step_relations = []
+        for ti in range(len(cs.triples)):
+            cands = cs.step_candidates.get(ti + 1, [])
+            cs.step_relations.append(set(idx for idx, _, _ in cands[:PRUNE_TOPK]))
+        if not cs.triples:
+            cs.step_relations = [set() for _ in range(max(len(cs.steps), 1))]
+        cs.prune_debug = {"adaptive_shortcut": "simple_topk", "prune_skipped": True}
+
     # ── Phase B: LLM Prune with per-triple candidate blocks ──
+    # COMPLEX cases (and ALL cases when adaptive_routing is off) run the
+    # original LLM prune path unchanged. SIMPLE cases are excluded here.
+    prune_active = [cs for cs in active
+                    if not (adaptive_routing and getattr(cs, 'complexity', 'complex') == 'simple')]
     prompts = []
     prune_cases = []
-    for cs in active:
+    for cs in prune_active:
         if not cs.triples or not hasattr(cs, '_triple_gte') or not cs._triple_gte:
             # Fallback: top-3 GTE for each step
             cs.step_relations = []

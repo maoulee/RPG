@@ -141,11 +141,15 @@ async def run_stage_mode(cases_to_run, args):
                     overridden += 1
             print(f"  GT anchor: overridden {overridden}/{total} anchors")
 
+        adaptive_routing = getattr(args, 'adaptive_routing', False)
+
         if not inject_map:
             decomp_mode = getattr(args, 'decomp', 'cascade')
             if decomp_mode == 'cascade':
                 allow_1step = getattr(args, 'allow_1step', False)
-                await stage_1_cascade_decomposition(session, case_states, allow_1step=allow_1step)
+                await stage_1_cascade_decomposition(
+                    session, case_states, allow_1step=allow_1step,
+                    adaptive_routing=adaptive_routing)
             else:
                 await stage_1_decomposition(session, case_states)
                 # Stage 1.5 retry: uses V1 chain prompt to retry 1-step decompositions.
@@ -153,7 +157,8 @@ async def run_stage_mode(cases_to_run, args):
 
         if decomp_mode in ('cascade', 'triple'):
             # Cascade/triple pipeline: combined GTE + prune per triple
-            await stage_2_gte_and_prune(session, case_states)
+            await stage_2_gte_and_prune(
+                session, case_states, adaptive_routing=adaptive_routing)
         else:
             # Old pipeline: separate entity resolution, GTE, and prune
             await stage_2_entity_resolution(session, case_states)
@@ -175,6 +180,21 @@ async def run_stage_mode(cases_to_run, args):
                 await stage_4_relation_pruning(session, case_states)
         await stage_5_graph_traversal(case_states)
 
+        # ── Adaptive routing: SIMPLE→COMPLEX fallback promotion ──
+        # Any SIMPLE case that failed Stage5 (no anchor / no paths / needs direct
+        # answer) is promoted to COMPLEX and runs the remaining complex stages.
+        # Safe-by-construction: worst case = today's behavior.
+        if adaptive_routing:
+            promoted = 0
+            for cs in case_states:
+                if (cs.active and getattr(cs, 'complexity', 'complex') == 'simple'
+                        and (cs.anchor_idx is None or not cs.paths
+                             or getattr(cs, 'needs_direct_answer', False))):
+                    cs.complexity = "complex"
+                    promoted += 1
+            if promoted:
+                print(f"    Adaptive fallback: {promoted} SIMPLE cases promoted to COMPLEX")
+
         # Compute logical_paths early for pattern-based explosion detection
         for cs in case_states:
             if cs.active and cs.paths:
@@ -183,9 +203,36 @@ async def run_stage_mode(cases_to_run, args):
                 cs.logical_paths = compress_paths(
                     cs.paths, cs.ents, cs.rels, cs.anchor_idx, bp_indices)
 
-        await stage_6_diagnosis_retry(session, case_states)
-        await stage_7_path_selection(session, case_states)
-        await stage_8_answer_reasoning(session, case_states)
+        if adaptive_routing:
+            # Group-based routing: SIMPLE cases skip Stage 6 (diagnosis) and
+            # Stage 7 (path-select). A SIMPLE 1-hop case has a single logical
+            # pattern, so set cs.selected_paths = [0] (or all indices if no
+            # logical_paths yet) to give Stage8 evidence. Stage8 already has a
+            # re-select fallback for empty selected_paths.
+            simple_group = [cs for cs in case_states
+                            if cs.active and getattr(cs, 'complexity', 'complex') == 'simple']
+            complex_group = [cs for cs in case_states
+                             if cs.active and getattr(cs, 'complexity', 'complex') == 'complex']
+
+            # For SIMPLE cases that still lack selected_paths, set a safe default
+            for cs in simple_group:
+                if not cs.selected_paths:
+                    if cs.logical_paths:
+                        cs.selected_paths = [0]
+                    elif cs.paths:
+                        cs.selected_paths = [0]
+                    else:
+                        cs.selected_paths = []
+
+            if complex_group:
+                await stage_6_diagnosis_retry(session, complex_group)
+                await stage_7_path_selection(session, complex_group)
+            # SIMPLE group skips Stage 6 + Stage 7
+            await stage_8_answer_reasoning(session, case_states)
+        else:
+            await stage_6_diagnosis_retry(session, case_states)
+            await stage_7_path_selection(session, case_states)
+            await stage_8_answer_reasoning(session, case_states)
 
     wall_time = _time.perf_counter() - wall_start
 

@@ -46,8 +46,8 @@ async def amain():
                         help="Number of relations to keep per step after pruning (default: 5)")
     parser.add_argument("--rerank-model", default=os.environ.get("RERANK_MODEL", "Qwen3-Reranker-0.6B"),
                         help="Reranker model path (Qwen3-Reranker-0.6B)")
-    parser.add_argument("--reason-style", choices=["default", "check", "ecot", "entity", "entity-lite", "v2", "v3"], default="v2",
-                        help="Stage 8 prompt style: 'v2' (fast 2-step), 'v3' (cardinality-aware over-output), 'default', 'check', 'ecot', 'entity', 'entity-lite'")
+    parser.add_argument("--reason-style", choices=["default", "check", "ecot", "entity", "entity-lite", "v2", "v3", "agent", "free"], default="v2",
+                        help="Stage 8 prompt style: 'v2' (fast 2-step), 'v3' (cardinality-aware over-output), 'default', 'check', 'ecot', 'entity', 'entity-lite', 'agent' (AGENTS.md + skill docs), 'free' (minimal rules, free reasoning)")
     parser.add_argument("--inject-decomp", default=None,
                         help="Path to golden results JSON. Injects Stage 0/1/1.5 outputs from golden, skipping LLM calls for those stages.")
     parser.add_argument("--skip-ner", action="store_true",
@@ -62,6 +62,11 @@ async def amain():
                         help="Decomposition mode: 'v2' (default chain), 'cascade' (two-step sub-q -> triples)")
     parser.add_argument("--dataset", choices=["cwq", "webqsp"], default=None,
                         help="Dataset preset: overrides decomp/topk/skip-ner/allow-1step with tuned defaults")
+    parser.add_argument("--adaptive-routing", action="store_true", default=False,
+                        help="Enable adaptive complexity routing: SIMPLE (1-hop, no constraint) "
+                             "cases take a shortcut (skip LLM prune, Stage6 diagnosis, Stage7 "
+                             "path-select) and use the synthesize_simple prompt. COMPLEX cases "
+                             "run the full pipeline unchanged. Default off = today's behavior.")
     args = parser.parse_args()
 
     # ── Dataset auto-detection ──

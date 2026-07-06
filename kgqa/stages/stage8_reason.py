@@ -13,6 +13,7 @@ from typing import Any, Dict, List
 
 from kgqa.core.case_state import CaseState
 from kgqa.core.config import REASON_STYLE
+from kgqa.agent.loader import build_agent_reason_prompt
 from kgqa.core.utils import (
     normalize,
     candidate_hit,
@@ -547,6 +548,74 @@ Multiple: <answer>\\boxed{{e1}} \\boxed{{e2}}</answer>
 No valid entity: <answer>None</answer>
 NO text after </answer> tag."""
     system = "You are a precise graph QA system using per-candidate constraint verification. First identify answer type and constraints, then check EACH candidate against type + explicit + implicit constraints, then output ALL passing candidates. Any entity in GRAPH EVIDENCE is valid, not just CANDIDATE ENTITIES. NEVER decide answer count before checking all candidates. Over-output is better than discarding."
+    return reason_prompt, system
+
+
+def _build_simple_reason_prompt(cs, pattern_text, answer_type_hint, rewritten_hint):
+    """SIMPLE-route (1-hop direct lookup) prompt.
+
+    Minimal capability frame: the model just picks the answer entity from the
+    graph evidence. Shares the SAME <answer>\\boxed{...}</answer> contract the
+    existing _extract_llm_answer parser reads — no parser changes needed.
+    """
+    cand_list = ", ".join(cs.answer_candidates[:20]) if cs.answer_candidates else "No candidates"
+
+    reason_prompt = f"""
+QUESTION: {cs.question}
+{answer_type_hint}{rewritten_hint}
+
+GRAPH EVIDENCE:
+{pattern_text}
+
+CANDIDATE ENTITIES:
+{cand_list}
+
+This is a direct one-hop lookup. Identify which candidate entity (or entities) the evidence directly shows as the answer to the question, respecting any constraint stated in the question. Use only the graph evidence; copy entity strings verbatim (use full entity names, never bare years or Freebase IDs). If multiple candidates qualify, list them all.
+
+<answer>\\boxed{{exact entity}}</answer>
+Multiple: <answer>\\boxed{{e1}} \\boxed{{e2}}</answer>
+None: <answer>None</answer>
+NO text after </answer> tag.
+"""
+    system = ("You are a precise knowledge-graph QA engine. Decide only from "
+              "the graph evidence provided; reason freely, then emit the answer "
+              "in the <answer> tag with \\boxed{}.")
+    return reason_prompt, system
+
+
+def _build_free_reason_prompt(cs, pattern_text, answer_type_hint, rewritten_hint):
+    """Minimal-constraint FREE-reasoning prompt.
+
+    The user's hypothesis: with sufficient evidence + a capable model, stripping the
+    reasoning template/cardinality rules and letting the model reason freely beats the
+    rigid v2 method. Keeps ONLY the output-essential rules: entity fidelity, time→event
+    name, and the <answer>\\boxed{} format. Shares the existing parser (no parser change).
+    """
+    cand_list = ", ".join(cs.answer_candidates[:20]) if cs.answer_candidates else "No candidates"
+    reason_prompt = f"""
+QUESTION: {cs.question}
+{answer_type_hint}{rewritten_hint}
+
+GRAPH EVIDENCE:
+{pattern_text}
+
+CANDIDATE ENTITIES:
+{cand_list}
+
+Based on the graph evidence above, determine the answer to the question. Reason about it however you find most natural — there is no required reasoning format or step structure.
+
+Rules:
+- The answer must be an entity that appears in the graph evidence. Copy it verbatim (use the full entity name).
+- For a "when"-type question, answer with the event NAME (e.g. "2014 World Series"), not a raw year.
+- If multiple entities satisfy the question, list all of them. If none satisfies, answer None.
+
+<answer>\\boxed{{exact entity}}</answer>
+Multiple: <answer>\\boxed{{e1}} \\boxed{{e2}}</answer>
+None: <answer>None</answer>
+NO text after </answer> tag.
+"""
+    system = ("You are a knowledge-graph QA engine. Decide only from the graph evidence; "
+              "reason freely, then emit the answer entity in the <answer> tag.")
     return reason_prompt, system
 
 
@@ -1111,7 +1180,37 @@ Note: Graph triples could not be extracted, but answer candidates are available 
             rewritten_hint = f"\nRewritten: {cs.rewritten_question}"
 
         # --- Dispatch prompt construction by REASON_STYLE ---
-        if REASON_STYLE == "entity-lite":
+        # Agent mode (--reason-style agent): system = AGENTS.md, user = the
+        # reason_simple / reason_complex skill doc + turn inputs. The loader
+        # picks the skill by cs.complexity. Same <answer>\boxed{}</answer>
+        # contract, no parser change. Takes over both SIMPLE and COMPLEX.
+        if REASON_STYLE == "agent":
+            system_msg, reason_prompt = build_agent_reason_prompt(
+                cs, pattern_text, answer_type_hint, rewritten_hint)
+            cs.llm_reasoning_prompt = reason_prompt
+            prompts.append([
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": reason_prompt},
+            ])
+        elif REASON_STYLE == "free":
+            reason_prompt, system_msg = _build_free_reason_prompt(
+                cs, pattern_text, answer_type_hint, rewritten_hint)
+            cs.llm_reasoning_prompt = reason_prompt
+            prompts.append([
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": reason_prompt},
+            ])
+        # Adaptive routing (non-agent): SIMPLE cases use the minimal synthesize_simple
+        # prompt. The else-branch keeps the COMPLEX dispatch byte-identical to today.
+        elif getattr(cs, 'complexity', 'complex') == "simple":
+            reason_prompt, system_msg = _build_simple_reason_prompt(
+                cs, pattern_text, answer_type_hint, rewritten_hint)
+            cs.llm_reasoning_prompt = reason_prompt
+            prompts.append([
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": reason_prompt},
+            ])
+        elif REASON_STYLE == "entity-lite":
             reason_prompt, system_msg = _build_entity_lite_prompt(cs, pattern_text, answer_type_hint, rewritten_hint)
             cs.llm_reasoning_prompt = reason_prompt
             prompts.append([

@@ -96,6 +96,7 @@ class CaseState:
     active: bool = True
     error: Optional[str] = None
     stage_times: Dict[str, float] = field(default_factory=dict)
+    complexity: str = "complex"  # "simple" | "complex" (set by adaptive router)
 
     # Stage 1a: Entity analysis output
     _1a_prompt: Optional[str] = None  # actual input prompt sent for 1a

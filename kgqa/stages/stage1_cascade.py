@@ -326,11 +326,46 @@ def _build_steps_from_triples(triples: List[Dict], sub_questions: List[str],
 
 
 # ---------------------------------------------------------------------------
+# Adaptive complexity router
+# ---------------------------------------------------------------------------
+
+# Constraint keywords that promote a 1-hop-shaped question to COMPLEX
+# (superlative / temporal / negation / cardinality / ordinal).
+_CONSTRAINT_KEYWORDS = (
+    "before", "after", "during", "most", "largest", "biggest",
+    "oldest", "youngest", "first", "last", "how many", "not ",
+)
+
+
+def classify_complexity(cs: CaseState) -> str:
+    """Deterministic, zero-LLM router. SIMPLE iff all of:
+      - exactly 1 sub-question
+      - no pathentity / explicit endpoint role
+      - question has no constraint keyword
+    COMPLEX otherwise.
+    """
+    if len(cs.sub_questions) != 1:
+        return "complex"
+
+    # Any endpoint role beyond the anchor means an extra fixed entity → COMPLEX
+    for er in cs.entity_roles:
+        if er.get("role") == "pathentity":
+            return "complex"
+
+    q_lower = (cs.question or "").lower()
+    if any(kw in q_lower for kw in _CONSTRAINT_KEYWORDS):
+        return "complex"
+
+    return "simple"
+
+
+# ---------------------------------------------------------------------------
 # Stage 1 cascade: main entry point
 # ---------------------------------------------------------------------------
 
 async def stage_1_cascade_decomposition(session, cases: List[CaseState],
-                                          allow_1step: bool = False):
+                                          allow_1step: bool = False,
+                                          adaptive_routing: bool = False):
     """Two-step cascade: sub-question decomposition -> triple generation.
 
     Populates cs.steps, cs.triples, cs.entity_roles, cs.answer_variable,
@@ -546,6 +581,20 @@ async def stage_1_cascade_decomposition(session, cases: List[CaseState],
         # Store raw for debugging
         if not cs.decomp_raw or "[STEP 2]" not in cs.decomp_raw:
             cs.decomp_raw = (cs.decomp_raw or "") + "\n\n[STEP 2]\n"
+
+    # ── Adaptive routing: classify each active case as simple/complex ──
+    # Zero-LLM classifier using fields already finalized above.
+    # When adaptive_routing is off, every case stays complexity="complex"
+    # (the CaseState default), so downstream behavior is byte-identical to today.
+    if adaptive_routing:
+        n_simple = 0
+        for cs in active:
+            if not cs.active:
+                continue
+            cs.complexity = classify_complexity(cs)
+            if cs.complexity == "simple":
+                n_simple += 1
+        print(f"    Adaptive routing: {n_simple}/{len(active)} cases routed SIMPLE")
 
     dt = time.perf_counter() - _t0
     for cs in active:

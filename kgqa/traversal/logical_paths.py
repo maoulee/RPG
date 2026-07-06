@@ -1,12 +1,48 @@
 """Logical path construction and materialization for mode-level traversal."""
 from __future__ import annotations
 
+import os
 from collections import defaultdict
 from typing import List, Optional
 
 from kgqa.core.utils import normalize
 from kgqa.traversal.cvt import is_cvt_like
 from kgqa.traversal.path_utils import compress_paths, _is_noisy_path_relation
+
+
+# Directional traversal switch. Freebase stores directed relations as distinct
+# names (e.g. location.location.contains vs location.location.containedby) with
+# NO .inv twin, so building an undirected adjacency (adding the reverse edge
+# h<-t) is semantically wrong: it turns "A containedby B" (A belongs to B) into
+# a bogus "B containedby A". Set KGQA_DIRECTED_TRAVERSAL=1 to respect edge
+# direction (only h -> t), which removes the hub-snowball noise (e.g. Pacific
+# Ocean's dozens of contained islands pulled in when traversing containedby).
+DIRECTED_TRAVERSAL = os.getenv("KGQA_DIRECTED_TRAVERSAL", "0") == "1"
+
+
+def _build_adj(h_ids, r_ids, t_ids, with_edge_idx=False, skip_rel_ids=None):
+    """Build the traversal adjacency.
+
+    When DIRECTED_TRAVERSAL is set, edges are directed (h -> t only). Otherwise
+    undirected (both directions), preserving the original behavior.
+    """
+    adj = {}
+    skip = skip_rel_ids or set()
+    if with_edge_idx:
+        for edge_idx, (h, r, t) in enumerate(zip(h_ids, r_ids, t_ids)):
+            if r in skip:
+                continue
+            adj.setdefault(h, []).append((t, r, edge_idx))
+            if not DIRECTED_TRAVERSAL:
+                adj.setdefault(t, []).append((h, r, edge_idx))
+    else:
+        for h, r, t in zip(h_ids, r_ids, t_ids):
+            if r in skip:
+                continue
+            adj.setdefault(h, []).append((t, r))
+            if not DIRECTED_TRAVERSAL:
+                adj.setdefault(t, []).append((h, r))
+    return adj
 
 
 def _extract_candidate_names_from_paths(paths, ents, anchor_idx, breakpoint_indices, limit=20):
@@ -60,12 +96,7 @@ def build_mode_level_logical_paths(anchor_idx, step_relations, h_ids, r_ids, t_i
             if _is_noisy_path_relation(rname):
                 noisy_rel_ids.add(ri)
 
-    adj = {}
-    for edge_idx, (h, r, t) in enumerate(zip(h_ids, r_ids, t_ids)):
-        if r in noisy_rel_ids:
-            continue
-        adj.setdefault(h, []).append((t, r, edge_idx))
-        adj.setdefault(t, []).append((h, r, edge_idx))
+    adj = _build_adj(h_ids, r_ids, t_ids, with_edge_idx=True, skip_rel_ids=noisy_rel_ids)
 
     def _hit_paths(state, target_rels, step_idx):
         nodes = state["nodes"]
@@ -274,10 +305,7 @@ def materialize_selected_logical_patterns(selected_patterns, ents, rels_list,
     if not selected_patterns or anchor_idx is None:
         return selected_patterns
 
-    adj = {}
-    for edge_idx, (h, r, t) in enumerate(zip(h_ids, r_ids, t_ids)):
-        adj.setdefault(h, []).append((t, r, edge_idx))
-        adj.setdefault(t, []).append((h, r, edge_idx))
+    adj = _build_adj(h_ids, r_ids, t_ids, with_edge_idx=True)
 
     materialized = []
     for lp in selected_patterns:
