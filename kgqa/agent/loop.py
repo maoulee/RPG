@@ -162,11 +162,57 @@ def build_context(sample: Dict[str, Any], pilot_row: Dict[str, Any], idx: int) -
 
 
 def _resolve_anchor(ctx: CaseContext):
-    """Resolve the anchor from the sample's q_entity, mirroring stage1_cascade.
+    """Resolve the anchor from the model's LLM analysis (preferred) or fallback
+    to q_entity heuristic.
 
-    Exact normalized match first, then substring (len>=3), then fallback to the
-    first q_entity / first entity. Sets ctx.anchor_idx and ctx.anchor_name.
+    The model picks ``anchor`` and ``endpoints`` during decompose (stored on
+    AgentState). This function resolves the model's choice to graph idx:
+      - anchor name → ctx.anchor_idx / ctx.anchor_name
+      - endpoint names → ctx.breakpoints (entity_name → idx)
+
+    If the model didn't pick an anchor (empty/None), fall back to the q_entity
+    heuristic: first q_entity that matches an entity in ctx.ents (exact, then
+    substring len>=3). This mirrors stage1_cascade but is ONLY a fallback — the
+    LLM's ambiguity analysis is authoritative.
     """
+    # 1. Try model-chosen anchor first (LLM ambiguity analysis)
+    model_anchor = getattr(ctx, '_model_anchor', None) or ""
+    if model_anchor:
+        mn = normalize(model_anchor)
+        if mn:
+            for i, e in enumerate(ctx.ents):
+                if normalize(e) == mn:
+                    ctx.anchor_idx = i
+                    ctx.anchor_name = ctx.ents[i]
+                    break
+            if ctx.anchor_idx is None:
+                for i, e in enumerate(ctx.ents):
+                    en = normalize(e)
+                    if len(mn) >= 3 and (mn in en or en in mn):
+                        ctx.anchor_idx = i
+                        ctx.anchor_name = ctx.ents[i]
+                        break
+            if ctx.anchor_idx is not None:
+                # Resolve endpoints (model-chosen constraint entities)
+                model_eps = getattr(ctx, '_model_endpoints', None) or []
+                for ep_name in model_eps:
+                    epn = normalize(str(ep_name))
+                    if not epn:
+                        continue
+                    for i, e in enumerate(ctx.ents):
+                        if normalize(e) == epn and i != ctx.anchor_idx:
+                            ctx.breakpoints[ep_name] = i
+                            break
+                    else:
+                        # substring fallback for endpoints
+                        for i, e in enumerate(ctx.ents):
+                            en = normalize(e)
+                            if len(epn) >= 3 and (epn in en or en in epn) and i != ctx.anchor_idx:
+                                ctx.breakpoints[ep_name] = i
+                                break
+                return
+
+    # 2. Fallback: q_entity heuristic (only if model didn't pick an anchor)
     q_entities = ctx.sample.get("q_entity", []) or []
     if q_entities:
         for qe in q_entities:

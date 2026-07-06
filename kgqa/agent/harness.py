@@ -1,9 +1,10 @@
-"""Tool-call ORDER state machine for the native tool-calling agent.
+"""Tool-call ORDER state machine for the agent.
 
 Enforces the strict sequence:
-    INIT  → only `decompose`        (stores facts[])
-    RETRIEVE → only `retrieve`      (one fact_id per call; tracks coverage)
-    SELECT → only `select`          (exactly once)
+    INIT  → only `decompose`        (stores facts[], anchor, endpoints; runs GTE)
+    RETRIEVE → optional `retrieve`  (fallback to re-fetch a fact's candidates)
+    SELECT_RELATIONS → only `select_relations`  (picks relations + traverses)
+    EXPAND → `expand_branches` (0-N) or `answer`
     ANSWER → only `answer`          (terminal)
 
 Any out-of-order, skipped, or merged call is REJECTED with a guidance message.
@@ -18,15 +19,14 @@ from typing import Optional
 
 # State constants
 INIT = "INIT"
-RETRIEVE = "RETRIEVE"
-SELECT_RELATIONS = "SELECT_RELATIONS"
-SELECT = "SELECT"
+RETRIEVE = "RETRIEVE"          # optional fallback (re-retrieve with new hint)
+SELECT_RELATIONS = "SELECT_RELATIONS"  # select relations + traverse (merged)
 EXPAND = "EXPAND"
 ANSWER = "ANSWER"
 DONE = "DONE"
 
 # Order, for the "allowed next" hint
-_ORDER = [INIT, RETRIEVE, SELECT_RELATIONS, SELECT, EXPAND, ANSWER]
+_ORDER = [INIT, RETRIEVE, SELECT_RELATIONS, EXPAND, ANSWER]
 
 
 @dataclass
@@ -38,7 +38,9 @@ class AgentState:
     fact_satisfies: dict = field(default_factory=dict)  # id -> constraint text (if fact materializes a condition)
     fact_start_types: dict = field(default_factory=dict)  # id -> start_type (anchor name for f1, type noun for f2+)
     fact_start_entities: dict = field(default_factory=dict)  # id -> start_entity (only for multi-anchor chain roots)
-    retrieved: list = field(default_factory=list)      # fact_ids already retrieved
+    anchor: Optional[str] = None                       # model-chosen anchor entity name
+    endpoints: list = field(default_factory=list)      # model-chosen endpoint entity names (constraints)
+    retrieved: list = field(default_factory=list)      # fact_ids already retrieved (via fallback retrieve)
     n_selects: int = 0
     n_decomposes: int = 0
     terminal_answer: Optional[str] = None              # set when answer accepted
@@ -172,58 +174,61 @@ def validate(state: AgentState, tool_calls) -> tuple:
         state.fact_satisfies = satisfies
         state.fact_start_types = start_types
         state.fact_start_entities = start_entities
+        # Model-chosen anchor and endpoints (LLM ambiguity analysis). The
+        # system resolves these to graph idx in loop.py after validate().
+        state.anchor = args.get("anchor") or None
+        eps = args.get("endpoints")
+        state.endpoints = list(eps) if isinstance(eps, list) else ([eps] if eps else [])
         state.n_decomposes += 1
-        state.state = RETRIEVE
+        # decompose now includes GTE candidates inline → skip RETRIEVE, go
+        # straight to SELECT_RELATIONS. (retrieve remains available as a
+        # fallback via the RETRIEVE state if the model re-enters it.)
+        state.state = SELECT_RELATIONS
         return (True, "", state)
 
-    # ── RETRIEVE: only retrieve, one fact_id per call ──
+    # ── RETRIEVE: optional fallback (re-retrieve with a new hint) ──
+    # Only reached if the model explicitly calls retrieve after decompose
+    # (e.g. GTE candidates were structurally pruned to empty and the model
+    # wants to retry with a different relation_hint). In the normal flow,
+    # decompose already returns GTE candidates and this state is skipped.
     if state.state == RETRIEVE:
+        if name == "select_relations":
+            state.state = EXPAND
+            return (True, "", state)
         if name != "retrieve":
             return (False,
-                    f"Wrong order: '{name}' called during retrieve phase. "
-                    f"Still need to retrieve facts: {state.pending_facts or '(none)'}. "
-                    "Call `retrieve` for each remaining fact before `select`.",
+                    f"Wrong order: '{name}' during retrieve fallback. "
+                    "Call `retrieve` to re-fetch a fact's candidates with a new "
+                    "hint, or `select_relations` to proceed.",
                     state)
-        fid = args.get("fact_id")
-        if fid is None:
-            return (False,
-                    "retrieve missing `fact_id`. Call retrieve with a single fact_id "
-                    f"from: {state.pending_facts or state.fact_ids}.",
-                    state)
-        fid = str(fid)
-        if fid not in state.fact_ids:
+        fid = str(args.get("fact_id", ""))
+        if not fid or fid not in state.fact_ids:
             return (False,
                     f"retrieve fact_id '{fid}' is unknown. Valid ids: {state.fact_ids}.",
                     state)
-        if fid in state.retrieved:
-            return (False,
-                    f"fact_id '{fid}' already retrieved. Remaining: {state.pending_facts}. "
-                    "Do not retrieve the same fact twice.",
-                    state)
-        # Accept this retrieve
-        state.retrieved.append(fid)
-        if not state.pending_facts:
-            state.state = SELECT_RELATIONS
+        if fid not in state.retrieved:
+            state.retrieved.append(fid)
         return (True, "", state)
 
-    # ── SELECT_RELATIONS: only select_relations, exactly once ──
+    # ── SELECT_RELATIONS: select relations + traverse (merged) ──
+    # select_relations now ALSO runs the graph traversal (formerly the
+    # separate `select` tool) and returns the evidence tree inline. So
+    # after select_relations the model goes straight to EXPAND.
     if state.state == SELECT_RELATIONS:
+        if name == "retrieve":
+            # Allow retrieve as a fallback even here
+            fid = str(args.get("fact_id", ""))
+            if fid and fid not in state.retrieved:
+                state.retrieved.append(fid)
+            return (True, "", state)
         if name != "select_relations":
             return (False,
                     f"Wrong order: '{name}' called before select_relations. "
                     "Call `select_relations` once to pick the relation chain "
-                    "from each fact's candidates, then `select`.",
+                    "from each fact's candidates. The system will traverse "
+                    "automatically and return the evidence tree.",
                     state)
-        state.state = SELECT
-        return (True, "", state)
-
-    # ── SELECT: only select, exactly once ──
-    if state.state == SELECT:
-        if name != "select":
-            return (False,
-                    f"Wrong order: '{name}' called before select. "
-                    "Call `select` once to materialise the evidence, then `answer`.",
-                    state)
+        # select_relations now also runs traverse → go straight to EXPAND
         state.n_selects += 1
         state.state = EXPAND
         return (True, "", state)
@@ -269,10 +274,9 @@ def _allowed_hint(state: AgentState) -> str:
     if state.state == INIT:
         return "`decompose`"
     if state.state == RETRIEVE:
-        pend = state.pending_facts
-        return f"`retrieve` for fact_id(s) {pend}" if pend else "`retrieve`"
-    if state.state == SELECT:
-        return "`select`"
+        return "`retrieve` (fallback) or `select_relations`"
+    if state.state == SELECT_RELATIONS:
+        return "`select_relations` (picks relations + traverses the graph)"
     if state.state == EXPAND:
         return "`expand_branches(['1','2'])` or `answer`"
     if state.state == ANSWER:

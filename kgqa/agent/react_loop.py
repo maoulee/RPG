@@ -55,6 +55,13 @@ class ReactCase:
     def _init_messages(self):
         sys_prompt = agents_md()
         user = f"Question: {self.ctx.question}"
+        # Provide the known entities list so the model can do anchor/endpoint
+        # analysis during decompose (pick the lowest-ambiguity concrete entity
+        # as anchor, skip generic type words, mark constraint entities as
+        # endpoints). This mirrors stage's ENTITY_ANALYSIS_PROMPT.
+        q_ents = self.ctx.sample.get("q_entity", []) or []
+        if q_ents:
+            user += f"\nKnown entities: {q_ents}"
         if self.ctx.anchor_name:
             user += f"\nAnchor entity (starting point): {self.ctx.anchor_name}"
         self.messages = [
@@ -461,6 +468,14 @@ async def run_react_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
         rc.ctx.fact_satisfies = dict(getattr(rc.state, "fact_satisfies", {}) or {})
         rc.ctx.fact_start_types = dict(getattr(rc.state, "fact_start_types", {}) or {})
         rc.ctx.fact_start_entities = dict(getattr(rc.state, "fact_start_entities", {}) or {})
+        # Sync model-chosen anchor/endpoints so _resolve_anchor can use them.
+        # Done right after decompose validate, before dispatch runs GTE.
+        rc.ctx._model_anchor = getattr(rc.state, "anchor", None) or ""
+        rc.ctx._model_endpoints = list(getattr(rc.state, "endpoints", []) or [])
+        if tool_name == "decompose":
+            # Re-resolve anchor/endpoints now that the model has chosen them.
+            from kgqa.agent.loop import _resolve_anchor
+            _resolve_anchor(rc.ctx)
 
         try:
             result_str = await T.dispatch(tool_name, parsed_args, rc.ctx, session)

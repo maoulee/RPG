@@ -267,9 +267,8 @@ def tools_for_state(state_name: str) -> List[Dict[str, Any]]:
     """
     allowed = {
         "INIT": {"decompose"},
-        "RETRIEVE": {"retrieve"},
-        "SELECT_RELATIONS": {"select_relations"},
-        "SELECT": {"select"},
+        "RETRIEVE": {"retrieve", "select_relations"},  # retrieve = optional fallback
+        "SELECT_RELATIONS": {"select_relations", "retrieve"},  # retrieve = fallback
         "EXPAND": {"expand_branches", "answer"},
         "ANSWER": {"answer"},
         "DONE": set(),
@@ -294,16 +293,17 @@ def _json_result(payload: Any) -> str:
 async def dispatch(tool_name: str, args: Dict[str, Any], ctx, session) -> str:
     """Execute one accepted tool. Returns a JSON-serializable result string."""
     if tool_name == "decompose":
-        return _json_result({"facts": args.get("facts", []),
-                             "conditions": args.get("conditions", [])})
+        return await _do_decompose(args, ctx, session)
 
     if tool_name == "retrieve":
         return await _do_retrieve(args, ctx, session)
 
     if tool_name == "select_relations":
-        return _do_select_relations(args, ctx)
+        return await _do_select_relations(args, ctx, session)
 
     if tool_name == "select":
+        # Legacy: select is now merged into select_relations, but keep for
+        # backward compat with any trajectory that calls it directly.
         return await _do_select(ctx)
 
     if tool_name in ("expand_branch", "expand_branches"):
@@ -313,6 +313,108 @@ async def dispatch(tool_name: str, args: Dict[str, Any], ctx, session) -> str:
         return _do_answer(args, ctx)
 
     return _json_result({"error": f"unknown tool: {tool_name}"})
+
+
+async def _gte_for_fact(ctx, session, fact_id, hint):
+    """Run GTE retrieve + structural prune for one fact. Returns (candidates, gte_raw).
+
+    Mirrors _do_retrieve's candidate construction (start_type + last-two schema
+    segments) and structural pruning. If structural prune yields empty, falls
+    back to the raw GTE top-15 (relations outside 2-hop scope are better than
+    no candidates).
+    """
+    scope_rel_ids = _chained_source_rel_ids(ctx, fact_id)
+    start_type = ctx.fact_start_types.get(fact_id) or ctx.anchor_name or ""
+    if start_type:
+        cand_texts = []
+        for ri, rid in enumerate(ctx.rels):
+            if ri in scope_rel_ids:
+                parts = rid.split('.')
+                tail = ' '.join(p.replace('_', ' ') for p in parts[-2:])
+                cand_texts.append(f"{start_type} {tail}")
+            else:
+                cand_texts.append(rid)
+    else:
+        cand_texts = ctx.rel_texts
+    try:
+        rows = await gte_retrieve(
+            session, hint, ctx.rels,
+            candidate_texts=cand_texts, top_k=15)
+    except Exception as _e:
+        # Log the error so GTE failures are visible (don't silently return empty)
+        import sys as _sys
+        print(f"  GTE error in _gte_for_fact({fact_id}): {_e}", file=_sys.stderr)
+        return [], []
+    gte_rel_ids = []
+    gte_raw = []
+    for r in rows:
+        rid = r.get("candidate")
+        idx = r.get("index")
+        # GTE returns either an int index or the candidate value itself.
+        # If index is present and valid, use it; otherwise look up by name.
+        if isinstance(idx, int) and 0 <= idx < len(ctx.rels):
+            gte_rel_ids.append(idx)
+            gte_raw.append(ctx.rels[idx])
+        elif isinstance(rid, str) and rid in ctx.rels:
+            ri = ctx.rels.index(rid)
+            gte_rel_ids.append(ri)
+            gte_raw.append(rid)
+        elif isinstance(rid, int) and 0 <= rid < len(ctx.rels):
+            gte_rel_ids.append(rid)
+            gte_raw.append(ctx.rels[rid])
+    # Structural prune: keep only relations in the fact's chained scope
+    pruned = [ri for ri in gte_rel_ids if ri in scope_rel_ids]
+    # Fallback: if prune is empty, use raw GTE (better than nothing)
+    if not pruned:
+        pruned = gte_rel_ids
+    return pruned, gte_raw
+
+
+async def _do_decompose(args: Dict[str, Any], ctx, session) -> str:
+    """Decompose the question into facts + run GTE retrieve for each fact.
+
+    Merges the old decompose + retrieve into one step: the model writes facts
+    (each with relation_hint), and the system immediately runs GTE semantic
+    search for each fact's hint, returning the structurally-pruned candidate
+    relations inline. The model then calls select_relations to pick from these.
+
+    The model also outputs `anchor` and optional `endpoints` (LLM ambiguity
+    analysis). These are resolved to graph idx by _resolve_anchor (called in
+    react_loop after validate). decompose itself just echoes them back.
+
+    If structural pruning yields empty for a fact (relations outside 2-hop
+    scope), falls back to raw GTE top-15 so the model always has candidates.
+    """
+    facts = args.get("facts", [])
+    anchor = args.get("anchor")
+    endpoints = args.get("endpoints") or []
+    conditions = args.get("conditions", [])
+
+    # Build candidate_relations for each fact via GTE
+    candidates_per_fact = {}
+    gte_raw_per_fact = {}
+    for f in facts:
+        fid = str(f.get("id") or f.get("fact_id") or "")
+        if not fid:
+            continue
+        hint = f.get("relation_hint") or f.get("text") or ctx.question
+        cands, gte_raw = await _gte_for_fact(ctx, session, fid, hint)
+        candidates_per_fact[fid] = cands
+        gte_raw_per_fact[fid] = gte_raw
+        # Store on ctx so select_relations can validate picks
+        ctx.fact_relation_candidates[fid] = cands
+
+    return _json_result({
+        "facts": facts,
+        "conditions": conditions,
+        "anchor": anchor,
+        "endpoints": endpoints,
+        "candidates": {fid: [ctx.rels[i] for i in cands if i < len(ctx.rels)]
+                       for fid, cands in candidates_per_fact.items()},
+        "note": ("GTE candidates returned per fact. Call select_relations to "
+                 "pick the relations forming the answer chain. The system will "
+                 "traverse automatically."),
+    })
 
 
 async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
@@ -621,18 +723,32 @@ def _chained_source_rel_ids(ctx, fact_id) -> set:
     return _reachable_rel_ids_from(source, ctx)
 
 
-def _do_select_relations(args: Dict[str, Any], ctx) -> str:
-    """Model decision: pick the relation(s) forming the answer chain, per fact.
+def _compact_overview(overview: str) -> str:
+    """Secondary compaction pass on the evidence tree overview.
 
-    After retrieve, each fact has structurally-pruned candidate relations
-    (GTE-15 ∩ anchor-outgoing). The model sees these and selects which ones
-    form a coherent answer chain. This is the model's judgment on chain
-    semantics — structure only guarantees reachability, not that the chain
-    answers the question.
+    The main compaction (≤3 candidates per branch, no entity list in the
+    RETRIEVED CANDIDATES header) is done inside _do_select. This function
+    is a safety net: if _do_select produced a long overview, cap each branch
+    block's tree lines to keep the total readable. No-op if already compact.
+    """
+    # _do_select already produces compact output; this is a placeholder for
+    # future additional compaction if needed.
+    return overview
+
+
+async def _do_select_relations(args: Dict[str, Any], ctx, session) -> str:
+    """Model decision: pick the relation(s) forming the answer chain, per fact,
+    THEN run the graph traversal (formerly the separate `select` tool) and
+    return the evidence tree inline.
+
+    This merges select_relations + select into one step:
+    1. Validate the model's relation picks against each fact's candidates.
+    2. Lock the chosen relations into ctx.fact_relations.
+    3. Run stage_5_graph_traversal + build the evidence tree overview.
+    4. Return the tree (compact: ≤3 candidates per branch + ellipsis).
 
     Args:
         selections: [{"fact_id": "f1", "relations": ["people.person.parents"]}, ...]
-    Each relation must be among that fact's candidates (validated).
     """
     selections = args.get("selections") or []
     if not selections:
@@ -660,12 +776,26 @@ def _do_select_relations(args: Dict[str, Any], ctx) -> str:
         if not valid_ids:
             # model picked nothing valid — keep all candidates as fallback
             chosen[fid] = set(candidates)
+            ctx.fact_relations[fid] = set(candidates)
 
-    return _json_result({
-        "selected": {fid: [ctx.rels[i] for i in ids] for fid, ids in chosen.items()},
-        "skipped_invalid": skipped,
-        "note": "relations locked. Call select to traverse the relation chain.",
-    })
+    selected_summary = {fid: [ctx.rels[i] for i in ids] for fid, ids in chosen.items()}
+
+    # ── Run the traversal (merged from _do_select) ──
+    traverse_result = await _do_select(ctx)
+
+    # Parse the traverse result to merge with selection summary
+    try:
+        traverse_obj = json.loads(traverse_result)
+    except Exception:
+        traverse_obj = {"error": "traverse failed"}
+
+    # Compact the candidate display: ≤3 per branch + ellipsis
+    if "overview" in traverse_obj:
+        traverse_obj["overview"] = _compact_overview(traverse_obj["overview"])
+
+    traverse_obj["selected"] = selected_summary
+    traverse_obj["skipped_invalid"] = skipped
+    return _json_result(traverse_obj)
 
 
 def _paths_to_preview(paths, ctx, limit: int = 10) -> List[str]:
@@ -932,9 +1062,9 @@ async def _do_select(ctx) -> str:
         }
 
         # Compose the branch block with the #N marker on the RIGHT of each leaf.
-        cand_str = ", ".join(cands[:4])
-        if len(cands) > 4:
-            cand_str += f", ... (+{len(cands) - 4})"
+        cand_str = ", ".join(cands[:3])
+        if len(cands) > 3:
+            cand_str += f", ... (+{len(cands) - 3})"
         header = (f"  branch {bid}: {pe.readable}  →  {len(cands)} candidates "
                   f"[{cand_str}]")
 
@@ -954,9 +1084,9 @@ async def _do_select(ctx) -> str:
     ctx.selected_candidates = dedup[:60]
 
     overview_text = (
-        f"RETRIEVED CANDIDATES ({len(dedup)} entities, your answer pool):\n"
-        + ", ".join(dedup[:40])
-        + f"\n\nEVIDENCE TREE (ranked by relevance; #N on the right marks each "
+        f"RETRIEVED CANDIDATES: {len(dedup)} entities in the answer pool "
+        "(expand branches to see them).\n\n"
+        f"EVIDENCE TREE (ranked by relevance; #N on the right marks each "
         "branch):\n"
         "Branches are pre-ranked by how well their relation chain aligns with "
         "your decomposed facts (most aligned, shortest paths first). ANALYZE "

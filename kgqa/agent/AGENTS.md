@@ -31,137 +31,99 @@ output a single JSON object specifying the tool and its arguments. The runtime
 extracts the JSON, executes the tool, and returns the result. Follow the
 order — the runtime rejects out-of-order calls.
 
-## The six tools — STRICT order
-1. **`decompose`** — call this FIRST and ONLY FIRST. Think step by step about how
-   to REACH the answer from the anchor entity, then emit one `fact` per step.
-   - **Reason first, then list the steps.** Read the whole question and lay out,
-     in order, the chain of single lookups that walk the knowledge graph from the
-     anchor to the answer. Use ALL the information in the question — every clue
-     (an entity, a relation, a date, a quantity, a superlative) maps to exactly
-     one step on the path. Ask yourself: "starting at the anchor, what do I look
-     up first? then what? ..." until the answer is reachable.
-   - `facts`: array of `{id, text, relation_hint, start_type}`. Give each fact a short stable
-     `id` like `"f1"`, `"f2"`. `text` is the natural-language lookup for that step.
-   - `start_type`: the **entity type this step starts from**. For `f1` this is the
-     anchor entity itself (e.g. `"France"`, `"Albert Einstein"`). For `f2+` it is
-     the TYPE that the previous step arrives at — a noun like `"country"`,
-     `"airport"`, `"person"`, `"film"`, NOT a generic placeholder like `"entity"`
-     or `"node"`. This type anchors the retrieval query so the matcher knows the
-     entity context of this hop. Walk the chain when assigning it: f1's
-     start_type is the anchor; f2's is the type f1 arrives at; f3's is the type
-     f2 arrives at; and so on.
+## The four tools — STRICT order
+1. **`decompose`** — call this FIRST and ONLY FIRST. Analyze the known entities,
+   pick the anchor + endpoints, then lay out the fact chain.
+   - **Anchor analysis (do this FIRST in your thinking):** You are given a list
+     of **Known entities** in the question prompt. Rate each by **ambiguity**
+     (how many graph neighbors it likely has):
+     - Specific names (people, events, unique titles like "Lou Seal",
+       "2008 FIFA World Cup") → **LOW ambiguity** → good anchor
+     - Generic type words ("Country", "Person", "Sport", "Time Zone",
+       "Language") → **HIGH ambiguity** → **NEVER use as anchor or endpoint**
+     Pick the **lowest-ambiguity concrete entity** as `anchor`. From the
+     remaining concrete entities, pick those that **constraint the answer path**
+     (locative "in [Place]", co-participants) as `endpoints`. Skip generic type
+     words entirely — if no entity qualifies as endpoint, leave `endpoints`
+     empty `[]`. The anchor is the traversal start; endpoints are constraint
+     entities the path should reach or pass through.
+   - **Then decompose into facts:** Think step by step about how to REACH the
+     answer from the anchor. Emit one `fact` per hop. Use ALL clues in the
+     question (entity, relation, date, quantity, superlative) — each maps to
+     exactly one step.
+   - `facts`: array of `{id, text, relation_hint, start_type}`. Give each fact
+     a short stable `id` like `"f1"`, `"f2"`. `text` is the natural-language
+     lookup for that step.
+   - `start_type`: the **entity type this step starts from**. For `f1` this is
+     the anchor entity itself (e.g. `"France"`, `"Albert Einstein"`). For `f2+`
+     it is the TYPE that the previous step arrives at — a noun like `"country"`,
+     `"airport"`, `"person"`, `"film"`, NOT a generic placeholder. Walk the
+     chain: f1's start_type is the anchor; f2's is the type f1 arrives at; etc.
    - `relation_hint`: the **specific KG relation type or precise semantic** for
      THAT step, e.g. `"profession of the person"`, `"place of birth"`,
      `"capital of the country"`, `"director of the film"`. Name the actual
      relation — not vague like `"notable_for"`, `"info about"`, `"related to"`.
    - **`relation_hint` is used for semantic relation retrieval, so write it as a
      DEFINITION of the relation (what it connects), in the form "the X of
-     <start_type>".** The `<start_type>` provides the entity context that
-     retrieval needs to match — without it the hint floats generically and
-     drifts toward high-frequency bucket words. Anchor each hint to its
-     start_type.
-     - ✓ `"the capital of a country"` (f1 — anchored to the country type)
+     <start_type>".** The `<start_type>` provides entity context for retrieval
+     matching — without it the hint drifts toward high-frequency bucket words.
+     - ✓ `"the capital of a country"` (anchored to the country type)
      - ✓ `"the airports serving a city"` (anchored to the city type)
      - ✗ `"year of most recent World Series championship won by the team"`
        (scene-specific — "World Series" pulls retrieval toward baseball noise)
-     - ✗ `"the championships of a team"` (too generic — missing entity context)
      Keep scene-specific EVENT words out (championship names, Olympics), but DO
      include the start_type so retrieval has the entity context.
+   - `anchor`: the entity name you chose as the traversal start (from Known
+     entities).
+   - `endpoints` (optional): array of entity names that constraint the answer
+     path (from Known entities). Empty `[]` if none.
    - **Two hard rules (the only constraints on the decomposition itself):**
      1. **Each fact is ONE single step** — one relation type, one hop. If a step
         needs two different lookups, it is two facts.
      2. **Steps do not overlap or merge.** Never fold two hops into one combined
-        hint (e.g. ✗ `"mascot_of_team_then_world_series_year"` is two steps:
-        `f1=team of the mascot`, `f2=most recent championship year of the team`).
-   - A question's constraint (a date like "latest", a quantity like "= 1.8", a
-     relation test like "won the championship") is itself a step that reads that
-     value off the graph — emit it as its own fact with its own `relation_hint`,
-     and you may set the optional `satisfies` field to label it (e.g.
-     `satisfies: "latest"`). If there is no such value to read, there is no extra
-     fact — just the hop chain.
+        hint (e.g. ✗ `"mascot_of_team_then_world_series_year"` is two steps).
    - **Parallel constraints** — when the answer must satisfy **≥2 independent
      attribute filters on the SAME entity** (e.g. a leader whose term started
-     before X AND ended after Y; a country whose GDP = A AND CPI = B), those
-     filters are NOT sequential hops — they read different attributes of the
-     same entity. Emit each as its own fact, but give them **sibling ids with a
-     shared step number**: `f2.1`, `f2.2` (both belong to step 2). Each gets its
-     own `relation_hint` and is retrieved/selected independently, but the
-     traversal walks them at the same level (union of relations at that step).
-     - Single chain (default): facts are `f1`, `f2`, `f3`, ... each a sequential
-       hop. No parallel constraints.
-     - Parallel constraints: when a step has ≥2 filters, split into `f{N}.1`,
-       `f{N}.2`, ... each carrying one filter. Example decomposition:
-       ```
-       Q: "[person] held which position starting before 2000 and ending after 2005?"
-       facts: [
-         {id: "f1", text: "the positions held by a person",
-          relation_hint: "the government positions of a person", start_type: "person"},
-         {id: "f2.1", text: "the start date of a position",
-          relation_hint: "the start date of a position", start_type: "position",
-          satisfies: "before_2000"},
-         {id: "f2.2", text: "the end date of a position",
-          relation_hint: "the end date of a position", start_type: "position",
-          satisfies: "after_2005"}
-       ]
-       ```
-       Here `f2.1` and `f2.2` both read attributes of the position reached by
-       `f1`; they are parallel filters at step 2, not f2→f3.
-     Reserve sibling ids for genuine parallel attribute filters on ONE entity.
-     Do NOT use them for sequential hops (f2→f3) or for two named anchors.
-   - `conditions`: residual answer filters with no KG edge (pure type /
-     intersection). Usually `[]`.
+     before X AND ended after Y), emit each as its own fact with **sibling ids
+     sharing a step number**: `f2.1`, `f2.2`. Each gets its own `relation_hint`
+     and is retrieved/selected independently, but the traversal walks them at
+     the same level (union of relations at that step). Reserve for genuine
+     parallel attribute filters on ONE entity, NOT for sequential hops.
+   - `conditions`: residual answer filters with no KG edge. Usually `[]`.
+   - **The system automatically runs GTE semantic search** for each fact's
+     `relation_hint` and returns `candidates` (structurally-pruned relation
+     lists per fact). You do NOT need to call retrieve separately — the
+     candidates come back in the decompose result. If a fact's candidates are
+     empty or wrong, you MAY call `retrieve` as a fallback with a revised hint.
 
-2. **`retrieve`** — call this ONCE PER FACT, after `decompose`. Each call takes a
-   single `fact_id` and its `relation_hint`. The system runs GTE semantic search
-   over KG relations (keeping the top-15 by similarity), then **structurally
-   prunes** to only those reachable from the anchor (intersecting with the
-   anchor's outgoing edges). This removes relations that are semantically close
-   but graph-unreachable. It returns `candidate_relations` — the pruned set for
-   this fact. You must retrieve **every** fact before you may proceed.
-
-2. **`retrieve`** — call this ONCE PER FACT, after `decompose`. Each call takes a
-   single `fact_id` and its `relation_hint`. The system runs GTE semantic search
-   over KG relations (keeping the top-15 by similarity), then **structurally
-   prunes** to only those reachable from the anchor (intersecting with the
-   anchor's outgoing edges). This removes relations that are semantically close
-   but graph-unreachable. It returns `candidate_relations` — the pruned set for
-   this fact. You must retrieve **every** fact before you may proceed.
-
-3. **`select_relations`** — call this ONCE after all facts are retrieved. You see
-   each fact's `candidate_relations` (the structurally-pruned set). **Select ALL
+2. **`select_relations`** — call this ONCE after `decompose`. You see each
+   fact's `candidates` (the structurally-pruned GTE relations). **Select ALL
    relations that are semantically plausible for this step — do NOT pick just
    one.** The traversal walks every relation you select, so keeping multiple
    plausible candidates maximizes recall: if you drop a correct relation, the
-   answer can be lost forever (there is no second chance to retrieve it). When
-   several candidate relations could express the same step (e.g. both
-   `administrative_divisions` and `administrative_children` link a country to its
-   departments), select ALL of them — the traversal handles redundancy. Only
-   exclude a relation if it is clearly irrelevant to the question. Pass
-   `selections: [{fact_id, relations: [...]}]`.
-   Example: for "where did Romney's parents come from", f1=`parents` and
-   f2=`place_of_birth` form the chain Romney→parents→[person]→place_of_birth.
+   answer can be lost forever. When several candidates could express the same
+   step, select ALL of them.
+   Pass `selections: [{fact_id, relations: [...]}]`.
+   - **The system automatically traverses the graph** over your chosen
+     relations and returns a **numbered evidence-tree overview** inline. You
+     do NOT need to call `select` separately — the tree comes back in the
+     select_relations result. Each branch shows its relation chain, candidate
+     count, and a `#N` marker. Candidate entities are NOT listed here (only
+     counts) — use `expand_branches` to see them.
 
-4. **`select`** — call this ONCE after `select_relations`. The system traverses
-   the KG over your chosen relations and returns a **numbered evidence-tree
-   overview**. Each branch shows its relation chain, its candidate count, and a
-   `#N` marker on the right side.
+3. **`expand_branches`** — call this ONCE to drill into the relevant branches
+   BEFORE answering. Select the branches whose relation chain best matches
+   your decomposed facts — **ALL branches whose relation chain could plausibly
+   match — up to 8**. Pass their numbers in a single batch call, e.g.
+   `expand_branches(['1','2'])`. It returns the MERGED evidence: CVT-expanded
+   candidate names, full `(head, relation, tail)` triples, and rendered trie.
+   **Do NOT call it one branch at a time**; pass the full list at once. You
+   may skip directly to `answer` if the overview already makes the answer
+   obvious.
 
-5. **`expand_branches`** — call this ONCE to drill into the relevant branches
-   BEFORE answering. The system already merges relation-surface duplicates, so
-   each branch you see is a distinct logical path. Select the branches whose
-   relation chain best matches your decomposed facts — **ALL branches whose relation chain could plausibly match
-   — up to 8**. More branches = more evidence, but also more tokens
-   to reason over; pick the few that align with the question, not everything.
-   Pass their numbers in a single batch call, e.g. `expand_branches(['1','2'])`.
-   It returns the MERGED evidence across those branches: the CVT-expanded
-   candidate names, the full `(head, relation, tail)` triples, and the
-   rendered trie. **Do NOT call it one branch at a time** (that wastes turns
-   and loops); pass the full list at once. You may skip directly to `answer`
-   if the overview already makes the answer obvious.
-
-6. **`answer`** — call this LAST and ONLY LAST. Reason over the expanded
-   evidence using the removal framework below, then emit entities copied
-   **verbatim** from the evidence.
+4. **`answer`** — call this LAST and ONLY LAST. Reason over the expanded
+   evidence using the FROM→WHERE→SELECT framework below, then emit entities
+   copied **verbatim** from the evidence.
 
 ## Answer reasoning (FROM → WHERE → SELECT)
 Think of the answer like a structured query. You have a candidate pool (the
