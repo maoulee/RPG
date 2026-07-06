@@ -356,6 +356,12 @@ async def sample_all(cases: List[tuple], num_samples: int, max_rounds: int,
             "S_plan": s_plan,
             "S_select": s_select,
             "S_reason": s_reason,
+            # Weighted reward for GRPO advantage: sum of three stages (0..3).
+            # Plan=did the relation choices reach the answer; Select=did the
+            # expanded paths carry it; Reason=answer F1 within reach. Each
+            # independently contributes, so partial credit is possible
+            # (e.g. plan reached but reasoning failed → total=2 not 0).
+            "total_score": (s_plan or 0) + (s_select or 0) + (s_reason or 0),
             "scorer_notes": scorer_notes,
             "agent_failed": result.get("agent_failed", False),
             "n_steps": len(result.get("agent_trajectory", [])),
@@ -426,23 +432,28 @@ def _write_and_summarize(records, output_path, wall, num_samples):
         by_case.setdefault(r["case_id"], []).append(r)
 
     # ── Classify each case into SFT / GRPO / GT-suspect ──
-    # A sample is "correct" when S_reason is at the threshold (fully correct).
-    # all-correct → SFT (pick best: highest total score, tie-break fewest steps)
-    # mixed       → GRPO (keep all samples for positive/negative pairs)
+    # "Correct" = total_score >= 3.0 (all three stages perfect: plan reached,
+    #   select carried, reason answered). Using the weighted total instead of
+    #   S_reason alone gives finer advantage: a sample that planned right but
+    #   reasoned wrong (total≈2) is distinct from one that failed everywhere
+    #   (total≈0), so GRPO advantage is not just binary.
+    # all-correct → SFT (pick best: highest total_score, tie-break fewest steps)
+    # mixed       → GRPO (keep all samples; total_score is the per-sample reward)
     # all-wrong   → GT-suspect if best S_plan≈0 (answer never reachable →
     #               GT likely not in subgraph), else genuinely-hard.
-    CORRECT = 1.0
+    FULL_SCORE = 3.0
     GT_SUSPECT_PLAN = 0.01
     sft_recs, grpo_recs, suspect = [], [], []
     for cid, recs in by_case.items():
-        reasons = [(r.get("S_reason") or 0) for r in recs]
-        if all(x >= CORRECT for x in reasons):
-            # Pick best: max total score, tie-break fewest steps.
+        totals = [(r.get("total_score") or 0) for r in recs]
+        if all(x >= FULL_SCORE for x in totals):
+            # Pick best: max total_score (usually tied at 3.0), tie-break
+            # fewest agent steps → prefer concise trajectories.
             best = max(recs, key=lambda r: (
-                (r.get("S_plan") or 0) + (r.get("S_select") or 0) + (r.get("S_reason") or 0),
+                r.get("total_score") or 0,
                 -(r.get("n_steps") or 0)))
             sft_recs.append(best)
-        elif any(x >= CORRECT for x in reasons):
+        elif any(x > 0 for x in totals):
             grpo_recs.extend(recs)
         else:
             best_plan = max((r.get("S_plan") or 0) for r in recs)
