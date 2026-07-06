@@ -67,6 +67,22 @@ def _path_relation_names(path, rels_list):
     ]
 
 
+# CVT attribute shorts with no semantic value for QA — stripped from CVT
+# display names so the model sees only meaningful attributes (dates, roles,
+# names), not Freebase bookkeeping markers like has_no_value=To.
+_NOISY_CVT_ATTR_SHORTS = {
+    "has_no_value", "no_value", "is_reviewed",
+    "type", "types", "instance", "instances",
+    "permission", "guid", "mid", "key", "keys",
+}
+
+
+def _is_noisy_cvt_attr_short(attr_pair: str) -> bool:
+    """True if a 'short=value' CVT attr pair is bookkeeping noise."""
+    key = attr_pair.split("=", 1)[0].replace(".inv", "")
+    return key in _NOISY_CVT_ATTR_SHORTS
+
+
 def _logical_path_needs_endpoint_rescue(lp, rels_list, min_depth=4):
     best = lp.get("best_raw_path") or {}
     rel_names = _path_relation_names(best, rels_list)
@@ -458,9 +474,11 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
         def _node_display(node_idx, expand_full=False):
             name = ents[node_idx] if 0 <= node_idx < len(ents) else "?"
             if is_cvt_like(name):
-                path_attrs = cvt_attrs.get(name, [])
+                path_attrs = [a for a in cvt_attrs.get(name, [])
+                              if not _is_noisy_cvt_attr_short(a)]
                 if expand_full:
-                    graph_attrs = _cvt_attr_display(node_idx)
+                    graph_attrs = [a for a in _cvt_attr_display(node_idx)
+                                   if not _is_noisy_cvt_attr_short(a)]
                     seen_a = set(path_attrs)
                     merged = list(path_attrs)
                     for a in graph_attrs:
@@ -648,7 +666,16 @@ def _render_path_tree(tree_data, max_lines=50, max_children=50, constraint_entit
             children = node["edges"][rel_name]
             lines.append(" " * indent + f"{rel_name}:")
 
-            if all(not child.get("edges") for child in children.values()):
+            # Leaf-or-CVT-only check: compress when all children are leaves,
+            # OR when all children are CVT-display nodes (their meaningful
+            # attributes already live in the display name; any edges they
+            # have are reverse back-edges that add no information and would
+            # otherwise bypass compression, leaving shared attrs duplicated
+            # across every CVT — e.g. basic_title=Prime minister repeated
+            # 10× for a list of office holders).
+            child_keys = list(children.keys())
+            all_cvt = bool(child_keys) and all(_is_cvt_display(n) for n in child_keys)
+            if all(not child.get("edges") for child in children.values()) or all_cvt:
                 child_names = sorted(children, key=lambda n: _constraint_sort_key(n))
                 if any(_is_cvt_display(child_name) for child_name in child_names):
                     shown_names = child_names[:max_children]
@@ -826,6 +853,10 @@ def format_subgraph_with_cvt(triples, max_lines=80, max_tails=50):
             "key",
             "keys",
             "permission",
+            # Freebase valuenotation markers — no semantic content for QA
+            "has_no_value",
+            "is_reviewed",
+            "no_value",
         }
         return rel_name.startswith(noisy_prefixes) or short in noisy_shorts
 

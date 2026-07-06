@@ -1048,7 +1048,7 @@ async def _do_select(ctx) -> str:
     for i, (label, pe) in enumerate(ranked, 1):
         bid = str(i)
         # Render this branch's evidence as a YAML-like trie (Stage 8 form).
-        tree_lines = _render_path_tree(pe.tree_data, max_lines=24)
+        tree_lines = _render_path_tree(pe.tree_data, max_lines=200)
 
         # Resolve the branch's candidates. pe.candidates comes from
         # compress_paths (path non-CVT nodes) and is EMPTY for CVT-terminated
