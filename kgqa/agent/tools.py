@@ -158,13 +158,13 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
         "function": {
             "name": "select_relations",
             "description": (
-                "After retrieve, each fact has structurally-pruned candidate "
-                "relations (GTE-15 intersected with anchor's reachable edges). "
-                "Pick the relation(s) that form the answer chain for each fact. "
-                "This is your judgment on chain semantics — the system only "
-                "guarantees structural reachability, you decide which relations "
-                "actually answer the question. Call ONCE after all facts are "
-                "retrieved, before select."
+                "Each fact from decompose lists its candidate_relations next to "
+                "its text/relation_hint (the step's sub-question). Read each "
+                "fact's text, then select ALL candidate relations that express "
+                "what that step asks for — the system only guarantees the "
+                "candidates are structurally reachable, you decide which ones "
+                "actually answer the step. Call ONCE after decompose; the system "
+                "traverses the chosen relations and returns the evidence tree."
             ),
             "parameters": {
                 "type": "object",
@@ -195,12 +195,9 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
         "function": {
             "name": "select",
             "description": (
-                "Traverse the KG over all facts' chosen relations and return a "
-                "numbered evidence-tree overview. Call exactly ONCE after "
-                "select_relations (or after retrieve if you skipped "
-                "select_relations). The overview shows each branch with a "
-                "right-side number (#1, #2, ...). Use expand_branches(['1','2']) to drill "
-                "into relevant branches."
+                "LEGACY — traversal now runs inline inside select_relations and "
+                "its evidence tree is returned there. This tool is kept only for "
+                "back-compat and is not offered in any active state. Do not call."
             ),
             "parameters": {
                 "type": "object",
@@ -390,7 +387,10 @@ async def _do_decompose(args: Dict[str, Any], ctx, session) -> str:
     endpoints = args.get("endpoints") or []
     conditions = args.get("conditions", [])
 
-    # Build candidate_relations for each fact via GTE
+    # Build candidate_relations for each fact via GTE, then present each fact's
+    # question text + relation_hint ALONGSIDE its candidate relations so the
+    # model can judge each candidate's relevance to that fact's specific
+    # question (rather than matching relation names against the whole question).
     candidates_per_fact = {}
     gte_raw_per_fact = {}
     for f in facts:
@@ -404,16 +404,33 @@ async def _do_decompose(args: Dict[str, Any], ctx, session) -> str:
         # Store on ctx so select_relations can validate picks
         ctx.fact_relation_candidates[fid] = cands
 
+    # Co-locate each fact's question text with its candidate relations. The
+    # model reads each fact as a unit: "this step asks for X — which of these
+    # relations expresses X?". This avoids the model matching a relation name
+    # against the whole-question wording and missing relations that carry the
+    # answer but read like attribute labels (e.g. education.institution for a
+    # "where did X go to college" question).
+    facts_with_candidates = []
+    for f in facts:
+        fid = str(f.get("id") or f.get("fact_id") or "")
+        cands = candidates_per_fact.get(fid, [])
+        facts_with_candidates.append({
+            "id": fid,
+            "text": f.get("text", ""),
+            "relation_hint": f.get("relation_hint", ""),
+            "start_type": f.get("start_type", ""),
+            "candidate_relations": [ctx.rels[i] for i in cands if i < len(ctx.rels)],
+        })
+
     return _json_result({
-        "facts": facts,
+        "facts": facts_with_candidates,
         "conditions": conditions,
         "anchor": anchor,
         "endpoints": endpoints,
-        "candidates": {fid: [ctx.rels[i] for i in cands if i < len(ctx.rels)]
-                       for fid, cands in candidates_per_fact.items()},
-        "note": ("GTE candidates returned per fact. Call select_relations to "
-                 "pick the relations forming the answer chain. The system will "
-                 "traverse automatically."),
+        "note": ("Each fact now lists its candidate_relations next to its text. "
+                 "For EACH fact, read its text/relation_hint and select ALL "
+                 "relations that express what that step asks for. Call "
+                 "select_relations with one entry per fact."),
     })
 
 
