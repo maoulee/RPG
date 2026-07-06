@@ -7,7 +7,68 @@
 
 ---
 
-## 0. Current State (2026-07-05, commit `3707cac`)
+## 0. Current State (2026-07-06, commit `63af4ee`)
+
+### Reasoning capture GAP (2026-07-06 discovery)
+
+vLLM with `thinking_token_budget` returns the model's chain-of-thought in a
+**separate `reasoning` field** on the response message — NOT inside `content`.
+Live test confirmed:
+
+```
+message keys: ['role','content','refusal','annotations','audio',
+               'function_call','tool_calls','reasoning']
+content:  "\n\nParis is the capital of France."      ← only the tool call / answer
+reasoning: "The user is asking a simple factual..."   ← the CoT (530 chars)
+```
+
+**Current `_call_single_direct` (client.py L215) returns only `content`** — the
+`reasoning` field is silently dropped. This means:
+1. **Trajectories contain NO thinking process** — only the final tool call text.
+2. Training-data generation (SFT/GRPO) would lose the reasoning entirely.
+3. Case 16's "think/tool contradiction" is actually invisible in the trajectory
+   — we only see the content (which sometimes contradicts what the reasoning
+   concluded, but we can't detect it because reasoning isn't stored).
+
+**Fix needed:** `_call_single_direct` should return `(content, reasoning)`, and
+`react_loop` should store reasoning alongside content in the trajectory — either
+as a `reasoning` key on the assistant step, or concatenated. This is a
+prerequisite for trajectory generation and for diagnosing reasoning-answer
+consistency issues.
+
+### Answer-reasoning failure analysis (2026-07-06, gold-grounded)
+
+Classified all 29 f1<1 cases from the FROM→WHERE 100-case run:
+
+| mode | count | root cause | fixable via prompt? |
+|---|---|---|---|
+| WRONG (fully wrong) | 14 | retrieve miss / select miss / candidate pool wrong | partially |
+| gold-subset (model right, GT narrower) | 10 | model correctly kept ALL; GT prefers subset | no (gold issue) |
+| under (missing candidates) | 3 | traverse recall incomplete | no |
+| EMPTY | 1 | vLLM disconnect | no |
+| partial | 1 | traverse recall | no |
+
+Deep-dived case 16 (NBA, 0.11) and case 36 (Missouri River, 0.29) with gold
+subgraph cross-check:
+
+- **case 36**: logic path CORRECT (`partially_contains`/`partially_containedby`
+  selected, matching gold). expand candidate pool COMPLETE (all 6 GT states
+  present). Failure = **reasoning didn't systematically traverse the FROM set**
+  — model checked only Iowa ("explicitly shown") and stopped, didn't verify the
+  other 5 states also satisfy WHERE. **This is a reasoning-discipline issue
+  (jump-to-first-match), NOT a logic-path or data issue. Prompt cannot fix.**
+- **case 16**: model's content says "output full pool" but emits 1 entity.
+  Without the `reasoning` field captured, we cannot tell whether the CoT
+  actually concluded keep-all (then the tool call contradicted it) or the CoT
+  itself was inconsistent.
+
+**Verdict:** current prompt + tool layer is at its ceiling (88.9% hit / 0.794
+f1). Remaining failure modes require either:
+1. **Fine-tuning** (SFT/GRPO) to instill reasoning discipline (systematic WHERE
+   traversal, reasoning→answer consistency). Needs reasoning captured in
+   trajectories first (see GAP above).
+2. **Subgraph extraction fix** (CVT value edges) to unlock numeric-constraint
+   cases (73/98/99/11). Blocked on extraction server.
 
 ### Protocol: content-only (NOT native tool_calls)
 

@@ -192,7 +192,7 @@ async def _call_single_direct(
     max_tokens: int = 500,
     temperature: float | None = None,
     top_p: float | None = None,
-    timeout_seconds: float | None = None,
+    timeout_seconds: float = None,
 ) -> str:
     """Direct single LLM call (no coalescing).
 
@@ -213,6 +213,44 @@ async def _call_single_direct(
     if not choices:
         raise RuntimeError(f"LLM response has no choices: {str(data)[:500]}")
     return data["choices"][0]["message"]["content"]
+
+
+async def _call_single_with_reasoning(
+    session: aiohttp.ClientSession,
+    messages: list,
+    max_tokens: int = 500,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    timeout_seconds: float | None = None,
+) -> tuple:
+    """Same as ``_call_single_direct`` but also returns the reasoning field.
+
+    vLLM with ``thinking_token_budget`` puts the model's chain-of-thought in a
+    separate ``reasoning`` field on the response message (NOT inside content).
+    This wrapper exposes it so callers (e.g. trajectory generation) can capture
+    the full reasoning alongside the tool-call content.
+
+    Returns ``(content, reasoning)`` where reasoning may be "" if vLLM did not
+    separate it (e.g. thinking disabled or model wrote CoT inline in content).
+    """
+    payload = build_payload(messages, max_tokens, temperature=temperature, top_p=top_p)
+    async with session.post(
+        LLM_API_URL,
+        headers=request_headers(),
+        json=payload,
+        timeout=aiohttp.ClientTimeout(total=timeout_seconds or LLM_TIMEOUT_SEC),
+    ) as resp:
+        if resp.status >= 400:
+            body = await resp.text()
+            raise RuntimeError(f"LLM request failed with HTTP {resp.status}: {body[:500]}")
+        data = await resp.json()
+    choices = data.get("choices") or []
+    if not choices:
+        raise RuntimeError(f"LLM response has no choices: {str(data)[:500]}")
+    msg = data["choices"][0]["message"]
+    content = msg.get("content") or ""
+    reasoning = msg.get("reasoning") or ""
+    return content, reasoning
 
 
 class _BatchCoalescer:

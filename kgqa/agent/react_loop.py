@@ -391,7 +391,7 @@ async def run_react_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
     the ``tool:`` anchor + JSON; harness.validate + tools.dispatch run it.
     Identical parsing to sample_trajectories.py, so training and serving agree.
     """
-    from kgqa.llm.client import _call_single_direct
+    from kgqa.llm.client import _call_single_with_reasoning
 
     rc = ReactCase(sample, pilot_row, idx)
     max_rounds = int(getattr(args, "agent_max_iters", 16))
@@ -410,9 +410,11 @@ async def run_react_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
         msgs.append({"role": "user", "content": rc.allowed_tools_hint()})
 
         try:
-            # _call_single_direct bypasses the batch coalescer (which deadlocks
-            # under per-case async concurrency — it's designed for batch mode).
-            raw_response = await _call_single_direct(session, msgs, max_tokens=max_tokens)
+            # _call_single_with_reasoning returns (content, reasoning) so we
+            # can capture the model's CoT in the trajectory for training data
+            # generation and for diagnosing reasoning-answer consistency.
+            raw_response, reasoning = await _call_single_with_reasoning(
+                session, msgs, max_tokens=max_tokens)
         except Exception as e:
             rc.failed = True
             rc.failure_reason = f"call_llm error: {e}"
@@ -424,8 +426,18 @@ async def run_react_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
             continue
 
         # Append assistant content verbatim (preserves the CoT reasoning).
-        rc.messages.append({"role": "assistant", "content": raw_response})
-        rc.ctx.trajectory.append({"role": "assistant", "content": raw_response})
+        # Store reasoning on the message dict so trajectory_to_messages
+        # (sample_trajectories.py) can include it in training data. vLLM
+        # separates <think> into a `reasoning` field; we re-attach it here so
+        # the message is self-contained for SFT/GRPO trajectory export.
+        asst_msg = {"role": "assistant", "content": raw_response}
+        if reasoning:
+            asst_msg["reasoning"] = reasoning
+        rc.messages.append(asst_msg)
+        traj_step = {"role": "assistant", "content": raw_response}
+        if reasoning:
+            traj_step["reasoning"] = reasoning
+        rc.ctx.trajectory.append(traj_step)
 
         tool_name, parsed_args = parse_react_output(raw_response)
         if not tool_name:
