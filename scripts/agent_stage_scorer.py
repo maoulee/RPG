@@ -51,6 +51,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -78,6 +79,55 @@ def _parse_tool_content(content: str) -> Dict[str, Any]:
         return {}
 
 
+def _extract_plan_reachable(overview: str, select_pool: List[str]) -> List[str]:
+    """Recover ALL entities on plan-stage paths from the overview text.
+
+    The overview is a rendered trie. Two kinds of answer-bearing strings live
+    in it that the flat `candidates`/`select_pool` list omits:
+
+    1. Named nodes on the path: lines like ``- node1: Brad Paisley`` — these
+       are intermediate entities the traversal passed through.
+    2. CVT attribute values: bracket groups like
+       ``[degree=Bachelor's degree, institution=Belmont University, ...]`` —
+       these are attributes of a CVT node on the path. The answer entity may
+       live here (e.g. ``institution=Belmont University``) even when the
+       terminal `select_pool` only captured the CVT's parent.
+
+    Returns the union of select_pool + named nodes + CVT attribute values,
+    deduped (normalized). Freebase machine IDs (``m.``/``g.`` prefixes) and
+    bracket keys (``degree``/``institution``) are kept out — only values.
+    """
+    if not overview:
+        return list(select_pool)
+    reachable = list(select_pool)
+    seen = {normalize(c) for c in reachable}
+
+    # 1. Named nodes: "- nodeN: <name>" or "nodeN: <name>"
+    for m in re.finditer(r"node\d+\s*:\s*([^\[\]\n]+?)(?:\s{2,}|\s*$|\s+#\d)", overview):
+        name = m.group(1).strip()
+        # skip bare IDs / shared markers / empty
+        if name and not name.startswith(("m.", "g.", "shared:")):
+            n = normalize(name)
+            if n and n not in seen:
+                seen.add(n)
+                reachable.append(name)
+
+    # 2. CVT attribute values inside [key=value, key=value, ...]
+    for m in re.finditer(r"\[([^\[\]]+)\]", overview):
+        group = m.group(1)
+        # split "key=value, key=value" into values
+        for pair in group.split(","):
+            if "=" not in pair:
+                continue
+            val = pair.split("=", 1)[1].strip()
+            if val and not val.startswith(("m.", "g.")):
+                n = normalize(val)
+                if n and n not in seen:
+                    seen.add(n)
+                    reachable.append(val)
+    return reachable
+
+
 def parse_trajectory(case: Dict[str, Any]) -> Dict[str, Any]:
     """Extract the stage signals from one case's agent_trajectory.
 
@@ -98,6 +148,8 @@ def parse_trajectory(case: Dict[str, Any]) -> Dict[str, Any]:
     expanded_ids: List[str] = []
     Y: List[str] = []
     select_pool: List[str] = []
+    plan_reachable: List[str] = []   # ALL entities on plan-stage paths + CVT attr values
+    expand_triples: List[str] = []   # all entities appearing in expand's (h,r,t) triples
     selected_relations: Dict[str, List[str]] = {}
     has_select_relations = False
     has_select = False
@@ -117,13 +169,53 @@ def parse_trajectory(case: Dict[str, Any]) -> Dict[str, Any]:
             if isinstance(sel, dict):
                 for fid, rels in sel.items():
                     selected_relations[str(fid)] = list(rels) if isinstance(rels, list) else []
+            # 4-tool merge: select_relations runs traversal inline and returns
+            # the plan-stage candidate pool in `candidates` (a flat list, same
+            # shape the legacy `select` tool produced). Capture it here so
+            # S_plan can be measured even when no standalone select call exists.
+            srels_cands = data.get("candidates") or []
+            if isinstance(srels_cands, list) and srels_cands:
+                select_pool = [str(c) for c in srels_cands if c]
+            # S_plan measures whether the plan REACHED the answer — i.e. whether
+            # any entity or CVT attribute value on the traversed paths equals GT.
+            # The flat `candidates` list is only the last-step terminal entities
+            # and omits CVT attribute values that appear in the overview text
+            # (e.g. "institution=Belmont University" sits in a CVT node rendered
+            # as "[degree=..., institution=Belmont University, ...]"). Parse the
+            # overview to recover ALL entities on plan-stage paths: named nodes
+            # AND CVT attribute values. This is what "plan reached it" means.
+            overview = data.get("overview") or ""
+            plan_reachable = _extract_plan_reachable(overview, select_pool)
         elif name == "select":
             has_select = True
-            # select's `candidates` = full traversal pool over chosen relations
+            # Legacy 6-tool flow: select's `candidates` = full traversal pool
+            # over chosen relations. In the 4-tool flow this data comes from
+            # select_relations instead (handled above).
             cands = data.get("candidates") or []
             if isinstance(cands, list):
                 select_pool = [str(c) for c in cands if c]
+            overview = data.get("overview") or ""
+            if overview:
+                plan_reachable = _extract_plan_reachable(overview, select_pool)
         elif name in ("expand_branch", "expand_branches"):
+            # S_select measures whether the EXPANDED paths carry the answer.
+            # The expand result includes a `triples` list of (h, r, t) — every
+            # entity appearing in those triples (both endpoints, plus any CVT
+            # attribute value surfaced as a tail) is "on the selected path".
+            # This is broader than per-branch candidate lists, which only keep
+            # terminal/leaf entities.
+            trips = data.get("triples") or []
+            for tr in trips:
+                # triples are rendered as "(h, r, t)" strings or [h, r, t] lists
+                if isinstance(tr, str):
+                    parts = [p.strip().strip("()") for p in tr.split(",")]
+                elif isinstance(tr, (list, tuple)):
+                    parts = [str(p).strip() for p in tr]
+                else:
+                    continue
+                for p in parts:
+                    if p and not p.startswith("m.") and not p.startswith("g."):
+                        expand_triples.append(p)
             # Current agent format: `expand_branches` returns branches_expanded
             # (ordered id list) + per_branch [{branch_id, candidates}]. Older
             # single-branch format used one branch_id + flat candidates.
@@ -173,7 +265,9 @@ def parse_trajectory(case: Dict[str, Any]) -> Dict[str, Any]:
         "branch_cand": branch_cand,
         "expanded_ids": expanded_ids,
         "Y": Y,
-        "select_pool": select_pool,           # full traversal pool from select tool
+        "select_pool": select_pool,           # last-step terminal entities (legacy)
+        "plan_reachable": plan_reachable,      # ALL entities + CVT attrs on plan paths
+        "expand_triples": expand_triples,      # entities on expanded (h,r,t) triples
         "selected_relations": selected_relations,  # {fact_id: [rels]} from select_relations
         "has_select_relations": has_select_relations,
         "has_select": has_select,
@@ -228,6 +322,7 @@ def score_case(case: Dict[str, Any]) -> Dict[str, Any]:
     expanded_ids = p["expanded_ids"]
     Y = p["Y"]
     select_pool = p["select_pool"]
+    plan_reachable = p.get("plan_reachable") or []
     notes: List[str] = []
 
     # Stage-pipeline baseline compatibility (no agent_trajectory → Y from llm_answer)
@@ -262,46 +357,59 @@ def score_case(case: Dict[str, Any]) -> Dict[str, Any]:
         return hit / len(gt_norm)
 
     # ---- U: expanded-subgraph candidate pool (fallback chain) ----
+    # U is the pool the model could actually reason over at answer time. It is
+    # the union of expanded-branch candidates; if the model skipped expand, U
+    # falls back to plan_reachable (everything on plan-stage paths, incl CVT
+    # attrs) — because the model SAW the overview and could reason over it.
     U_list: List[str] = []
     for bid in expanded_ids:
         U_list.extend(branch_cand.get(bid, []))
     U_source = "expanded"
     if not U_list:
-        U_list = select_pool          # fall back to plan-stage traversal pool
-        U_source = "select_pool_fallback"
+        U_list = plan_reachable or select_pool
+        U_source = "plan_reachable_fallback"
     if not U_list:
         U_list = p["answer_candidates"]   # last resort: global pool
         U_source = "answer_candidates_fallback"
 
     # =====================================================================
-    # S_plan: GT recall in the select-tool traversal pool (the plan's reach).
-    # The plan = select_relations choices; the `select` tool traverses every
-    # chosen relation, yielding select_pool. GT recall here = did the plan
-    # unlock paths that reach the answer?
+    # S_plan: did the plan REACH the answer?
+    # Plan reach = every entity on every traversed path PLUS every CVT
+    # attribute value surfaced along those paths (not just the last-step
+    # terminal entities in select_pool). A plan that walks anchor → CVT and
+    # the CVT carries "institution=Belmont University" HAS reached the answer,
+    # even if Belmont never made it into the flat candidate list. This is the
+    # true measure of "did the relation choices unlock a path to the answer".
     # =====================================================================
-    S_plan = _recall_in(select_pool) if select_pool else None
+    plan_reach = p.get("plan_reachable") or []
+    S_plan = _recall_in(plan_reach) if plan_reach else None
     if S_plan is None:
-        # No select call → can't measure plan reach; use answer_candidates as a
-        # coarse proxy so downstream scores aren't all forced to 0.
-        S_plan = _recall_in(p["answer_candidates"]) if p["answer_candidates"] else 0.0
-        notes.append("plan_from_global_pool")
+        S_plan = _recall_in(select_pool) if select_pool else (
+            _recall_in(p["answer_candidates"]) if p["answer_candidates"] else 0.0)
+        notes.append("plan_from_select_pool")
 
     # =====================================================================
-    # S_select: precision of expanded branches, capped by S_plan.
-    #   branch_precision = (#expanded branches carrying GT) / (#expanded branches)
-    #   S_select = branch_precision × S_plan   (plan is the ceiling)
+    # S_select: did the EXPANDED paths carry the answer?
+    # When the model expands branches, expand returns (h,r,t) triples for the
+    # selected paths. S_select = GT recall over all entities on those triples
+    # (both endpoints + CVT attribute tails), capped by S_plan (can't select
+    # what the plan never reached). No expand → pass-through (S_select=S_plan).
     # =====================================================================
+    expand_ents = p.get("expand_triples") or []
     n_expanded = len(expanded_ids)
-    valid_ids = [bid for bid in expanded_ids
-                 if candidate_hit(branch_cand.get(bid, []), gt)]
-    n_valid = len(valid_ids)
-    branch_precision = (n_valid / n_expanded) if n_expanded else 0.0
-    # If no expand happened, the selection stage is trivially "pass-through":
-    # precision = 1 (nothing was wrongly expanded), so S_select = S_plan.
-    if n_expanded == 0:
-        branch_precision = 1.0
+    if n_expanded and expand_ents:
+        S_select_raw = _recall_in(expand_ents)
+    elif n_expanded:
+        # expand happened but no triples recorded; fall back to branch_cand
+        bc_flat = [c for bid in expanded_ids for c in branch_cand.get(bid, [])]
+        S_select_raw = _recall_in(bc_flat) if bc_flat else 0.0
+        notes.append("select_from_branch_cand")
+    else:
+        # No expand call → selection is pass-through; the model reasoned over
+        # whatever the plan exposed (the overview). S_select = S_plan.
+        S_select_raw = S_plan
         notes.append("select_passthrough")
-    S_select = branch_precision * S_plan
+    S_select = min(S_select_raw, S_plan) if S_plan else 0.0
 
     # =====================================================================
     # S_reason: answer F1 within the reachable pool U, capped by S_select.
@@ -340,11 +448,10 @@ def score_case(case: Dict[str, Any]) -> Dict[str, Any]:
         },
         "select": {
             "S_select": round(S_select, 4),
-            "branch_precision": round(branch_precision, 4),
+            "select_recall": round(S_select_raw, 4) if n_expanded else None,
             "n_expanded": n_expanded,
-            "n_valid": n_valid,
+            "expand_ents_size": len(expand_ents) if n_expanded else 0,
             "expanded_ids": expanded_ids,
-            "valid_ids": valid_ids,
             "U_size": len(U_list),
             "U_source": U_source,
         },
@@ -406,7 +513,7 @@ def aggregate(labels: List[Dict[str, Any]]) -> Dict[str, Any]:
         "S_plan_avg": round(s_plan, 4),
         "S_select_avg": round(s_select, 4),
         "S_reason_avg": round(s_reason, 4),
-        "branch_precision_avg": round(_mean("detail.select.branch_precision"), 4),
+        "select_recall_avg": round(_mean("detail.select.select_recall"), 4),
         "answer_f1_in_U_avg": round(_mean("detail.reason.answer_f1_in_U"), 4),
         "select_fail_n": sum(1 for l in scored if "select_fail" in l.get("notes", [])),
         "reason_leak_n": sum(1 for l in scored if "reason_leak" in l.get("notes", [])),
@@ -432,8 +539,8 @@ def print_per_case(labels: List[Dict[str, Any]], sort_by: str = "S_reason",
         print(f"  [{l['case_id'][:22]:22s}] "
               f"S_plan={l['S_plan'] if l['S_plan'] is not None else 0:.2f} "
               f"S_sel={l['S_select']:.2f} S_rea={l['S_reason']:.2f} "
-              f"[bprec={sel['branch_precision']:.2f} "
-              f"exp={sel['n_expanded']}/{sel['n_valid']}/{sel['U_size']} | "
+              f"[srec={sel['select_recall']:.2f} "
+              f"exp={sel['n_expanded']}/{sel['expand_ents_size']}/{sel['U_size']} | "
               f"f1U={rea['answer_f1_in_U']:.2f} "
               f"Uc={rea['U_correct_n']} hit={rea['reachable_pred_hit_n']}/{rea['GT_n']}] "
               f"{','.join(l.get('notes', []))} | {l['question'][:34]}")
@@ -441,9 +548,9 @@ def print_per_case(labels: List[Dict[str, Any]], sort_by: str = "S_reason",
 
 def print_summary(agg: Dict[str, Any], label: str) -> None:
     print(f"\n=== {label} ({agg['n']} scored cases) ===")
-    print(f"  S_plan_avg   = {agg['S_plan_avg']:.4f}   (GT recall in plan traversal pool)")
+    print(f"  S_plan_avg   = {agg['S_plan_avg']:.4f}   (GT recall over plan-path entities + CVT attrs)")
     print(f"  S_select_avg = {agg['S_select_avg']:.4f}   "
-          f"(branch_precision={agg['branch_precision_avg']:.3f} × S_plan)")
+          f"(select_recall={agg['select_recall_avg']:.3f}, capped by S_plan)")
     print(f"  S_reason_avg = {agg['S_reason_avg']:.4f}   "
           f"(answer_f1_in_U={agg['answer_f1_in_U_avg']:.3f} × S_select)")
     print(f"  diagnostics: plan_fail={agg['plan_fail_n']} "
