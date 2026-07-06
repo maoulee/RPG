@@ -55,7 +55,10 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
-_BATCH_SIZE = max(1, _env_int("KGQA_LLM_BATCH_SIZE", 500))
+# Conservative default batch chunk for the first stable end-to-end run. Raise
+# via KGQA_LLM_BATCH_SIZE once the vLLM deployment is confirmed not to OOM or
+# prefill-queue at this size; 100 was the agreed tuning target.
+_BATCH_SIZE = max(1, _env_int("KGQA_LLM_BATCH_SIZE", 100))
 _BATCH_CONCURRENCY = max(1, _env_int("KGQA_LLM_BATCH_CONCURRENCY", 1))
 _SINGLE_CONCURRENCY = max(1, _env_int("KGQA_LLM_SINGLE_CONCURRENCY", 8))
 _LOCAL_API = any(host in LLM_API_URL for host in ("localhost", "127.0.0.1", "0.0.0.0"))
@@ -137,13 +140,17 @@ async def batch_call_llm(
     Local vLLM deployments can use the custom batch endpoint.  OpenAI-compatible
     providers without that endpoint should set ``KGQA_LLM_USE_BATCH_ENDPOINT=0``;
     if they do not, this client will still fall back to concurrent single calls.
+
+    Sampling defaults (temperature=0.3, top_p=0.8) can be overridden via
+    ``KGQA_LLM_BATCH_TEMPERATURE`` / ``KGQA_LLM_BATCH_TOP_P`` — useful for
+    deterministic (temperature=0) reproduction.
     """
     return await _call_many(
         session,
         prompts,
         max_tokens=max_tokens,
-        temperature=0.3,
-        top_p=0.8,
+        temperature=_env_float("KGQA_LLM_BATCH_TEMPERATURE", 0.3),
+        top_p=_env_float("KGQA_LLM_BATCH_TOP_P", 0.8),
     )
 
 
@@ -247,11 +254,14 @@ async def _call_chunk(
                 data = await resp.json()
 
             results: List[Optional[str]] = [None] * len(prompts)
+            reasoning_results: List[Optional[str]] = [None] * len(prompts)
             truncated: List[int] = []
             for choice in data.get("choices", []):
                 idx = choice.get("index")
                 if isinstance(idx, int) and 0 <= idx < len(prompts):
-                    results[idx] = choice.get("message", {}).get("content", "")
+                    msg = choice.get("message", {})
+                    results[idx] = msg.get("content", "")
+                    reasoning_results[idx] = msg.get("reasoning", "") or ""
                     if choice.get("finish_reason") == "length":
                         truncated.append(idx)
 
