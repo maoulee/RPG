@@ -685,6 +685,11 @@ def _render_path_tree(tree_data, max_lines=50, max_children=50, constraint_entit
                             " " * (indent + 2)
                             + "shared: [" + ", ".join(shared_attrs) + "]"
                         )
+                    # CVT siblings stay one-per-line: each carries differentiating
+                    # attributes (from=2014, office_holder=X) that the model must
+                    # read to pick the right one. Joining them on one line buries
+                    # these attrs in a wall of text. Plain-entity leaves (no CVT
+                    # attrs) are joined with "|" on one line in the branch below.
                     for child_name in shown_names:
                         if len(lines) >= max_lines:
                             return
