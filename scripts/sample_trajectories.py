@@ -133,15 +133,18 @@ def load_mixed_cases(args) -> List[tuple]:
     idx = 0
     # Unified mask: skip any case flagged in any GT-quality mask (both datasets).
     masked = _load_all_masks()
+    cwq_start = getattr(args, "cwq_start", 0)
+    webqsp_start = getattr(args, "webqsp_start", 0)
     sources = [
-        (args.cwq_pkl, getattr(args, "cwq_limit", args.limit), "cwq"),
-        (args.webqsp_pkl, getattr(args, "webqsp_limit", 0), "webqsp"),
+        (args.cwq_pkl, getattr(args, "cwq_limit", args.limit), "cwq", cwq_start),
+        (args.webqsp_pkl, getattr(args, "webqsp_limit", 0), "webqsp", webqsp_start),
     ]
-    for pkl_path, limit, tag in sources:
+    for pkl_path, limit, tag, start in sources:
         if not pkl_path or not Path(pkl_path).exists() or limit <= 0:
             continue
         samples = pickle.loads(Path(pkl_path).read_bytes())
-        for s in samples[:limit]:
+        # Slice [start : start+limit] so batches don't re-run earlier cases.
+        for s in samples[start:start + limit]:
             sid = s.get("id") or s.get("question_id") or ""
             if sid in masked:
                 continue
@@ -763,8 +766,12 @@ def main():
     p.add_argument("--webqsp-pkl", default="")
     p.add_argument("--cwq-limit", type=int, default=0,
                    help="max CWQ cases for mixed mode (0 = skip)")
+    p.add_argument("--cwq-start", type=int, default=0,
+                   help="CWQ offset (for batched sampling without re-running)")
     p.add_argument("--webqsp-limit", type=int, default=0,
                    help="max WebQSP cases for mixed mode (0 = skip)")
+    p.add_argument("--webqsp-start", type=int, default=0,
+                   help="WebQSP offset (for batched sampling)")
     p.add_argument("--cwq-mask", default="")
     p.add_argument("--webqsp-mask", default="")
     # Common
