@@ -50,24 +50,6 @@ order — the runtime rejects out-of-order calls.
      entity context of this hop. Walk the chain when assigning it: f1's
      start_type is the anchor; f2's is the type f1 arrives at; f3's is the type
      f2 arrives at; and so on.
-   - `start_entity` (optional, multi-anchor only): set this ONLY when a fact
-     starts from a DIFFERENT known entity than the main anchor — i.e. the
-     question has ≥2 named entities that each independently constrain the
-     answer. Most questions are single-anchor (leave this field out). When the
-     question is multi-anchor, emit each anchor's chain as its own facts and
-     mark each chain's first fact with `start_entity` = that entity's name;
-     give parallel-chain facts sibling ids (`f1a`, `f1b`). The system traverses
-     each chain independently and converges on entities reached by ALL chains.
-     - Single-anchor (default, most questions): one chain, all facts walk from
-       the anchor. No `start_entity` anywhere.
-     - Multi-anchor: two or more chains, each chain's first fact carries
-       `start_entity`. Each chain answers "what entities relate to <this
-       anchor> via <this relation>"; the answer is the entities reached by every
-       chain.
-     Reserve `start_entity` for genuine multi-anchor questions (two named
-     entities that BOTH must be satisfied). Do not use it just because two
-     entities are mentioned — only when the answer must satisfy constraints from
-     each independently.
    - `relation_hint`: the **specific KG relation type or precise semantic** for
      THAT step, e.g. `"profession of the person"`, `"place of birth"`,
      `"capital of the country"`, `"director of the film"`. Name the actual
@@ -97,6 +79,35 @@ order — the runtime rejects out-of-order calls.
      and you may set the optional `satisfies` field to label it (e.g.
      `satisfies: "latest"`). If there is no such value to read, there is no extra
      fact — just the hop chain.
+   - **Parallel constraints** — when the answer must satisfy **≥2 independent
+     attribute filters on the SAME entity** (e.g. a leader whose term started
+     before X AND ended after Y; a country whose GDP = A AND CPI = B), those
+     filters are NOT sequential hops — they read different attributes of the
+     same entity. Emit each as its own fact, but give them **sibling ids with a
+     shared step number**: `f2.1`, `f2.2` (both belong to step 2). Each gets its
+     own `relation_hint` and is retrieved/selected independently, but the
+     traversal walks them at the same level (union of relations at that step).
+     - Single chain (default): facts are `f1`, `f2`, `f3`, ... each a sequential
+       hop. No parallel constraints.
+     - Parallel constraints: when a step has ≥2 filters, split into `f{N}.1`,
+       `f{N}.2`, ... each carrying one filter. Example decomposition:
+       ```
+       Q: "[person] held which position starting before 2000 and ending after 2005?"
+       facts: [
+         {id: "f1", text: "the positions held by a person",
+          relation_hint: "the government positions of a person", start_type: "person"},
+         {id: "f2.1", text: "the start date of a position",
+          relation_hint: "the start date of a position", start_type: "position",
+          satisfies: "before_2000"},
+         {id: "f2.2", text: "the end date of a position",
+          relation_hint: "the end date of a position", start_type: "position",
+          satisfies: "after_2005"}
+       ]
+       ```
+       Here `f2.1` and `f2.2` both read attributes of the position reached by
+       `f1`; they are parallel filters at step 2, not f2→f3.
+     Reserve sibling ids for genuine parallel attribute filters on ONE entity.
+     Do NOT use them for sequential hops (f2→f3) or for two named anchors.
    - `conditions`: residual answer filters with no KG edge (pure type /
      intersection). Usually `[]`.
 

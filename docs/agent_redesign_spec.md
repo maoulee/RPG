@@ -66,45 +66,182 @@ not one-better.
 
 ### What's next (the open levers)
 
-**Multi-anchor convergence (multi-anchor = ≥2 named entities that each
-independently constrain the answer).** Diagnosed across the 100-case set:
-react misses 7 multi-anchor cases; the retrieve layer is NOT the bottleneck
-for 4 of them (key relations rank-1 reachable from each anchor) — what's
-missing is the dual-chain mechanism itself.
+**Multi-anchor convergence — EVALUATED AND DEFERRED.** Multi-anchor = ≥2 named
+entities that each independently constrain the answer (e.g. case 4:
+"country bordering France contains airport serving Nijmegen"). A dual-chain
+mechanism was designed (decompose into 2 chains with `start_entity`, traverse
+each independently, intersect leaf + CVT-attribute sets, fall back to forced
+shortest-path bridging). After gold-grounded evaluation it was **deferred**:
 
-- **Design (validated on case 4):** decompose supports two independent fact
-  chains with distinct `start_entity`; each chain retrieves/selects/traverses
-  independently; **leaf-node intersection** judges convergence (Path A leaves ∩
-  Path B leaves = answer). Case 4 verified: Path A (Nijmegen→airport→Germany)
-  and Path B (France→adjoins→Germany) leaves intersect at {Germany} = GT.
-  This is true dual-path convergence, NOT stage's `_endpoint_bridge_paths`
-  (which is single-path + 1-2 hop bridge patch, fails when the gap > 2 hops).
-- **Implementation status:** data-path layer DONE (commit `df2aed1`): the
-  optional `start_entity` field flows decompose → AgentState.fact_start_entities
-  → CaseContext → react_loop. Single-anchor cases are bit-identical (verified
-  case 1). The **core change is pending**: `tools.py _do_select` — group facts
-  by `start_entity`, run each chain through stage5 independently, intersect
-  leaf candidate sets. Leaf = CVT-expanded named entities (use the already-
-  expanded ents list, not bare path endpoints). Needs careful evidence/overview
-  adaptation.
-- **Implementation pitfall (recorded):** when resolving `start_entity` to a
-  graph idx, use EXACT string match — case 4 has "Belfries of Belgium and
-  France" which a fuzzy `in` check would mis-bind as France.
-- **Leverage:** +3 cases (21/23/33) → 83.8% → ~87%. Case 61 (WW2 president,
-  temporal) is NOT saved by this (retrieve can't recall the temporal relation).
+- **Data reachability:** gold-subgraph BFS confirms case 4/21/33 are each
+  reachable from BOTH anchors (≤4 hops), and the two chains' leaf sets
+  intersect at the gold answer. So A' is *structurally* feasible.
+- **GTE recall:** the gold-required relations appear in GTE top-15 for case 4
+  (chain B selected `location.adjoining_relationship.adjoins` ✓ under explicit
+  multi-anchor hint) and case 33 (chain B selected
+  `film.film_character.portrayed_in_films` ✓). Case 21's gold relations
+  (`location.country.capital`, `base.culturalevent.event.entity_involved`) do
+  NOT appear in GTE top-15 — the gold annotation makes a semantic jump
+  ("based in Montgomery" → "capital = Montgomery") that GTE cannot bridge.
+- **Model capability:** with an explicit user-prompt hint naming the two
+  anchors, the model correctly decomposes into two `start_entity` chains and
+  selects the right relations for each. **Without** the hint (current
+  AGENTS.md), the model walks a single chain in 3/3 cases — it does not
+  self-identify multi-anchor questions.
+- **Verdict:** real ROI is +1 case (case 33; case 4 already hits via single
+  chain, case 21 is gold-annotation-blocked). Too low to justify the
+  traversal-layer cost. The existing stage `_endpoint_bridge_paths` forced-
+  bridge fallback covers the "two anchors both reachable" case adequately.
+  The `start_entity` data-path layer (commit `df2aed1`) is left in place
+  (harmless dead code) but the AGENTS.md guidance for it is removed.
+  **Revisit only if a future model self-identifies multi-anchor reliably.**
 
-**Parallel constraints + CVT-value retrieval (single-anchor + value filter).**
-8 miss cases are single-anchor with an attached constraint (GDP/CPI values,
-language, timezone). Bottleneck is NOT retrieve and NOT multi-anchor — it is
-constraint acquisition: the value lives on a CVT node (e.g. CPI inflation rate)
-whose edges may be missing, or the constraint needs to be applied as a same-
-level filter. Two sub-mechanisms needed:
-- `_merge_constraint_steps`-style same-level relation union (stage has it;
-  react doesn't). Helps language/timezone-type constraints.
-- CVT-value expansion in retrieve/select (to fetch numeric values for filtering).
+**GTE retrieve optimization — CONFIRMED WORKING, no change needed.** The
+candidate-text contextualization (`start_type` + last-two schema segments)
+bridges the deep-semantic ↔ surface-wording gap. Validated on the adjoins
+case with three controlled GTE queries (same hint, varying candidate text):
+
+| candidate text construction | adjoins in top-15? | rank |
+|---|---|---|
+| bare dot-notation id (`location.adjoining_relationship.adjoins`) | ❌ no | — |
+| `France` + last-two schema segments | ✅ yes | 7, 8 |
+| `country` + last-two schema segments | ✅ yes | 6, 8 |
+
+The entity-context anchor (entity name for f1, type noun for f2+) is what
+makes GTE recall adjoins — without it, "bordering" never matches "adjoining".
+Measured on 20 cases: f2+ `relation_hint` contains the `start_type` word in
+21/21 facts (100%), f1 in 18/20. So both the query side (model-written hint)
+and the candidate side (program-built text) carry the same type context,
+which is what lets them match. **This mechanism is already shipped; no further
+work.**
+
+**Parallel constraints — PROMPT LANDED, traversal union PENDING.** When the
+answer must satisfy ≥2 independent attribute filters on the SAME entity (e.g.
+a leader whose term started before X AND ended after Y; a country whose
+GDP = A AND CPI = B), those filters are NOT sequential hops — they read
+different attributes of one entity. Design (mirrors stage's
+`_merge_constraint_steps` + `DECOMP_PROMPT` find/verify split):
+
+- **Decompose convention (DONE — AGENTS.md updated):** the model emits sibling
+  facts with shared step number: `f2.1`, `f2.2` (both belong to step 2). Each
+  has its own `relation_hint` and optional `satisfies` label. AGENTS.md now
+  carries an abstract example (a "[person] held which position starting before
+  2000 and ending after 2005?" → f1 + f2.1 + f2.2 decomposition).
+- **Retrieve/select:** each sibling runs its own GTE retrieve + model
+  `select_relations` (independent precision, like stage). Already works —
+  harness parses `f2.1`/`f2.2` ids correctly (verified).
+- **Traversal (PENDING):** `_do_select` detects the `f{N}.{k}` id pattern,
+  unions the selected relations of all siblings with step N, and walks them
+  at the same level (one step, relation union). NOT two sequential hops.
+- **Tool presentation (PENDING):** `select` evidence tree shows each sibling
+  as its own block with continuing numbering (chain facts #1-5, f2.1 #6-10,
+  f2.2 #11-15), so `expand_branches(['3','7'])` works across blocks.
+- **System role (boundary only):** the system does NOT decide when to split —
+  that's the model's job, guided by the abstract example. The system only
+  enforces: no empty answer (existing retry), no missing relation selection
+  (existing reject), and tolerates non-`.` ids (falls back to plain multi-hop).
+
+**Stability test (2026-07-06, 20 cases × 3 runs):** 0 crashes / 0 format
+errors across 60 decompose calls. 13/20 cases fully stable (same fact count
+across 3 runs); the 7 unstable are intrinsic 9B decompose variance (2↔3
+facts), unrelated to parallel constraints. The model emitted `f{N}.k` parallel
+constraints in 2/20 cases (case 11, case 14) on some runs — **triggering is
+unstable** (the hint is soft), but acceptable: parallel-constraint is an
+optimization, and when the model decomposes serially instead (f2→f3) the
+current traversal still works (just one extra hop). The union mechanism in
+`_do_select` is therefore a **no-regression optional path**: model uses
+`f{N}.k` → union; model uses f2,f3 → plain multi-hop.
+
+**CVT-value readability — highest-leverage UNADDRESSED lever (~+3 cases).**
+Case 73/98/99 (GDP/CPI numeric filters): gold confirms GT is in the candidate
+pool and the right relations were selected, but the model can't read the
+numeric value (the CVT expands to nothing because the value is not a named
+entity — it lives on the CVT's value edges, which the agent's CVT expansion
+does not traverse). This is a **subgraph-extraction / value-read gap**, not
+a presentation fix. Likely needs a new tool or subgraph-layer change to
+surface CVT numerics. Out of scope for the parallel-constraint work.
 
 **Training trajectory regeneration.** Content protocol is stable; ready to
 regenerate trajectories for SFT/GRPO.
+
+### Commits on agent-toolcall branch (this work)
+- `3707cac` content protocol (react_loop) + expand_branches plural fix + retrieve
+  candidate contextualization (start_type + last-two schema segments).
+- `81596bd` this spec update (§0).
+- `e82071d` quality: comment/code alignment (full→last-two) + de-case-ify
+  AGENTS.md examples.
+- `6d6201d` gitignore one-off experiment scripts + stray txt.
+- `df2aed1` multi-anchor data-path layer (start_entity field, no traversal change).
+  **Now deferred** — start_entity guidance removed from AGENTS.md; data-path
+  code left as harmless dead code.
+- `ab22d75` spec §0 expansion (multi-constraint diagnosis + commit log).
+- (pending) AGENTS.md: remove multi-anchor `start_entity` guidance; add parallel-
+  constraint guidance (sibling ids `f{N}.1`/`f{N}.2` + abstract example). Spec:
+  multi-anchor deferred, GTE confirmed, parallel-constraint design + stability
+  test results.
+
+### Live probe (2026-07-06) — gold-grounded failure attribution
+
+Ran the agent on the 4 diagnosed multi-anchor cases and 6 multi-constraint
+cases with the current code (data-path layer in place, **core traversal
+unchanged** — single-chain `_do_select`). To distinguish *data unreachable*
+from *model tool-call failure*, the model's trajectory was cross-checked
+against the CWQ **gold subgraph** (`q_entity_id_list`, `a_entity_id_list`,
+`h/r/t_id_list`): the answer node's touching-edges reveal which relation the
+model NEEDED; comparing against the model's retrieved- and selected-relation
+sets localizes the failure to one of
+`DATA_UNREACHABLE / RETRIEVE_MISS / SELECT_MISS / TRAVERSE_MISS / ANSWER_MISS`.
+
+**Multi-anchor (4 cases):**
+
+| case | Q | verdict | gold-grounded detail |
+|---|---|---|---|
+| 4 | country bordering France, contains airport serving Nijmegen | **HIT** (Germany) | Single-chain worked; gold answer `Germany` (id 257) appeared in pool. Multi-anchor layer-4 not exercised (chain is structurally unique). |
+| 23 | popular sport in Spain, team won 2010 FIFA World Cup | **HIT** | Gold answer in pool; model picked it. (Diagnosis flagged a f2 SELECT_MISS — `sports.sports_team.championships` was retrieved but not selected — yet the answer still surfaced via f1, so it's not actually a miss.) |
+| 21 | group fought at Vicksburg, based in Montgomery | **TRAVERSE_MISS** | Gold `Confederate States of America` (id 237) **NOT in pool**. Gold subgraph has the answer attached via `base.culturalevent.event.entity_involved` (Vicksburg→CSA) and `military.armed_force.military_combatant` — neither was selected. Model picked `military.military_unit.place_of_origin` for f1, which goes city→Louisiana→regiments (wrong direction). This is a **selection error**, not data unreachable. |
+| 33 | movie with character Teklel Hafouli, Ron Howard | **TRAVERSE_MISS** | Gold `The Journey` (id 729) **NOT in pool**. Gold edges show `film.performance.character` and `film.film.starring` (film→performance→character). Model selected `film.personal_film_appearance.person` + `film.performance.character` for f2 — but f1 picked `film.director.film`/`film.film.directed_by`, traversing Ron Howard's filmography; the f2 character-filter wasn't applied structurally. Leaf-intersection (layer-4) would catch this: Ron Howard's films ∩ films containing Teklel Hafouli. |
+
+**Verdict on layer-4 necessity:** reinforced. Case 21 & 33 are genuine
+multi-anchor cases where the single-chain can't structurally express the
+AND of two constraints. Layer-4 (dual-chain + leaf intersection) is the right
+fix for both. Gain ceiling: **+2 cases (21, 33)** → 83.8% → ~86%. (Case 4
+already hits via single chain; case 23 already hits.)
+
+**Multi-constraint (6 cases):**
+
+| case | Q | GT | verdict | gold-grounded detail |
+|---|---|---|---|---|
+| 22 | country in ASEAN Common TZ, largest population | India | **SELECT_MISS** | Gold: India (id 193) IS in the subgraph, connected to ASEAN Common TZ (id 4) via `location.location.time_zones` (h193→t194). Model **retrieved** `location.location.time_zones` for f1 but **selected** `time.time_zone.locations_in_this_time_zone` instead — which returns the continent Asia. So this is a **selection error**, NOT a structural dead-end. (Caveat: GT India is dubious — India is UTC+5:30, not in ASEAN TZ UTC+6:5 — likely a gold-labeling issue.) |
+| 41 | location in Anadyr TZ, biggest population | India | **SELECT_MISS** | Same as 22: model retrieved `location.location.time_zones` but selected the wrong relation. (Caveat: GT India is wrong — India is not in Anadyr TZ UTC+12.) |
+| 67 | "modern" in country whose anthem is Bilady³ | Modern Standard Arabic | **TRAVERSE_MISS** | f1 anthem→Egypt worked. Gold: MSA (id 123) attaches to Egypt (id 30) via **`location.country.official_language`** (h30→t123) — which the model DID retrieve for f2 but **selected** `common.topic.notable_for`/`notable_types` instead. Pure f2 select error; not a decomposition/prompt gap as first thought. |
+| 73 | country speaking Portuguese, GDP=100349905926 | South Africa | **ANSWER_MISS** | Gold `South Africa` (id 498) **IS in pool** (16 entities). Retrieve + select correct (both `language...countries_spoken_in` and `gdp_real` chosen). Bottleneck = model can't READ the GDP numeric (stored as CVT Freebase IDs `g.1hhc...`) to filter. |
+| 98 | country CPI=-1.61, speaks Portuguese | Macau | **ANSWER_MISS** | Gold `Macau` (id 322) **IS in pool**. Same as 73: CVT-value readability. |
+| 99 | country CPI=-1.56, speaks Portuguese | Macau | **HIT** (recall 0.15) | Model dumped all 12 Portuguese countries (Macau among them) since it can't read CPI — got partial credit. |
+
+**Revised multi-constraint verdict — four distinct failure modes:**
+
+1. **CVT-value readability** (73/98/99, the GDP/CPI cluster — **highest leverage,
+   ~+3 cases**): GT is reachable and in the pool; the model selected the right
+   relations; it just can't read the numeric value (rendered as bare Freebase
+   IDs `g.1hhc...`) to apply the filter. Fix = surface CVT value attributes
+   (numerics, dates) in `expand_branches` / tree rendering. Presentation-layer
+   fix, no traversal change.
+2. **f2 selection error** (67, +1 case): the right relation
+   (`location.country.official_language`) was retrieved and in the candidate
+   list; model picked `notable_for` instead. Fix = stronger AGENTS.md guidance
+   ("prefer typed-domain relations over generic topic.* when both are
+   candidates for the same hint") OR a re-rank that downweights
+   `common.topic.*`. **No code mechanism needed.**
+3. **TZ-relation selection error** (22/41): same shape as 67 — `location.location.time_zones`
+   was retrieved but `time.time_zone.locations_in_this_time_zone` was selected.
+   BUT GT India is mislabeled for both (wrong timezone), so even a correct
+   selection wouldn't help. **Skip until gold labels are verified.**
+4. **Multi-anchor (21/33)**: layer-4 leaf intersection — see above.
+
+**Bottom line:** the single highest-ROI fix is **CVT-value readability**
+(presentation-layer), worth ~+3 cases. Second is **layer-4 multi-anchor**
+(+2). Third is **f2-selection nudging** (+1, prompt-only). The TZ cases (22/41)
+are blocked on gold-label verification, not on the agent.
 
 ### Commits on agent-toolcall branch (this work)
 - `3707cac` content protocol (react_loop) + expand_branches plural fix + retrieve
