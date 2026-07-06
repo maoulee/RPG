@@ -1,0 +1,364 @@
+RPG Pipeline Prompts
+All active prompt templates used in the RPG pipeline.
+Configuration: decomp=cascade, reason_style=v2, skip_ner=True
+
+Pipeline stages: Decomposition → GTE Retrieval → LLM Prune → Graph Traversal → Path Selection → Answer Reasoning
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Stage 1a: Cascade Decomposition — Step 1
+(Anchor & Sub-question Generation)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Read the question and restructure it, based solely on its literal semantics, into logical sub-questions that must be solved sequentially.
+
+Note: This is question-logic decomposition only. Do not perform factual reasoning or choose specific KG relations.
+
+Example 1:
+Question: Which of the seven Central American countries had co2 emissions per capita once of 2009 metric ton?
+Result:
+<analysis>
+Answer focus: The question ultimately asks for countries satisfying the given condition.
+Known entities: "Central American countries" and "2009" are given by the question.
+Answer type hint: country
+Decomposition strategy: First determine the candidate country set, then query their CO2 emissions per capita in 2009.
+</analysis>
+<answer>
+1. What are the seven Central American countries?
+2. What was the CO2 emissions per capita of these countries in 2009?
+</answer>
+
+Example 2:
+Question: what did peter tchaikovsky do
+Result:
+<analysis>
+Answer focus: The question asks for the person's profession, occupation, or primary role.
+Known entities: "Peter Tchaikovsky" is the known entity.
+Answer type hint: occupation/profession
+Decomposition strategy: Directly query the person's profession or occupation.
+</analysis>
+<answer>
+1. What is Peter Tchaikovsky's profession or occupation?
+</answer>
+
+Input:
+Question: {question}
+
+Requirements:
+1. Only decompose the solving logic expressed by the question itself. Do not answer the question, look up facts, or verify entities.
+2. All concrete entities appearing in the question are known by default. Do not generate entity-explanation sub-questions.
+3. Do NOT generate sub-questions like "Who is X?", "What is X?", "Where is X?", or "What type is X?" unless the original question explicitly asks about that entity itself.
+4. Each sub-question should correspond to one independent relation, attribute, or constraint. Do not repeat sub-questions or express the same fact in both forward and reverse directions.
+5. Do not over-decompose. Only keep the logical steps necessary to solve the original question.
+6. Sub-questions must serve the final answer. Do not add background-knowledge questions.
+7. If the question contains a known entity as a starting point, directly ask about the relation between that entity and the target variable.
+8. If the question contains modifier clauses, geographic scope, time scope, or other constraints, decompose them into constraint sub-questions.
+9. If the original question contains only one core relation and one constraint, it can be decomposed into two sub-questions: one relation sub-question and one constraint sub-question.
+10. Output must contain both <analysis> and <answer> tags.
+11. <analysis> must contain exactly four lines:
+    - Answer focus: State what the original question ultimately asks for.
+    - Known entities: List entities from the question that are known and should not be explained.
+    - Answer type hint: Identify the expected answer type or relevant KG relation category (e.g. occupation, population, capital, birthPlace). Be specific — use "occupation/profession" when the question asks what someone does or did for a living.
+    - Decomposition strategy: State the decomposition approach by relation or constraint.
+12. <answer> must contain only a numbered list of sub-questions, one per line, with no extra explanation.
+
+Output format:
+<analysis>
+Answer focus: ...
+Known entities: ...
+Answer type hint: ...
+Decomposition strategy: ...
+</analysis>
+<answer>
+1. ...
+2. ...
+</answer>
+
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Stage 1b: Sub-question → Reasoning Triples
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+You are a KGQA sub-question-to-triples conversion assistant.
+
+Your task is to convert a sequential sub-question decomposition into a minimal ordered reasoning subgraph for retrieval.
+
+Important:
+This is structured graph decomposition for retrieval, not actual answering, fact-checking, ranking, filtering, or entity verification.
+Use the original question and the provided sub-questions only.
+Do not use outside knowledge.
+
+Input:
+Original question:
+{question}
+
+Known entities:
+{entities}
+
+Sub-question decomposition:
+{subquestions}
+
+Task:
+Convert the sub-questions into ordered triples that can be used for knowledge graph retrieval.
+
+Requirements:
+1. Use the sub-questions as the primary decomposition guide. Do not ignore, skip, or merge independent sub-questions.
+2. Each triple should correspond to one relation, attribute, or constraint expressed by a sub-question.
+3. Do not add triples that are not supported by the original question or the sub-questions.
+4. Do not answer the question or replace unknown answers with real-world entities.
+5. If the target entity is unknown, use a variable such as ?country, ?person, ?team, ?event, ?religion, ?year, or ?answer.
+6. Known concrete entities from the entity list should be copied exactly. Do not shorten, normalize, or partially copy entity names.
+7. The qentity list is a candidate pool, not a required set.
+8. Use a qentity only when it is directly needed by the original question or by one of the sub-questions.
+9. Before using any qentity as anchorentity or pathentity, check:
+   - Surface support: it is explicitly mentioned in the original question or sub-questions.
+   - Reasoning function: it constrains the answer variable or a necessary intermediate variable.
+   - Attachment point: it can be attached to a specific variable through a triple derived from a sub-question.
+10. If a qentity fails any of these checks, mark it as unusedentity.
+11. There must be exactly one anchorentity if at least one relevant concrete entity exists.
+12. The anchorentity is the unique starting point for graph traversal.
+13. Choose the anchorentity by this priority:
+    - the entity directly connected to the answer variable;
+    - otherwise, the entity used in the first sub-question;
+    - otherwise, the entity that best starts the main reasoning path.
+14. Other relevant known entities must be labeled pathentity, not anchorentity.
+15. A pathentity must appear in at least one triple as subject or object. Otherwise it must be unusedentity.
+16. If a sub-question identifies an intermediate entity, represent it as a variable and reuse that variable in later triples.
+17. If a sub-question expresses a constraint, attach that constraint to the correct variable instead of turning it into an unrelated path.
+18. If a sub-question expresses comparison, ranking, time filtering, quantity filtering, or numeric filtering, represent the required attribute or value as a normal retrieval triple. Do not output operations.
+19. Do not duplicate the same fact in both forward and reverse directions.
+20. Keep predicates as natural-language relation descriptions, not KG relation IDs.
+21. Predicate descriptions should be clear 4-8 word phrases describing the actual relation meaning.
+22. The triples must form an ordered reasoning tree or path that a graph-walk tool can follow from the single anchor entity to variables, constraints, and the final answer.
+23. Output must contain both <analysis> and <answer> tags.
+24. <analysis> must contain exactly four lines:
+    - Answer focus: State the final answer variable and answer type.
+    - Anchor entity: State the single selected anchor entity and why it starts the path.
+    - Entity filtering: State used qentities and unused qentities briefly.
+    - Triple strategy: State how sub-questions map to retrieval triples.
+25. <answer> must contain valid JSON only. Escape internal double quotes if needed.
+
+Output format:
+<analysis>
+Answer focus: ...
+Anchor entity: ...
+Entity filtering: used=[...]; unused=[...].
+Triple strategy: ...
+</analysis>
+<answer>
+{{
+  "answer_variable": "?answer",
+  "answer_type": "answer type",
+  "entity_roles": [
+    {{
+      "entity": "EntityName",
+      "role": "anchorentity | pathentity | unusedentity",
+      "reason": "short reason"
+    }}
+  ],
+  "triples": [
+    {{
+      "source_subquestion": 1,
+      "subject": "Node",
+      "predicate": "relation description",
+      "object": "Node"
+    }}
+  ]
+}}
+</answer>
+
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Stage 4: LLM Relation Pruning
+(Select top-k relations per reasoning step)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Analyze and select knowledge graph relations for each step of this reasoning chain.
+
+Question: <cs.question>
+
+Reasoning chain:
+<chain_text>
+
+Step-by-step candidates (each with an example triple):
+<blocks_text>
+
+Rules:
+1. Each step connects FROM previous output TO next — select bridge relations
+2. Select 2-5 relevant relations per step. Pick the best candidates that match the step's purpose.
+3. Ignore unrelated attributes
+4. If no relations fit a step, output empty list
+5. ORDER matters: rank by relevance to the step (most relevant first)
+
+Output format:
+<analysis>
+One sentence per step: what it needs and which relations fit.
+</analysis>
+<selected>
+step_1: [3, 1]
+step_2: [5, 2]
+</selected>
+
+Numbers are RANKED: first = most relevant.
+
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Stage 7: Path Selection
+(Select reasoning paths for answer generation)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+Select reasoning paths for this question.
+
+Question:
+<cs.question>
+
+Rewritten question:
+<rewritten>
+
+Answer type:
+<answer_type>
+
+Expected relation pattern:
+<expected_pattern>
+
+Endpoint constraints:
+<endpoints>
+
+Paths sorted by step coverage:
+<paths_text>
+
+Task:
+Evaluate each path against the expected relation pattern and select 2-4 paths.
+
+Path categories:
+- Strong Match: The relation chain closely matches the intended reasoning structure.
+- Partial but Useful: The path does not fully match but captures an important part of the reasoning.
+- Mismatch: The path is semantically off-track.
+
+Selection rules:
+1. Prefer Strong Match paths first.
+2. If fewer than 2 Strong Match paths exist, add the best Partial but Useful paths until selecting 2-4 paths.
+3. Prefer semantic correctness before diversity.
+4. Use diversity only among paths that are Strong Match or Partial but Useful.
+5. Prefer paths that satisfy endpoint constraints and lead to the expected answer type.
+6. Prefer paths whose relation chain matches the expected relation pattern, not merely paths with similar entity names.
+7. Avoid near-duplicate paths with the same relation chain unless they reach meaningfully different candidate sets.
+8. Avoid Mismatch paths unless there are no better alternatives.
+9. Do not invent new paths, new relations, or external facts.
+10. A single reasoning step may span multiple graph hops; judge coverage by the listed step numbers, not by hop count.
+
+Reasoning output rules:
+1. <analysis> must contain exactly three short sentences.
+2. Do not analyze every path one by one.
+3. Do not redo the full KGQA reasoning.
+4. The three sentences must follow this structure:
+   - Answer semantics: state what answer type the selected paths should lead to.
+   - Path matching: summarize which paths are Strong Match or Partial but Useful.
+   - Selection rationale: explain why the final paths are selected.
+
+Output format:
+
+<analysis>
+Answer semantics: The selected paths should lead to an answer of type <answer_type> and satisfy the endpoint constraints.
+Path matching: Path ... is a Strong Match, Path ... is Partial but Useful, and the remaining paths are weaker or mismatched.
+Selection rationale: Path ... are selected because they best match the expected relation pattern while preserving useful semantic diversity.
+</analysis>
+
+<selected>1,3,5</selected>
+
+Rules for <selected>:
+- Use comma-separated path numbers only.
+- Do not include brackets.
+- Do not include explanations.
+- Order selected path numbers by final preference, best first.
+
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Stage 8: Answer Reasoning
+(Read subgraph evidence, produce answer)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+QUESTION: <cs.question>
+
+<answer_type_hint><rewritten_hint>
+
+GRAPH EVIDENCE:
+<pattern_text>
+
+━━━ ANSWER SELECTION TASK ━━━
+
+Your task is to select the final answer entities from the graph evidence.
+You must audit each plausible candidate individually — do NOT use a single bulk filter_action.
+
+Step A — Question focus:
+Identify the exact answer focus from the question.
+The answer focus is stronger than the answer type hint.
+If the answer type hint conflicts with the question focus, follow the question focus.
+
+Step B — Evidence path summary:
+Summarize the relevant graph path(s) that connect known entities to candidate answers.
+Distinguish:
+- bridge nodes: needed only to connect the path, not the final answer
+- direct answer candidates: nodes that directly satisfy the answer focus
+- auxiliary candidates: nodes reached through weaker, broader, inverse, or expansion relations (e.g. includes, is_part_of, containedby, venue history)
+
+Step C — Candidate audit:
+For each plausible candidate, judge it as:
+- keep: matches the answer focus and is not contradicted by explicit question constraints
+- remove: wrong answer type, pure bridge node, wrong relation meaning, or explicitly contradicted by graph evidence
+- uncertain_keep: plausible answer type/focus and graph evidence does not contradict it
+
+Candidates do NOT compete with each other unless the question is classified as UNIQUE_ROLE, SUPERLATIVE, ORDINAL, or COUNT_LIMIT.
+For attributes, properties, events, achievements, group membership, containment, location, and unknown cardinality, one strong candidate never excludes another plausible candidate.
+
+For each candidate, give one short evidence-based reason.
+
+Step D — Cardinality and final answer:
+First classify the question:
+- UNIQUE_ROLE / CURRENT_ROLE -> choose most recent by graph dates; if no dates, output ALL keep + uncertain_keep
+- SUPERLATIVE / ORDINAL / COUNT_LIMIT -> apply the stated ranking/count only if graph evidence supports it
+- EVENTS / ACHIEVEMENTS / WORKS -> output ALL keep + uncertain_keep
+- ATTRIBUTES / PROPERTIES -> output ALL keep + uncertain_keep
+- GROUP_MEMBERSHIP / CONTAINMENT / LOCATION-IN -> output ALL keep + uncertain_keep
+- UNKNOWN -> output ALL keep + uncertain_keep
+
+RULES:
+1. Graph evidence only. No outside knowledge.
+2. Entity names encode meaningful information. Use this as valid evidence.
+3. Do NOT invent hidden constraints such as time overlap, currentness, or uniqueness — unless the question or graph evidence explicitly supports it.
+4. A constraint used to identify a bridge entity must NOT be reused to remove final candidates unless the question explicitly says it also restricts the final answer.
+5. Do NOT prefer one path over another for ALL-answer classes. If different paths yield candidates that satisfy the focus, keep all of them.
+6. Do NOT remove expansion, inverse, includes, is_part_of, containedby, venue history, or auxiliary-path candidates only because they are less direct. Remove them only for wrong type, wrong relation meaning, or explicit contradiction.
+7. Do NOT keep bridge entities unless the question asks for them.
+8. Do NOT keep wrong-type entities.
+9. Over-output is preferred for ALL-answer and UNKNOWN classes. Use under-output only for explicit unique, ranked, ordinal, or count-limited questions.
+10. CRITICAL: This is an ENTITY evaluation task. You MUST output the COMPLETE entity name exactly as it appears in the graph evidence. Events must include their full name (e.g. "2014 World Series", NOT "2014"). Places must include their full name. Never truncate entity names. Never output bare years, bare numbers, or abbreviated entity names.
+11. Copy entity strings exactly. Never output Freebase IDs (m.0xxx).
+12. NO text after </answer> tag.
+
+Reasoning format rules:
+- <reasoning> must contain exactly four sections: A, B, C, D.
+- Candidate audit (Step C) must use compact bullet lines, one per candidate.
+- Keep each candidate reason short (one line).
+- Do NOT self-correct or discuss alternative interpretations.
+- Prefer compact lists over prose.
+
+<reasoning>
+Step A — Question focus: ...
+Step B — Evidence path summary: ...
+Step C — Candidate audit:
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+Step D — Question class: ... | Final selection: ...
+</reasoning>
+<answer>\\boxed<{exact entity>}</answer>
+Multiple: <answer>\\boxed<<e1>> \\boxed<<e2>> \\boxed<<e3>></answer>
+No valid entity: <answer>None</answer>
+

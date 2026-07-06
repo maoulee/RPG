@@ -1,0 +1,525 @@
+================================================================================
+CWQ CASE STUDY: Orion's Belt → Richard Harris
+================================================================================
+
+Case ID: WebQTest-1002_9a330187030f30935208376dd179f40d
+Question: Who wrote the film Orion's Belt and also played Dumbledor in the Harry Potter series?
+Gold Answers: ['Richard Harris']
+
+================================================================================
+1. SUBGRAPH STATISTICS
+================================================================================
+  Entities: 1808
+  Relations: 367
+  Triples: 8013
+
+================================================================================
+2. DECOMPOSITION
+================================================================================
+<analysis>
+Answer focus: The question asks for a person who satisfies two specific conditions: writing a specific film and playing a specific character in a specific series.
+Known entities: "Orion's Belt" (film), "Dumbledore" (character), "Harry Potter series" (series).
+Decomposition strategy: Decompose the conjunction of two roles (writer and actor) into two separate queries regarding the same target entity, then identify the intersection.
+</analysis>
+<answer>
+1. Who wrote the film Orion's Belt?
+2. Who played Dumbledore in the Harry Potter series?
+</answer>
+
+[STEP 2]
+<analysis>
+Answer focus: The final answer variable is ?answer, representing the person who satisfies both conditions.
+Sub-question mapping: Sub-question 1 maps to a triple linking the film to its writer. Sub-question 2 maps to a triple linking the character to the actor.
+Entity role analysis: "Orion's Belt" is used as the starting subject in the first triple, so it is anchorentity. "Professor Albus Dumbledore" is used as a constraint in the second triple to identify the actor, so it is pathentity.
+Anchor decision: "Orion's Belt" is selected as anchorentity because it is the subject of the first triple in the reasoning chain, initiating the graph traversal.
+Triple strategy: The first triple retrieves the writer of the film. The second triple retrieves the actor of the character. The intersection of these two sets (or the single entity if they are the same person) constitutes the answer.
+</analysis>
+<answer>
+{
+  "answer_variable": "?answer",
+  "answer_type": "Person",
+  "entity_roles": [
+    {
+      "entity": "Orion's Belt",
+      "role": "anchorentity",
+      "reason": "Used as the starting subject in the first triple to initiate the reasoning chain."
+    },
+    {
+      "entity": "Professor Albus Dumbledore",
+      "role": "pathentity",
+      "reason": "Used as a constraint in the second triple to identify the specific actor."
+    }
+  ],
+  "triples": [
+    {
+      "source_subquestion": 1,
+      "subject": "Orion's Belt",
+      "predicate": "was written by",
+      "object": "?writer"
+    },
+    {
+      "source_subquestion": 2,
+      "subject": "Professor Albus Dumbledore",
+      "predicate": "was played by",
+      "object": "?actor"
+    }
+  ]
+}
+</answer>
+
+--- Parsed Steps ---
+  Step 1:
+    subquestion: Who wrote the film Orion's Belt?
+    subject: Orion's Belt
+    object: ?writer
+    relation_query: was written by
+  Step 2:
+    subquestion: Who played Dumbledore in the Harry Potter series?
+    subject: Professor Albus Dumbledore
+    object: ?actor
+    relation_query: was played by
+
+================================================================================
+3. GTE RETRIEVAL
+================================================================================
+
+  Step 1:
+    GTE candidates count: 27
+    Query [predicate]: was written by
+    Query [subquestion]: Who wrote the film Orion's Belt?
+
+  Step 2:
+    GTE candidates count: 21
+    Query [predicate]: was played by
+    Query [subquestion]: Who played Dumbledore in the Harry Potter series?
+
+================================================================================
+4. LLM PRUNE (Relation Selection)
+================================================================================
+
+  Step 1 selected 3 relations:
+    [216] film.writer.film  (USED)
+    [67] book.written_work.author  (DEAD)
+    [197] film.film.written_by  (USED)
+
+  Step 2 selected 2 relations:
+    [179] film.dubbing_performance.actor  (USED)
+    [198] film.film_character.portrayed_in_films  (DEAD)
+
+  Summary: 3 used in paths, 2 dead (cannot connect)
+
+  --- Full Prune Prompt ---
+
+You are a KGQA relation selection assistant. Given the question, reasoning triples, and candidate KG relations for each step, select the best relation IDs for each triple.
+
+Input:
+Question:
+Who wrote the film Orion's Belt and also played Dumbledor in the Harry Potter series?
+
+Reasoning triples:
+  Step 1: Orion's Belt —[was written by]—> ?writer
+  Step 2: Professor Albus Dumbledore —[was played by]—> ?actor
+
+Candidate relations per step:
+Step 1: Orion's Belt —[was written by]—> ?writer
+Candidates:
+    1. film.film.written_by (score=0.6228)
+       e.g. (Orion's Belt) -[film.film.written_by]-> (Richard Harris)
+    2. book.written_work.author (score=0.5871)
+       e.g. (The Tales of Beedle the Bard) -[book.written_work.author]-> (J. K. Rowling)
+    3. book.author.works_written (score=0.5584)
+       e.g. (J. K. Rowling) -[book.author.works_written]-> (Harry Potter and the Deathly Hallows)
+    4. book.written_work.part_of_series (score=0.5347)
+       e.g. (Harry Potter and the Chamber of Secrets) -[book.written_work.part_of_series]-> (Harry Potter literary series)
+    5. book.author.series_written_or_contributed_to (score=0.5342)
+       e.g. (J. K. Rowling) -[book.author.series_written_or_contributed_to]-> (Harry Potter literary series)
+    6. book.written_work.original_language (score=0.5023)
+       e.g. (The Birds) -[book.written_work.original_language]-> (English Language)
+    7. book.written_work.subjects (score=0.4992)
+       e.g. (Legacy) -[book.written_work.subjects]-> (Cold War)
+    8. film.writer.film (score=0.4914)
+       e.g. (Richard Harris) -[film.writer.film]-> (Orion's Belt)
+    9. book.written_work.next_in_series (score=0.4829)
+       e.g. (Colonization: Second Contact) -[book.written_work.next_in_series]-> (Down to Earth)
+    10. book.book_subject.works (score=0.4776)
+       e.g. (Cold War) -[book.book_subject.works]-> (Homeward my heart)
+    11. film.film.produced_by (score=0.4767)
+       e.g. (Aberdeen) -[film.film.produced_by]-> (Petter J. Borgli)
+    12. fictional_universe.fictional_object.created_by (score=0.4765)
+       e.g. (Elder Wand) -[fictional_universe.fictional_object.created_by]-> (Antioch Peverell)
+    13. fictional_universe.fictional_character.character_created_by (score=0.4750)
+       e.g. (Narcissa Malfoy) -[fictional_universe.fictional_character.character_created_by]-> (J. K. Rowling)
+    14. fictional_universe.fictional_universe.works_set_here (score=0.4719)
+       e.g. (Harry Potter) -[fictional_universe.fictional_universe.works_set_here]-> (Harry Potter and the Goblet of Fire)
+    15. book.literary_series.author_s (score=0.4675)
+       e.g. (Harry Potter literary series) -[book.literary_series.author_s]-> (J. K. Rowling)
+    16. film.film.directed_by (score=0.4515)
+       e.g. (Orion's Belt) -[film.film.directed_by]-> (Ola Solum)
+    17. film.film.executive_produced_by (score=0.4283)
+       e.g. (Yvy Maraey) -[film.film.executive_produced_by]-> (Petter J. Borgli)
+    18. film.director.film (score=0.4251)
+       e.g. (Tristan DeVere Cole) -[film.director.film]-> (Orion's Belt)
+    19. film.film.starring (score=0.4238)
+       e.g. (Orion's Belt) -[film.film.starring]-> (m.0k1md3)
+    20. film.performance.film (score=0.4236)
+       e.g. (m.02_752v) -[film.performance.film]-> (Harry Potter and the Goblet of Fire)
+    21. film.producer.film (score=0.4192)
+       e.g. (Petter J. Borgli) -[film.producer.film]-> (The Beautiful Country)
+    22. film.film_story_contributor.film_story_credits (score=0.4173)
+       e.g. (J. K. Rowling) -[film.film_story_contributor.film_story_credits]-> (Harry Potter and the Deathly Hallows – Part 2)
+    23. film.producer.films_executive_produced (score=0.4126)
+       e.g. (Petter J. Borgli) -[film.producer.films_executive_produced]-> (Yvy Maraey)
+    24. film.actor.film (score=0.4109)
+       e.g. (Richard Harris) -[film.actor.film]-> (m.0k4f_y)
+    25. film.cinematographer.film (score=0.4095)
+       e.g. (Harald Paalgard) -[film.cinematographer.film]-> (90 Minutes)
+    26. film.performance.actor (score=0.4057)
+       e.g. (m.04ls7lw) -[film.performance.actor]-> (Richard Harris)
+    27. film.film_film_distributor_relationship.film (score=0.4055)
+       e.g. (m.0j6gl5l) -[film.film_film_distributor_relationship.film]-> (Orion's Belt)
+
+Step 2: Professor Albus Dumbledore —[was played by]—> ?actor
+Candidates:
+    1. film.performance.actor (score=0.5756)
+       e.g. (m.04ls7lw) -[film.performance.actor]-> (Richard Harris)
+    2. film.dubbing_performance.actor (score=0.5641)
+       e.g. (m.0t_jy8g) -[film.dubbing_performance.actor]-> (Richard Harris)
+    3. base.harrypotter.hogwarts_house.house_head (score=0.5540)
+       e.g. (Hufflepuff House) -[base.harrypotter.hogwarts_house.house_head]-> (Pomona Sprout)
+    4. film.film_character.portrayed_in_films (score=0.5460)
+       e.g. (Professor Severus Snape) -[film.film_character.portrayed_in_films]-> (m.0gk80j0)
+    5. film.performance.character (score=0.5412)
+       e.g. (m.02_753b) -[film.performance.character]-> (Professor Severus Snape)
+    6. film.film.starring (score=0.5385)
+       e.g. (Orion's Belt) -[film.film.starring]-> (m.0k1md3)
+    7. theater.theater_role.actor (score=0.5345)
+       e.g. (m.0yqqz6v) -[theater.theater_role.actor]-> (Richard Harris)
+    8. tv.tv_actor.guest_roles (score=0.5338)
+       e.g. (Richard Harris) -[tv.tv_actor.guest_roles]-> (m.09nvk52)
+    9. tv.tv_guest_role.actor (score=0.5299)
+       e.g. (m.0ghl58j) -[tv.tv_guest_role.actor]-> (Richard Harris)
+    10. media_common.quotation.spoken_by_character (score=0.5286)
+       e.g. (It is the unknown we fear when we look upon death and darkness, nothing more.) -[media_common.quotation.spoken_by_character]-> (Professor Albus Dumbledore)
+    11. film.personal_film_appearance.person (score=0.5229)
+       e.g. (m.0cgn0jk) -[film.personal_film_appearance.person]-> (Richard Harris)
+    12. base.harrypotter.hogwarts_house.traits (score=0.5169)
+       e.g. (Gryffindor House) -[base.harrypotter.hogwarts_house.traits]-> (Chivalry)
+    13. theater.theater_actor.theater_roles (score=0.5128)
+       e.g. (Richard Harris) -[theater.theater_actor.theater_roles]-> (m.0yqqz6v)
+    14. tv.tv_character.appeared_in_tv_program (score=0.5100)
+       e.g. (Professor Severus Snape) -[tv.tv_character.appeared_in_tv_program]-> (m.0wkq5q5)
+    15. film.actor.dubbing_performances (score=0.5025)
+       e.g. (Richard Harris) -[film.actor.dubbing_performances]-> (m.0t_jy8g)
+    16. base.harrypotter.hogwarts_house.house_ghost (score=0.4996)
+       e.g. (Hufflepuff House) -[base.harrypotter.hogwarts_house.house_ghost]-> (Fat Friar)
+    17. film.film.produced_by (score=0.4945)
+       e.g. (Aberdeen) -[film.film.produced_by]-> (Petter J. Borgli)
+    18. film.film.written_by (score=0.4901)
+       e.g. (Orion's Belt) -[film.film.written_by]-> (Richard Harris)
+    19. base.harrypotter.hogwarts_house.house_animal (score=0.4644)
+       e.g. (Gryffindor House) -[base.harrypotter.hogwarts_house.house_animal]-> (Lion)
+    20. base.harrypotter.hogwarts_house.common_room (score=0.4556)
+       e.g. (Ravenclaw House) -[base.harrypotter.hogwarts_house.common_room]-> (Ravenclaw Tower)
+    21. fictional_universe.fictional_character.character_created_by (score=0.4393)
+       e.g. (Narcissa Malfoy) -[fictional_universe.fictional_character.character_created_by]-> (J. K. Rowling)
+
+Task:
+For each step of the reasoning triples, select KG relations from the corresponding candidate list that express the triple's semantics.
+
+Rules:
+1. Select relations based only on the question and the current triple's semantics. Do not add information beyond the question.
+2. For each step, select only from the given candidate relations. Do not create new relations or modify candidate IDs.
+3. Selected relations must express the actual meaning of the current triple's predicate and support traversal from subject to object.
+4. Do not select a relation solely because its entity names are similar; prioritize whether the relation's semantics match.
+5. If a candidate relation's direction is clearly opposite, semantically unrelated, or is just an irrelevant attribute, do not mark it as matched.
+6. Select 1 to 5 relation IDs per step.
+7. If there are clearly matching candidates, select all suitable relations ranked by relevance (highest first).
+8. If no clearly suitable relation exists, do not output an empty list; select the 1 semantically closest candidate as a fallback relation.
+9. A fallback relation only means it is the closest among candidates, not that it fully matches the triple's semantics.
+10. Each step must output a selection_type:
+   - matched: at least one candidate relation clearly matches the current triple's semantics.
+   - fallback: no clear match exists; only the closest candidate is selected as a fallback.
+11. <reason> must contain exactly three short sentences. No candidate path listings, background knowledge, or lengthy explanations.
+12. <answer> must contain parseable JSON only. No text outside the JSON.
+
+Output format:
+
+<reason>
+Answer semantics: This question needs to select KG relations for each reasoning triple that express its predicate semantics.
+Matching principle: Prioritize candidates whose semantics match and support traversal from subject to object.
+Selection strategy: If no clear match exists, select the semantically closest candidate as fallback.
+</reason>
+
+<answer>
+{
+  "selected_relations": [
+    {
+      "step": "step_1",
+      "selected_relation_ids": [3, 1],
+      "selection_type": "matched"
+    },
+    {
+      "step": "step_2",
+      "selected_relation_ids": [7],
+      "selection_type": "fallback"
+    }
+  ]
+}
+</answer>
+
+
+  --- Full Prune Output ---
+<reason>
+Answer semantics: This question needs to select KG relations for each reasoning triple that express its predicate semantics.
+Matching principle: Prioritize candidates whose semantics match and support traversal from subject to object.
+Selection strategy: If no clear match exists, select the semantically closest candidate as fallback.
+</reason>
+
+<answer>
+{
+  "selected_relations": [
+    {
+      "step": "step_1",
+      "selected_relation_ids": [1, 8],
+      "selection_type": "matched"
+    },
+    {
+      "step": "step_2",
+      "selected_relation_ids": [4],
+      "selection_type": "matched"
+    }
+  ]
+}
+</answer>
+
+================================================================================
+5. GRAPH TRAVERSAL
+================================================================================
+  num_paths: 2
+  num_patterns: 2
+  max_depth: 2
+
+--- Logical Paths ---
+  Pattern 0: Orion's Belt --[film.writer.film]--> node1 --[film.dubbing_performance.actor]--> node2
+  Pattern 1: Orion's Belt --[film.film.written_by]--> node1 --[film.dubbing_performance.actor]--> node2
+
+--- Pattern Details ---
+
+  Pattern 0:
+    candidates: ['Richard Harris']
+    witness_relations: ['[216] film.writer.film', '[179] film.dubbing_performance.actor']
+    witness_nodes: ["[697] Orion's Belt", '[790] Richard Harris', '[1745] m.0t_jy8g']
+    best_tier: [2, 1, -2]
+
+  Pattern 1:
+    candidates: ['Richard Harris']
+    witness_relations: ['[197] film.film.written_by', '[179] film.dubbing_performance.actor']
+    witness_nodes: ["[697] Orion's Belt", '[790] Richard Harris', '[1745] m.0t_jy8g']
+    best_tier: [2, 1, -2]
+
+================================================================================
+6. PATH SELECTION
+================================================================================
+  selected_paths: [0, 1]
+
+  --- Path Selection Prompt ---
+
+Select reasoning paths for this question.
+
+Question:
+Who wrote the film Orion's Belt and also played Dumbledor in the Harry Potter series?
+
+Rewritten question:
+Who wrote the film Orion's Belt and also played Dumbledor in the Harry Potter series?
+
+Answer type:
+Person
+
+Expected relation pattern:
+  1. Orion's Belt —[was written by]—> ?writer
+  2. Professor Albus Dumbledore —[was played by]—> ?actor
+
+Endpoint constraints:
+Professor Albus Dumbledore
+
+Paths sorted by relevance:
+1. Orion's Belt --[film.writer.film]--> node1 --[film.dubbing_performance.actor]--> node2  (1 candidates)
+2. Orion's Belt --[film.film.written_by]--> node1 --[film.dubbing_performance.actor]--> node2  (1 candidates)
+
+Task:
+Evaluate each path against the expected relation pattern and select 2-4 paths.
+
+Path categories:
+- Strong Match: The relation chain closely matches the intended reasoning structure.
+- Partial but Useful: The path does not fully match but captures an important part of the reasoning.
+- Mismatch: The path is semantically off-track.
+
+Selection rules:
+1. Prefer Strong Match paths first.
+2. If fewer than 2 Strong Match paths exist, add the best Partial but Useful paths until selecting 2-4 paths.
+3. Prefer semantic correctness before diversity.
+4. Use diversity only among paths that are Strong Match or Partial but Useful.
+5. Prefer paths that satisfy endpoint constraints and lead to the expected answer type.
+6. Prefer paths whose relation chain matches the expected relation pattern, not merely paths with similar entity names.
+7. Avoid near-duplicate paths with the same relation chain unless they reach meaningfully different candidate sets.
+8. Avoid Mismatch paths unless there are no better alternatives.
+9. Do not invent new paths, new relations, or external facts.
+
+Reasoning output rules:
+1. <analysis> must contain exactly three short sentences.
+2. Do not analyze every path one by one.
+3. Do not redo the full KGQA reasoning.
+4. The three sentences must follow this structure:
+   - Answer semantics: state what answer type the selected paths should lead to.
+   - Path matching: summarize which paths are Strong Match or Partial but Useful.
+   - Selection rationale: explain why the final paths are selected.
+
+Output format:
+
+<analysis>
+Answer semantics: The selected paths should lead to an answer of type Person and satisfy the endpoint constraints.
+Path matching: Path ... is a Strong Match, Path ... is Partial but Useful, and the remaining paths are weaker or mismatched.
+Selection rationale: Path ... are selected because they best match the expected relation pattern while preserving useful semantic diversity.
+</analysis>
+
+<selected>1,3,5</selected>
+
+Rules for <selected>:
+- Use comma-separated path numbers only.
+- Do not include brackets.
+- Do not include explanations.
+- Order selected path numbers by final preference, best first.
+
+
+  --- Path Selection Response ---
+<analysis>
+Answer semantics: The selected paths should lead to an answer of type Person who satisfies the endpoint constraint of being the actor for Dumbledore. Path matching: Path 1 is a Partial but Useful match as it connects the film to a writer and then to an actor, while Path 2 is also Partial but Useful with a similar structure. Selection rationale: Both paths are selected because they are the only available options that attempt to bridge the writer and actor roles, despite the semantic mismatch in the second hop relation.
+</analysis>
+
+<selected>1,2</selected>
+
+================================================================================
+7. ANSWER CANDIDATES
+================================================================================
+  candidates: ['Richard Harris', 'English Language']
+  gt_hit: True
+
+================================================================================
+8. LLM REASONING
+================================================================================
+
+  --- Reasoning Prompt ---
+
+QUESTION: Who wrote the film Orion's Belt and also played Dumbledor in the Harry Potter series?
+
+
+Answer type: Person
+
+GRAPH EVIDENCE:
+=== PATTERN P1: Orion's Belt --[film.writer.film]--> node1 --[film.dubbing_performance.actor]--> node2 ===
+  Evidence tree:
+  node0: Orion's Belt
+    film.writer.film:
+      - node1: Richard Harris
+        film.dubbing_performance.actor:
+          - node2: m.0t_jy8g: [actor=Richard Harris, language=English Language]
+
+=== PATTERN P2: Orion's Belt --[film.film.written_by]--> node1 --[film.dubbing_performance.actor]--> node2 ===
+  Evidence tree:
+  node0: Orion's Belt
+    film.film.written_by:
+      - node1: Richard Harris
+        film.dubbing_performance.actor:
+          - node2: m.0t_jy8g: [actor=Richard Harris, language=English Language]
+
+
+━━━ ANSWER SELECTION TASK ━━━
+
+Your task is to select the final answer entities from the graph evidence.
+You must audit each plausible candidate individually — do NOT use a single bulk filter_action.
+
+Step A — Question focus:
+Identify the exact answer focus from the question.
+The answer focus is stronger than the answer type hint.
+If the answer type hint conflicts with the question focus, follow the question focus.
+
+Step B — Evidence path summary:
+Summarize the relevant graph path(s) that connect known entities to candidate answers.
+Distinguish:
+- bridge nodes: needed only to connect the path, not the final answer
+- direct answer candidates: nodes that directly satisfy the answer focus
+- auxiliary candidates: nodes reached through weaker, broader, inverse, or expansion relations (e.g. includes, is_part_of, containedby, venue history)
+
+Step C — Candidate audit:
+For each plausible candidate, judge it as:
+- keep: directly satisfies the answer focus, supported by the strongest relevant evidence
+- remove: bridge node, wrong type, wrong relation meaning, weaker auxiliary expansion, or contradicted by evidence
+- uncertain_keep: evidence is genuinely ambiguous and the candidate cannot be safely removed
+
+For each candidate, give one short evidence-based reason.
+
+Step D — Final answer:
+Output:
+- all keep candidates
+- uncertain_keep candidates ONLY if no stronger keep candidate excludes them
+- do NOT output remove candidates
+
+RULES:
+1. Graph evidence only. No outside knowledge.
+2. Entity names encode meaningful information. Use this as valid evidence.
+3. Do NOT invent hidden constraints such as time overlap, currentness, or uniqueness — unless the question or graph evidence explicitly supports it.
+4. A constraint used to identify a bridge entity must NOT be reused to remove final candidates unless the question explicitly says it also restricts the final answer.
+5. If candidates come from different paths, prefer the path whose relation semantics best match the question wording.
+6. If one candidate is a direct answer and another is only reached through expansion (includes, is_part_of, containedby, venue history, auxiliary path), prefer the direct answer.
+7. Do NOT keep bridge entities unless the question asks for them.
+8. Do NOT keep wrong-type entities.
+9. Over-output is allowed ONLY when candidates are equally direct and equally supported.
+10. CRITICAL: This is an ENTITY evaluation task. You MUST output the COMPLETE entity name exactly as it appears in the graph evidence. Events must include their full name (e.g. "2014 World Series", NOT "2014"). Places must include their full name. Never truncate entity names. Never output bare years, bare numbers, or abbreviated entity names.
+11. Copy entity strings exactly. Never output Freebase IDs (m.0xxx).
+12. NO text after </answer> tag.
+
+Reasoning format rules:
+- <reasoning> must contain exactly four sections: A, B, C, D.
+- Candidate audit (Step C) must use compact bullet lines, one per candidate.
+- Keep each candidate reason short (one line).
+- Do NOT self-correct or discuss alternative interpretations.
+- Prefer compact lists over prose.
+
+<reasoning>
+Step A — Question focus: ...
+Step B — Evidence path summary: ...
+Step C — Candidate audit:
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+Step D — Final selection: ...
+</reasoning>
+<answer>\boxed{exact entity}</answer>
+Multiple: <answer>\boxed{e1} \boxed{e2} \boxed{e3}</answer>
+No valid entity: <answer>None</answer>
+
+
+  --- Reasoning Output ---
+<reasoning>
+Step A — Question focus: The question asks for a single person who satisfies two conditions: 1) wrote the film "Orion's Belt", and 2) played Dumbledore in the Harry Potter series. The answer type is Person.
+
+Step B — Evidence path summary:
+- Pattern P1 and P2 both link "Orion's Belt" to "Richard Harris" via writing credits (`film.writer.film` and `film.film.written_by`).
+- Both patterns then link "Richard Harris" to a dubbing performance node, confirming his identity as an actor.
+- The graph evidence explicitly identifies "Richard Harris" as the writer of "Orion's Belt".
+- While the graph evidence provided does not explicitly contain the edge linking Richard Harris to "Dumbledore" in Harry Potter, the entity name "Richard Harris" is the only candidate derived from the "Orion's Belt" writing constraint. In the context of this specific graph QA task, we must select the candidate that satisfies the explicit graph path provided. The question implies a single entity exists that fits both descriptions. The graph provides the link for the first description to Richard Harris.
+
+Step C — Candidate audit:
+- Richard Harris: keep. The graph evidence explicitly states that Richard Harris wrote the film "Orion's Belt" (via `film.film.written_by` and `film.writer.film`). He is the only candidate identified in the evidence tree connected to the film.
+
+Step D — Final selection:
+- The only candidate supported by the graph evidence for the writer of "Orion's Belt" is Richard Harris.
+</reasoning>
+<answer>\boxed{Richard Harris}</answer>
+
+================================================================================
+9. FINAL RESULT
+================================================================================
+  LLM Answer: Richard Harris
+  Gold Answers: ['Richard Harris']
+  LLM F1: 1.0
+  LLM Hit: True

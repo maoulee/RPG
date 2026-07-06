@@ -1,0 +1,498 @@
+================================================================================
+CASE STUDY: The country that contains Basel-Stadt uses what type of money?
+================================================================================
+
+Case ID: WebQTrn-1155_fbf8e0d41d59c1c1f57016316d470540
+Dataset: CWQ (ComplexWebQuestions)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. GROUND TRUTH & PREDICTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Ground Truth Answers:
+  • Swiss franc
+
+LLM Predicted Answers:
+  • Swiss franc
+  • Switzerland
+
+Hit@1: True  |  F1: 1.000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. QUESTION DECOMPOSITION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Anchor: 
+Answer Type: 
+
+<analysis>
+Answer focus: The question asks for the currency used in a specific country.
+Known entities: Basel-Stadt is a known entity (a canton in Switzerland).
+Decomposition strategy: First, identify the sovereign state that contains the known entity Basel-Stadt. Second, determine the currency used by that identified state.
+</analysis>
+<answer>
+1. Which country contains Basel-Stadt?
+2. What type of money is used in that country?
+</answer>
+
+[STEP 2]
+<analysis>
+Answer focus: The final answer variable is ?answer, representing the type of money (currency).
+Sub-question mapping: Sub-question 1 maps to a triple linking Basel-Stadt to its containing country. Sub-question 2 maps to a triple linking that country to its currency type.
+Entity role analysis: Basel-Stadt is used_in_triples=yes as the starting node. It is the only known entity provided and serves as the anchor.
+Anchor decision: Basel-Stadt is selected as anchorentity because it is the known concrete entity appearing in the first triple subject, initiating the reasoning chain.
+Triple strategy: The ordered triples first retrieve the country from Basel-Stadt, then retrieve the currency from that country, forming a minimal path for retrieval.
+</analysis>
+<answer>
+{
+  "answer_variable": "?answer",
+  "answer_type": "currency type",
+  "entity_roles": [
+    {
+      "entity": "Basel-Stadt",
+      "role": "anchorentity",
+      "reason": "Known entity used as the starting subject in the first triple to initiate the reasoning path."
+    }
+  ],
+  "triples": [
+    {
+      "source_subquestion": 1,
+      "subject": "Basel-Stadt",
+      "predicate": "is located in the country",
+      "object": "?country"
+    },
+    {
+      "source_subquestion": 2,
+      "subject": "?country",
+      "predicate": "uses the currency type",
+      "object": "?answer"
+    }
+  ]
+}
+</answer>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. GTE RETRIEVAL — CANDIDATE RELATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+You are a KGQA relation selection assistant. Given the question, reasoning triples, and candidate KG relations for each step, select the best relation IDs for each triple.
+
+Input:
+Question:
+The country that contains Basel-Stadt uses what type of money?
+
+Reasoning triples:
+  Step 1: Basel-Stadt —[is located in the country]—> ?country
+  Step 2: ?country —[uses the currency type]—> ?answer
+
+Candidate relations per step:
+Step 1: Basel-Stadt —[is located in the country]—> ?country
+Candidates:
+    1. base.locations.continents.countries_within (score=0.6552)
+       e.g. (Europe) -[base.locations.continents.countries_within]-> (Liechtenstein)
+    2. location.location.containedby (score=0.6517)
+       e.g. (Canton of Nidwalden) -[location.location.containedby]-> (Switzerland)
+    3. location.location.partially_containedby (score=0.6511)
+       e.g. (Monte Rosa Massif) -[location.location.partially_containedby]-> (Switzerland)
+    4. location.location.partially_contained_by (score=0.6450)
+       e.g. (Arve) -[location.location.partially_contained_by]-> (m.0wg8r01)
+    5. location.country.form_of_government (score=0.6436)
+       e.g. (Switzerland) -[location.country.form_of_government]-> (Direct democracy)
+    6. location.country.administrative_divisions (score=0.6403)
+       e.g. (Switzerland) -[location.country.administrative_divisions]-> (Canton of Zürich)
+    7. base.locations.countries.continent (score=0.6392)
+       e.g. (Liechtenstein) -[base.locations.countries.continent]-> (Europe)
+    8. location.administrative_division.country (score=0.6364)
+       e.g. (Basel-Landschaft) -[location.administrative_division.country]-> (Switzerland)
+    9. organization.organization.locations (score=0.6364)
+       e.g. (Basel / Kunstkommission) -[organization.organization.locations]-> (Kunstmuseum Basel)
+    10. government.form_of_government.countries (score=0.6249)
+       e.g. (Federal republic) -[government.form_of_government.countries]-> (Switzerland)
+    11. base.aareas.schema.administrative_area_type.iso_country (score=0.6197)
+       e.g. (Swiss canton) -[base.aareas.schema.administrative_area_type.iso_country]-> (Switzerland)
+    12. base.biblioness.bibs_location.country (score=0.6194)
+       e.g. (Bern) -[base.biblioness.bibs_location.country]-> (Switzerland)
+    13. government.government_agency.jurisdiction (score=0.6189)
+       e.g. (Swiss Federal Customs Administration) -[government.government_agency.jurisdiction]-> (Switzerland)
+    14. geography.river.basin_countries (score=0.6119)
+       e.g. (Birsig) -[geography.river.basin_countries]-> (Switzerland)
+    15. location.country.first_level_divisions (score=0.6114)
+       e.g. (Switzerland) -[location.country.first_level_divisions]-> (Appenzell Innerrhoden)
+    16. base.switzerland.ch_canton.capital (score=0.5901)
+       e.g. (Canton of Bern) -[base.switzerland.ch_canton.capital]-> (Bern)
+    17. location.capital_of_administrative_division.capital_of (score=0.5009)
+       e.g. (Basel) -[location.capital_of_administrative_division.capital_of]-> (m.0q3806c)
+    18. base.locations.planets.continents_within (score=0.4789)
+       e.g. (Earth) -[base.locations.planets.continents_within]-> (Europe)
+    19. location.country.languages_spoken (score=0.4780)
+       e.g. (Switzerland) -[location.country.languages_spoken]-> (French)
+    20. base.popstra.vacation_choice.location (score=0.4725)
+       e.g. (m.063t983) -[base.popstra.vacation_choice.location]-> (Switzerland)
+    21. base.aareas.schema.administrative_area.capital (score=0.4725)
+       e.g. (Canton of Bern) -[base.aareas.schema.administrative_area.capital]-> (Bern)
+    22. location.statistical_region.places_imported_from (score=0.4698)
+       e.g. (Switzerland) -[location.statistical_region.places_imported_from]-> (m.049375v)
+
+Step 2: ?country —[uses the currency type]—> ?answer
+Candidates:
+    1. location.country.currency_used (score=0.7834)
+       e.g. (Liechtenstein) -[location.country.currency_used]-> (Swiss franc)
+    2. finance.currency.countries_used (score=0.7247)
+       e.g. (Swiss franc) -[finance.currency.countries_used]-> (Switzerland)
+    3. finance.currency.currency_code (score=0.6697)
+       e.g. (Swiss franc) -[finance.currency.currency_code]-> (CHF)
+    4. finance.currency.target_of_exchange (score=0.6473)
+       e.g. (Swiss franc) -[finance.currency.target_of_exchange]-> (m.03x96yc)
+    5. finance.currency.prefix_symbol (score=0.6411)
+       e.g. (Swiss franc) -[finance.currency.prefix_symbol]-> (Fr.)
+    6. freebase.equivalent_topic.equivalent_type (score=0.6309)
+       e.g. (Swiss canton) -[freebase.equivalent_topic.equivalent_type]-> (Swiss canton)
+    7. base.aareas.schema.administrative_area.pertinent_type (score=0.6164)
+       e.g. (Switzerland) -[base.aareas.schema.administrative_area.pertinent_type]-> (Swiss commune)
+    8. base.aareas.schema.administrative_area_type.iso_country (score=0.6082)
+       e.g. (Swiss canton) -[base.aareas.schema.administrative_area_type.iso_country]-> (Switzerland)
+    9. location.statistical_region.consumer_price_index (score=0.6018)
+       e.g. (Switzerland) -[location.statistical_region.consumer_price_index]-> (g.1hhc522y7)
+    10. location.statistical_region.trade_balance_as_percent_of_gdp (score=0.5996)
+       e.g. (Switzerland) -[location.statistical_region.trade_balance_as_percent_of_gdp]-> (g.1hhc3nwwz)
+    11. base.aareas.coding_scheme.types (score=0.5948)
+       e.g. (NUTS 3) -[base.aareas.coding_scheme.types]-> (Swiss canton)
+    12. base.aareas.administrative_area_level.coding_schemes (score=0.5899)
+       e.g. (State/Province) -[base.aareas.administrative_area_level.coding_schemes]-> (FIPS 10-4)
+    13. location.statistical_region.merchandise_trade_percent_of_gdp (score=0.5884)
+       e.g. (Switzerland) -[location.statistical_region.merchandise_trade_percent_of_gdp]-> (g.1hhc3r25c)
+    14. base.aareas.schema.administrative_area.administrative_area_type (score=0.5867)
+       e.g. (Canton of Glarus) -[base.aareas.schema.administrative_area.administrative_area_type]-> (Swiss canton)
+    15. location.country.form_of_government (score=0.5854)
+       e.g. (Switzerland) -[location.country.form_of_government]-> (Direct democracy)
+    16. freebase.equivalent_topic.equivalent_domain (score=0.5853)
+       e.g. (Switzerland) -[freebase.equivalent_topic.equivalent_domain]-> (Switzerland)
+    17. government.form_of_government.countries (score=0.5788)
+       e.g. (Federal republic) -[government.form_of_government.countries]-> (Switzerland)
+    18. location.statistical_region.gdp_nominal_per_capita (score=0.5746)
+       e.g. (Switzerland) -[location.statistical_region.gdp_nominal_per_capita]-> (g.1hhc4_45v)
+    19. location.country.national_anthem (score=0.5721)
+       e.g. (Switzerland) -[location.country.national_anthem]-> (m.0h_1blg)
+    20. location.country.official_language (score=0.5605)
+       e.g. (Switzerland) -[location.country.official_language]-> (Romansh language)
+    21. location.country.languages_spoken (score=0.5546)
+       e.g. (Switzerland) -[location.country.languages_spoken]-> (French)
+    22. language.human_language.countries_spoken_in (score=0.5500)
+       e.g. (Italian Language) -[language.human_language.countries_spoken_in]-> (Switzerland)
+    23. language.human_language.main_country (score=0.5479)
+       e.g. (Romansh language) -[language.human_language.main_country]-> (Switzerland)
+    24. location.capital_of_administrative_division.capital_of (score=0.5440)
+       e.g. (Basel) -[location.capital_of_administrative_division.capital_of]-> (m.0q3806c)
+
+Task:
+For each step of the reasoning triples, select KG relations from the corresponding candidate list that express the triple's semantics.
+
+Rules:
+1. Select relations based only on the question and the current triple's semantics. Do not add information beyond the question.
+2. For each step, select only from the given candidate relations. Do not create new relations or modify candidate IDs.
+3. Selected relations must express the actual meaning of the current triple's predicate and support traversal from subject to object.
+4. Do not select a relation solely because its entity names are similar; prioritize whether the relation's semantics match.
+5. If a candidate relation's direction is clearly opposite, semantically unrelated, or is just an irrelevant attribute, do not mark it as matched.
+6. Select 1 to 5 relation IDs per step.
+7. If there are clearly matching candidates, select all suitable relations ranked by relevance (highest first).
+8. If no clearly suitable relation exists, do not output an empty list; select the 1 semantically closest candidate as a fallback relation.
+9. A fallback relation only means it is the closest among candidates, not that it fully matches the triple's semantics.
+10. Each step must output a selection_type:
+   - matched: at least one candidate relation clearly matches the current triple's semantics.
+   - fallback: no clear match exists; only the closest candidate is selected as a fallback.
+11. <reason> must contain exactly three short sentences. No candidate path listings, background knowledge, or lengthy explanations.
+12. <answer> must contain parseable JSON only. No text outside the JSON.
+
+Output format:
+
+<reason>
+Answer semantics: This question needs to select KG relations for each reasoning triple that express its predicate semantics.
+Matching principle: Prioritize candidates whose semantics match and support traversal from subject to object.
+Selection strategy: If no clear match exists, select the semantically closest candidate as fallback.
+</reason>
+
+<answer>
+{
+  "selected_relations": [
+    {
+      "step": "step_1",
+      "selected_relation_ids": [3, 1],
+      "selection_type": "matched"
+    },
+    {
+      "step": "step_2",
+      "selected_relation_ids": [7],
+      "selection_type": "fallback"
+    }
+  ]
+}
+</answer>
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. LLM RELATION PRUNING — SELECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+<reason>
+Answer semantics: This question needs to select KG relations for each reasoning triple that express its predicate semantics.
+Matching principle: Prioritize candidates whose semantics match and support traversal from subject to object.
+Selection strategy: If no clear match exists, select the semantically closest candidate as fallback.
+</reason>
+
+<answer>
+{
+  "selected_relations": [
+    {
+      "step": "step_1",
+      "selected_relation_ids": [8],
+      "selection_type": "matched"
+    },
+    {
+      "step": "step_2",
+      "selected_relation_ids": [1],
+      "selection_type": "matched"
+    }
+  ]
+}
+</answer>
+
+Selected relation indices per step:
+  Step 1: [137, 28]
+  Step 2: [264, 145, 85]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. LOGIC-CONSTRAINED PATTERN WALKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LLM selected 5 relations → trying all 6 combinations:
+
+Combination exploration (cartesian product of selected relations):
+  ✗ [137] location.administrative_division.country  →  [264] finance.currency.currency_code
+      PRUNED: [264] finance.currency.currency_code is wrong domain/direction for this query
+
+  ✓ [137] location.administrative_division.country  →  [145] location.country.currency_used
+      Path: nodes: Basel-Stadt → Switzerland → Swiss franc, candidates: ['Swiss franc', 'Switzerland']
+
+  ✓ [137] location.administrative_division.country  →  [85] finance.currency.countries_used
+      Path: nodes: Basel-Stadt → Switzerland → Swiss franc, candidates: ['Swiss franc', 'Switzerland']
+
+  ✗ [28] base.locations.continents.countries_within  →  [264] finance.currency.currency_code
+      PRUNED: [28] base.locations.continents.countries_within is wrong domain/direction for this query; [264] finance.currency.currency_code is wrong domain/direction for this query
+
+  ✗ [28] base.locations.continents.countries_within  →  [145] location.country.currency_used
+      PRUNED: [28] base.locations.continents.countries_within is wrong domain/direction for this query
+
+  ✗ [28] base.locations.continents.countries_within  →  [85] finance.currency.countries_used
+      PRUNED: [28] base.locations.continents.countries_within is wrong domain/direction for this query
+
+Result: 2 valid paths, 4 combinations pruned (no KG instantiation)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. FINAL VALID PATTERNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Pattern 0:
+  Chain: Basel-Stadt → Switzerland → Swiss franc
+  Relations: [137] location.administrative_division.country → [85] finance.currency.countries_used
+  Candidates: ['Swiss franc', 'Switzerland']
+
+Pattern 1:
+  Chain: Basel-Stadt → Switzerland → Swiss franc
+  Relations: [137] location.administrative_division.country → [145] location.country.currency_used
+  Candidates: ['Swiss franc', 'Switzerland']
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. PATH SELECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Path Selection Prompt:
+
+Select reasoning paths for this question.
+
+Question:
+The country that contains Basel-Stadt uses what type of money?
+
+Rewritten question:
+The country that contains Basel-Stadt uses what type of money?
+
+Answer type:
+currency type
+
+Expected relation pattern:
+  1. Basel-Stadt —[is located in the country]—> ?country
+  2. ?country —[uses the currency type]—> ?answer
+
+Endpoint constraints:
+
+
+Paths sorted by relevance:
+1. Basel-Stadt --[location.administrative_division.country]--> node1 --[finance.currency.countries_used]--> node2  (2 candidates)
+2. Basel-Stadt --[location.administrative_division.country]--> node1 --[location.country.currency_used]--> node2  (2 candidates)
+
+Task:
+Evaluate each path against the expected relation pattern and select 2-4 paths.
+
+Path categories:
+- Strong Match: The relation chain closely matches the intended reasoning structure.
+- Partial but Useful: The path does not fully match but captures an important part of the reasoning.
+- Mismatch: The path is semantically off-track.
+
+Selection rules:
+1. Prefer Strong Match paths first.
+2. If fewer than 2 Strong Match paths exist, add the best Partial but Useful paths until selecting 2-4 paths.
+3. Prefer semantic correctness before diversity.
+4. Use diversity only among paths that are Strong Match or Partial but Useful.
+5. Prefer paths that satisfy endpoint constraints and lead to the expected answer type.
+6. Prefer paths whose relation chain matches the expected relation pattern, not merely paths with similar entity names.
+7. Avoid near-duplicate paths with the same relation chain unless they reach meaningfully different candidate sets.
+8. Avoid Mismatch paths unless there are no better alternatives.
+9. Do not invent new paths, new relations, or external facts.
+
+Reasoning output rules:
+1. <analysis> must contain exactly three short sentences.
+2. Do not analyze every path one by one.
+3. Do not redo the full KGQA reasoning.
+4. The three sentences must follow this structure:
+   - Answer semantics: state what answer type the selected paths should lead to.
+   - Path matching: summarize which paths are Strong Match or Partial but Useful.
+   - Selection rationale: explain why the final paths are selected.
+
+Output format:
+
+<analysis>
+Answer semantics: The selected paths should lead to an answer of type currency type and satisfy the endpoint constraints.
+Path matching: Path ... is a Strong Match, Path ... is Partial but Useful, and the remaining paths are weaker or mismatched.
+Selection rationale: Path ... are selected because they best match the expected relation pattern while preserving useful semantic diversity.
+</analysis>
+
+<selected>1,3,5</selected>
+
+Rules for <selected>:
+- Use comma-separated path numbers only.
+- Do not include brackets.
+- Do not include explanations.
+- Order selected path numbers by final preference, best first.
+
+
+Path Selection Response:
+<analysis>
+Answer semantics: The selected paths should lead to an answer of type currency type and satisfy the endpoint constraints.
+Path matching: Both Path 1 and Path 2 are Strong Matches as they directly map the administrative location to the country and then to the currency used.
+Selection rationale: Path 1 and Path 2 are selected because they perfectly align with the expected relation pattern of identifying the country and its currency, providing the most direct reasoning chain.
+</analysis>
+
+<selected>1,2</selected>
+
+Selected path indices: [0, 1]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. LLM ANSWER REASONING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+QUESTION: The country that contains Basel-Stadt uses what type of money?
+
+
+Answer type: currency type
+
+GRAPH EVIDENCE:
+=== PATTERN P1: Basel-Stadt --[location.administrative_division.country]--> node1 --[finance.currency.countries_used]--> node2 ===
+  Evidence tree:
+  node0: Basel-Stadt
+    location.administrative_division.country:
+      - node1: Switzerland
+        finance.currency.countries_used:
+          node2: [Swiss franc]
+
+=== PATTERN P2: Basel-Stadt --[location.administrative_division.country]--> node1 --[location.country.currency_used]--> node2 ===
+  Evidence tree:
+  node0: Basel-Stadt
+    location.administrative_division.country:
+      - node1: Switzerland
+        location.country.currency_used:
+          node2: [Swiss franc]
+
+
+━━━ ANSWER SELECTION TASK ━━━
+
+Your task is to select the final answer entities from the graph evidence.
+You must audit each plausible candidate individually — do NOT use a single bulk filter_action.
+
+Step A — Question focus:
+Identify the exact answer focus from the question.
+The answer focus is stronger than the answer type hint.
+If the answer type hint conflicts with the question focus, follow the question focus.
+
+Step B — Evidence path summary:
+Summarize the relevant graph path(s) that connect known entities to candidate answers.
+Distinguish:
+- bridge nodes: needed only to connect the path, not the final answer
+- direct answer candidates: nodes that directly satisfy the answer focus
+- auxiliary candidates: nodes reached through weaker, broader, inverse, or expansion relations (e.g. includes, is_part_of, containedby, venue history)
+
+Step C — Candidate audit:
+For each plausible candidate, judge it as:
+- keep: directly satisfies the answer focus, supported by the strongest relevant evidence
+- remove: bridge node, wrong type, wrong relation meaning, weaker auxiliary expansion, or contradicted by evidence
+- uncertain_keep: evidence is genuinely ambiguous and the candidate cannot be safely removed
+
+For each candidate, give one short evidence-based reason.
+
+Step D — Final answer:
+Output:
+- all keep candidates
+- uncertain_keep candidates ONLY if no stronger keep candidate excludes them
+- do NOT output remove candidates
+
+RULES:
+1. Graph evidence only. No outside knowledge.
+2. Entity names encode meaningful information. Use this as valid evidence.
+3. Do NOT invent hidden constraints such as time overlap, currentness, or uniqueness — unless the question or graph evidence explicitly supports it.
+4. A constraint used to identify a bridge entity must NOT be reused to remove final candidates unless the question explicitly says it also restricts the final answer.
+5. If candidates come from different paths, prefer the path whose relation semantics best match the question wording.
+6. If one candidate is a direct answer and another is only reached through expansion (includes, is_part_of, containedby, venue history, auxiliary path), prefer the direct answer.
+7. Do NOT keep bridge entities unless the question asks for them.
+8. Do NOT keep wrong-type entities.
+9. Over-output is allowed ONLY when candidates are equally direct and equally supported.
+10. CRITICAL: This is an ENTITY evaluation task. You MUST output the COMPLETE entity name exactly as it appears in the graph evidence. Events must include their full name (e.g. "2014 World Series", NOT "2014"). Places must include their full name. Never truncate entity names. Never output bare years, bare numbers, or abbreviated entity names.
+11. Copy entity strings exactly. Never output Freebase IDs (m.0xxx).
+12. NO text after </answer> tag.
+
+Reasoning format rules:
+- <reasoning> must contain exactly four sections: A, B, C, D.
+- Candidate audit (Step C) must use compact bullet lines, one per candidate.
+- Keep each candidate reason short (one line).
+- Do NOT self-correct or discuss alternative interpretations.
+- Prefer compact lists over prose.
+
+<reasoning>
+Step A — Question focus: ...
+Step B — Evidence path summary: ...
+Step C — Candidate audit:
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+Step D — Final selection: ...
+</reasoning>
+<answer>\boxed{exact entity}</answer>
+Multiple: <answer>\boxed{e1} \boxed{e2} \boxed{e3}</answer>
+No valid entity: <answer>None</answer>
+
+
+LLM Output:
+<reasoning>
+Step A — Question focus: The question asks for the "type of money" (currency) used in the country that contains Basel-Stadt. The answer must be a currency entity.
+
+Step B — Evidence path summary:
+1. Path P1: Basel-Stadt -> [location.administrative_division.country] -> Switzerland -> [finance.currency.countries_used] -> Swiss franc.
+2. Path P2: Basel-Stadt -> [location.administrative_division.country] -> Switzerland -> [location.country.currency_used] -> Swiss franc.
+Both paths identify Switzerland as the country and "Swiss franc" as the currency.
+
+Step C — Candidate audit:
+- Swiss franc: keep | decision: keep | reason: Directly satisfies the answer focus as the currency used in Switzerland, supported by both P1 and P2.
+- Switzerland: remove | decision: remove | reason: Bridge node representing the country, not the currency.
+
+Step D — Final selection:
+- Swiss franc
+</reasoning>
+<answer>\boxed{Swiss franc}</answer>
+
+Final Answer: Swiss franc

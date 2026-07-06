@@ -67,9 +67,8 @@ uv.lock
 uv.toml
 .python-version
 
-# Sensitive / non-essential files
-AGENTS.md
-case_study_*.txt
+# Sensitive / non-essential files (root-only patterns; anchored with leading /)
+/case_study_*.txt
 paper_intro_iter1.patch
 paper/
 
@@ -144,12 +143,12 @@ src/
 *.csv
 *.jsonl
 action_fail_case_details.csv
-action_skill_correlation_analysis.txt
+/action_skill_correlation_analysis.txt
 reranker_comparison.json
 tmp_webqtest39.jsonl
 scripts/prompt_on_skill_data_results.json
-pasted-text-*.txt
-pipeline_prompts.txt
+/pasted-text-*.txt
+/pipeline_prompts.txt
 
 # Archived legacy pipeline (RL-based, superseded by kgqa/)
 _archive/

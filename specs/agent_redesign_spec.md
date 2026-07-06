@@ -149,7 +149,16 @@ ordinary cases and was rejected.
 | CWQ | content + retrieve ctx (3707cac) | 83.8% | 89.9% | 0.778 | 1/99 |
 | CWQ | + parallel-constraint prompt (f458620) | 84.8% | — | 0.786 | — |
 | CWQ | + parallel union + FROM→WHERE (63af4ee) | **88.9%** | — | **0.794** | — |
+| CWQ | + 4-tool merge 6→4 (`ab7ec0a`, 100-case re-run) | 87.9% | **91.9%** | 0.789 | 0/99 |
 | WebQSP | content + retrieve ctx | 91.0% | 93.0% | 0.804 | — |
+
+**4-tool merge verdict (2026-07-06, `reports/cwq_merged_100`):** the merge
+folded `retrieve` into `decompose` (GTE runs inline) and `select` into
+`select_relations` (traversal runs inline). Per-case turns dropped ~7 → ~4.
+Against the prior `cwq_fromwhere_100` baseline: GT-hit **+1 (90→91)**, recall
+~flat (0.910→0.905), small precision drop (−0.028, 0.888→0.860) from
+over-emitting candidates. Net noise-level — the tool-count halving cost no
+recall and no GT-hit. Not yet committed.
 
 The FROM→WHERE→SELECT answer-reasoning framework (commit `63af4ee`) is the
 biggest single gain: **+4 hit (84→88)** in one change. Replaces the old

@@ -1,0 +1,501 @@
+================================================================================
+CASE STUDY: Pernambuco is from the country with what type of money?
+================================================================================
+
+Case ID: WebQTrn-484_894fd8dc00cf831fe75187abd587b8aa
+Dataset: CWQ (ComplexWebQuestions)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. GROUND TRUTH & PREDICTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Ground Truth Answers:
+  • Brazilian real
+
+LLM Predicted Answers:
+  • Brazil
+  • Brazilian real
+
+Hit@1: True  |  F1: 1.000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. QUESTION DECOMPOSITION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Anchor: 
+Answer Type: 
+
+<analysis>
+Answer focus: The question ultimately asks for the type of money used in the country where Pernambuco is located.
+Known entities: Pernambuco (a region/state), country (the sovereign state containing Pernambuco).
+Decomposition strategy: First identify the country associated with Pernambuco, then determine the currency type of that country.
+</analysis>
+<answer>
+1. Which country is Pernambuco located in?
+2. What type of money is used in that country?
+</answer>
+
+[STEP 2]
+<analysis>
+Answer focus: The final answer variable is ?answer, representing the type of money (currency) used in the country.
+Sub-question mapping: Sub-question 1 maps to a triple linking Pernambuco to its country. Sub-question 2 maps to a triple linking that country to its currency type.
+Entity role analysis: Pernambuco is used_in_triples=yes as the starting subject. It is the only known entity provided.
+Anchor decision: Pernambuco is selected as anchorentity because it is the known entity appearing in the first triple subject, initiating the reasoning chain.
+Triple strategy: The ordered triples form a path: Pernambuco -> Country -> Currency Type. This allows retrieval of the intermediate country entity and the final currency attribute.
+</analysis>
+<answer>
+{
+  "answer_variable": "?answer",
+  "answer_type": "currency type",
+  "entity_roles": [
+    {
+      "entity": "Pernambuco",
+      "role": "anchorentity",
+      "reason": "Starting entity for the reasoning chain, appearing as subject in the first triple."
+    }
+  ],
+  "triples": [
+    {
+      "source_subquestion": 1,
+      "subject": "Pernambuco",
+      "predicate": "located in the country",
+      "object": "?country"
+    },
+    {
+      "source_subquestion": 2,
+      "subject": "?country",
+      "predicate": "uses currency type",
+      "object": "?answer"
+    }
+  ]
+}
+</answer>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. GTE RETRIEVAL — CANDIDATE RELATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+You are a KGQA relation selection assistant. Given the question, reasoning triples, and candidate KG relations for each step, select the best relation IDs for each triple.
+
+Input:
+Question:
+Pernambuco is from the country with what type of money?
+
+Reasoning triples:
+  Step 1: Pernambuco —[located in the country]—> ?country
+  Step 2: ?country —[uses currency type]—> ?answer
+
+Candidate relations per step:
+Step 1: Pernambuco —[located in the country]—> ?country
+Candidates:
+    1. location.location.partially_containedby (score=0.6343)
+       e.g. (São Francisco River) -[location.location.partially_containedby]-> (Minas Gerais)
+    2. location.location.containedby (score=0.6297)
+       e.g. (Mato Grosso do Sul) -[location.location.containedby]-> (Brazil)
+    3. location.location.partially_contained_by (score=0.6210)
+       e.g. (São Francisco River) -[location.location.partially_contained_by]-> (m.0wg97qg)
+    4. location.administrative_division.country (score=0.6181)
+       e.g. (Rondônia) -[location.administrative_division.country]-> (Brazil)
+    5. location.country.administrative_divisions (score=0.6175)
+       e.g. (Brazil) -[location.country.administrative_divisions]-> (Federal District)
+    6. base.biblioness.bibs_location.country (score=0.5992)
+       e.g. (Federal District) -[base.biblioness.bibs_location.country]-> (Brazil)
+    7. government.government_office_or_title.jurisdiction (score=0.5967)
+       e.g. (Governor of Pernambuco) -[government.government_office_or_title.jurisdiction]-> (Pernambuco)
+    8. location.country.first_level_divisions (score=0.5918)
+       e.g. (Brazil) -[location.country.first_level_divisions]-> (Pernambuco)
+    9. government.government_agency.jurisdiction (score=0.5904)
+       e.g. (Instituto Nacional de Estudos e Pesquisas Educacionais Anísio Teixeira) -[government.government_agency.jurisdiction]-> (Brazil)
+    10. location.br_state.capital (score=0.5897)
+       e.g. (São Paulo) -[location.br_state.capital]-> (São Paulo)
+    11. film.film.country (score=0.5865)
+       e.g. (Fashion Girls) -[film.film.country]-> (Brazil)
+    12. location.location.people_born_here (score=0.5855)
+       e.g. (Vicência) -[location.location.people_born_here]-> (Jarbas Vasconcelos)
+    13. location.location.partiallycontains (score=0.5852)
+       e.g. (Alagoas) -[location.location.partiallycontains]-> (m.0wg9nsd)
+    14. location.country.capital (score=0.5824)
+       e.g. (Empire of Brazil) -[location.country.capital]-> (Rio de Janeiro)
+    15. location.location.contains (score=0.5794)
+       e.g. (Recife) -[location.location.contains]-> (Ginásio de Esportes Geraldo Magalhães)
+    16. geography.river.basin_countries (score=0.5751)
+       e.g. (São Francisco River) -[geography.river.basin_countries]-> (Brazil)
+    17. base.braziliangovt.politician.represented_state (score=0.5406)
+       e.g. (Silvio Costa) -[base.braziliangovt.politician.represented_state]-> (Pernambuco)
+    18. base.braziliangovt.state.politicians (score=0.5059)
+       e.g. (Pernambuco) -[base.braziliangovt.state.politicians]-> (Paulo Rubem Santiago)
+    19. base.braziliangovt.brazilian_governmental_vote.voter (score=0.4942)
+       e.g. (m.04d1690) -[base.braziliangovt.brazilian_governmental_vote.voter]-> (Inocêncio Oliveira)
+    20. location.capital_of_administrative_division.capital_of (score=0.4759)
+       e.g. (Recife) -[location.capital_of_administrative_division.capital_of]-> (m.0jvvhfc)
+    21. base.braziliangovt.politician.votes (score=0.4750)
+       e.g. (Silvio Costa) -[base.braziliangovt.politician.votes]-> (m.04d165d)
+    22. base.aareas.schema.administrative_area.pertinent_type (score=0.4527)
+       e.g. (Brazil) -[base.aareas.schema.administrative_area.pertinent_type]-> (Brazilian region)
+    23. location.statistical_region.population (score=0.4451)
+       e.g. (Pernambuco) -[location.statistical_region.population]-> (m.010fplfb)
+    24. base.braziliangovt.politician.phone_contact (score=0.4418)
+       e.g. (Wolney Queiroz Maciel) -[base.braziliangovt.politician.phone_contact]-> (m.04chvwb)
+
+Step 2: ?country —[uses currency type]—> ?answer
+Candidates:
+    1. location.country.currency_used (score=0.7810)
+       e.g. (Brazil) -[location.country.currency_used]-> (Brazilian real)
+    2. finance.currency.countries_used (score=0.7308)
+       e.g. (Brazilian real) -[finance.currency.countries_used]-> (Brazil)
+    3. finance.currency.currency_code (score=0.6615)
+       e.g. (Brazilian real) -[finance.currency.currency_code]-> (BRL)
+    4. finance.currency.target_of_exchange (score=0.6417)
+       e.g. (Brazilian real) -[finance.currency.target_of_exchange]-> (m.03x96y1)
+    5. freebase.equivalent_topic.equivalent_type (score=0.6394)
+       e.g. (Actor) -[freebase.equivalent_topic.equivalent_type]-> (Film actor)
+    6. finance.currency.prefix_symbol (score=0.6356)
+       e.g. (Brazilian real) -[finance.currency.prefix_symbol]-> (R$)
+    7. base.aareas.schema.administrative_area.pertinent_type (score=0.6237)
+       e.g. (Brazil) -[base.aareas.schema.administrative_area.pertinent_type]-> (Brazilian region)
+    8. base.aareas.schema.administrative_area_type.iso_country (score=0.6098)
+       e.g. (Brazilian municipality) -[base.aareas.schema.administrative_area_type.iso_country]-> (Brazil)
+    9. base.aareas.administrative_area_level.coding_schemes (score=0.6031)
+       e.g. (State/Province) -[base.aareas.administrative_area_level.coding_schemes]-> (ISO 3166-2)
+    10. base.aareas.schema.administrative_area_type.kinds (score=0.5985)
+       e.g. (Brazilian federative unit) -[base.aareas.schema.administrative_area_type.kinds]-> (Brazilian state)
+    11. base.aareas.schema.administrative_area_type.kind_of (score=0.5953)
+       e.g. (Brazilian state) -[base.aareas.schema.administrative_area_type.kind_of]-> (Brazilian federative unit)
+    12. base.aareas.schema.administrative_area.administrative_area_type (score=0.5907)
+       e.g. (Pernambuco) -[base.aareas.schema.administrative_area.administrative_area_type]-> (Brazilian state)
+    13. freebase.type_profile.strict_included_types (score=0.5823)
+       e.g. (Statistical region) -[freebase.type_profile.strict_included_types]-> (Location)
+    14. base.aareas.schema.administrative_area_type.level (score=0.5820)
+       e.g. (Brazilian federative unit) -[base.aareas.schema.administrative_area_type.level]-> (State/Province)
+    15. base.aareas.schema.administrative_area_type.pertains_to (score=0.5809)
+       e.g. (Brazilian state) -[base.aareas.schema.administrative_area_type.pertains_to]-> (Brazil)
+    16. location.country.official_language (score=0.5605)
+       e.g. (Empire of Brazil) -[location.country.official_language]-> (Portuguese Language)
+    17. royalty.monarch.kingdom (score=0.5592)
+       e.g. (John VI of Portugal) -[royalty.monarch.kingdom]-> (Portugal)
+    18. location.country.languages_spoken (score=0.5546)
+       e.g. (Portugal) -[location.country.languages_spoken]-> (Portuguese Language)
+    19. language.human_language.countries_spoken_in (score=0.5500)
+       e.g. (Portuguese Language) -[language.human_language.countries_spoken_in]-> (Portugal)
+    20. language.human_language.main_country (score=0.5479)
+       e.g. (Portuguese Language) -[language.human_language.main_country]-> (Portugal)
+    21. location.capital_of_administrative_division.capital_of (score=0.5440)
+       e.g. (Recife) -[location.capital_of_administrative_division.capital_of]-> (m.0jvvhfc)
+    22. location.country.capital (score=0.5369)
+       e.g. (Empire of Brazil) -[location.country.capital]-> (Rio de Janeiro)
+    23. location.country.administrative_divisions (score=0.5313)
+       e.g. (Brazil) -[location.country.administrative_divisions]-> (Federal District)
+
+Task:
+For each step of the reasoning triples, select KG relations from the corresponding candidate list that express the triple's semantics.
+
+Rules:
+1. Select relations based only on the question and the current triple's semantics. Do not add information beyond the question.
+2. For each step, select only from the given candidate relations. Do not create new relations or modify candidate IDs.
+3. Selected relations must express the actual meaning of the current triple's predicate and support traversal from subject to object.
+4. Do not select a relation solely because its entity names are similar; prioritize whether the relation's semantics match.
+5. If a candidate relation's direction is clearly opposite, semantically unrelated, or is just an irrelevant attribute, do not mark it as matched.
+6. Select 1 to 5 relation IDs per step.
+7. If there are clearly matching candidates, select all suitable relations ranked by relevance (highest first).
+8. If no clearly suitable relation exists, do not output an empty list; select the 1 semantically closest candidate as a fallback relation.
+9. A fallback relation only means it is the closest among candidates, not that it fully matches the triple's semantics.
+10. Each step must output a selection_type:
+   - matched: at least one candidate relation clearly matches the current triple's semantics.
+   - fallback: no clear match exists; only the closest candidate is selected as a fallback.
+11. <reason> must contain exactly three short sentences. No candidate path listings, background knowledge, or lengthy explanations.
+12. <answer> must contain parseable JSON only. No text outside the JSON.
+
+Output format:
+
+<reason>
+Answer semantics: This question needs to select KG relations for each reasoning triple that express its predicate semantics.
+Matching principle: Prioritize candidates whose semantics match and support traversal from subject to object.
+Selection strategy: If no clear match exists, select the semantically closest candidate as fallback.
+</reason>
+
+<answer>
+{
+  "selected_relations": [
+    {
+      "step": "step_1",
+      "selected_relation_ids": [3, 1],
+      "selection_type": "matched"
+    },
+    {
+      "step": "step_2",
+      "selected_relation_ids": [7],
+      "selection_type": "fallback"
+    }
+  ]
+}
+</answer>
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. LLM RELATION PRUNING — SELECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+<reason>
+Answer semantics: This question needs to select KG relations for each reasoning triple that express its predicate semantics.
+Matching principle: Prioritize candidates whose semantics match and support traversal from subject to object.
+Selection strategy: If no clear match exists, select the semantically closest candidate as fallback.
+</reason>
+
+<answer>
+{
+  "selected_relations": [
+    {
+      "step": "step_1",
+      "selected_relation_ids": [4, 2],
+      "selection_type": "matched"
+    },
+    {
+      "step": "step_2",
+      "selected_relation_ids": [1],
+      "selection_type": "matched"
+    }
+  ]
+}
+</answer>
+
+Selected relation indices per step:
+  Step 1: [122, 102]
+  Step 2: [200, 195, 198]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. LOGIC-CONSTRAINED PATTERN WALKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LLM selected 5 relations → trying all 6 combinations:
+
+Combination exploration (cartesian product of selected relations):
+  ✗ [122] location.location.partially_containedby  →  [200] finance.currency.countries_used
+      PRUNED: [122] location.location.partially_containedby is wrong domain/direction for this query
+
+  ✗ [122] location.location.partially_containedby  →  [195] finance.currency.currency_code
+      PRUNED: [122] location.location.partially_containedby is wrong domain/direction for this query; [195] finance.currency.currency_code is wrong domain/direction for this query
+
+  ✗ [122] location.location.partially_containedby  →  [198] location.country.currency_used
+      PRUNED: [122] location.location.partially_containedby is wrong domain/direction for this query
+
+  ✓ [102] location.administrative_division.country  →  [200] finance.currency.countries_used
+      Path: nodes: Pernambuco → Brazil → Brazilian real, candidates: ['Brazil', 'Brazilian real']
+
+  ✗ [102] location.administrative_division.country  →  [195] finance.currency.currency_code
+      PRUNED: [195] finance.currency.currency_code is wrong domain/direction for this query
+
+  ✓ [102] location.administrative_division.country  →  [198] location.country.currency_used
+      Path: nodes: Pernambuco → Brazil → Brazilian real, candidates: ['Brazil', 'Brazilian real']
+
+Result: 2 valid paths, 4 combinations pruned (no KG instantiation)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. FINAL VALID PATTERNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Pattern 0:
+  Chain: Pernambuco → Brazil → Brazilian real
+  Relations: [102] location.administrative_division.country → [198] location.country.currency_used
+  Candidates: ['Brazil', 'Brazilian real']
+
+Pattern 1:
+  Chain: Pernambuco → Brazil → Brazilian real
+  Relations: [102] location.administrative_division.country → [200] finance.currency.countries_used
+  Candidates: ['Brazil', 'Brazilian real']
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. PATH SELECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Path Selection Prompt:
+
+Select reasoning paths for this question.
+
+Question:
+Pernambuco is from the country with what type of money?
+
+Rewritten question:
+Pernambuco is from the country with what type of money?
+
+Answer type:
+currency type
+
+Expected relation pattern:
+  1. Pernambuco —[located in the country]—> ?country
+  2. ?country —[uses currency type]—> ?answer
+
+Endpoint constraints:
+
+
+Paths sorted by relevance:
+1. Pernambuco --[location.administrative_division.country]--> node1 --[location.country.currency_used]--> node2  (2 candidates)
+2. Pernambuco --[location.administrative_division.country]--> node1 --[finance.currency.countries_used]--> node2  (2 candidates)
+
+Task:
+Evaluate each path against the expected relation pattern and select 2-4 paths.
+
+Path categories:
+- Strong Match: The relation chain closely matches the intended reasoning structure.
+- Partial but Useful: The path does not fully match but captures an important part of the reasoning.
+- Mismatch: The path is semantically off-track.
+
+Selection rules:
+1. Prefer Strong Match paths first.
+2. If fewer than 2 Strong Match paths exist, add the best Partial but Useful paths until selecting 2-4 paths.
+3. Prefer semantic correctness before diversity.
+4. Use diversity only among paths that are Strong Match or Partial but Useful.
+5. Prefer paths that satisfy endpoint constraints and lead to the expected answer type.
+6. Prefer paths whose relation chain matches the expected relation pattern, not merely paths with similar entity names.
+7. Avoid near-duplicate paths with the same relation chain unless they reach meaningfully different candidate sets.
+8. Avoid Mismatch paths unless there are no better alternatives.
+9. Do not invent new paths, new relations, or external facts.
+
+Reasoning output rules:
+1. <analysis> must contain exactly three short sentences.
+2. Do not analyze every path one by one.
+3. Do not redo the full KGQA reasoning.
+4. The three sentences must follow this structure:
+   - Answer semantics: state what answer type the selected paths should lead to.
+   - Path matching: summarize which paths are Strong Match or Partial but Useful.
+   - Selection rationale: explain why the final paths are selected.
+
+Output format:
+
+<analysis>
+Answer semantics: The selected paths should lead to an answer of type currency type and satisfy the endpoint constraints.
+Path matching: Path ... is a Strong Match, Path ... is Partial but Useful, and the remaining paths are weaker or mismatched.
+Selection rationale: Path ... are selected because they best match the expected relation pattern while preserving useful semantic diversity.
+</analysis>
+
+<selected>1,3,5</selected>
+
+Rules for <selected>:
+- Use comma-separated path numbers only.
+- Do not include brackets.
+- Do not include explanations.
+- Order selected path numbers by final preference, best first.
+
+
+Path Selection Response:
+<analysis>
+Answer semantics: The selected paths should lead to an answer of type currency type and satisfy the endpoint constraints.
+Path matching: Path 1 is a Strong Match as it directly links the administrative division to its country and then to the currency used, while Path 2 is a Partial but Useful match that links the country to the currency via a finance relation.
+Selection rationale: Path 1 is selected as the primary strong match for the expected reasoning pattern, and Path 2 is included to provide semantic diversity in how the currency-country relationship is expressed, ensuring a robust selection of 2 paths.
+</analysis>
+
+<selected>1,2</selected>
+
+Selected path indices: [0, 1]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. LLM ANSWER REASONING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+QUESTION: Pernambuco is from the country with what type of money?
+
+
+Answer type: currency type
+
+GRAPH EVIDENCE:
+=== PATTERN P1: Pernambuco --[location.administrative_division.country]--> node1 --[location.country.currency_used]--> node2 ===
+  Evidence tree:
+  node0: Pernambuco
+    location.administrative_division.country:
+      - node1: Brazil
+        location.country.currency_used:
+          node2: [Brazilian real]
+
+=== PATTERN P2: Pernambuco --[location.administrative_division.country]--> node1 --[finance.currency.countries_used]--> node2 ===
+  Evidence tree:
+  node0: Pernambuco
+    location.administrative_division.country:
+      - node1: Brazil
+        finance.currency.countries_used:
+          node2: [Brazilian real]
+
+
+━━━ ANSWER SELECTION TASK ━━━
+
+Your task is to select the final answer entities from the graph evidence.
+You must audit each plausible candidate individually — do NOT use a single bulk filter_action.
+
+Step A — Question focus:
+Identify the exact answer focus from the question.
+The answer focus is stronger than the answer type hint.
+If the answer type hint conflicts with the question focus, follow the question focus.
+
+Step B — Evidence path summary:
+Summarize the relevant graph path(s) that connect known entities to candidate answers.
+Distinguish:
+- bridge nodes: needed only to connect the path, not the final answer
+- direct answer candidates: nodes that directly satisfy the answer focus
+- auxiliary candidates: nodes reached through weaker, broader, inverse, or expansion relations (e.g. includes, is_part_of, containedby, venue history)
+
+Step C — Candidate audit:
+For each plausible candidate, judge it as:
+- keep: directly satisfies the answer focus, supported by the strongest relevant evidence
+- remove: bridge node, wrong type, wrong relation meaning, weaker auxiliary expansion, or contradicted by evidence
+- uncertain_keep: evidence is genuinely ambiguous and the candidate cannot be safely removed
+
+For each candidate, give one short evidence-based reason.
+
+Step D — Final answer:
+Output:
+- all keep candidates
+- uncertain_keep candidates ONLY if no stronger keep candidate excludes them
+- do NOT output remove candidates
+
+RULES:
+1. Graph evidence only. No outside knowledge.
+2. Entity names encode meaningful information. Use this as valid evidence.
+3. Do NOT invent hidden constraints such as time overlap, currentness, or uniqueness — unless the question or graph evidence explicitly supports it.
+4. A constraint used to identify a bridge entity must NOT be reused to remove final candidates unless the question explicitly says it also restricts the final answer.
+5. If candidates come from different paths, prefer the path whose relation semantics best match the question wording.
+6. If one candidate is a direct answer and another is only reached through expansion (includes, is_part_of, containedby, venue history, auxiliary path), prefer the direct answer.
+7. Do NOT keep bridge entities unless the question asks for them.
+8. Do NOT keep wrong-type entities.
+9. Over-output is allowed ONLY when candidates are equally direct and equally supported.
+10. CRITICAL: This is an ENTITY evaluation task. You MUST output the COMPLETE entity name exactly as it appears in the graph evidence. Events must include their full name (e.g. "2014 World Series", NOT "2014"). Places must include their full name. Never truncate entity names. Never output bare years, bare numbers, or abbreviated entity names.
+11. Copy entity strings exactly. Never output Freebase IDs (m.0xxx).
+12. NO text after </answer> tag.
+
+Reasoning format rules:
+- <reasoning> must contain exactly four sections: A, B, C, D.
+- Candidate audit (Step C) must use compact bullet lines, one per candidate.
+- Keep each candidate reason short (one line).
+- Do NOT self-correct or discuss alternative interpretations.
+- Prefer compact lists over prose.
+
+<reasoning>
+Step A — Question focus: ...
+Step B — Evidence path summary: ...
+Step C — Candidate audit:
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+Step D — Final selection: ...
+</reasoning>
+<answer>\boxed{exact entity}</answer>
+Multiple: <answer>\boxed{e1} \boxed{e2} \boxed{e3}</answer>
+No valid entity: <answer>None</answer>
+
+
+LLM Output:
+<reasoning>
+Step A — Question focus: The question asks for the "type of money" (currency) used in the country where Pernambuco is located. The answer type is "currency type".
+
+Step B — Evidence path summary:
+- Path 1: Pernambuco -> [location.administrative_division.country] -> Brazil -> [location.country.currency_used] -> Brazilian real.
+- Path 2: Pernambuco -> [location.administrative_division.country] -> Brazil -> [finance.currency.countries_used] -> Brazilian real.
+- Bridge node: Brazil (the country).
+- Direct answer candidate: Brazilian real.
+
+Step C — Candidate audit:
+- Brazilian real: keep | decision: keep | reason: Directly satisfies the answer focus as the currency used by Brazil, the country containing Pernambuco, supported by both evidence patterns.
+- Brazil: remove | decision: remove | reason: Bridge node representing the country, not the currency type requested.
+
+Step D — Final selection:
+- The only valid candidate is "Brazilian real".
+</reasoning>
+<answer>\boxed{Brazilian real}</answer>
+
+Final Answer: Brazilian real

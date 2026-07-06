@@ -1,0 +1,72 @@
+
+## Analysis Overview
+
+Analyzed 263 cases from V2 cleanup results:
+- **Action Fail cases**: 64 (24.3%)
+  - Definition: action_recall < 0.01 (almost no ground truth answers retrieved)
+  - Average F1: 0.129
+  
+- **Action Success cases**: 199 (75.7%)
+  - Definition: action_recall >= 0.01
+  - Average F1: 0.725
+
+## Key Finding 1: No Strong Skill-Level Correlation
+
+**Core Relations Overlap:**
+- Action Fail: Avg recall=0.680, precision=0.397
+- Action Success: Avg recall=0.706, precision=0.405
+
+→ Retrieved skills have SIMILAR relation overlap with ground truth regardless of action outcome.
+
+**Zero Overlap Cases:**
+- Action Fail: 1/64 (1.6%)
+- Action Success: 3/199 (1.5%)
+
+→ Very few cases have zero relation overlap in either group.
+
+## Key Finding 2: Specific Skills Overrepresented in Action Fail
+
+**Top Problematic Skills (fail-only or highly skewed):**
+- WebQTrn-1688: 6.2% in fail vs 1.0% in success (6.2x ratio)
+- WebQTrn-421: 6.2% in fail vs 2.0% in success (3.1x ratio)
+- WebQTrn-2322: 6.2% in fail vs 1.5% in success (4.1x ratio)
+- 109 skills appear ONLY in action_fail cases
+
+However, these represent a small portion of all retrievals.
+
+## Key Finding 3: Pipeline Stage Differences
+
+| Stage | Action Fail Avg | Action Success Avg |
+|-------|----------------|-------------------|
+| Plan Recall | 0.148 | 0.166 |
+| Entity Linking Recall | 0.092 | 0.076 |
+| Candidates Retrieved | 5.4 | 5.9 |
+| Frontend Errors | 18.8% | 11.1% |
+
+→ Action fail cases have slightly worse plan quality and more frontend errors.
+
+## Key Finding 4: Answer Cardinality
+
+- Action Fail: Avg 4.7 GT answers
+- Action Success: Avg 5.5 GT answers
+
+→ Slightly lower cardinality in action_fail cases (not significant).
+
+## Conclusion
+
+**Action errors are NOT strongly correlated with skill quality at the retrieval level.**
+
+The retrieved skills have similar relation overlap with ground truth for both action_fail and action_success cases. This suggests:
+
+1. **Skill retrieval is working reasonably well** - it retrieves relevant relations
+2. **Action stage failures are likely due to:**
+   - Execution issues (more frontend errors in fail cases)
+   - Plan quality differences (slightly lower recall in fail cases)
+   - Other downstream factors (e.g., entity linking, query formulation)
+   
+3. **Recommendation**: Focus debugging efforts on:
+   - Plan generation quality
+   - Action execution robustness
+   - Error handling in frontend/backend
+   - Rather than skill retrieval itself
+

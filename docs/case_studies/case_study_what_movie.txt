@@ -1,0 +1,522 @@
+================================================================================
+CASE STUDY: What movie did Angelina Jolie direct that is 126 minutes long?
+================================================================================
+
+Case ID: WebQTrn-124_d2cfc86ffc4f88631f9f020c794f26f9
+Dataset: CWQ (ComplexWebQuestions)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. GROUND TRUTH & PREDICTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Ground Truth Answers:
+  • In the Land of Blood and Honey
+
+LLM Predicted Answers:
+  • In the Land of Blood and Honey
+  • Unbroken
+  • 127.0
+  • 126.0
+
+Hit@1: True  |  F1: 1.000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. QUESTION DECOMPOSITION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Anchor: 
+Answer Type: 
+
+<analysis>
+Answer focus: The question ultimately asks for a specific movie title.
+Known entities: Angelina Jolie (director), 126 minutes (duration constraint).
+Decomposition strategy: First identify the set of movies directed by the known entity, then filter this set by the specified duration constraint.
+</analysis>
+<answer>
+1. What movies did Angelina Jolie direct?
+2. Which of these movies has a runtime of 126 minutes?
+</answer>
+
+[STEP 2]
+<analysis>
+Answer focus: The final answer variable is ?movie, representing a Film entity.
+Sub-question mapping: Sub-question 1 maps to a triple linking the director to the movie. Sub-question 2 maps to a triple linking the movie to its runtime value.
+Entity role analysis: Angelina Jolie is used_in_triples=yes as the starting subject. No other known entities are present.
+Anchor decision: Angelina Jolie is selected as anchorentity because it is the known entity initiating the reasoning path in the first triple.
+Triple strategy: The ordered triples first retrieve movies directed by the anchor, then filter by the specific runtime constraint to identify the target movie.
+</analysis>
+<answer>
+{
+  "answer_variable": "?movie",
+  "answer_type": "Film",
+  "entity_roles": [
+    {
+      "entity": "Angelina Jolie",
+      "role": "anchorentity",
+      "reason": "Starting entity for the reasoning graph, subject of the first triple."
+    }
+  ],
+  "triples": [
+    {
+      "source_subquestion": 1,
+      "subject": "Angelina Jolie",
+      "predicate": "directed the movie",
+      "object": "?movie"
+    },
+    {
+      "source_subquestion": 2,
+      "subject": "?movie",
+      "predicate": "has runtime duration",
+      "object": "126 minutes"
+    }
+  ]
+}
+</answer>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. GTE RETRIEVAL — CANDIDATE RELATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+You are a KGQA relation selection assistant. Given the question, reasoning triples, and candidate KG relations for each step, select the best relation IDs for each triple.
+
+Input:
+Question:
+What movie did Angelina Jolie direct that is 126 minutes long?
+
+Reasoning triples:
+  Step 1: Angelina Jolie —[directed the movie]—> ?movie
+  Step 2: ?movie —[has runtime duration]—> 126 minutes
+
+Candidate relations per step:
+Step 1: Angelina Jolie —[directed the movie]—> ?movie
+Candidates:
+    1. film.film.directed_by (score=0.6929)
+       e.g. (In the Land of Blood and Honey) -[film.film.directed_by]-> (Angelina Jolie)
+    2. film.film_casting_director.films_casting_directed (score=0.6495)
+       e.g. (Gail Stevens) -[film.film_casting_director.films_casting_directed]-> (In the Land of Blood and Honey)
+    3. film.director.film (score=0.6180)
+       e.g. (Sam B. Lorn) -[film.director.film]-> (Lovesick)
+    4. film.film_art_director.films_art_directed (score=0.6041)
+       e.g. (David Allday) -[film.film_art_director.films_art_directed]-> (Lara Croft: Tomb Raider)
+    5. film.film.film_art_direction_by (score=0.5925)
+       e.g. (Maleficent) -[film.film.film_art_direction_by]-> (Robert Cowper)
+    6. film.film.written_by (score=0.5782)
+       e.g. (Unbroken) -[film.film.written_by]-> (Joel Coen)
+    7. film.film.produced_by (score=0.5741)
+       e.g. (Trudell) -[film.film.produced_by]-> (Heather Rae)
+    8. film.film.film_casting_director (score=0.5726)
+       e.g. (Difret) -[film.film.film_casting_director]-> (Girma Adane)
+    9. film.film.executive_produced_by (score=0.5640)
+       e.g. (Maleficent) -[film.film.executive_produced_by]-> (Palak Patel)
+    10. film.film.starring (score=0.5556)
+       e.g. (Lovesick) -[film.film.starring]-> (m.0gczf3g)
+    11. film.actor.film (score=0.5524)
+       e.g. (Angelina Jolie) -[film.actor.film]-> (g.11b6ddmqwl)
+    12. film.producer.films_executive_produced (score=0.5467)
+       e.g. (Palak Patel) -[film.producer.films_executive_produced]-> (Maleficent)
+    13. film.performance.film (score=0.5464)
+       e.g. (m.0gczf3g) -[film.performance.film]-> (Lovesick)
+    14. film.film.subjects (score=0.5379)
+       e.g. (Unbroken) -[film.film.subjects]-> (World War II)
+    15. film.production_company.films (score=0.5379)
+       e.g. (FilmDistrict) -[film.production_company.films]-> (In the Land of Blood and Honey)
+    16. film.person_or_entity_appearing_in_film.films (score=0.4450)
+       e.g. (Angelina Jolie) -[film.person_or_entity_appearing_in_film.films]-> (m.0ngxpmf)
+    17. film.film.personal_appearances (score=0.4109)
+       e.g. (Trading Women) -[film.film.personal_appearances]-> (m.0jskbw1)
+    18. film.film_subject.films (score=0.4084)
+       e.g. (Louis Zamperini) -[film.film_subject.films]-> (Unbroken)
+
+Step 2: ?movie —[has runtime duration]—> 126 minutes
+Candidates:
+    1. film.film_cut.runtime (score=0.6847)
+       e.g. (m.0j5y6qg) -[film.film_cut.runtime]-> (126.0)
+    2. film.film.runtime (score=0.6799)
+       e.g. (Maleficent) -[film.film.runtime]-> (m.010lk37b)
+    3. film.performance.film (score=0.5660)
+       e.g. (m.0gczf3g) -[film.performance.film]-> (Lovesick)
+    4. film.film_casting_director.films_casting_directed (score=0.5570)
+       e.g. (Gail Stevens) -[film.film_casting_director.films_casting_directed]-> (In the Land of Blood and Honey)
+    5. film.performance.special_performance_type (score=0.5543)
+       e.g. (m.0zd04h7) -[film.performance.special_performance_type]-> (Archive Footage)
+    6. film.film.directed_by (score=0.5499)
+       e.g. (In the Land of Blood and Honey) -[film.film.directed_by]-> (Angelina Jolie)
+    7. rdf-schema#range (score=0.5463)
+       e.g. (Sequel) -[rdf-schema#range]-> (Film)
+    8. film.production_company.films (score=0.5459)
+       e.g. (FilmDistrict) -[film.production_company.films]-> (In the Land of Blood and Honey)
+    9. freebase.equivalent_topic.equivalent_type (score=0.5450)
+       e.g. (Actor) -[freebase.equivalent_topic.equivalent_type]-> (Film actor)
+    10. freebase.valuenotation.is_reviewed (score=0.5420)
+       e.g. (Wyclef Jean) -[freebase.valuenotation.is_reviewed]-> (Place of birth)
+    11. film.film.executive_produced_by (score=0.5384)
+       e.g. (Maleficent) -[film.film.executive_produced_by]-> (Palak Patel)
+    12. film.film_film_distributor_relationship.film (score=0.5374)
+       e.g. (m.012f2jk7) -[film.film_film_distributor_relationship.film]-> (By the Sea)
+    13. film.film_cut.film (score=0.5364)
+       e.g. (m.0hnhkpf) -[film.film_cut.film]-> (In the Land of Blood and Honey)
+    14. film.film.initial_release_date (score=0.5351)
+       e.g. (In the Land of Blood and Honey) -[film.film.initial_release_date]-> (2011-12-22-08:00)
+    15. film.film.film_casting_director (score=0.5349)
+       e.g. (Difret) -[film.film.film_casting_director]-> (Girma Adane)
+    16. tv.tv_guest_role.special_performance_type (score=0.5341)
+       e.g. (m.0dj45ng) -[tv.tv_guest_role.special_performance_type]-> (Him/Herself)
+    17. base.lightweight.profession.specialization (score=0.5340)
+       e.g. (Producers and Directors) -[base.lightweight.profession.specialization]-> (Film director)
+    18. film.actor.film (score=0.5333)
+       e.g. (Angelina Jolie) -[film.actor.film]-> (g.11b6ddmqwl)
+    19. base.lightweight.profession.similar_professions (score=0.5323)
+       e.g. (Model) -[base.lightweight.profession.similar_professions]-> (Actor)
+    20. film.editor.film (score=0.5323)
+       e.g. (Chris Lebenzon) -[film.editor.film]-> (Maleficent)
+    21. film.producer.films_executive_produced (score=0.5316)
+       e.g. (Palak Patel) -[film.producer.films_executive_produced]-> (Maleficent)
+    22. kg.object_profile.prominent_type (score=0.5296)
+       e.g. (In the Land of Blood and Honey) -[kg.object_profile.prominent_type]-> (Award-Winning Work)
+    23. film.person_or_entity_appearing_in_film.films (score=0.5285)
+       e.g. (Angelina Jolie) -[film.person_or_entity_appearing_in_film.films]-> (m.0ngxpmf)
+    24. film.content_rating.film (score=0.5267)
+       e.g. (12+) -[film.content_rating.film]-> (Maleficent)
+    25. base.lightweight.profession.professions_similar (score=0.5261)
+       e.g. (Actor) -[base.lightweight.profession.professions_similar]-> (Model)
+    26. base.lightweight.profession.specialization_of (score=0.5231)
+       e.g. (Film director) -[base.lightweight.profession.specialization_of]-> (Producers and Directors)
+    27. film.film.rating (score=0.5213)
+       e.g. (True Women) -[film.film.rating]-> (PG-13 (USA))
+    28. base.popstra.support.supporter (score=0.5133)
+       e.g. (m.063t6rx) -[base.popstra.support.supporter]-> (Angelina Jolie)
+
+Task:
+For each step of the reasoning triples, select KG relations from the corresponding candidate list that express the triple's semantics.
+
+Rules:
+1. Select relations based only on the question and the current triple's semantics. Do not add information beyond the question.
+2. For each step, select only from the given candidate relations. Do not create new relations or modify candidate IDs.
+3. Selected relations must express the actual meaning of the current triple's predicate and support traversal from subject to object.
+4. Do not select a relation solely because its entity names are similar; prioritize whether the relation's semantics match.
+5. If a candidate relation's direction is clearly opposite, semantically unrelated, or is just an irrelevant attribute, do not mark it as matched.
+6. Select 1 to 5 relation IDs per step.
+7. If there are clearly matching candidates, select all suitable relations ranked by relevance (highest first).
+8. If no clearly suitable relation exists, do not output an empty list; select the 1 semantically closest candidate as a fallback relation.
+9. A fallback relation only means it is the closest among candidates, not that it fully matches the triple's semantics.
+10. Each step must output a selection_type:
+   - matched: at least one candidate relation clearly matches the current triple's semantics.
+   - fallback: no clear match exists; only the closest candidate is selected as a fallback.
+11. <reason> must contain exactly three short sentences. No candidate path listings, background knowledge, or lengthy explanations.
+12. <answer> must contain parseable JSON only. No text outside the JSON.
+
+Output format:
+
+<reason>
+Answer semantics: This question needs to select KG relations for each reasoning triple that express its predicate semantics.
+Matching principle: Prioritize candidates whose semantics match and support traversal from subject to object.
+Selection strategy: If no clear match exists, select the semantically closest candidate as fallback.
+</reason>
+
+<answer>
+{
+  "selected_relations": [
+    {
+      "step": "step_1",
+      "selected_relation_ids": [3, 1],
+      "selection_type": "matched"
+    },
+    {
+      "step": "step_2",
+      "selected_relation_ids": [7],
+      "selection_type": "fallback"
+    }
+  ]
+}
+</answer>
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. LLM RELATION PRUNING — SELECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+<reason>
+Answer semantics: This question needs to select KG relations for each reasoning triple that express its predicate semantics.
+Matching principle: Prioritize candidates whose semantics match and support traversal from subject to object.
+Selection strategy: If no clear match exists, select the semantically closest candidate as fallback.
+</reason>
+
+<answer>
+{
+  "selected_relations": [
+    {
+      "step": "step_1",
+      "selected_relation_ids": [3, 1],
+      "selection_type": "matched"
+    },
+    {
+      "step": "step_2",
+      "selected_relation_ids": [2, 1],
+      "selection_type": "matched"
+    }
+  ]
+}
+</answer>
+
+Selected relation indices per step:
+  Step 1: [176, 148, 143]
+  Step 2: [169, 307]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. LOGIC-CONSTRAINED PATTERN WALKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LLM selected 5 relations → trying all 6 combinations:
+
+Combination exploration (cartesian product of selected relations):
+  ✗ [176] film.film_casting_director.films_casting_directed  →  [169] film.film.runtime
+      PRUNED: [176] film.film_casting_director.films_casting_directed is wrong domain/direction for this query
+
+  ✗ [176] film.film_casting_director.films_casting_directed  →  [307] film.film_cut.runtime
+      PRUNED: [176] film.film_casting_director.films_casting_directed is wrong domain/direction for this query; [307] film.film_cut.runtime is wrong domain/direction for this query
+
+  ✓ [148] film.film.directed_by  →  [169] film.film.runtime
+      Path: nodes: Angelina Jolie → In the Land of Blood and Honey → m.0j5y6qg, candidates: ['In the Land of Blood and Honey', 'Unbroken']
+
+  ✗ [148] film.film.directed_by  →  [307] film.film_cut.runtime
+      PRUNED: [307] film.film_cut.runtime is wrong domain/direction for this query
+
+  ✓ [143] film.director.film  →  [169] film.film.runtime
+      Path: nodes: Angelina Jolie → Unbroken → g.11b6llnh9k, candidates: ['In the Land of Blood and Honey', 'Unbroken']
+
+  ✗ [143] film.director.film  →  [307] film.film_cut.runtime
+      PRUNED: [307] film.film_cut.runtime is wrong domain/direction for this query
+
+Result: 2 valid paths, 4 combinations pruned (no KG instantiation)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. FINAL VALID PATTERNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Pattern 0:
+  Chain: Angelina Jolie → In the Land of Blood and Honey → m.0j5y6qg
+  Relations: [148] film.film.directed_by → [169] film.film.runtime
+  Candidates: ['In the Land of Blood and Honey', 'Unbroken']
+
+Pattern 1:
+  Chain: Angelina Jolie → Unbroken → g.11b6llnh9k
+  Relations: [143] film.director.film → [169] film.film.runtime
+  Candidates: ['In the Land of Blood and Honey', 'Unbroken']
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. PATH SELECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Path Selection Prompt:
+
+Select reasoning paths for this question.
+
+Question:
+What movie did Angelina Jolie direct that is 126 minutes long?
+
+Rewritten question:
+What movie did Angelina Jolie direct that is 126 minutes long?
+
+Answer type:
+Film
+
+Expected relation pattern:
+  1. Angelina Jolie —[directed the movie]—> ?movie
+  2. ?movie —[has runtime duration]—> 126 minutes
+
+Endpoint constraints:
+
+
+Paths sorted by relevance:
+1. Angelina Jolie --[film.film.directed_by]--> node1 --[film.film.runtime]--> node2  (2 candidates)
+2. Angelina Jolie --[film.director.film]--> node1 --[film.film.runtime]--> node2  (2 candidates)
+
+Task:
+Evaluate each path against the expected relation pattern and select 2-4 paths.
+
+Path categories:
+- Strong Match: The relation chain closely matches the intended reasoning structure.
+- Partial but Useful: The path does not fully match but captures an important part of the reasoning.
+- Mismatch: The path is semantically off-track.
+
+Selection rules:
+1. Prefer Strong Match paths first.
+2. If fewer than 2 Strong Match paths exist, add the best Partial but Useful paths until selecting 2-4 paths.
+3. Prefer semantic correctness before diversity.
+4. Use diversity only among paths that are Strong Match or Partial but Useful.
+5. Prefer paths that satisfy endpoint constraints and lead to the expected answer type.
+6. Prefer paths whose relation chain matches the expected relation pattern, not merely paths with similar entity names.
+7. Avoid near-duplicate paths with the same relation chain unless they reach meaningfully different candidate sets.
+8. Avoid Mismatch paths unless there are no better alternatives.
+9. Do not invent new paths, new relations, or external facts.
+
+Reasoning output rules:
+1. <analysis> must contain exactly three short sentences.
+2. Do not analyze every path one by one.
+3. Do not redo the full KGQA reasoning.
+4. The three sentences must follow this structure:
+   - Answer semantics: state what answer type the selected paths should lead to.
+   - Path matching: summarize which paths are Strong Match or Partial but Useful.
+   - Selection rationale: explain why the final paths are selected.
+
+Output format:
+
+<analysis>
+Answer semantics: The selected paths should lead to an answer of type Film and satisfy the endpoint constraints.
+Path matching: Path ... is a Strong Match, Path ... is Partial but Useful, and the remaining paths are weaker or mismatched.
+Selection rationale: Path ... are selected because they best match the expected relation pattern while preserving useful semantic diversity.
+</analysis>
+
+<selected>1,3,5</selected>
+
+Rules for <selected>:
+- Use comma-separated path numbers only.
+- Do not include brackets.
+- Do not include explanations.
+- Order selected path numbers by final preference, best first.
+
+
+Path Selection Response:
+<analysis>
+Answer semantics: The selected paths should lead to an answer of type Film and satisfy the endpoint constraints.
+Path matching: Path 1 is a Strong Match, Path 2 is a Strong Match, and there are no other paths provided to evaluate.
+Selection rationale: Paths 1 and 2 are selected because they both correctly model the directed relationship and runtime constraint required by the question.
+</analysis>
+
+<selected>1,2</selected>
+
+Selected path indices: [0, 1]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. LLM ANSWER REASONING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+QUESTION: What movie did Angelina Jolie direct that is 126 minutes long?
+
+
+Answer type: Film
+
+GRAPH EVIDENCE:
+=== PATTERN P1: Angelina Jolie --[film.film.directed_by]--> node1 --[film.film.runtime]--> node2 ===
+  Evidence tree:
+  node0: Angelina Jolie
+    film.film.directed_by:
+      - node1: In the Land of Blood and Honey
+        film.film.runtime:
+          shared: [film=In the Land of Blood and Honey]
+          - node2: m.0hnhkpf: [runtime=127.0]
+          - node2: m.0j5y6qg: [runtime=126.0]
+      - node1: Unbroken
+        film.film.runtime:
+          - node2: g.11b6llnh9k: [runtime.inv=Unbroken]
+            ← also runtime: Unbroken
+
+=== PATTERN P2: Angelina Jolie --[film.director.film]--> node1 --[film.film.runtime]--> node2 ===
+  Evidence tree:
+  node0: Angelina Jolie
+    film.director.film:
+      - node1: In the Land of Blood and Honey
+        film.film.runtime:
+          shared: [film=In the Land of Blood and Honey]
+          - node2: m.0hnhkpf: [runtime=127.0]
+          - node2: m.0j5y6qg: [runtime=126.0]
+      - node1: Unbroken
+        film.film.runtime:
+          - node2: g.11b6llnh9k: [runtime.inv=Unbroken]
+            ← also runtime: Unbroken
+
+
+━━━ ANSWER SELECTION TASK ━━━
+
+Your task is to select the final answer entities from the graph evidence.
+You must audit each plausible candidate individually — do NOT use a single bulk filter_action.
+
+Step A — Question focus:
+Identify the exact answer focus from the question.
+The answer focus is stronger than the answer type hint.
+If the answer type hint conflicts with the question focus, follow the question focus.
+
+Step B — Evidence path summary:
+Summarize the relevant graph path(s) that connect known entities to candidate answers.
+Distinguish:
+- bridge nodes: needed only to connect the path, not the final answer
+- direct answer candidates: nodes that directly satisfy the answer focus
+- auxiliary candidates: nodes reached through weaker, broader, inverse, or expansion relations (e.g. includes, is_part_of, containedby, venue history)
+
+Step C — Candidate audit:
+For each plausible candidate, judge it as:
+- keep: directly satisfies the answer focus, supported by the strongest relevant evidence
+- remove: bridge node, wrong type, wrong relation meaning, weaker auxiliary expansion, or contradicted by evidence
+- uncertain_keep: evidence is genuinely ambiguous and the candidate cannot be safely removed
+
+For each candidate, give one short evidence-based reason.
+
+Step D — Final answer:
+Output:
+- all keep candidates
+- uncertain_keep candidates ONLY if no stronger keep candidate excludes them
+- do NOT output remove candidates
+
+RULES:
+1. Graph evidence only. No outside knowledge.
+2. Entity names encode meaningful information. Use this as valid evidence.
+3. Do NOT invent hidden constraints such as time overlap, currentness, or uniqueness — unless the question or graph evidence explicitly supports it.
+4. A constraint used to identify a bridge entity must NOT be reused to remove final candidates unless the question explicitly says it also restricts the final answer.
+5. If candidates come from different paths, prefer the path whose relation semantics best match the question wording.
+6. If one candidate is a direct answer and another is only reached through expansion (includes, is_part_of, containedby, venue history, auxiliary path), prefer the direct answer.
+7. Do NOT keep bridge entities unless the question asks for them.
+8. Do NOT keep wrong-type entities.
+9. Over-output is allowed ONLY when candidates are equally direct and equally supported.
+10. CRITICAL: This is an ENTITY evaluation task. You MUST output the COMPLETE entity name exactly as it appears in the graph evidence. Events must include their full name (e.g. "2014 World Series", NOT "2014"). Places must include their full name. Never truncate entity names. Never output bare years, bare numbers, or abbreviated entity names.
+11. Copy entity strings exactly. Never output Freebase IDs (m.0xxx).
+12. NO text after </answer> tag.
+
+Reasoning format rules:
+- <reasoning> must contain exactly four sections: A, B, C, D.
+- Candidate audit (Step C) must use compact bullet lines, one per candidate.
+- Keep each candidate reason short (one line).
+- Do NOT self-correct or discuss alternative interpretations.
+- Prefer compact lists over prose.
+
+<reasoning>
+Step A — Question focus: ...
+Step B — Evidence path summary: ...
+Step C — Candidate audit:
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+Step D — Final selection: ...
+</reasoning>
+<answer>\boxed{exact entity}</answer>
+Multiple: <answer>\boxed{e1} \boxed{e2} \boxed{e3}</answer>
+No valid entity: <answer>None</answer>
+
+
+LLM Output:
+<reasoning>
+Step A — Question focus:
+The question asks for a specific movie directed by Angelina Jolie with a runtime of exactly 126 minutes.
+Answer Type: Film.
+Constraints: Directed by Angelina Jolie, Runtime = 126 minutes.
+
+Step B — Evidence path summary:
+The graph evidence provides two patterns (P1 and P2) connecting Angelina Jolie to films she directed.
+1. Path: Angelina Jolie -> directed -> Film -> runtime.
+2. Candidate 1: "In the Land of Blood and Honey".
+   - Runtime evidence: Two nodes are associated with this film's runtime.
+     - node2: m.0hnhkpf [runtime=127.0]
+     - node2: m.0j5y6qg [runtime=126.0]
+   - Since one of the runtime values is exactly 126.0, this candidate satisfies the constraint.
+3. Candidate 2: "Unbroken".
+   - Runtime evidence: The node g.11b6llnh9k has [runtime.inv=Unbroken] and a comment "also runtime: Unbroken". No numerical value of 126 is provided.
+   - This candidate does not satisfy the specific runtime constraint based on the provided evidence.
+
+Step C — Candidate audit:
+- In the Land of Blood and Honey | decision: keep | reason: Directed by Angelina Jolie and has a recorded runtime of 126.0 minutes in the graph evidence.
+- Unbroken | decision: remove | reason: Directed by Angelina Jolie but lacks evidence of a 126-minute runtime; only generic runtime info is present.
+
+Step D — Final selection:
+Only "In the Land of Blood and Honey" satisfies all constraints.
+</reasoning>
+<answer>\boxed{In the Land of Blood and Honey}</answer>
+
+Final Answer: In the Land of Blood and Honey

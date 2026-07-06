@@ -1,0 +1,521 @@
+================================================================================
+CWQ CASE STUDY: Cartago Province → Currency
+================================================================================
+
+Case ID: WebQTrn-2314_6bd8e51d185b5d602ee1eb939f5714fb
+Question: What is the currency used in the country which contains the Cartago Province?
+Gold Answers: ['Costa Rican colón']
+
+================================================================================
+1. SUBGRAPH STATISTICS
+================================================================================
+  Entities: 1607
+  Relations: 194
+  Triples: 2587
+
+================================================================================
+2. DECOMPOSITION
+================================================================================
+<analysis>
+Answer focus: The question ultimately asks for the currency of a specific country.
+Known entities: Cartago Province.
+Decomposition strategy: First identify the country containing the known province, then identify the currency of that country.
+</analysis>
+<answer>
+1. Which country contains the Cartago Province?
+2. What is the currency used in that country?
+</answer>
+
+[STEP 2]
+<analysis>
+Answer focus: The final answer variable is ?currency, representing the currency of a country.
+Sub-question mapping: Sub-question 1 maps to a triple linking Cartago Province to its containing country. Sub-question 2 maps to a triple linking that country to its currency.
+Entity role analysis: "Cartago Province" is used in the first triple as the starting subject, so it is used_in_triples=yes. It is the known entity provided, so it is the anchorentity.
+Anchor decision: "Cartago Province" is selected as anchorentity because it is the known entity appearing in the first triple subject, serving as the start node for the reasoning graph.
+Triple strategy: The ordered triples form a chain: [Cartago Province] -> [Country] -> [Currency], allowing retrieval of the country first, then the currency.
+</analysis>
+<answer>
+{
+  "answer_variable": "?currency",
+  "answer_type": "Currency",
+  "entity_roles": [
+    {
+      "entity": "Cartago Province",
+      "role": "anchorentity",
+      "reason": "Known entity used as the starting subject in the first triple."
+    }
+  ],
+  "triples": [
+    {
+      "source_subquestion": 1,
+      "subject": "Cartago Province",
+      "predicate": "is located in the country",
+      "object": "?country"
+    },
+    {
+      "source_subquestion": 2,
+      "subject": "?country",
+      "predicate": "uses the currency",
+      "object": "?currency"
+    }
+  ]
+}
+</answer>
+
+--- Parsed Steps ---
+  Step 1:
+    subquestion: Which country contains the Cartago Province?
+    subject: Cartago Province
+    object: ?country
+    relation_query: is located in the country
+  Step 2:
+    subquestion: What is the currency used in that country?
+    subject: ?country
+    object: ?currency
+    relation_query: uses the currency
+
+================================================================================
+3. GTE RETRIEVAL
+================================================================================
+
+  Step 1:
+    GTE candidates count: 21
+    Query [predicate]: is located in the country
+    Query [subquestion]: Which country contains the Cartago Province?
+
+  Step 2:
+    GTE candidates count: 24
+    Query [predicate]: uses the currency
+    Query [subquestion]: What is the currency used in that country?
+
+================================================================================
+4. LLM PRUNE (Relation Selection)
+================================================================================
+
+  Step 1 selected 2 relations:
+    [82] location.administrative_division.country
+    [18] base.locations.continents.countries_within
+
+  Step 2 selected 2 relations:
+    [48] finance.currency.countries_used
+    [90] location.country.currency_used
+
+  --- Full Prune LLM Output ---
+<reason>
+Answer semantics: This question needs to select KG relations for each reasoning triple that express its predicate semantics.
+Matching principle: Prioritize candidates whose semantics match and support traversal from subject to object.
+Selection strategy: If no clear match exists, select the semantically closest candidate as fallback.
+</reason>
+
+<answer>
+{
+  "selected_relations": [
+    {
+      "step": "step_1",
+      "selected_relation_ids": [8],
+      "selection_type": "matched"
+    },
+    {
+      "step": "step_2",
+      "selected_relation_ids": [1],
+      "selection_type": "matched"
+    }
+  ]
+}
+</answer>
+
+  --- Prune Prompt ---
+
+You are a KGQA relation selection assistant. Given the question, reasoning triples, and candidate KG relations for each step, select the best relation IDs for each triple.
+
+Input:
+Question:
+What is the currency used in the country which contains the Cartago Province?
+
+Reasoning triples:
+  Step 1: Cartago Province —[is located in the country]—> ?country
+  Step 2: ?country —[uses the currency]—> ?currency
+
+Candidate relations per step:
+Step 1: Cartago Province —[is located in the country]—> ?country
+Candidates:
+    1. base.locations.continents.countries_within (score=0.6552)
+       e.g. (North America) -[base.locations.continents.countries_within]-> (Costa Rica)
+    2. location.location.containedby (score=0.6517)
+       e.g. (Heredia Province) -[location.location.containedby]-> (Costa Rica)
+    3. location.location.partially_containedby (score=0.6511)
+       e.g. (La Amistad International Park) -[location.location.partially_containedby]-> (Costa Rica)
+    4. location.location.partially_contained_by (score=0.6450)
+       e.g. (Sixaola River) -[location.location.partially_contained_by]-> (m.0wrkqxq)
+    5. location.country.form_of_government (score=0.6436)
+       e.g. (Costa Rica) -[location.country.form_of_government]-> (Presidential system)
+    6. location.country.administrative_divisions (score=0.6403)
+       e.g. (Costa Rica) -[location.country.administrative_divisions]-> (Alajuela Province)
+    7. base.locations.countries.continent (score=0.6392)
+       e.g. (Costa Rica) -[base.locations.countries.continent]-> (North America)
+    8. location.administrative_division.country (score=0.6364)
+       e.g. (Puntarenas Province) -[location.administrative_division.country]-> (Costa Rica)
+    9. government.government_office_or_title.jurisdiction (score=0.6286)
+       e.g. (Second Vice-President of Costa Rica) -[government.government_office_or_title.jurisdiction]-> (Costa Rica)
+    10. government.form_of_government.countries (score=0.6249)
+       e.g. (Presidential system) -[government.form_of_government.countries]-> (Costa Rica)
+    11. base.aareas.schema.administrative_area_type.iso_country (score=0.6197)
+       e.g. (Costa Rican province) -[base.aareas.schema.administrative_area_type.iso_country]-> (Costa Rica)
+    12. government.government_agency.jurisdiction (score=0.6189)
+       e.g. (National Institute of Statistics and Census of Costa Rica) -[government.government_agency.jurisdiction]-> (Costa Rica)
+    13. geography.river.basin_countries (score=0.6119)
+       e.g. (San Juan River) -[geography.river.basin_countries]-> (Costa Rica)
+    14. location.country.first_level_divisions (score=0.6114)
+       e.g. (Costa Rica) -[location.country.first_level_divisions]-> (Puntarenas Province)
+    15. location.country.second_level_divisions (score=0.6093)
+       e.g. (Costa Rica) -[location.country.second_level_divisions]-> (Barva)
+    16. location.country.languages_spoken (score=0.5468)
+       e.g. (Costa Rica) -[location.country.languages_spoken]-> (Jamaican Creole English Language)
+    17. location.country.capital (score=0.5157)
+       e.g. (Costa Rica) -[location.country.capital]-> (San José)
+    18. location.capital_of_administrative_division.capital_of (score=0.4974)
+       e.g. (Paraíso, Costa Rica) -[location.capital_of_administrative_division.capital_of]-> (m.0w09c1l)
+    19. location.statistical_region.merchandise_trade_percent_of_gdp (score=0.4945)
+       e.g. (Costa Rica) -[location.statistical_region.merchandise_trade_percent_of_gdp]-> (g.1hhc4lzlg)
+    20. location.statistical_region.agriculture_as_percent_of_gdp (score=0.4870)
+       e.g. (Costa Rica) -[location.statistical_region.agriculture_as_percent_of_gdp]-> (g.1hhc5349c)
+    21. base.aareas.schema.administrative_area_type.sovereignty (score=0.4787)
+       e.g. (Costa Rican canton) -[base.aareas.schema.administrative_area_type.sovereignty]-> (Costa Rica)
+
+Step 2: ?country —[uses the currency]—> ?currency
+Candidates:
+    1. location.country.currency_used (score=0.7910)
+       e.g. (Costa Rica) -[location.country.currency_used]-> (Costa Rican colón)
+    2. finance.currency.countries_used (score=0.7580)
+       e.g. (Costa Rican colón) -[finance.currency.countries_used]-> (Costa Rica)
+    3. location.statistical_region.merchandise_trade_percent_of_gdp (score=0.6538)
+       e.g. (Costa Rica) -[location.statistical_region.merchandise_trade_percent_of_gdp]-> (g.1hhc4lzlg)
+    4. finance.currency.prefix_symbol (score=0.6516)
+       e.g. (Costa Rican colón) -[finance.currency.prefix_symbol]-> (₡)
+    5. location.country.languages_spoken (score=0.6513)
+       e.g. (Costa Rica) -[location.country.languages_spoken]-> (Jamaican Creole English Language)
+    6. location.country.form_of_government (score=0.6512)
+       e.g. (Costa Rica) -[location.country.form_of_government]-> (Presidential system)
+    7. location.country.official_language (score=0.6502)
+       e.g. (Costa Rica) -[location.country.official_language]-> (Spanish Language)
+    8. finance.currency.currency_code (score=0.6477)
+       e.g. (Costa Rican colón) -[finance.currency.currency_code]-> (CRC)
+    9. location.statistical_region.trade_balance_as_percent_of_gdp (score=0.6450)
+       e.g. (Costa Rica) -[location.statistical_region.trade_balance_as_percent_of_gdp]-> (g.1hhc4g99k)
+    10. location.capital_of_administrative_division.capital_of (score=0.6436)
+       e.g. (Paraíso, Costa Rica) -[location.capital_of_administrative_division.capital_of]-> (m.0w09c1l)
+    11. language.human_language.main_country (score=0.6426)
+       e.g. (Bribri Language) -[language.human_language.main_country]-> (Costa Rica)
+    12. language.human_language.countries_spoken_in (score=0.6426)
+       e.g. (Spanish Language) -[language.human_language.countries_spoken_in]-> (Costa Rica)
+    13. government.form_of_government.countries (score=0.6410)
+       e.g. (Presidential system) -[government.form_of_government.countries]-> (Costa Rica)
+    14. location.statistical_region.consumer_price_index (score=0.6406)
+       e.g. (Costa Rica) -[location.statistical_region.consumer_price_index]-> (g.1hhc4z9yz)
+    15. government.government_agency.jurisdiction (score=0.6381)
+       e.g. (National Institute of Statistics and Census of Costa Rica) -[government.government_agency.jurisdiction]-> (Costa Rica)
+    16. location.statistical_region.gdp_nominal_per_capita (score=0.6366)
+       e.g. (Costa Rica) -[location.statistical_region.gdp_nominal_per_capita]-> (g.1hhc44sfd)
+    17. base.locations.countries.continent (score=0.6343)
+       e.g. (Costa Rica) -[base.locations.countries.continent]-> (North America)
+    18. location.statistical_region.foreign_direct_investment_net_inflows (score=0.6314)
+       e.g. (Costa Rica) -[location.statistical_region.foreign_direct_investment_net_inflows]-> (g.1hhc4c0bm)
+    19. film.film_location.featured_in_films (score=0.6302)
+       e.g. (Costa Rica) -[film.film_location.featured_in_films]-> (The Carbon Collective)
+    20. government.government_office_or_title.jurisdiction (score=0.6281)
+       e.g. (Second Vice-President of Costa Rica) -[government.government_office_or_title.jurisdiction]-> (Costa Rica)
+    21. location.country.capital (score=0.6266)
+       e.g. (Costa Rica) -[location.country.capital]-> (San José)
+    22. location.country.national_anthem (score=0.6241)
+       e.g. (Costa Rica) -[location.country.national_anthem]-> (m.0h_1h3x)
+    23. base.locations.continents.countries_within (score=0.6113)
+       e.g. (North America) -[base.locations.continents.countries_within]-> (Costa Rica)
+    24. location.statistical_region.agriculture_as_percent_of_gdp (score=0.6035)
+       e.g. (Costa Rica) -[location.statistical_region.agriculture_as_percent_of_gdp]-> (g.1hhc5349c)
+
+Task:
+For each step of the reasoning triples, select KG relations from the corresponding candidate list that express the triple's semantics.
+
+Rules:
+1. Select relations based only on the question and the current triple's semantics. Do not add information beyond the question.
+2. For each step, select only from the given candidate relations. Do not create new relations or modify candidate IDs.
+3. Selected relations must express the actual meaning of the current triple's predicate and support traversal from subject to object.
+4. Do not select a relation solely because its entity names are similar; prioritize whether the relation's semantics match.
+5. If a candidate relation's direction is clearly opposite, semantically unrelated, or is just an irrelevant attribute, do not mark it as matched.
+6. Select 1 to 5 relation IDs per step.
+7. If there are clearly matching candidates, select all suitable relations ranked by relevance (highest first).
+8. If no clearly suitable relation exists, do not output an empty list; select the 1 semantically closest candidate as a fallback relation.
+9. A fallback relation only means it is the closest among candidates, not that it fully matches the triple's semantics.
+10. Each step must output a selection_type:
+   - matched: at least one candidate relation clearly matches the current triple's semantics.
+   - fallback: no clear match exists; only the closest candidate is selected as a fallback.
+11. <reason> must contain exactly three short sentences. No candidate path listings, background knowledge, or lengthy explanations.
+12. <answer> must contain parseable JSON only. No text outside the JSON.
+
+Output format:
+
+<reason>
+Answer semantics: This question needs to select KG relations for each reasoning triple that express its predicate semantics.
+Matching principle: Prioritize candidates whose semantics match and support traversal from subject to object.
+Selection strategy: If no clear match exists, select the semantically closest candidate as fallback.
+</reason>
+
+<answer>
+{
+  "selected_relations": [
+    {
+      "step": "step_1",
+      "selected_relation_ids": [3, 1],
+      "selection_type": "matched"
+    },
+    {
+      "step": "step_2",
+      "selected_relation_ids": [7],
+      "selection_type": "fallback"
+    }
+  ]
+}
+</answer>
+
+
+================================================================================
+5. GRAPH TRAVERSAL
+================================================================================
+  num_paths: 2
+  num_patterns: 2
+  max_depth: 2
+
+--- Logical Paths ---
+  Pattern 0: Cartago Province --[location.administrative_division.country]--> node1 --[location.country.currency_used]--> node2
+  Pattern 1: Cartago Province --[location.administrative_division.country]--> node1 --[finance.currency.countries_used]--> node2
+
+--- Pattern Details ---
+
+  Pattern 0:
+    candidates: ['Costa Rica', 'Costa Rican colón']
+    path_count: None
+    endpoint: None
+    witness_relations: ['[82] location.administrative_division.country', '[90] location.country.currency_used']
+    witness_nodes: ['[52] Cartago Province', '[72] Costa Rica', '[82] Costa Rican colón']
+    materialized: None
+    best_tier: [2, 1, -2]
+
+  Pattern 1:
+    candidates: ['Costa Rica', 'Costa Rican colón']
+    path_count: None
+    endpoint: None
+    witness_relations: ['[82] location.administrative_division.country', '[48] finance.currency.countries_used']
+    witness_nodes: ['[52] Cartago Province', '[72] Costa Rica', '[82] Costa Rican colón']
+    materialized: None
+    best_tier: [2, 1, -2]
+
+================================================================================
+6. PATH SELECTION
+================================================================================
+  selected_paths: [0, 1]
+
+  --- Path Selection Prompt ---
+
+Select reasoning paths for this question.
+
+Question:
+What is the currency used in the country which contains the Cartago Province?
+
+Rewritten question:
+What is the currency used in the country which contains the Cartago Province?
+
+Answer type:
+Currency
+
+Expected relation pattern:
+  1. Cartago Province —[is located in the country]—> ?country
+  2. ?country —[uses the currency]—> ?currency
+
+Endpoint constraints:
+
+
+Paths sorted by relevance:
+1. Cartago Province --[location.administrative_division.country]--> node1 --[location.country.currency_used]--> node2  (2 candidates)
+2. Cartago Province --[location.administrative_division.country]--> node1 --[finance.currency.countries_used]--> node2  (2 candidates)
+
+Task:
+Evaluate each path against the expected relation pattern and select 2-4 paths.
+
+Path categories:
+- Strong Match: The relation chain closely matches the intended reasoning structure.
+- Partial but Useful: The path does not fully match but captures an important part of the reasoning.
+- Mismatch: The path is semantically off-track.
+
+Selection rules:
+1. Prefer Strong Match paths first.
+2. If fewer than 2 Strong Match paths exist, add the best Partial but Useful paths until selecting 2-4 paths.
+3. Prefer semantic correctness before diversity.
+4. Use diversity only among paths that are Strong Match or Partial but Useful.
+5. Prefer paths that satisfy endpoint constraints and lead to the expected answer type.
+6. Prefer paths whose relation chain matches the expected relation pattern, not merely paths with similar entity names.
+7. Avoid near-duplicate paths with the same relation chain unless they reach meaningfully different candidate sets.
+8. Avoid Mismatch paths unless there are no better alternatives.
+9. Do not invent new paths, new relations, or external facts.
+
+Reasoning output rules:
+1. <analysis> must contain exactly three short sentences.
+2. Do not analyze every path one by one.
+3. Do not redo the full KGQA reasoning.
+4. The three sentences must follow this structure:
+   - Answer semantics: state what answer type the selected paths should lead to.
+   - Path matching: summarize which paths are Strong Match or Partial but Useful.
+   - Selection rationale: explain why the final paths are selected.
+
+Output format:
+
+<analysis>
+Answer semantics: The selected paths should lead to an answer of type Currency and satisfy the endpoint constraints.
+Path matching: Path ... is a Strong Match, Path ... is Partial but Useful, and the remaining paths are weaker or mismatched.
+Selection rationale: Path ... are selected because they best match the expected relation pattern while preserving useful semantic diversity.
+</analysis>
+
+<selected>1,3,5</selected>
+
+Rules for <selected>:
+- Use comma-separated path numbers only.
+- Do not include brackets.
+- Do not include explanations.
+- Order selected path numbers by final preference, best first.
+
+
+  --- Path Selection Response ---
+<analysis>
+Answer semantics: The selected paths should lead to an answer of type Currency and satisfy the endpoint constraints.
+Path matching: Path 1 is a Strong Match as it directly links the province to its country and then to the currency used, while Path 2 is also a Strong Match but uses a slightly different relation for the currency lookup.
+Selection rationale: Both Path 1 and Path 2 are selected because they closely match the expected relation pattern of identifying the country first and then the currency, ensuring semantic correctness and diversity in relation types.
+</analysis>
+
+<selected>1,2</selected>
+
+================================================================================
+7. ANSWER CANDIDATES
+================================================================================
+  candidates: ['Costa Rica']
+  gt_hit: True
+
+================================================================================
+8. LLM REASONING
+================================================================================
+
+  --- Reasoning Prompt ---
+
+QUESTION: What is the currency used in the country which contains the Cartago Province?
+
+
+Answer type: Currency
+
+GRAPH EVIDENCE:
+=== PATTERN P1: Cartago Province --[location.administrative_division.country]--> node1 --[location.country.currency_used]--> node2 ===
+  Evidence tree:
+  node0: Cartago Province
+    location.administrative_division.country:
+      - node1: Costa Rica
+        location.country.currency_used:
+          node2: [Costa Rican colón]
+
+=== PATTERN P2: Cartago Province --[location.administrative_division.country]--> node1 --[finance.currency.countries_used]--> node2 ===
+  Evidence tree:
+  node0: Cartago Province
+    location.administrative_division.country:
+      - node1: Costa Rica
+        finance.currency.countries_used:
+          node2: [Costa Rican colón]
+
+
+━━━ ANSWER SELECTION TASK ━━━
+
+Your task is to select the final answer entities from the graph evidence.
+You must audit each plausible candidate individually — do NOT use a single bulk filter_action.
+
+Step A — Question focus:
+Identify the exact answer focus from the question.
+The answer focus is stronger than the answer type hint.
+If the answer type hint conflicts with the question focus, follow the question focus.
+
+Step B — Evidence path summary:
+Summarize the relevant graph path(s) that connect known entities to candidate answers.
+Distinguish:
+- bridge nodes: needed only to connect the path, not the final answer
+- direct answer candidates: nodes that directly satisfy the answer focus
+- auxiliary candidates: nodes reached through weaker, broader, inverse, or expansion relations (e.g. includes, is_part_of, containedby, venue history)
+
+Step C — Candidate audit:
+For each plausible candidate, judge it as:
+- keep: directly satisfies the answer focus, supported by the strongest relevant evidence
+- remove: bridge node, wrong type, wrong relation meaning, weaker auxiliary expansion, or contradicted by evidence
+- uncertain_keep: evidence is genuinely ambiguous and the candidate cannot be safely removed
+
+For each candidate, give one short evidence-based reason.
+
+Step D — Final answer:
+Output:
+- all keep candidates
+- uncertain_keep candidates ONLY if no stronger keep candidate excludes them
+- do NOT output remove candidates
+
+RULES:
+1. Graph evidence only. No outside knowledge.
+2. Entity names encode meaningful information. Use this as valid evidence.
+3. Do NOT invent hidden constraints such as time overlap, currentness, or uniqueness — unless the question or graph evidence explicitly supports it.
+4. A constraint used to identify a bridge entity must NOT be reused to remove final candidates unless the question explicitly says it also restricts the final answer.
+5. If candidates come from different paths, prefer the path whose relation semantics best match the question wording.
+6. If one candidate is a direct answer and another is only reached through expansion (includes, is_part_of, containedby, venue history, auxiliary path), prefer the direct answer.
+7. Do NOT keep bridge entities unless the question asks for them.
+8. Do NOT keep wrong-type entities.
+9. Over-output is allowed ONLY when candidates are equally direct and equally supported.
+10. CRITICAL: This is an ENTITY evaluation task. You MUST output the COMPLETE entity name exactly as it appears in the graph evidence. Events must include their full name (e.g. "2014 World Series", NOT "2014"). Places must include their full name. Never truncate entity names. Never output bare years, bare numbers, or abbreviated entity names.
+11. Copy entity strings exactly. Never output Freebase IDs (m.0xxx).
+12. NO text after </answer> tag.
+
+Reasoning format rules:
+- <reasoning> must contain exactly four sections: A, B, C, D.
+- Candidate audit (Step C) must use compact bullet lines, one per candidate.
+- Keep each candidate reason short (one line).
+- Do NOT self-correct or discuss alternative interpretations.
+- Prefer compact lists over prose.
+
+<reasoning>
+Step A — Question focus: ...
+Step B — Evidence path summary: ...
+Step C — Candidate audit:
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+- candidate: ... | decision: keep/remove/uncertain_keep | reason: ...
+Step D — Final selection: ...
+</reasoning>
+<answer>\boxed{exact entity}</answer>
+Multiple: <answer>\boxed{e1} \boxed{e2} \boxed{e3}</answer>
+No valid entity: <answer>None</answer>
+
+
+  --- Reasoning Output ---
+<reasoning>
+Step A — Question focus: The question asks for the "currency" used in the country containing "Cartago Province". The answer type is explicitly "Currency".
+
+Step B — Evidence path summary:
+- Path 1 (P1): Cartago Province -> [location.administrative_division.country] -> Costa Rica -> [location.country.currency_used] -> Costa Rican colón.
+- Path 2 (P2): Cartago Province -> [location.administrative_division.country] -> Costa Rica -> [finance.currency.countries_used] -> Costa Rican colón.
+Both paths identify "Costa Rica" as the bridge node (the country) and "Costa Rican colón" as the final answer entity (the currency).
+
+Step C — Candidate audit:
+- Costa Rican colón: | decision: keep | reason: Directly satisfies the answer focus as the currency of Costa Rica, supported by both P1 and P2 evidence paths.
+- Costa Rica: | decision: remove | reason: This is the bridge node (the country), not the currency itself.
+
+Step D — Final selection:
+The only valid candidate is "Costa Rican colón".
+</reasoning>
+<answer>\boxed{Costa Rican colón}</answer>
+
+================================================================================
+9. FINAL RESULT
+================================================================================
+  LLM Answer: Costa Rican colón
+  Gold Answers: ['Costa Rican colón']
+  LLM F1: 1.0
+  LLM Hit: True
+  GT F1: 1.0
+  GT Hit: True
