@@ -52,17 +52,34 @@ name (legitimate KG structure), and the model's hint carries only natural
 language. The full-schema variant (keeping the leading domain) regressed
 ordinary cases and was rejected.
 
-### Results (100-case, content protocol + retrieve contextualization)
+### Results (100-case)
 
-| dataset | llm_hit | gt_hit | mean F1 | empty_answer |
-|---|---|---|---|---|
-| CWQ | 83.8% | 89.9% | 0.778 | 1/99 |
-| WebQSP | 91.0% | 93.0% | 0.804 | — |
+| dataset | prompt version | llm_hit | gt_hit | mean F1 | empty |
+|---|---|---|---|---|---|
+| CWQ | content + retrieve ctx (3707cac) | 83.8% | 89.9% | 0.778 | 1/99 |
+| CWQ | + parallel-constraint prompt (f458620) | 84.8% | — | 0.786 | — |
+| CWQ | + parallel union + FROM→WHERE (63af4ee) | **88.9%** | — | **0.794** | — |
+| WebQSP | content + retrieve ctx | 91.0% | 93.0% | 0.804 | — |
 
-CWQ react vs stage (same 99 cases, both scored by `llm_hit`): **tied at 83.8%**,
-each with 7 unique-correct cases — react stronger on multi-constraint cases
-(11/13), stage stronger on multi-anchor cases (4/21). They are complementary,
-not one-better.
+The FROM→WHERE→SELECT answer-reasoning framework (commit `63af4ee`) is the
+biggest single gain: **+4 hit (84→88)** in one change. Replaces the old
+"two-layer removal" with an explicit structured-query analogy that forces the
+model to enumerate the full candidate pool (FROM) before applying constraints
+(WHERE), preventing the common error of jumping to a single answer. Case 21
+(Vicksburg, long-standing miss) went 0→1 — the model used explicit FROM/WHERE/
+SELECT notation to find CSA via `location.country.capital`.
+
+Regressions after FROM→WHERE (case 11/16/26) are NOT framework-caused: case11
+is the known CVT-value readability gap (model correctly said "no graph evidence
+for child labor %" → kept all, but GT needs the one country with that value);
+case16 is a 9B think/tool contradiction (reasoning says "output full pool" but
+the tool call emits one entity); case26 is an empty candidate pool (retrieve
+failure). All three trace to pre-existing bottlenecks, not the reasoning rule.
+
+CWQ react vs stage (same 99 cases, both scored by `llm_hit`): react now leads
+**88.9% vs stage 83.8%**, with the FROM→WHERE framework accounting for the gap.
+Stage stronger on multi-anchor cases (4/21); react stronger on multi-constraint
+and singular-focus cases.
 
 ### What's next (the open levers)
 
@@ -193,6 +210,11 @@ regenerate trajectories for SFT/GRPO.
   step (relation union) in `_do_select`. Unit-tested; 20-case smoke shows
   19/20 bit-identical (1 changed case has no parallel constraints, so the fix
   never touched its path).
+- `63af4ee` AGENTS.md: FROM→WHERE→SELECT answer reasoning. Replaces two-layer
+  removal with explicit structured-query analogy (list FROM candidates → apply
+  each WHERE constraint → SELECT survivors). 100-case: +4 hit (84→88), +0.008
+  f1. Strengthens definite-article singular ("THE stadium" → pick current/
+  primary, not alternates). Spec results table updated.
 
 ### Live probe (2026-07-06) — gold-grounded failure attribution
 
