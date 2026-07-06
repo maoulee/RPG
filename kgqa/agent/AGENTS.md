@@ -163,45 +163,71 @@ order — the runtime rejects out-of-order calls.
    evidence using the removal framework below, then emit entities copied
    **verbatim** from the evidence.
 
-## Answer reasoning (two-layer removal)
-Do this reasoning in `<think>`, then emit only the surviving entities in the
-`answer` tool call.
-Core principle: **符合事实的候选默认全部保留。只有约束明确要求移除时，才移除。移除后剩下的就是答案。**
+## Answer reasoning (FROM → WHERE → SELECT)
+Think of the answer like a structured query. You have a candidate pool (the
+entities `select`/`expand_branches` returned) and you apply the question's
+constraints to filter it. **Always reason in this explicit three-step form
+inside `<think>`** before emitting the `answer` call:
 
-Every entity you output MUST be one that `select`/`expand_branches` returned —
-never invent an answer outside the candidate pool. Within that pool, apply two
-layers before emitting entities:
+**Step 1 — FROM (list the base facts):**
+Write out the FULL candidate pool first. "Base facts = every entity the graph
+returned that connects to the answer focus, regardless of constraints." Do NOT
+pre-filter here — list them all. This is the equivalent of a query's FROM
+clause: without any WHERE, you get every matching row.
+- e.g. "FROM candidates: [2008 NBA Finals, 1986 NBA Finals, 1984 NBA Finals, …]"
 
-**Layer 1 — Graph-evidence removal:**
-Start with ALL candidates that directly connect to the answer focus. Remove only:
-- **Type mismatch** (question asks for a country, candidate is a language) → remove.
-- **Bridge node** (CVT, relation connector, not itself the answer) → remove.
-
-**Layer 2 — Question-semantics removal (graph attributes only):**
-Re-read the question wording. Does it carry a semantic constraint that the graph
-alone cannot enforce? If so, apply it — but ONLY using attributes present in the
-graph evidence (dates, numbers, roles shown in the triples):
-- **Exclusivity words** (latest/last/first/最大/性别) → compare candidates by
-  evidence values (dates, numbers) and remove those that don't win.
+**Step 2 — WHERE (apply each constraint):**
+Re-read the question. For EACH constraint it carries, write one WHERE line and
+apply it to the FROM set. A constraint is anything that would narrow the
+results — type, date, value, exclusivity, singularity:
+- **Type filter** — "what COUNTRY" → keep only countries; remove languages,
+  CVTs, bridge nodes, regions. WHERE type = country.
+- **Value/date filter** — "established before 1971" / "GDP = X" → compare
+  candidates by their graph attributes (dates, numbers in the triples) and
+  remove those that fail. If the value is NOT in the graph evidence, this WHERE
+  cannot execute → **do not filter** (keep the candidate).
+- **Exclusivity** — "latest/last/first/最大/oldest" → rank survivors by the
+  graph attribute and keep only the winner. WHERE maximizes/minimizes attribute.
 - **Definite-article singular** — "THE stadium", "THE capital", "THE leader"
-  (定冠词 the + 单数名词) implies exactly one answer. If a graph attribute (a
-  date, a role label in the triples) distinguishes one candidate as the direct
-  match, keep it and remove the rest on that basis. CAUTION: "what language /
-  what year / what championships" is NOT singular-focus even if grammatically
-  singular — "what language is spoken in X" can have multiple answers; keep ALL
-  that the evidence supports. Only "the X" / "which ONE" / "where does X play
-  (its home)" is singular.
+  (the + singular noun) → the question asserts there is ONE. Pick the candidate
+  the graph most directly identifies (the current one, the one whose relation
+  is the primary/direct edge — not a historical/former/spring-training one).
+  Where the graph distinguishes a "current" vs "former" via the relation
+  structure, keep the current. **Do not keep alternates "just in case" — THE
+  means one.**
+  - CAUTION: "what language / what year / what championships / what movies" is
+    NOT singular-focus even when grammatically singular — these ask for a SET.
+    Keep ALL the graph supports. Only "the X" / "which ONE" / "where does X
+    play (its home)" is singular.
+- **No constraint in the question** → no WHERE clause. The FROM set IS the
+  answer (this is the default for "what championships did X win", "what
+  languages are spoken in X", "what countries border X").
 
-**Layer 2 guardrail:** Only apply a semantic constraint if the question wording
-clearly supports it AND a graph attribute can enforce it. "What championships did
-X win" → keep ALL. "What languages are spoken in X" → keep ALL. "THE stadium
-where X plays" → singular, keep one if the graph distinguishes it. When unsure
-whether Layer 2 applies, or when no graph attribute distinguishes the survivors →
-default to keeping ALL survivors (Layer 1 result stands). Do NOT use world
-knowledge (fame, prominence, dates from memory) to break a tie the graph leaves
-open.
+Write each WHERE explicitly so you cannot skip one or invent one:
+```
+WHERE type = country           → removes [language, CVT, region]
+WHERE "the leader" = singular  → keep the current/primary, remove former
+(no more constraints)          → survivors = answer
+```
 
-**What remains after both layers = the answer.** Output all of it.
+**Step 3 — SELECT (output survivors):**
+Whatever remains after all WHERE clauses is the answer. Output ALL of it,
+verbatim from the graph.
+
+**Guardrails:**
+- Every entity you output MUST come from the candidate pool — never invent.
+- Default when unsure whether a WHERE applies, or when the graph has no
+  attribute to enforce it: **do not apply that WHERE** (keep the candidate).
+  An unenforceable constraint is not a constraint — better to over-answer than
+  to silently drop a correct candidate.
+- Do NOT use world knowledge (fame, prominence, dates from memory) to fabricate
+  a WHERE the graph doesn't support. If the graph shows 17 championships and the
+  question has no date/window constraint, output all 17.
+- The most common error is SKIPPING the FROM step and jumping to a single
+  answer. Always list FROM first — it forces you to see the full set before
+  filtering, and prevents inventing constraints that aren't in the question.
+
+**What remains after all WHERE clauses = the answer.** Output all of it.
 
 ## Answer rules
 1. **Candidates come from the graph only.** Every entity you output MUST be one
