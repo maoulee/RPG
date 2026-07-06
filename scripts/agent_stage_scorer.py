@@ -349,11 +349,17 @@ def score_case(case: Dict[str, Any]) -> Dict[str, Any]:
     gt_norm = [normalize(g) for g in gt]
 
     def _recall_in(pool: List[str]) -> float:
-        """Fraction of GT present in a candidate pool (normalized match)."""
+        """Fraction of GT present in a candidate pool.
+
+        Uses STRICT matching (_matches_strict): a pool entry counts as
+        reaching GT only if it is at least as long as GT and contains it, or
+        is exact. This prevents a short entity (e.g. "Spain") from counting
+        as reaching a longer GT ("Spain national football team") — the path
+        must actually arrive at the team entity, not just the country."""
         if not gt_norm:
             return 0.0
         pool_norm = [normalize(c) for c in pool] if pool else []
-        hit = sum(1 for g in gt_norm if any(_matches(g, u) for u in pool_norm))
+        hit = sum(1 for g in gt_norm if any(_matches_strict(g, u) for u in pool_norm))
         return hit / len(gt_norm)
 
     # ---- U: expanded-subgraph candidate pool (fallback chain) ----
@@ -479,6 +485,29 @@ def _matches(a: str, b: str) -> bool:
     """Substring / equality match on already-normalized strings (no fuzzy here
     — fuzzy GT-matching is handled inside candidate_hit / compute_match_stats)."""
     return a == b or a in b or b in a
+
+
+def _matches_strict(gt_norm: str, cand_norm: str) -> bool:
+    """Stricter match for path-reachability scoring (S_plan / S_select).
+
+    The loose `_matches` (bidirectional substring) is right for answer
+    matching, where "Brad Pitt" should match "Brad Pitts". But for
+    path-reachability it over-counts: a path that contains "Spain" must NOT
+    count as reaching GT "Spain national football team" — one is a country,
+    the other a team, and the path never actually arrived at the team.
+
+    Rule: exact equality, OR the candidate is at least as long as the GT and
+    contains it (cand ⊇ gt). This lets "Spain national football team" match
+    "the spain national football team" but blocks "spain" from matching
+    "spain national football team". When the candidate is SHORTER than the
+    GT, a substring match is not enough — it must be exact.
+    """
+    if gt_norm == cand_norm:
+        return True
+    # candidate longer or equal → allow cand containing gt (extra qualifier ok)
+    if len(cand_norm) >= len(gt_norm) and gt_norm in cand_norm:
+        return True
+    return False
 
 
 # ---------------------------------------------------------------------------
