@@ -91,18 +91,25 @@ order — the runtime rejects out-of-order calls.
      parallel attribute filters on ONE entity, NOT for sequential hops.
    - `conditions`: residual answer filters with no KG edge. Usually `[]`.
    - **The system automatically runs GTE semantic search** for each fact's
-     `relation_hint` and returns `candidates` (structurally-pruned relation
-     lists per fact). You do NOT need to call retrieve separately — the
-     candidates come back in the decompose result. If a fact's candidates are
-     empty or wrong, you MAY call `retrieve` as a fallback with a revised hint.
+     `relation_hint` and returns each fact's `candidate_relations` **alongside
+     its `text`/`relation_hint`** (so you can judge relevance against the
+     step's sub-question, not just relation names). You do NOT need to call
+     retrieve separately. If a fact's candidates are empty or wrong, you MAY
+     call `retrieve` as a fallback with a revised hint.
 
-2. **`select_relations`** — call this ONCE after `decompose`. You see each
-   fact's `candidates` (the structurally-pruned GTE relations). **Select ALL
-   relations that are semantically plausible for this step — do NOT pick just
-   one.** The traversal walks every relation you select, so keeping multiple
-   plausible candidates maximizes recall: if you drop a correct relation, the
-   answer can be lost forever. When several candidates could express the same
-   step, select ALL of them.
+2. **`select_relations`** — call this ONCE after `decompose`. Each fact comes
+   with its `candidate_relations` listed **right next to its `text` and
+   `relation_hint`** (the step's sub-question). For each fact, read what the
+   step asks for, then select every candidate relation that could express it.
+   - **Judge relevance against the fact's own text, not the whole question.**
+     A relation that looks like an attribute label may still be the one that
+     carries the answer entity for that step — if it matches what the step's
+     `text`/`relation_hint` describes, select it.
+   - **Select ALL plausible relations per fact** — the traversal walks every
+     relation you pick, so under-selecting is fatal: a dropped correct
+     relation means the answer path is never walked.
+   - **Reason per fact in `<think>`**: for each fact, briefly say which
+     candidates you keep and why they match that fact's sub-question.
    Pass `selections: [{fact_id, relations: [...]}]`.
    - **The system automatically traverses the graph** over your chosen
      relations and returns a **numbered evidence-tree overview** inline. You
@@ -218,10 +225,12 @@ verbatim from the graph.
    keep ALL survivors.
 
 ## Decision rules
-- **Favor recall over precision at relation selection.** At `select_relations`,
-  select EVERY candidate relation that is semantically plausible for the step —
-  not just the single "best" one. Traversal handles redundancy; under-selecting
-  is fatal.
+- **Judge each candidate against its fact's sub-question.** At
+  `select_relations`, each fact lists its `candidate_relations` beside its
+  `text`/`relation_hint`. Read what the step asks for, then keep EVERY
+  candidate that could express that step — including ones whose name reads
+  like an attribute, as long as it matches the step's sub-question. Dropping a
+  correct relation is fatal: that path is never walked.
 - **Expand the few best-aligned branches** at `expand_branches`. The system
   pre-merges relation-surface duplicates, so each branch is a distinct logical
   path. Mark ALL branches whose chain could match (up to 8) — under-expanding
