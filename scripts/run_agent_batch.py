@@ -63,6 +63,26 @@ def main():
         f1 = sum(r.get("llm_f1", 0) for r in results) / n if n else 0
         print(f"\n=== {n} cases, mean f1={f1:.4f} ===", flush=True)
 
+        # Three-stage recall (the primary metrics). S_plan = did the plan
+        # reach the answer (path entities + CVT attrs); S_select = did the
+        # expanded paths carry it; S_reason = answer F1 within reach. These
+        # supersede the legacy gt_hit (which was S_plan's degenerate form:
+        # flat candidate pool only, missing CVT attribute values).
+        try:
+            from scripts.agent_stage_scorer import score_case
+            scored = [score_case(r) for r in results]
+            valid = [s for s in scored if s.get("S_plan") is not None]
+            if valid:
+                m = len(valid)
+                sp = sum(s["S_plan"] for s in valid) / m
+                ss = sum(s["S_select"] for s in valid) / m
+                sr = sum(s["S_reason"] for s in valid) / m
+                pf = sum(1 for s in valid if s["S_plan"] == 0)
+                print(f"    S_plan={sp:.4f}  S_select={ss:.4f}  S_reason={sr:.4f}"
+                      f"  | plan_fail={pf}/{m}", flush=True)
+        except Exception as e:
+            print(f"    [scorer skip: {e}]", flush=True)
+
     asyncio.run(run())
 
 if __name__ == "__main__":
