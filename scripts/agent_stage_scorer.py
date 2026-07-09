@@ -380,19 +380,20 @@ def score_case(case: Dict[str, Any]) -> Dict[str, Any]:
 
     # =====================================================================
     # S_plan: did the plan REACH the answer?
-    # Plan reach = every entity on every traversed path PLUS every CVT
-    # attribute value surfaced along those paths (not just the last-step
-    # terminal entities in select_pool). A plan that walks anchor → CVT and
-    # the CVT carries "institution=Belmont University" HAS reached the answer,
-    # even if Belmont never made it into the flat candidate list. This is the
-    # true measure of "did the relation choices unlock a path to the answer".
+    # Ground truth = the STRUCTURED candidate pool the traversal produced
+    # (ctx.all_candidates / answer_candidates), where candidate_hit already
+    # decides reachability. The rendered-overview text regex (_extract_plan_
+    # reachable) is NOT trustworthy: rendering format changes (e.g. the grouped
+    # `nodeN: [A | B | C]` render at formatting.py:708) silently defeat the
+    # regex, scoring a reached answer as 0. So S_plan is computed ONLY from the
+    # structured pool. Records without a structured pool score 0 (flagged
+    # "no_structured_pool"); the fix for those is to capture the pool at sample
+    # time, not to re-mine rendered text.
     # =====================================================================
-    plan_reach = p.get("plan_reachable") or []
-    S_plan = _recall_in(plan_reach) if plan_reach else None
-    if S_plan is None:
-        S_plan = _recall_in(select_pool) if select_pool else (
-            _recall_in(p["answer_candidates"]) if p["answer_candidates"] else 0.0)
-        notes.append("plan_from_select_pool")
+    plan_pool = p["answer_candidates"] or []
+    S_plan = _recall_in(plan_pool)
+    if not plan_pool:
+        notes.append("no_structured_pool")
 
     # =====================================================================
     # S_select: did the EXPANDED paths carry the answer?

@@ -356,6 +356,10 @@ async def sample_all(cases: List[tuple], num_samples: int, max_rounds: int,
             "llm_hit": result.get("llm_hit", False),
             "llm_f1": result.get("llm_f1", 0.0),
             "llm_answer": result.get("llm_answer", ""),
+            # Structured plan candidate pool (ctx.all_candidates). S_plan is now
+            # scored from this (not the overview text), and recording it lets the
+            # record be re-scored without replaying the traversal.
+            "answer_candidates": result.get("answer_candidates", []),
             "S_plan": s_plan,
             "S_select": s_select,
             "S_reason": s_reason,
@@ -370,6 +374,14 @@ async def sample_all(cases: List[tuple], num_samples: int, max_rounds: int,
             "n_steps": len(result.get("agent_trajectory", [])),
         }
         records.append(rec)
+        # Incremental flush: write every completed record immediately so a
+        # timeout/kill doesn't lose already-sampled trajectories. The summary
+        # + split files are still written at the end (if we reach it).
+        try:
+            with open(output_path, "a") as _f:
+                _f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
 
     wall = time.perf_counter() - wall_start
     _write_and_summarize(records, output_path, wall, num_samples)
@@ -743,6 +755,7 @@ async def _run_instances(instances, max_rounds, max_tokens, batch_chunk, tag):
             "llm_hit": result.get("llm_hit", False),
             "llm_f1": result.get("llm_f1", 0.0),
             "llm_answer": result.get("llm_answer", ""),
+            "answer_candidates": result.get("answer_candidates", []),
             "S_plan": s_plan, "S_select": s_select, "S_reason": s_reason,
             "scorer_notes": scorer_notes,
             "agent_failed": result.get("agent_failed", False),
