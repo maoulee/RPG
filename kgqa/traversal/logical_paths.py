@@ -123,6 +123,23 @@ def build_mode_level_logical_paths(anchor_idx, step_relations, h_ids, r_ids, t_i
                 continue
             if rel1 in target_rels:
                 hits.append(_make_hit((nb1,), (rel1,), (e1,), rel1))
+                # CVT transparency: a 1-hop target hit landing on a CVT mediator
+                # must continue through the CVT to its target-relation out-edges.
+                # A CVT-mediated fact carries BOTH the in- and out-relations
+                # (e.g. people.person.education -> CVT -> education.education.
+                # institution); matching only the in-edge leaves the CVT a dead
+                # end and loses the answer behind it. This within-step 2-hop
+                # (max_hops_per_step>=2) mirrors the CVT-bridging already in
+                # _anchor_outgoing_rel_ids / expand_through_cvt.
+                if (max_hops_per_step >= 2 and 0 <= nb1 < len(ents)
+                        and is_cvt_like(ents[nb1])):
+                    used1 = used_edges | frozenset({e1})
+                    for nb2, rel2, e2 in adj.get(nb1, ()):
+                        if e2 in used1:
+                            continue
+                        if rel2 in target_rels:
+                            hits.append(_make_hit((nb1, nb2), (rel1, rel2),
+                                                   (e1, e2), rel2))
                 continue
             if max_hops_per_step < 2:
                 continue
