@@ -120,6 +120,144 @@ Use it as the "what good looks like" sample.
 
 ---
 
+## RL data sampling + EoG study (2026-07-07)
+
+> Added mid-session to preserve context across resets. Source: ZCode
+> session on `agent-toolcall` branch. Sampling artifacts live in
+> `reports/samp_val_pool/` (**gitignored** — see trap; reproduce via
+> `scripts/resume_sample.py`).
+
+### Sampling pipeline (`reports/samp_val_pool/`)
+- **Driver**: `scripts/resume_sample.py --batch-size 50 --max-batches 60`
+  (nohup, PID was 267675 on 2026-07-07). Reads state from
+  `reports/samp_val_pool/state.json` (`{next_offset, batches_done}`),
+  writes one `batch_###.jsonl` per 50 cases × 4 samples = 200 traj.
+- **Source**: `data/cwq_processed/val.pkl` (**3519 cases total**).
+  Started at case 750 (`batch_013`), running to ~case 3750.
+- **Per-traj schema** (`batch_###.jsonl`, one JSON per line): `case_id`,
+  `sample_id`, `question`, `gt_answers`, `messages`, `gt_hit`, `llm_hit`,
+  `llm_f1`, `llm_answer`, `S_plan`, `S_select`, `S_reason`, `total_score`,
+  `scorer_notes`, `agent_failed`, `n_steps`.
+  ⚠️ **The reward field is `llm_f1`, NOT `f1`.** Confusing two caused
+  an earlier miscount (showed 0 SFT / 400 all-wrong). Always use `llm_f1`.
+- **`grpo.jsonl` / `sft.jsonl` are OVERWRITE-per-batch** (not cumulative).
+  They only reflect the last batch run. To get cumulative counts, aggregate
+  across all `batch_*.jsonl` with `llm_f1` per `case_id`.
+
+### Cumulative training pool (as of batch_020, case 750–1050, 1600 traj)
+| bucket | rule | cases |
+|---|---|---|
+| all-correct → SFT | all 4 samples `llm_f1 ≥ 0.99` | **89** |
+| mixed → GRPO | otherwise | **205 cases (205 samples)** |
+| all-wrong → flag | all 4 samples `llm_f1 < 0.01` | **106** |
+Total 400 cases. Ratio ~22/51/27. Mixed dominates → good for GRPO
+(both + and − reward present). SFT 89 is thin but ok for cold-start.
+
+### ⭐ Decisive diagnosis: bottleneck is `S_plan`, not data
+On the **120 all-wrong cases** (3-stage GT-recall decomposition, best of 4):
+```
+S_plan = 0  (decompose/relation-select loses GT):  99/120 = 82%
+S_plan > 0  (plan found GT, lost downstream):      21/120 = 18%
+```
+**Implication**: the failure is the agent picking the wrong relation
+direction at the decompose/`select_relations` step — a **model-decision**
+problem, not a data/recall problem. GRPO with a path-reward is exactly
+the right lever (penalize wrong relation choice, reinforce gold path).
+
+⚠️ **Open question to close before training**: is the gold path's relation
+even in the GTE candidate set for those 99 `S_plan=0` cases? If yes →
+pure decision problem, train. If no → real recall limit, must fix GTE
+candidate strategy first. **TODO: sample 20 `S_plan=0` cases, check gold
+relation membership in GTE candidates. ~30 min.**
+
+### EoG repo study — `github.com/ysq111333/EoG` (ICLR 2026)
+Cloned to `/tmp/EoG_ref/` (scratch; not in repo). Read `reward_func.py`,
+`data/EoG_process.py`, `test/eog_eval.py`, `run_rog_cwq.sh`. Findings:
+- **EoG is NOT an agent loop.** `eog_eval.py` dumps the **entire subgraph**
+  (`graph_info`) into one prompt; the LLM "reasons" in `<think>` and emits
+  `<answer>`. `grep search_entity|search_relation` → **0 hits in code**.
+  The tool-action framing in the paper is conceptual; the impl is
+  single-turn reasoning over a pre-extracted subgraph.
+- **Same data as us**: default input is
+  `qald_10_en_test_original_2hop_remove_errors.jsonl` (2-hop CWQ subgraph).
+  No data advantage.
+- **Reward = path-match only**: `total = hits@1*0 + f1*0 + reasoning*1.0`
+  (`reward_func.py:45-49`). Pure process reward, final answer weight 0.
+  Reasoning score = extracted triplets ∩ gold `reasoning_path` / |path|.
+  Same family as our S_plan/S_select/S_reason, but more aggressive.
+- **"EoG's search_relation bypasses pre-extracted subgraph" — FALSE.**
+  This was the prior hypothesis for why EoG might be better; the code
+  shows it operates on the same pre-extracted subgraph we do. Our agent
+  (stepwise expand) is arguably the more flexible design.
+- **Net**: EoG is same-family, same-data, same-reward-idea, but **no agent
+  loop**. Our agent-ization is the differentiator, not a disadvantage.
+
+### Decisions pending (this session)
+1. **Verify gold-relation-in-GTE-candidates** on 20 S_plan=0 cases — **DONE
+   2026-07-08** at scale (n=3013). Verdict: DATA 49% > MODEL-DECISION 36% >
+   RETRIEVAL 15%. See "Plan-failure root-cause diagnosis" below.
+2. Continue sampling to ~3750 cases (nohup, ~4h remaining as of 2026-07-07).
+3. Then start training (89 SFT cold-start → GRPO on mixed).
+
+---
+
+## Plan-failure root-cause diagnosis (2026-07-08)
+
+**Question**: for S_plan==0 (plan-failed) cases, is the failure model DECISION,
+system RETRIEVAL, or DATA? Tool: `scripts/diagnose_plan_failures.py` (offline;
+reads `reports/samp_val_pool/batch_*.jsonl` + val.pkl; gold relation = BFS
+anchor→answer path in the case's own subgraph, generic rels filtered; adversarially
+audited by a 6-agent workflow). Full JSON: `reports/samp_val_pool/plan_failure_diagnosis.json`
+(**gitignored**).
+
+⚠️ **SPARQL cannot label val.pkl cases** — `cwq_sparql/test.json` aligns to the
+TEST pkl (3531/3531), NOT val.pkl (0 id/question overlap). Gold relations are
+derived intrinsically per case. If SPARQL labels are wanted, sample the test pkl.
+
+**Result (n=3013 S_plan==0 samples, after fixing 2 measurement bugs the audit
+found — `normalize()` empty-string match + short-literal false-match)**:
+| side | % | detail |
+|---|---|---|
+| DATA/SUBGRAPH | **48.7%** | gold answer entity absent from the case subgraph (BFS anchor→answer unreachable). Validated 8/8 by spot-check. |
+| MODEL-DECISION | **36.0%** | TRAVERSAL 25.4% (gold rel retrieved AND selected, but graph walk missed answer) + DECISION 9.3% (gold in L2, not selected) + ANCHOR_MISS 1.4% (rooted on a type node). DECISION/TRAVERSAL validated 8/8 / 7/8. |
+| SYSTEM-RETRIEVAL | **15.3%** | GTE_MISS 10.3% (gold in scope, GTE didn't surface) + SCOPE_MISS 5.0% (pruned by structural scope). Upper bound; the genuinely-GTE-accuracy subset is smaller (some are anchor-quality artifacts). |
+
+**Headline**: plan failures are dominated by **DATA (~49%)** and **MODEL-DECISION
+(~36%)**; **SYSTEM-RETRIEVAL (~15%)** is the smallest. Model-decision ≫ retrieval
+(~2.4×), but BOTH are outweighed by the subgraph-coverage problem. **This overturns
+the prior "S_plan=0 = decision problem → GRPO is the lever" framing: ~49% of plan
+failures are unreachable by any model/GTE/prompt change (answer not in graph) —
+GRPO cannot move them.**
+
+**Actionable code defects flagged by the audit (production agent, NOT yet fixed)**:
+1. **Traversal/materialization** (largest validated lever): on the
+   `influence.influence_node.*` family the model selected the correct outgoing
+   gold edge that 1-hop reaches the answer, yet the answer never entered the
+   plan-reachable pool. Pure code fix, near-100% conversion on that family. Also:
+   forward-only-traversal vs undirected-gold mismatch on symmetric pairs
+   (influenced/influenced_by); multi-hop branch expansion fails when the 2nd-hop
+   relation is outside the anchor scope.
+2. **Over-conservative L3 selection**: `select_relations` picks l3_union_size
+   1–6 vs l2_union_size 7–19 — drops available gold. Relax the budget so l3
+   scales with l2.
+3. **Anchor selection**: type/meta-node rejection when a concrete q_entity exists
+   (Turkey→"Country"); degree tiebreak for name collisions (":Sydney" stub vs
+   city); **possible RUNTIME anchor-propagation bug** — verify the ReAct BATCH
+   path propagates the model's decompose anchor to `ctx.anchor_idx` before
+   `_gte_for_fact` (single-case path does via `_resolve_anchor`; batch
+   `_process_one` may not).
+4. Genuine GTE-accuracy failure is the SMALL minority — don't over-invest; GTE is
+   hard-capped by the per-case subgraph (Freebase can't be loaded).
+
+**Recommended order**: (a) verify+fix the batch anchor-propagation bug + the
+influence-node materialization defect (highest certainty, pure code); (b)
+quantify DATA recoverability — count "one-hop-short" cases (intermediate
+discriminator present, final answer edge dropped) for targeted deeper
+re-extraction; (c) relax L3 budget + improve relation-name display; (d) then
+revisit RL — train only on the model-decision subset, exclude the data-side.
+
+---
+
 ## Traps & gotchas
 
 ### `tmp/` AND `reports/` are both gitignored — artifacts are NOT safe
@@ -165,6 +303,16 @@ there's likely one already alive (health check returns 200).
       to localize the precision drop.
 - [ ] (optional) Harden `parse_react_output` against the `reasoning_end_str`
       leak (strip the phrase before parsing).
+- [ ] **(2026-07-07) Verify gold-relation-in-GTE-candidates on 20 S_plan=0
+      cases.** Decides whether S_plan=0 is a decision problem (→ train) or
+      a recall problem (→ fix GTE candidate strategy). ~30 min. See the
+      "Decisive diagnosis" block above.
+- [ ] **(2026-07-07) Continue val.pkl sampling to ~case 3750** (nohup
+      `resume_sample.py`, max-batches 60). Then aggregate cumulative
+      SFT/GRPO/flag from `reports/samp_val_pool/batch_*.jsonl`.
+- [ ] **(2026-07-07) Start RL training** once sampling lands enough data:
+      89 SFT cold-start → GRPO on the mixed bucket. Reward family = EoG's
+      path-match + our 3-stage GT-recall.
 
 ---
 
