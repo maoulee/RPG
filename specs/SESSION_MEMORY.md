@@ -258,6 +258,44 @@ revisit RL — train only on the model-decision subset, exclude the data-side.
 
 ---
 
+## GrailQA / GraphQuestions integration (2026-07-09)
+
+**Status: cannot run here — needs Freebase KG for subgraph extraction.**
+
+The framework does inference on **pre-extracted per-case subgraph pkls** (val.pkl /
+test pkl format: `h_id_list/r_id_list/t_id_list` + ents/rels). Freebase cannot be
+loaded in this container. Any new Freebase dataset (GrailQA, GraphQuestions) must
+have its candidate subgraphs extracted on a server WITH Freebase, then the pkls
+brought here for inference.
+
+**Data sources (QA only, NO subgraphs):**
+- GraphQuestions FB15: `dki-lab/GrailQA` repo `data/graphquestions_v1_fb15_*.json`
+  (gold graph = query pattern, avg 2.5 nodes; **answer in it 0%** — NOT a candidate
+  subgraph).
+- GrailQA QA data: https://dl.orangedox.com/WyaCpL/ (same gold-graph format).
+
+**KG (for extraction):** full Freebase via Virtuoso (`dki-lab/Freebase-Setup`) or
+FastRDFStore/Sempre (per `ysu1989/GraphQuestions` README). NOT a simple file
+download. ArcaneQA's `cache/` = SPARQL result caches, NOT subgraphs. The on-disk
+FB15k/FB15k237 (`/zhaoshu/kgc/`) are KGC subsets, incompatible (7.6% mid overlap
+with GraphQuestions).
+
+**Server-side extraction steps (do where Freebase is available):**
+1. Set up Freebase (Virtuoso via `dki-lab/Freebase-Setup`, or FastRDFStore).
+2. For each GrailQA/GraphQuestions question: entity-link the topic entity, extract
+   a 2-3 hop candidate subgraph (`data/deploy_bundle/graph_server.py` does this;
+   produces h/r/t + ents/rels per case — same as how val.pkl/test pkl were built).
+3. Serialize to the pkl format: `id, question, q_entity, text_entity_list,
+   non_text_entity_list, relation_list, h_id_list, r_id_list, t_id_list, a_entity`.
+4. Copy the pkl here; run inference via `run_agent_batch` (ReAct, the current
+   agent) or `run_pipeline` (legacy stage).
+
+**Architecture mismatch (why "direct" doesn't work):** GrailQA/GraphQuestions/
+ArcaneQA query Freebase at runtime via SPARQL; our framework retrieves from
+pre-extracted per-case subgraphs. Converting requires the KG for extraction.
+
+---
+
 ## Traps & gotchas
 
 ### `tmp/` AND `reports/` are both gitignored — artifacts are NOT safe
