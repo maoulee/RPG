@@ -93,7 +93,9 @@ def candidate_hit(cands: List[str], targets: List[str]) -> bool:
             if c == nt or nt in c or c in nt:
                 return True
     # Fuzzy fallback: catch near-matches like "Connor" vs "Conner"
-    # Only for entities >= 8 chars to avoid false positives on short names
+    # Only for entities >= 8 chars to avoid false positives on short names.
+    # Threshold 0.95 (not 0.92): "2010 World Series" vs "2014 World Series" =
+    # 0.94 — year-variant events must NOT collapse to a match.
     for t in targets:
         nt = normalize(t)
         if len(nt) < 8:
@@ -101,7 +103,7 @@ def candidate_hit(cands: List[str], targets: List[str]) -> bool:
         for c in norm_cands:
             if len(c) < 8:
                 continue
-            if SequenceMatcher(None, c, nt).ratio() >= 0.92:
+            if SequenceMatcher(None, c, nt).ratio() >= 0.95:
                 return True
     return False
 
@@ -171,7 +173,7 @@ def compute_match_stats(predicted: List[str], gold: List[str]) -> Dict[str, floa
     def _matches(c: str, t: str) -> bool:
         if c == t or t in c or c in t:
             return True
-        if len(c) >= 8 and len(t) >= 8 and SequenceMatcher(None, c, t).ratio() >= 0.92:
+        if len(c) >= 8 and len(t) >= 8 and SequenceMatcher(None, c, t).ratio() >= 0.95:
             return True
         return False
 
