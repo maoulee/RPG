@@ -181,7 +181,8 @@ WHERE "the leader" = singular  → keep the current/primary, remove former
 
 **Step 3 — SELECT (output survivors):**
 Whatever remains after all WHERE clauses is the answer. Output ALL of it,
-verbatim from the graph.
+verbatim from the graph. **The FIRST entity must be the single answer you are
+most certain about** (it is your top-1 / Hit@1); the rest follow in any order.
 
 **Guardrails:**
 - Every entity you output MUST come from the candidate pool — never invent.

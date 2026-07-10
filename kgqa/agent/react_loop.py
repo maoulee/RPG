@@ -364,6 +364,22 @@ def _print_summary(results, wall_time):
     f1 = sum(r.get("llm_f1", 0) for r in results) / n if n else 0
     failed = sum(1 for r in results if r.get("agent_failed"))
 
+    # Hit@1: first predicted entity matches gold (ranking-based, primary metric).
+    # Requires the model to RANK its answers (best guess first) — see AGENTS.md
+    # §answer. Without ranking, Hit@1 ≈ F1 (set emission, no discrimination).
+    from kgqa.core.utils import normalize as _norm
+    def _hit_at_1(r):
+        ans = r.get("llm_answer", "") or ""
+        preds = [p.strip() for p in ans.split(" | ") if p.strip()] if ans else []
+        if not preds:
+            return False
+        gt = r.get("gt_answers") or []
+        if not gt:
+            return False
+        p1 = _norm(preds[0])
+        return any(p1 in _norm(g) or _norm(g) in p1 for g in gt)
+    hit1 = sum(1 for r in results if _hit_at_1(r))
+
     gh = [r for r in results if r.get("gt_hit")]
     n2 = len(gh)
     f1g = sum(r.get("llm_f1", 0) for r in gh) / n2 if n2 else 0
@@ -375,6 +391,7 @@ def _print_summary(results, wall_time):
     print(f"{'='*60}")
     print(f"GT hit:   {gt_hit}/{n} ({gt_hit/n:.3f})" if n else "GT hit: 0")
     print(f"LLM hit:  {llm_hit}/{n} ({llm_hit/n:.3f})" if n else "LLM hit: 0")
+    print(f"Hit@1:    {hit1}/{n} ({hit1/n:.3f})" if n else "Hit@1: 0")
     print(f"Failed:   {failed}")
     print(f"Overall F1:     {f1:.4f}")
     print(f"GT-hit F1:      {f1g:.4f}  (n={n2})")
