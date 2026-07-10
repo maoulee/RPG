@@ -296,6 +296,35 @@ pre-extracted per-case subgraphs. Converting requires the KG for extraction.
 
 ---
 
+## Hit@1 + scoring fixes + F1<1 analysis (2026-07-10)
+
+### Commits this session
+- `5813eb3` traversal: CVT transparency in _hit_paths (+4.36pp F1, ReAct greedy A/B)
+- `d381143` score: S_plan from structured pool (not overview regex); answer_candidates captured
+- `6a27056` agent: Hit@1 metric in react_loop + minimal "first=most-certain" SELECT
+- `cc06462` score: fuzzy threshold 0.92→0.95 (stop collapsing year-variant events)
+
+### Current metrics (100-case test, greedy, corrected matcher)
+GT-hit 90.9% > llm_hit 85.9% > **Hit@1 79.8% > F1 77.2%** (standard hierarchy).
+
+### CWQ SPARQL constraint distribution (n=3531)
+**92.3% list-all** (no LIMIT) → keep-ALL default is CORRECT. **7.7% LIMIT-1** → irreducible
+ambiguity (English doesn't convey SPARQL constraint). Don't default to "most recent."
+
+### F1<1 failure classification (32/99)
+- **5 LIMIT-1** (irreducible hidden constraint): Lou Seal/Crazy Crab "what year" w/ SPARQL LIMIT 1.
+- **27 list-all** (actionable): OVER_EMIT 9 (junk in set, CVT dates not displayed), UNDER_EMIT 7
+  (world knowledge narrowing — NBA model said "From world knowledge, Brad Stevens..."),
+  SELECTION_MISS 6 (wrong entity), RETRIEVAL_MISS 9 (gold alias / missing / granularity).
+- **84% of multi-entity answers are alphabetically sorted** (LLM habit) → gold often alpha-later → Hit@1 wrong.
+
+### Key case findings
+- **Libya leader**: expand 80 triples but only 2 with dates. 7/8 leaders lack CVT tenure dates → model can't distinguish → over-emit 8.
+- **NBA Finals**: model used WORLD KNOWLEDGE ("Brad Stevens coached 2013-2021") to narrow 17→1. Violated "graph only."
+- **Lou Seal**: always emitted all 3 WS (baseline too). F1=1.0 was inflated by fuzzy 0.92. After fix F1=0.5 (honest).
+
+---
+
 ## Traps & gotchas
 
 ### `tmp/` AND `reports/` are both gitignored — artifacts are NOT safe
@@ -330,27 +359,31 @@ there's likely one already alive (health check returns 200).
 
 ---
 
-## TODO / open levers
-- [x] **Commit** the 4-tool merge + 100-case result + this memory file. (done)
-- [x] Update `specs/agent_redesign_spec.md` §0 with the `cwq_merged_100` numbers. (done)
-- [ ] **Benchmark** the two new default-off features landed 2026-07-06:
-      `--adaptive-routing` (simple/complex split) and
-      `KGQA_DIRECTED_TRAVERSAL=1` (directed Freebase traversal). Neither
-      has a run in `reports/` yet. See commits `110eafe`.
-- [ ] Investigate the 1 flip-in / 2 flip-out cases (vs `cwq_fromwhere_100`)
-      to localize the precision drop.
-- [ ] (optional) Harden `parse_react_output` against the `reasoning_end_str`
-      leak (strip the phrase before parsing).
-- [ ] **(2026-07-07) Verify gold-relation-in-GTE-candidates on 20 S_plan=0
-      cases.** Decides whether S_plan=0 is a decision problem (→ train) or
-      a recall problem (→ fix GTE candidate strategy). ~30 min. See the
-      "Decisive diagnosis" block above.
-- [ ] **(2026-07-07) Continue val.pkl sampling to ~case 3750** (nohup
-      `resume_sample.py`, max-batches 60). Then aggregate cumulative
-      SFT/GRPO/flag from `reports/samp_val_pool/batch_*.jsonl`.
-- [ ] **(2026-07-07) Start RL training** once sampling lands enough data:
-      89 SFT cold-start → GRPO on the mixed bucket. Reward family = EoG's
-      path-match + our 3-stage GT-recall.
+## TODO / open levers (updated 2026-07-10)
+
+### Done this session
+- [x] CVT transparency fix (commit 5813eb3, +4.36pp F1 ReAct greedy A/B)
+- [x] S_plan from structured pool (commit d381143)
+- [x] Hit@1 metric + minimal "first=most-certain" prompt (commit 6a27056, +2pp Hit@1)
+- [x] Fuzzy threshold 0.92→0.95 (commit cc06462, F1 honest, Hit@1 > F1)
+- [x] F1<1 failure classification + CWQ SPARQL distribution (92.3% list-all)
+- [x] GrailQA spec: needs Freebase KG extraction (commit 77a16b3)
+
+### Open — answer layer (27 actionable list-all F1<1)
+- [ ] **expand_branches CVT 属性值补全**: Libya 7/8 leaders lack tenure dates in evidence. Investigate why (candidate cap? CVT expansion logic?).
+- [ ] **World knowledge enforcement**: NBA model said "From world knowledge, Brad Stevens coached 2013-2021" — violated "graph only". Strengthen prompt or add post-hoc check.
+- [ ] **Info-analysis (Step 3)**: when CVT/graph attributes ARE available, use them to FILTER junk (wrong-type, wrong-time) — NOT default-narrow to "most recent" (breaks 92.3%). Target: reduce OVER_EMIT (9 cases).
+- [ ] **OVER_EMIT type-filter**: FROM should pre-filter by type (question asks country → FROM only lists countries).
+- [ ] **UNDER_EMIT recall**: NBA 1/17 — model over-narrowed. Strengthen "no constraint → list ALL" execution.
+
+### Open — RL / data
+- [ ] **val.pkl unrepaired** (19.1% answers not in subgraph). Filter GT-suspect before training.
+- [ ] **Re-sample RL data with fixed code** (CVT fix + scorer fix + answer_candidates). Old samp_val_pool has buggy scorer + no CVT fix.
+- [ ] Start RL: SFT cold-start → GRPO. Reward = total_score. Can add top-1 reward for Hit@1.
+
+### Open — lower priority
+- [ ] Benchmark adaptive-routing + directed-traversal (commits 110eafe, default-off).
+- [ ] GrailQA: needs Freebase KG on a server (see GrailQA section above).
 
 ---
 
