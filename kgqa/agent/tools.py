@@ -1120,6 +1120,68 @@ async def _do_select(ctx) -> str:
     })
 
 
+def _cvt_attr_summary(triples, max_lines: int = 60) -> str:
+    """Per-CVT attribute summary for the answer step.
+
+    Inline-resolves CVT nodes so each holder's tenure attrs sit on one line
+    (e.g. "Abdullah al-Thani: from=2014-06-09, to=(incumbent), basic_title=Prime minister").
+    Unlike format_subgraph_with_cvt, KEEPS `has_no_value` (rendered as
+    `<attr>=(incumbent)`) — that "no end date" marker is the signal that picks
+    the current office-holder, and stripping it (as noise) is exactly why the
+    model cannot tell who is incumbent on exclusive relations like Libya PMs.
+    Filters only true noise (type./common./freebase bookkeeping minus has_no_value).
+    """
+    from kgqa.traversal.cvt import is_cvt_like
+    _NOISY_PREFIX = ("type.", "common.", "kg.", "user.", "base.ontologies.")
+    _NOISY_SHORT = {"type", "types", "instance", "instances", "notable_types",
+                    "topic_equivalent_webpage", "webpage", "mid", "guid",
+                    "key", "keys", "permission", "is_reviewed", "no_value"}
+    _HOLDER_RELS = {"office_holder", "actor", "director", "spouse"}
+
+    def _short(r):
+        return r.rsplit(".", 1)[-1] if r else r
+
+    def _noisy(r):
+        r = str(r)
+        return r.startswith(_NOISY_PREFIX) or _short(r) in _NOISY_SHORT
+
+    cvt_attrs = {}   # cvt_name -> [(short_rel, value)]
+    cvt_holder = {}  # cvt_name -> holder entity (the named entity it points to)
+    for tr in triples:
+        if not (isinstance(tr, (tuple, list)) and len(tr) == 3):
+            continue
+        h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
+        if not (is_cvt_like(h) and not is_cvt_like(t)):
+            continue
+        if _noisy(r):
+            continue
+        s = _short(r)
+        cvt_attrs.setdefault(h, []).append((s, t))
+        if s in _HOLDER_RELS:
+            cvt_holder[h] = t
+
+    lines = []
+    # incumbents (has_no_value = no end date) first so the current holder surfaces
+    def _sort_key(item):
+        cvt, attrs = item
+        has_incumbent = any(s == "has_no_value" for s, _ in attrs)
+        holder = cvt_holder.get(cvt, cvt)
+        return (0 if has_incumbent else 1, holder)
+
+    for cvt, attrs in sorted(cvt_attrs.items(), key=_sort_key):
+        holder = cvt_holder.get(cvt, cvt)
+        parts = []
+        for s, v in attrs:
+            if s == "has_no_value":
+                # value names the attribute that is absent (e.g. "To") → incumbent
+                parts.append(f"{str(v).lower()}=(incumbent)")
+            else:
+                parts.append(f"{s}={v}")
+        if parts:
+            lines.append(f"  - {holder}: {', '.join(parts[:8])}")
+    return "\n".join(lines[:max_lines])
+
+
 def _do_expand_branch(args: Dict[str, Any], ctx) -> str:
     """Expand one or more branches to show their FULL evidence.
 
@@ -1173,6 +1235,7 @@ def _do_expand_branch(args: Dict[str, Any], ctx) -> str:
                                  "\n".join(tree_lines))
 
     triple_strs = [f"({h}, {r}, {t})" for h, r, t in all_triples[:80]]
+    cand_attrs = _cvt_attr_summary(all_triples)
     payload = {
         "branches_expanded": bids,
         "n_branches": len(bids),
@@ -1180,6 +1243,7 @@ def _do_expand_branch(args: Dict[str, Any], ctx) -> str:
         "n_candidates": len(all_cands),
         "triples": triple_strs,
         "n_triples": len(all_triples),
+        "candidate_attrs": cand_attrs,
         "per_branch": per_branch,
     }
     if tree_sections:
