@@ -118,8 +118,6 @@ scripts/test_nl_v4.py
 scripts/test_nl_v5.py
 scripts/test_stage8_isolation.py
 scripts/trace_galapagos_noise.py
-scripts/train_offline_grpo.py
-scripts/train_sft.py
 scripts/verify_cwq_calibrated.py
 scripts/verify_cwq_fact_split.py
 scripts/verify_fact_split.py
