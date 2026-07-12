@@ -24,16 +24,22 @@ PILOT = "reports/cwq_gte_bridge_100/results.json"
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--case-ids", required=True,
+    p.add_argument("--case-ids", default="",
                    help="comma-separated case_ids or prefixes (e.g. WebQTest-590,WebQTrn-372)")
     p.add_argument("--output", required=True)
     p.add_argument("--parallel", type=int, default=8)
     p.add_argument("--runs", type=int, default=1,
                    help="run each case N times (multi-sampling) to measure variance")
+    p.add_argument("--start", type=int, default=None, help="pilot slice start (alt to --case-ids)")
+    p.add_argument("--end", type=int, default=None, help="pilot slice end")
     args = p.parse_args()
 
-    prefixes = [c.strip() for c in args.case_ids.split(",") if c.strip()]
     pilot_rows = json.loads(Path(PILOT).read_text())
+    if args.start is not None or args.end is not None:
+        sl = pilot_rows[args.start or 0:args.end]
+        prefixes = [pr["case_id"] for pr in sl]  # full case_ids
+    else:
+        prefixes = [c.strip() for c in args.case_ids.split(",") if c.strip()]
     if isinstance(pilot_rows, dict):
         pilot_rows = pilot_rows.get("results", [])
     samples = pickle.loads(Path(DEFAULT_CWQ).read_bytes())

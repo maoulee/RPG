@@ -559,3 +559,38 @@ there's likely one already alive (health check returns 200).
   (gitignored, kept on disk in case RL is revisited).
 - **Logs**: `logs/{gte,vllm}_server.log`, `logs/run_*.log`.
 - **Models**: `/zhaoshu/llm/Qwen3.5-9B`, `/zhaoshu/llm/Qwen3-Embedding-0.6B`.
+
+---
+
+## RL pipeline session (2026-07-12) — large-scale data + hybrid SFT+GRPO ready
+
+### Full-scale sampling done
+- `scripts/sample_full_test.py` sampled **all test pkl (342 scored cases) × 4 = 13588 trajectories** → `data/offline_grpo/full_sample_3k.jsonl` (362M).
+- **Full-test baseline** (not curated pilot): S_plan=0.788, S_select=0.736, S_reason=0.630, llm_f1=0.703, gt_hit=0.828. (Lower than pilot 100's F1=0.78 — pilot was an easier subset; full-test is the honest baseline.)
+- **Split** (`data/offline_grpo/full3k_split/`): 303 variable+clean → **train 258 cases / 11316 trajectories** · **held-out 45 cases / 1912 trajectories**. Bottleneck: reason 168(55%), plan 101(33%), select 34(11%). Filter: `scripts/filter_gt_suspect.py` + `scripts/split_variable_cases.py` (JSONL input fixed).
+
+### RL trainer validated (tiny scale, 26 train / 6 held-out — directional only)
+- **per-stage per-token group-baselined GRPO**: held-out S_reason +0.186 (0.506→0.692), plan protected (+0.010). **Best process reward.** Loss went negative (GRPO reinforcing). Checkpoint saved.
+- **origin-stage (per-case origin turn, scalar limer)**: S_reason +0.042, **S_plan -0.083** (training plan-weak cases hurt the plan). Worse than per-stage.
+- **Conclusion**: per-stage per-token is the better process reward (saturated stages get ~0 gradient = natural protection). origin-stage's "train the weakness" backfired on plan.
+- Speed: ~100-142 s/step (bottleneck = 9B backbone forward, not loss; limer only speeds lm_head). Origin-stage ~25% faster but hurt plan.
+
+### RL infrastructure (all in scripts/, on disk)
+- `train_offline_grpo.py`: 3 modes — `--origin-stage` (default, scalar limer, per-case origin), `--per-stage` (per-token, group-baselined), `--single-adv` (original scalar). All backward-compatible. Liger fallback to AutoModelForCausalLM if liger_kernel absent.
+- `build_advantage_dataset.py`: `--origin-stage` (default), `--per-stage`, `--single-adv`. Group-baselined (default), `--no-group-baseline` (PRM raw), `--normalize-std`.
+- `build_hybrid_dataset.py`: CiSPO hybrid (role=sft seeds + role=grpo). `run_hybrid_zero2.sh` runs it. **Ready for large-scale hybrid SFT+GRPO.**
+- **Environment**: liger-kernel 0.8.0 + transformers 5.13.1 installed (qwen3_5 support for offline trainer). vLLM 0.21 (transformers >=4.56 ≠5.0-5.5 → 5.13.1 OK). ms-swift 4.0.2 wants transformers<5.4 (conflict, but offline trainer doesn't use swift).
+- **No-merge policy**: eval via vLLM LoRA serving (--enable-lora in start script), don't merge LoRA→base (saves 18GB/disk). Cleaned all old checkpoints + val.pkl + old val-based trajectories.
+
+### Next steps (locked)
+1. **build_hybrid_dataset** on full3k_split/train.jsonl (258 cases, SFT seeds + GRPO advantage, CiSPO).
+2. **train hybrid** (SFT+GRPO one run, no distribution shift) — from base 9B.
+3. **eval 45 held-out** (statistically reliable, vs full-test baseline F1=0.703).
+4. If hybrid improves → scale up (more epochs, tune CiSPO curriculum, integrate per-stage into hybrid).
+
+### Uncommitted (scripts/ tracked, changes on disk)
+- `scripts/run_cases_ab.py` (M, added --start/--end + --runs).
+- `scripts/filter_gt_suspect.py`, `scripts/sample_full_test.py`, `scripts/split_variable_cases.py` (new).
+- `scripts/train_offline_grpo.py`, `scripts/build_advantage_dataset.py` (per-stage + origin-stage + group-baselined, on disk, not committed).
+- `kgqa/agent/AGENTS.md` committed at 177a69c (content-checklist B).
+- `kgqa/agent/tools.py` committed at 177a69c (candidate_attrs).
