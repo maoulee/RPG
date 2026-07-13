@@ -594,3 +594,47 @@ there's likely one already alive (health check returns 200).
 - `scripts/train_offline_grpo.py`, `scripts/build_advantage_dataset.py` (per-stage + origin-stage + group-baselined, on disk, not committed).
 - `kgqa/agent/AGENTS.md` committed at 177a69c (content-checklist B).
 - `kgqa/agent/tools.py` committed at 177a69c (candidate_attrs).
+
+### Stage-vs-agent gap analysis (2026-07-12) — agent is NOT a worse baseline
+Question: stage-pipeline full test was F1≈0.78; agent full-test is 0.703. Is RL polishing a worse baseline?
+**Compared on the SAME 342 cases** (`scripts/compare_stage_vs_agent.py`, current eval fuzzy 0.95):
+- stage = `reports/cwq_full_test/chunk*/results.json` (3397 rec, ~10/case). agent = `data/offline_grpo/full_sample_3k.jsonl` (13588 rec, ~40/case).
+- | stage mean-F1 **0.7654** | agent all **0.7033** | agent valid (excl HTTP-fail) **0.7270** |
+- | stage best-F1 0.9401 | **agent best-F1 0.9634** | ← agent ceiling HIGHER |
+- | stage gt-hit 0.9649 | **agent gt-hit 0.9883** | ← agent retrieval BETTER |
+- **GT-reach buckets**: both-reach 330, stage-only-reach **0**, agent-only-reach 8, neither 4. Agent never loses retrieval stage had.
+- **Both-reach answer quality**: gap only F1 +0.011 (agent P −0.023 / R +0.020 — trades precision for recall).
+- **Variance**: per-case F1 std agent 0.277 vs stage 0.234. Top-15 loss cases: agent BEST is correct (f1=1.0) in ~13/15, mean dragged by sampling variance.
+**Verdict**: gap = sampling variance (temp 0.3) + 3.4% HTTP-failure samples (468 rec, 187 cases), NOT capability. Agent retrieval ≥ stage, ceiling > stage. RL target = sharpen distribution (make correct the mode) — exactly GRPO's job. **Green-lights training.** Decisive confirmatory test if ever needed: greedy single-shot agent eval on the 342 (removes variance).
+
+### Per-stage hybrid (CiSPO on per-stage path) — implemented + training (2026-07-12)
+User insight: origin-stage DISCARDS turns after the bottleneck → loses good downstream practice of fully-correct trajectories. Fix = per-stage hybrid (keep ALL turns):
+- **SFT seeds** (role=sft, one/case, top1 by llm_f1): adv_plan=adv_select=adv_reason=1.0 → per-stage tokenizer emits uniform +w_stage on EVERY assistant turn → whole good trajectory imitated (plan+select+reason), downstream retained. Scaled by CiSPO λ(t) 1.0→0.2.
+- **GRPO** (role=grpo, rest): per-stage signed advantage w_stage × adv_stage (group-baselined S_stage − mean). Saturated stages get ~0 gradient (natural protection — e.g. plan when all samples reach gold).
+
+**Data curation (user's GT-first rule)**: 7/258 train cases had NO good sample (max llm_f1<0.5). Of those, 2 are GT-noise → EXCLUDED:
+- WebQTrn-662 (2008 FIFA CWC winner gold="Newton Heath L&YR F.C." = Man Utd's 1878 alias — obscure alias artifact)
+- WebQTrn-1679 ("location incl DC+NY" gold="Mid-Atlantic states" vs model "United States" — granularity ambiguity)
+Remaining 5 genuinely-hard-but-reachable cases (1436/3087/3412/3769/724) kept as weak GRPO signal; Phase 2 directed-rollout targets.
+
+**Pipeline**: build_train_msgs.py (agent_trajectory→messages + score_case S_*) → build_advantage_dataset --per-stage → build_hybrid_dataset (sft-per-case top1). Clean dataset: `data/offline_grpo/full3k_split/hybrid_per_stage_clean.jsonl` (10895 rec, 256 cases, 1734 SFT / 9161 GRPO).
+
+**Smoke VALIDATED** (4 steps, LoRA saved). **Full 1-epoch run LAUNCHED** (PID 474424, nohup, /tmp/perstage_full.log): max_length=14336 (memory ceiling, 40GB/GPU full — CANNOT raise), batch=1, eff_batch=16, ~160s/step, **~26h/epoch (~594 steps)**, save_steps=200 → eval checkpoints at 200/400/594. Output: checkpoint/perstage_hybrid_256.
+
+**Phase 2 (deferred)**: directed rollout for the 5 hard cases (fix best plan prefix, re-sample downstream ×N via react_loop prefix-resume) to inject positive trajectories. Also: filter_gt_suspect systematic pass on held-out for clean eval.
+
+**vLLM stopped** for training (was OOMing: 37GB/GPU). Restart with --enable-lora for eval after training (no-merge policy).
+
+### Code review fixes (2026-07-12) — corrected model/LoRA + committed trainer
+External review caught real issues (all verified against the actual model):
+- **Qwen3.5-9B is HYBRID**: layer_types = 3×linear + 1×full → **24 linear-attn + 8 full-attn** layers, vocab **248,320**, hidden 4096, multimodal checkpoint (vision_config present).
+- **LoRA targets were wrong**: old list (q/k/v/o + MLP) matched only the 8 full-attn layers + MLP, leaving the **24 linear-attn layers (3/4 of attention) UNADAPTED**. Fixed: now target q/k/v/o (full) + in_proj_qkv/z/b/a + out_proj (linear), rank 32, attention-only (MLP dropped). → 36.2M trainable.
+- **Explicit text model**: load `Qwen3_5ForCausalLM` (text branch, 0 vision params — hard-assert via named_parameters). apply_liger_kernel_to_qwen3_5(rms_norm, swiglu; FLCE off). use_cache=False.
+- **_diag_trainable**: prints trainable params, asserts only lora_A/B trainable + no vision, confirms DeepSpeed ZeRO enabled (world_size 2).
+- **datasets.map int64-to-null fix**: skip records return [0]/[-100] placeholders (consistent dtype) so low max_length doesn't crash the num_proc map.
+- **train_offline_grpo.py + train_sft.py were .gitignored** (scratch-era) → NEVER committed. Un-ignored + committed all trainer work.
+- **Fast path BLOCKED**: causal-conv1d + flash-linear-attention build FAILS vs torch 2.11+cu130 (CUDA ext compile error). The 24 linear-attn layers run on slow torch fallback — the #1 speed suspect, UNFIXABLE here without torch downgrade (would break vLLM/transformers).
+- b_origin truncation (at bottleneck stage) helps little: most b_origin is reason-bottleneck (last stage, no tail to cut).
+- batch=2 stays infeasible: ZeRO-2 OOMs (18GB base duplicated), ZeRO-3 slower (gather/scatter > batch benefit at 9B). **batch=1 ZeRO-2 is the only stable+fast config.**
+
+Corrected pipeline VALIDATED end-to-end (4096 smoke: Qwen3_5ForCausalLM 8.95B/0 vision, 36.2M trainable lora-only, ZeRO-2 ws=2, training step runs). Real run: batch=1, ZeRO-2, max_length 12288 (80% data), rank 32 attention-only, ~18h. Length/rank tunable later; LoRA+ (--loraplus-lr-ratio) stub for convergence; directed rollout = Phase 2.

@@ -37,6 +37,10 @@ BATCH=1
 GRAD_ACCUM="${GRAD_ACCUM:-8}"          # eff batch = 1 × 2 GPU × 8 = 16
 MAX_STEPS="${MAX_STEPS:--1}"           # -1 = full; 4 = smoke
 W_PLAN="${W_PLAN:-0.2}"; W_SELECT="${W_SELECT:-0.3}"; W_REASON="${W_REASON:-0.5}"
+# per-stage chunked-loss time dim. 512 (not default 1024): the chunk's
+# logits.float() + log_softmax peaks at ~2*B*chunk*V*4 bytes = ~625MB @1024,
+# which OOMs on long sequences (only ~820MB free after backbone). 512 halves it.
+PER_STAGE_CHUNK="${PER_STAGE_CHUNK:-512}"
 SFT_W_START="${SFT_W_START:-1.0}"      # SFT seeds full-strength at step 0
 SFT_W_END="${SFT_W_END:-0.2}"          # fade to 0.2 so good-practice anchors stay
 
@@ -52,6 +56,7 @@ accelerate launch \
         --max-length "$MAX_LENGTH" --epochs "$EPOCHS" \
         --batch-size "$BATCH" --grad-accum "$GRAD_ACCUM" --max-steps "$MAX_STEPS" \
         --w-plan "$W_PLAN" --w-select "$W_SELECT" --w-reason "$W_REASON" \
+        --per-stage-chunk "$PER_STAGE_CHUNK" \
         --sft-weight-start "$SFT_W_START" --sft-weight-end "$SFT_W_END" \
     2>&1 | tee "$LOG"
 
