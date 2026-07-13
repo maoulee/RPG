@@ -1088,6 +1088,9 @@ def main():
                    help="checkpoint output dir (required unless --smoke-test)")
     p.add_argument("--max-length", type=int, default=8192)
     p.add_argument("--max-steps", type=int, default=-1)
+    p.add_argument("--resume", default=None,
+                   help="Resume from a checkpoint dir (e.g. checkpoint/.../checkpoint-200). "
+                        "Restores LoRA adapter + DeepSpeed optimizer state + step counter.")
     p.add_argument("--epochs", type=float, default=2.0)
     p.add_argument("--lr", type=float, default=1e-5)
     p.add_argument("--batch-size", type=int, default=1)
@@ -1287,7 +1290,7 @@ def main():
             data_collator=_make_origin_stage_collator(pad_id),
             origin_stage=True)
         print(f"\n=== Offline GRPO (origin-stage): {len(ds)} samples ===")
-        trainer.train()
+        trainer.train(resume_from_checkpoint=args.resume)
         print(f"\n=== Saving to {args.output} ===")
         trainer.save_model(args.output)
         tokenizer.save_pretrained(args.output)
@@ -1324,7 +1327,7 @@ def main():
         print(f"\n=== Offline GRPO (routed): {len(ds)} samples | roles {dict(rc)} "
               f"| λ {args.sft_weight_start}→{args.sft_weight_end} ===")
         _diag_trainable(trainer)
-        trainer.train()
+        trainer.train(resume_from_checkpoint=args.resume)
         print(f"\n=== Saving to {args.output} ===")
         trainer.save_model(args.output)
         tokenizer.save_pretrained(args.output)
@@ -1358,7 +1361,7 @@ def main():
             w_reason=args.w_reason, per_stage_chunk=args.per_stage_chunk,
             sft_weight_start=args.sft_weight_start, sft_weight_end=args.sft_weight_end)
         print(f"\n=== Offline GRPO (per-stage): {len(ds)} samples ===")
-        trainer.train()
+        trainer.train(resume_from_checkpoint=args.resume)
         print(f"\n=== Saving to {args.output} ===")
         trainer.save_model(args.output)
         tokenizer.save_pretrained(args.output)
@@ -1406,7 +1409,7 @@ def main():
     trainer.data_collator = collate_with_advantage
 
     print(f"\n=== Offline GRPO: {len(ds)} samples ===")
-    trainer.train()
+    trainer.train(resume_from_checkpoint=args.resume)
     print(f"\n=== Saving to {args.output} ===")
     trainer.save_model(args.output)
     tokenizer.save_pretrained(args.output)

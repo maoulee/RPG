@@ -24,6 +24,8 @@ EPOCHS="${EPOCHS:-1}"
 BATCH="${BATCH:-2}"                 # limer (no logits) → batch=2/GPU fits
 GRAD_ACCUM="${GRAD_ACCUM:-4}"       # eff batch = 2 × 2 GPU × 4 = 16
 MAX_STEPS="${MAX_STEPS:--1}"
+RESUME="${RESUME:-}"               # checkpoint dir to resume from (e.g. checkpoint/routed_256/checkpoint-200)
+RESUME_FLAG=""; [ -n "$RESUME" ] && RESUME_FLAG="--resume $RESUME"
 SFT_W_START="${SFT_W_START:-1.0}"; SFT_W_END="${SFT_W_END:-0.2}"
 CONFIG="${CONFIG:-configs/zero2_lora.yaml}"   # set CONFIG=configs/zero3_lora.yaml to shard base params
 # ZeRO-3 needs reentrant grad-checkpointing (non-reentrant's recompute-match
@@ -41,7 +43,7 @@ accelerate launch \
         --routed \
         --max-length "$MAX_LENGTH" --epochs "$EPOCHS" \
         --batch-size "$BATCH" --grad-accum "$GRAD_ACCUM" --max-steps "$MAX_STEPS" \
-        $GC_FLAG \
+        $RESUME_FLAG $GC_FLAG \
         --sft-weight-start "$SFT_W_START" --sft-weight-end "$SFT_W_END" \
     2>&1 | tee "$LOG"
 echo "[routed] done. checkpoint at $OUTPUT, log at $LOG"
