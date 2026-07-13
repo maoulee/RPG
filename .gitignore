@@ -150,3 +150,28 @@ scripts/prompt_on_skill_data_results.json
 
 # Archived legacy pipeline (RL-based, superseded by kgqa/)
 _archive/
+
+# experiment/analysis scripts (local-only — methodology code is in kgqa/ + the
+# train/route/build/sample/score/run pipeline scripts) + big data pkls
+scripts/ab_compare.py
+scripts/ab_test_compliance.py
+scripts/ab_test_content_cot.py
+scripts/ab_thinking_budget.py
+scripts/abcd_test.py
+scripts/analyze_answer_cardinality.py
+scripts/analyze_expand_usage.py
+scripts/analyze_under_cause.py
+scripts/compare_stage_vs_agent.py
+scripts/diagnose_plan_failures.py
+scripts/catalog_implicit_constraints.py
+scripts/profile_gold_sparql_structure.py
+scripts/regress_cvt_passthrough.py
+scripts/scan_relation_slots.py
+scripts/scan_time_resolution.py
+scripts/screen_annotation_ambiguity.py
+scripts/trace_traversal_drop.py
+scripts/webqsp_profile_gold_sparql_structure.py
+scripts/webqsp_scan_implicit.py
+scripts/webqsp_screen_annotation_ambiguity.py
+data/cwq_processed/test_literal_and_language_fixed_path_completed.pkl
+data/webqsp/test_fixed_path_completed.pkl
