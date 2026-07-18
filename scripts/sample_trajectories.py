@@ -808,6 +808,19 @@ def main():
                    help="sampling temperature for the non-probe phase")
     args = p.parse_args()
 
+    # Raise the max_tokens floor when thinking is on — SAME fix as
+    # react_loop.run_react_case. Without it, <think> reasoning eats the token
+    # budget and the content (the tool call) comes back EMPTY, so every
+    # trajectory stalls at decompose and the whole batch fails (the
+    # batch→empty-content→all-fail bug). The per-call path already does this;
+    # the batch path was missing it.
+    try:
+        from kgqa.llm.client import THINKING_TOKEN_BUDGET as _tb
+        if _tb > 0:
+            args.agent_max_tokens = max(args.agent_max_tokens, _tb + 2560)
+    except Exception:
+        pass
+
     if args.mixed:
         cases = load_mixed_cases(args)
     else:
