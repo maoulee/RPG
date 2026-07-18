@@ -28,6 +28,14 @@ DONE = "DONE"
 # Order, for the "allowed next" hint
 _ORDER = [INIT, RETRIEVE, SELECT_RELATIONS, EXPAND, ANSWER]
 
+# Safety-net caps on model-driven rewrites. The MODEL decides when a choice was
+# wrong and re-submits; these only intercept abuse (the system is a guardrail,
+# not a decision-maker). Tool-internal errors (structural pruning, traversal
+# reach) are fixed in the tool, NOT compensated by rewrites.
+MAX_SELECTS = 2   # select_relations: 1 original + 1 model-driven rewrite
+MAX_EXPANDS = 6   # expand_branches: loop-guard against meaningless repeated expands
+# retrieve: 1 rewrite per fact (tracked per-fact in state.retrieved)
+
 
 @dataclass
 class AgentState:
@@ -38,10 +46,12 @@ class AgentState:
     fact_satisfies: dict = field(default_factory=dict)  # id -> constraint text (if fact materializes a condition)
     fact_start_types: dict = field(default_factory=dict)  # id -> start_type (anchor name for f1, type noun for f2+)
     fact_start_entities: dict = field(default_factory=dict)  # id -> start_entity (only for multi-anchor chain roots)
+    fact_steps: list = field(default_factory=list)      # ordered step groups (each=[fid] seq, or [fid,...] a `con` conjunctive layer)
     anchor: Optional[str] = None                       # model-chosen anchor entity name
     endpoints: list = field(default_factory=list)      # model-chosen endpoint entity names (constraints)
     retrieved: list = field(default_factory=list)      # fact_ids already retrieved (via fallback retrieve)
     n_selects: int = 0
+    n_expands: int = 0
     n_decomposes: int = 0
     terminal_answer: Optional[str] = None              # set when answer accepted
 
@@ -132,7 +142,7 @@ def validate(state: AgentState, tool_calls) -> tuple:
         if not isinstance(facts, list) or not facts:
             return (False,
                     "decompose returned no `facts` array. Re-call decompose with a "
-                    "non-empty `facts` array (each fact has id, text, relation_hint).",
+                    "non-empty `facts` array (each fact has id, text, subquestion).",
                     state)
         ids = []
         texts = {}
@@ -172,11 +182,56 @@ def validate(state: AgentState, tool_calls) -> tuple:
         state.fact_ids = unique_ids
         state.fact_texts = texts
         state.fact_satisfies = satisfies
+        # Parse question_chains[].steps into ordered step groups. facts ARE the
+        # sub-question decomposition; chains only organize them (multi-question /
+        # conjunctive). Each step element is a fact id (a sequential step) or
+        # {"con":[ids]} (conjunctive: those facts constrain the SAME entity, so
+        # their relations are unioned at one layer, not chained). OMIT
+        # question_chains for a single sequential question → facts in order are
+        # the implicit chain. Every fact referenced in a step MUST be declared
+        # in facts[] — a dangling reference (the old qs↔facts divergence bug,
+        # where the model planned a chain in `qs` but emitted fewer facts) is
+        # rejected so the model re-emits a coherent decomposition.
+        declared = set(unique_ids)
+        chains = args.get("question_chains") or []
+        chain0 = chains[0] if (isinstance(chains, list) and chains and isinstance(chains[0], dict)) else {}
+        fact_steps = []
+        for el in (chain0.get("steps") or []):
+            if isinstance(el, str):
+                fid = el.strip()
+                if not fid:
+                    continue
+                if fid not in declared:
+                    return (False, f"step references fact '{fid}' but it is not "
+                            "declared in facts[]. Declare it or fix the reference.",
+                            state)
+                fact_steps.append([fid])
+            elif isinstance(el, dict):
+                con_ids = el.get("con") or []
+                if isinstance(con_ids, str):
+                    con_ids = [con_ids]
+                grp = []
+                for fid in con_ids:
+                    fid = str(fid).strip()
+                    if not fid:
+                        continue
+                    if fid not in declared:
+                        return (False, f"con group references fact '{fid}' but it "
+                                "is not declared in facts[]. Declare it or fix the "
+                                "reference.", state)
+                    grp.append(fid)
+                if grp:
+                    fact_steps.append(grp)
+        if not fact_steps:
+            # No question_chains (or empty steps) → facts in order are the
+            # implicit sequential chain.
+            fact_steps = [[f] for f in unique_ids]
         state.fact_start_types = start_types
         state.fact_start_entities = start_entities
+        state.fact_steps = fact_steps
         # Model-chosen anchor and endpoints (LLM ambiguity analysis). The
         # system resolves these to graph idx in loop.py after validate().
-        state.anchor = args.get("anchor") or None
+        state.anchor = args.get("anchor") or chain0.get("anchor")
         eps = args.get("endpoints")
         state.endpoints = list(eps) if isinstance(eps, list) else ([eps] if eps else [])
         state.n_decomposes += 1
@@ -189,7 +244,7 @@ def validate(state: AgentState, tool_calls) -> tuple:
     # ── RETRIEVE: optional fallback (re-retrieve with a new hint) ──
     # Only reached if the model explicitly calls retrieve after decompose
     # (e.g. GTE candidates were structurally pruned to empty and the model
-    # wants to retry with a different relation_hint). In the normal flow,
+    # wants to retry with a different subquestion). In the normal flow,
     # decompose already returns GTE candidates and this state is skipped.
     if state.state == RETRIEVE:
         if name == "select_relations":
@@ -206,8 +261,13 @@ def validate(state: AgentState, tool_calls) -> tuple:
             return (False,
                     f"retrieve fact_id '{fid}' is unknown. Valid ids: {state.fact_ids}.",
                     state)
-        if fid not in state.retrieved:
-            state.retrieved.append(fid)
+        if fid in state.retrieved:
+            return (False,
+                    f"retrieve limit reached for fact '{fid}' (1 rewrite per fact). "
+                    "Proceed to `select_relations` with the current candidates, or "
+                    "revise a different fact.",
+                    state)
+        state.retrieved.append(fid)
         return (True, "", state)
 
     # ── SELECT_RELATIONS: select relations + traverse (merged) ──
@@ -216,10 +276,18 @@ def validate(state: AgentState, tool_calls) -> tuple:
     # after select_relations the model goes straight to EXPAND.
     if state.state == SELECT_RELATIONS:
         if name == "retrieve":
-            # Allow retrieve as a fallback even here
+            # Allow retrieve as a fallback even here (1 rewrite per fact)
             fid = str(args.get("fact_id", ""))
-            if fid and fid not in state.retrieved:
-                state.retrieved.append(fid)
+            if not fid or fid not in state.fact_ids:
+                return (False,
+                        f"retrieve fact_id '{fid}' is unknown. Valid ids: {state.fact_ids}.",
+                        state)
+            if fid in state.retrieved:
+                return (False,
+                        f"retrieve limit reached for fact '{fid}' (1 rewrite per fact). "
+                        "Proceed with `select_relations`.",
+                        state)
+            state.retrieved.append(fid)
             return (True, "", state)
         if name != "select_relations":
             return (False,
@@ -233,8 +301,19 @@ def validate(state: AgentState, tool_calls) -> tuple:
         state.state = EXPAND
         return (True, "", state)
 
-    # ── EXPAND: expand_branches (batch, 0-N calls) or answer directly ──
+    # ── EXPAND: expand_branches (batch, 0-N calls), 1 backward select rewrite, or answer ──
     if state.state == EXPAND:
+        # Backward rewrite: model may re-issue select_relations ONCE if it judges
+        # the traversal overview wrong (safety-net cap; the MODEL decides when).
+        # Dispatch re-runs the traverse and returns a fresh overview; stay in EXPAND.
+        if name == "select_relations":
+            if state.n_selects < MAX_SELECTS:
+                state.n_selects += 1
+                return (True, "", state)
+            return (False,
+                    "select_relations rewrite limit reached (1 rewrite). Work "
+                    "with the current evidence: call `expand_branches` or `answer`.",
+                    state)
         if name == "expand_branches":
             bids = args.get("branch_ids")
             if not bids:
@@ -242,14 +321,20 @@ def validate(state: AgentState, tool_calls) -> tuple:
                         "expand_branches missing `branch_ids`. Pass a list of "
                         "branch numbers from the tree overview, e.g. ['1','2'].",
                         state)
+            state.n_expands += 1
+            if state.n_expands > MAX_EXPANDS:
+                return (False,
+                        f"expand_branches loop limit reached ({MAX_EXPANDS} calls). "
+                        "Stop expanding and call `answer` with the best evidence so far.",
+                        state)
             return (True, "", state)  # accept; loop executes
         if name == "answer":
             state.state = DONE
             return (True, "", state)
         return (False,
                 f"Wrong order: '{name}' during expand phase. "
-                "Call `expand_branches(['1','2',...])` to see the full evidence "
-                "of relevant branches, or `answer` if you have enough evidence.",
+                "Call `expand_branches(['1','2',...])`, re-issue `select_relations` "
+                "(once, if the overview looks wrong), or `answer`.",
                 state)
 
     # ── ANSWER: only answer, terminal ──
@@ -278,7 +363,7 @@ def _allowed_hint(state: AgentState) -> str:
     if state.state == SELECT_RELATIONS:
         return "`select_relations` (picks relations + traverses the graph)"
     if state.state == EXPAND:
-        return "`expand_branches(['1','2'])` or `answer`"
+        return "`expand_branches(['1','2'])`, `select_relations` (1 rewrite if the overview is wrong), or `answer`"
     if state.state == ANSWER:
         return "`answer`"
     return "(done)"

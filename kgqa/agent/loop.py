@@ -96,6 +96,7 @@ class CaseContext:
     fact_satisfies: Dict[str, str] = field(default_factory=dict)  # id -> constraint text (if fact materializes a condition)
     fact_start_types: Dict[str, str] = field(default_factory=dict)  # id -> start_type (anchor name for f1, type noun for f2+)
     fact_start_entities: Dict[str, str] = field(default_factory=dict)  # id -> start_entity (multi-anchor chain roots only)
+    fact_steps: List[List[str]] = field(default_factory=list)  # ordered step groups from question_chains: each = [fid] (sequential) or [fid,...] (a `con` conjunctive layer)
     fact_relations: Dict[str, set] = field(default_factory=dict)  # fact_id -> GTE relation idx set
     fact_relation_candidates: Dict[str, list] = field(default_factory=dict)  # fact_id -> pruned candidate rel idx (model picks from these)
     fact_paths: Dict[str, list] = field(default_factory=dict)
@@ -410,6 +411,18 @@ def _ctx_to_result_dict(ctx: CaseContext, state, agent_failed: bool,
         "steps_parsed": [_step_dict(fid, ctx) for fid in state.fact_ids],
         "n_paths": len(ctx.all_paths),
         "answer_candidates": ctx.all_candidates,
+        # FULL-EXPANSION REFERENCE (recorded at walk time, free): the per-branch
+        # CVT-expanded candidate + triple sets for EVERY branch select_relations
+        # produced (not just the ones the model expanded). This is the data the
+        # path-level S_plan/S_select scorer needs (which branch hits the answer,
+        # including branches the model MISSED) — recorded here so it never has to
+        # be re-traversed offline. Caps keep the record compact.
+        "branches_ref": {
+            bid: {"candidates": list(br.get("candidates", []))[:50],
+                  "triples": [list(t) for t in br.get("triples", [])[:80]],
+                  "readable": br.get("readable", "")}
+            for bid, br in (getattr(ctx, "branches", {}) or {}).items()
+        },
         "gt_hit": gt_hit,
         "gt_hit_strict": gt_strict,
         "gt_f1": gt_stats.get("f1", 0.0),

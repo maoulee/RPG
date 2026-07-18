@@ -4,14 +4,29 @@ Schemas are the surface the model sees; dispatch executes each accepted tool
 against a CaseContext using the ROBUST shared engines (GTE, k_queue_traverse,
 compress_paths) — imported, never modified.
 
-Key design: `retrieve` is MODEL-DRIVEN — the model's `relation_hint` is the GTE
+Key design: `retrieve` is MODEL-DRIVEN — the model's `subquestion` is the GTE
 query (not the raw question). This is the fix for the 46-47% relation-retrieval
 miss diagnosed in the stage pipeline.
 """
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, Dict, List
+
+# Structural prune was REMOVED (3-run multi-sample A/B, n=45 heldout): the
+# chained-scope intersection was net-negative — F1 0.7438 with-prune vs 0.7649
+# no-prune, recall 115 vs 121 gold-reached. The scope demands an accurate chain,
+# and a contaminated chain (an upstream fact's noisy candidate consumes a
+# downstream answer entity) cuts the bridging relation the last hop needs (e.g.
+# WebQTest-1483: form_of_government, which GTE ranked #14, was structurally
+# pruned). After the G1 instruct optimization GTE recall is strong enough that
+# raw top-K suffices. The scope is still computed (scope_rel_ids) and used ONLY
+# for candidate-text contextualization (a GTE ranking aid), never for pruning.
+#
+# GTE top-K (default 30). top-15 was tested and DROPS F1 to 0.6776 (too tight,
+# recall 112) — keep 30.
+_GTE_TOPK = int(os.environ.get("KGQA_GTE_TOPK", "30"))
 
 from kgqa.core.utils import normalize
 from kgqa.stages.stage2_entity import gte_retrieve
@@ -73,37 +88,62 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
         "function": {
             "name": "decompose",
             "description": (
-                "Break the question into atomic lookup facts and any filter "
-                "conditions. MUST be the first tool call. Separate every distinct "
-                "lookup into its own fact — never merge two lookups into one fact."
+                "Decompose the question STEM into an ordered chain of sub-questions. "
+                "Each fact is one sub-question (a full question in the stem's own "
+                "words); fact 1's answer feeds fact 2, and so on — the order of "
+                "`facts` IS the solving order. Decompose only what the stem asks. "
+                "MUST be the first tool call. Never merge two sub-questions into one "
+                "fact; emit the sub-question itself, not an action command."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "facts": {
                         "type": "array",
-                        "description": "Ordered atomic lookups.",
+                        "description": "Ordered sub-questions (the solving chain).",
                         "items": {
                             "type": "object",
                             "properties": {
                                 "id": {"type": "string",
-                                       "description": "Stable fact id, e.g. 'f1', 'f2'."},
-                                "text": {"type": "string",
-                                         "description": "Natural-language lookup sentence."},
-                                "relation_hint": {
+                                       "description": "Stable fact id, e.g. 'f1', 'f2', 'f3'."},
+                                "subquestion": {
                                     "type": "string",
                                     "description": (
-                                        "the specific KG relation type or precise "
-                                        "semantic to retrieve, e.g. 'profession / "
-                                        "occupation of the person', 'place of birth', "
-                                        "'capital', 'director of the film' — be "
-                                        "specific, not vague like 'notable_for'"
+                                        "this step's sub-question — a full question in "
+                                        "the stem's own words (the retrieval query AND "
+                                        "the solving step). No bare phrase, no action "
+                                        "verb, no inferred vocabulary, no verification fact."
                                     ),
                                 },
+                                "start_type": {
+                                    "type": "string",
+                                    "description": "entity TYPE this step's answer is (what the next step starts from, e.g. 'team', 'stadium'); for the first fact, the anchor's type.",
+                                },
                             },
-                            "required": ["id", "text", "relation_hint"],
+                            "required": ["id", "subquestion", "start_type"],
                         },
                         "minItems": 1,
+                    },
+                    "anchor": {
+                        "type": "string",
+                        "description": "known concrete entity the chain starts from (lowest-ambiguity name). Optional — the system derives it if omitted.",
+                    },
+                    "question_chains": {
+                        "type": "array",
+                        "description": "OMIT for a single sequential question (facts in order are the chain). Include only for: (a) same-layer conjunctive constraints — wrap those facts in one step {\"con\":[fact ids]}; or (b) 2+ independent questions — one entry per question, each with its own anchor.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "anchor": {"type": "string",
+                                           "description": "known entity this chain starts from (omit to use the top-level anchor)."},
+                                "steps": {
+                                    "type": "array",
+                                    "description": "ordered solving steps. Each element is a fact id (a sequential step) or {\"con\":[fact ids]} (conjunctive: those facts' relations are unioned at one layer, not chained). Every fact id here MUST be declared in facts[].",
+                                    "items": {},
+                                },
+                            },
+                            "required": ["steps"],
+                        },
                     },
                     "conditions": {
                         "type": "array",
@@ -130,7 +170,7 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
             "name": "retrieve",
             "description": (
                 "Retrieve candidate entities for ONE fact. The system uses your "
-                "relation_hint as the retrieval query against KG relations, then "
+                "subquestion as the retrieval query against KG relations, then "
                 "walks the graph from the anchor. Call this once per fact_id, "
                 "after decompose, before select."
             ),
@@ -139,17 +179,15 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                 "properties": {
                     "fact_id": {"type": "string",
                                 "description": "The id of the fact to retrieve (from decompose)."},
-                    "relation_hint": {
+                    "subquestion": {
                         "type": "string",
                         "description": (
-                            "the specific KG relation type or precise semantic to "
-                            "retrieve, e.g. 'profession / occupation of the person', "
-                            "'place of birth', 'capital' — be specific, not vague "
-                            "like 'notable_for'"
+                            "a rephrased sub-question for this fact, closer to the "
+                            "question's own words (the retrieval query)"
                         ),
                     },
                 },
-                "required": ["fact_id", "relation_hint"],
+                "required": ["fact_id", "subquestion"],
             },
         },
     },
@@ -159,7 +197,7 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
             "name": "select_relations",
             "description": (
                 "Each fact from decompose lists its candidate_relations next to "
-                "its text/relation_hint (the step's sub-question). Read each "
+                "its text/subquestion (the step's sub-question). Read each "
                 "fact's text, then select ALL candidate relations that express "
                 "what that step asks for — the system only guarantees the "
                 "candidates are structurally reachable, you decide which ones "
@@ -321,7 +359,8 @@ async def _gte_for_fact(ctx, session, fact_id, hint):
     no candidates).
     """
     scope_rel_ids = _chained_source_rel_ids(ctx, fact_id)
-    start_type = ctx.fact_start_types.get(fact_id) or ctx.anchor_name or ""
+    _is_f1 = bool(ctx.fact_ids) and fact_id == ctx.fact_ids[0]
+    start_type = (ctx.anchor_name if _is_f1 else (ctx.fact_start_types.get(fact_id) or ctx.anchor_name)) or ""
     if start_type:
         cand_texts = []
         for ri, rid in enumerate(ctx.rels):
@@ -336,7 +375,7 @@ async def _gte_for_fact(ctx, session, fact_id, hint):
     try:
         rows = await gte_retrieve(
             session, hint, ctx.rels,
-            candidate_texts=cand_texts, top_k=15)
+            candidate_texts=cand_texts, top_k=_GTE_TOPK)
     except Exception as _e:
         # Log the error so GTE failures are visible (don't silently return empty)
         import sys as _sys
@@ -359,11 +398,9 @@ async def _gte_for_fact(ctx, session, fact_id, hint):
         elif isinstance(rid, int) and 0 <= rid < len(ctx.rels):
             gte_rel_ids.append(rid)
             gte_raw.append(ctx.rels[rid])
-    # Structural prune: keep only relations in the fact's chained scope
-    pruned = [ri for ri in gte_rel_ids if ri in scope_rel_ids]
-    # Fallback: if prune is empty, use raw GTE (better than nothing)
-    if not pruned:
-        pruned = gte_rel_ids
+    # No structural prune (see module note): candidates = raw GTE top-K. The
+    # scope is still used above only for candidate-text contextualization.
+    pruned = list(gte_rel_ids)
     return pruned, gte_raw
 
 
@@ -371,7 +408,7 @@ async def _do_decompose(args: Dict[str, Any], ctx, session) -> str:
     """Decompose the question into facts + run GTE retrieve for each fact.
 
     Merges the old decompose + retrieve into one step: the model writes facts
-    (each with relation_hint), and the system immediately runs GTE semantic
+    (each with subquestion), and the system immediately runs GTE semantic
     search for each fact's hint, returning the structurally-pruned candidate
     relations inline. The model then calls select_relations to pick from these.
 
@@ -383,12 +420,14 @@ async def _do_decompose(args: Dict[str, Any], ctx, session) -> str:
     scope), falls back to raw GTE top-15 so the model always has candidates.
     """
     facts = args.get("facts", [])
-    anchor = args.get("anchor")
+    chains = args.get("question_chains") or []
+    chain_anchor = chains[0].get("anchor") if (isinstance(chains, list) and chains) else None
+    anchor = args.get("anchor") or chain_anchor
     endpoints = args.get("endpoints") or []
     conditions = args.get("conditions", [])
 
     # Build candidate_relations for each fact via GTE, then present each fact's
-    # question text + relation_hint ALONGSIDE its candidate relations so the
+    # question text + subquestion ALONGSIDE its candidate relations so the
     # model can judge each candidate's relevance to that fact's specific
     # question (rather than matching relation names against the whole question).
     candidates_per_fact = {}
@@ -397,7 +436,7 @@ async def _do_decompose(args: Dict[str, Any], ctx, session) -> str:
         fid = str(f.get("id") or f.get("fact_id") or "")
         if not fid:
             continue
-        hint = f.get("relation_hint") or f.get("text") or ctx.question
+        hint = f.get("subquestion") or f.get("relation_hint") or f.get("text") or ctx.question
         cands, gte_raw = await _gte_for_fact(ctx, session, fid, hint)
         candidates_per_fact[fid] = cands
         gte_raw_per_fact[fid] = gte_raw
@@ -417,7 +456,7 @@ async def _do_decompose(args: Dict[str, Any], ctx, session) -> str:
         facts_with_candidates.append({
             "id": fid,
             "text": f.get("text", ""),
-            "relation_hint": f.get("relation_hint", ""),
+            "subquestion": f.get("subquestion") or f.get("relation_hint", ""),
             "start_type": f.get("start_type", ""),
             "candidate_relations": [ctx.rels[i] for i in cands if i < len(ctx.rels)],
         })
@@ -428,7 +467,7 @@ async def _do_decompose(args: Dict[str, Any], ctx, session) -> str:
         "anchor": anchor,
         "endpoints": endpoints,
         "note": ("Each fact now lists its candidate_relations next to its text. "
-                 "For EACH fact, read its text/relation_hint and select ALL "
+                 "For EACH fact, read its text/subquestion and select ALL "
                  "relations that express what that step asks for. Call "
                  "select_relations with one entry per fact."),
     })
@@ -437,7 +476,7 @@ async def _do_decompose(args: Dict[str, Any], ctx, session) -> str:
 async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
     """MODEL-DRIVEN GTE + STRUCTURAL PRUNING.
 
-    Pipeline: gte_retrieve(hint, top_k=15) → intersect with anchor's outgoing
+    Pipeline: gte_retrieve(hint, top_k=30) → intersect with anchor's outgoing
     relations (structural reachability) → store as CANDIDATES for the model to
     pick from in select_relations.
 
@@ -451,7 +490,7 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
     whether the full relation chain answers the question.
     """
     fact_id = str(args.get("fact_id", ""))
-    hint = (args.get("relation_hint") or "").strip()
+    hint = (args.get("subquestion") or args.get("relation_hint") or "").strip()
     if not hint:
         hint = ctx.fact_texts.get(fact_id, ctx.question)
     if ctx.anchor_idx is None:
@@ -472,7 +511,8 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
     # only the model's natural-language wording. Relations OUTSIDE the scope
     # keep the bare id. Zero candidate-count change — avoids 2-hop overload.
     scope_rel_ids = _chained_source_rel_ids(ctx, fact_id)
-    start_type = ctx.fact_start_types.get(fact_id) or ctx.anchor_name or ""
+    _is_f1 = bool(ctx.fact_ids) and fact_id == ctx.fact_ids[0]
+    start_type = (ctx.anchor_name if _is_f1 else (ctx.fact_start_types.get(fact_id) or ctx.anchor_name)) or ""
     if start_type:
         cand_texts = []
         for ri, rid in enumerate(ctx.rels):
@@ -488,7 +528,7 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
     try:
         rows = await gte_retrieve(
             session, hint, ctx.rels,
-            candidate_texts=cand_texts, top_k=15)
+            candidate_texts=cand_texts, top_k=_GTE_TOPK)
     except Exception as e:
         return _json_result({"fact_id": fact_id, "error": f"gte_failed: {e}",
                              "candidates": []})
@@ -507,13 +547,8 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
     #    ensures fact2 sees relations matching the entity-type fact1 arrives at,
     #    not the anchor's type — fixing CWQ multi-hop (e.g. person→country→
     #    religion: fact2 gets country.religions, not person.religion).
-    pruned_rel_ids = [ri for ri in gte_rel_ids if ri in scope_rel_ids]
-
-    # Fallback: if prune empties everything (chain broken or GTE missed all
-    # structurally-reachable rels), keep the raw GTE-15 so the model still has
-    # something to choose from.
-    if not pruned_rel_ids:
-        pruned_rel_ids = gte_rel_ids[:8]
+    # No structural prune (see module note): candidates = raw GTE top-K.
+    pruned_rel_ids = list(gte_rel_ids)
 
     # 3. Store as CANDIDATES (not final). Model picks via select_relations.
     #    Also init fact_relations as the full candidate set so that if the
@@ -523,7 +558,7 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
 
     return _json_result({
         "fact_id": fact_id,
-        "relation_hint": hint,
+        "subquestion": hint,
         "gte_relations": [ctx.rels[i] for i in gte_rel_ids[:15]],
         "candidate_relations": [ctx.rels[i] for i in pruned_rel_ids],
         "n_candidates": len(pruned_rel_ids),
@@ -534,40 +569,40 @@ async def _do_retrieve(args: Dict[str, Any], ctx, session) -> str:
 
 
 def _anchor_outgoing_rel_ids(ctx) -> set:
-    """Structural scope for the anchor: direct neighbor relations PLUS
-    CVT-bridged 2-hop relations.
+    """Structural scope for the anchor: 1-hop neighbor relations PLUS
+    2-hop relations via ANY intermediate (CVT or regular entity).
 
-    Direct neighbors: relations where anchor is h or t (undirected, because
-    Freebase stores some relations with reversed edge direction).
+    The traversal (build_mode_level_logical_paths, max_hops_per_step=2) allows
+    a relation to span one hop, so the GTE candidate scope must match: a gold
+    relation sitting on the 2nd hop (e.g. city -> capital -> country, then
+    country -> combatants) is walkable by the traversal but would be pruned by
+    a strict 1-hop-only scope. Replay-validated: 2-hop-any recalls +3 golds
+    with 0 regression vs the prior 1-hop+CVT-only scope.
 
-    CVT-bridged: if anchor → CVT → X, the relations on the CVT→X edges are
-    treated as equivalent to anchor's 1-hop domain. This is because a CVT
-    mediates a single logical step (e.g. national_anthem_of → CVT → country
-    is one logical hop). Without this, relations like
-    government.national_anthem_of_a_country.country (on the CVT, not the
-    anchor) would be pruned even though they're semantically the anchor's
-    domain.
+    1-hop: relations where anchor is h or t (undirected — Freebase stores some
+    relations with reversed edge direction).
+    2-hop: relations touching any of the anchor's direct neighbors (CVT or
+    regular), mirroring the traversal's hop-spanning.
     """
-    from kgqa.traversal.cvt import is_cvt_like
     out = set()
     ai = ctx.anchor_idx
     if ai is None:
         return out
 
-    # 1. Direct neighbors (undirected)
-    cvt_neighbors = set()
+    # 1. Direct neighbors (undirected); collect ALL neighbors (CVT + regular)
+    neighbors = set()
     for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
         if h == ai or t == ai:
             out.add(r)
-            # Track CVT nodes directly connected to anchor
             other = t if h == ai else h
-            if 0 <= other < len(ctx.ents) and is_cvt_like(ctx.ents[other]):
-                cvt_neighbors.add(other)
+            if 0 <= other < len(ctx.ents):
+                neighbors.add(other)
 
-    # 2. CVT-bridged 2-hop: anchor → CVT → X, add relations on CVT→X edges
-    for cvt_idx in cvt_neighbors:
+    # 2. 2-hop via ANY intermediate (CVT or regular), matching the traversal's
+    # max_hops_per_step=2 hop-spanning.
+    for mid in neighbors:
         for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
-            if h == cvt_idx or t == cvt_idx:
+            if h == mid or t == mid:
                 out.add(r)
 
     return out
@@ -886,58 +921,50 @@ def _hint_match_rank(patterns, fact_rel_sets, fids):
     return sorted(patterns, key=_key)
 
 
-def _group_parallel_facts(fids, fact_relations):
-    """Group sibling facts (f{N}.k parallel constraints) into single steps.
+def _steps_to_groups(fact_steps, fact_relations, fids):
+    """Build ordered (step_fids, step_relations) from the explicit chain structure.
 
-    Returns two parallel lists:
-      step_fids      — each entry is either a single fid (plain step, e.g. 'f1')
-                       or a list of sibling fids that merge into one step
-                       (e.g. ['f2.1', 'f2.2']).
-      step_relations — each entry is the UNION of selected relations for that
-                       step (deduplicated, order-preserved).
+    ``fact_steps`` comes from harness parsing ``question_chains[].steps``: a list
+    where each entry is either ``[fid]`` (a sequential step — its answer feeds the
+    next) or ``[fid, fid, ...]`` (a conjunctive ``con`` layer — those facts
+    constrain the SAME entity reached by the prior step, so their selected
+    relations are UNIONED at one layer, not chained in series).
 
-    Siblings are detected by the ``.`` in the id: ``f2.1`` and ``f2.2`` share
-    step number ``2`` and merge into one step. Plain ids (``f1``, ``f2``) stay
-    as their own step. The step sequence follows first-appearance order, so
-    [f1, f2.1, f2.2, f3] → steps [[f1], [f2.1, f2.2], [f3]].
+    Sequential facts each stay their own step; conjunctive facts merge into one
+    step (relation union). This replaces the old ``_group_parallel_facts``, which
+    INFERRED siblings from ``f{N}.k`` id naming — grouping is now explicit (the
+    model writes ``con``), which keeps the decomposition (facts) and the structure
+    (steps) from diverging.
 
-    This mirrors stage's ``_merge_constraint_steps``: parallel attribute
-    filters on the same entity are walked at one level (relation union), not
-    as sequential hops. Without this, f2.1→entity→f2.2 would chain them.
+    Falls back to all-facts-sequential when ``fact_steps`` is empty (single
+    sequential question with no ``question_chains``). Only fids that have selected
+    relations are walked; empty groups are dropped.
     """
-    # Map step-number → list of sibling fids, in first-appearance order.
-    groups = {}            # step_key -> [fid, ...]
-    order = []             # step_keys in first-appearance order
-    for fid in fids:
-        if "." in fid:
-            step_key = fid.split(".", 1)[0]   # 'f2.1' -> 'f2'
-        else:
-            step_key = fid                    # 'f1' -> 'f1'
-        if step_key not in groups:
-            groups[step_key] = []
-            order.append(step_key)
-        groups[step_key].append(fid)
+    if not fact_steps:
+        fact_steps = [[fid] for fid in fids]
 
     step_fids = []
     step_relations = []
-    for step_key in order:
-        siblings = groups[step_key]
-        if len(siblings) == 1:
-            # Plain step (no siblings, or a lone f{N}.1 with no partner).
-            fid = siblings[0]
+    for grp in fact_steps:
+        if isinstance(grp, str):
+            grp = [grp]
+        fids_in = [f for f in grp if f in fact_relations]
+        if not fids_in:
+            continue
+        merged = []
+        seen = set()
+        for fid in fids_in:
+            for r in fact_relations.get(fid, []):
+                if r not in seen:
+                    seen.add(r)
+                    merged.append(r)
+        step_fids.append(fids_in[0] if len(fids_in) == 1 else fids_in)
+        step_relations.append(merged)
+
+    if not step_fids:
+        for fid in fids:
             step_fids.append(fid)
             step_relations.append(list(fact_relations.get(fid, [])))
-        else:
-            # Parallel constraints: union the siblings' relations.
-            merged = []
-            seen = set()
-            for fid in siblings:
-                for r in fact_relations.get(fid, []):
-                    if r not in seen:
-                        seen.add(r)
-                        merged.append(r)
-            step_fids.append(siblings)
-            step_relations.append(merged)
     return step_fids, step_relations
 
 
@@ -954,22 +981,26 @@ async def _do_select(ctx) -> str:
     The model uses this overview to SELECT which branch to expand (Stage 7's
     role), then expand_branches(['N']) drills into the chosen branch (Stage 8's role).
 
-    Parallel constraints: facts whose ids follow the pattern ``f{N}.k``
-    (e.g. ``f2.1``, ``f2.2``) are sibling attribute filters on the SAME entity
-    reached by step N-1 — they are NOT sequential hops. Their selected
-    relations are UNIONED into one step (step N), mirroring stage's
-    ``_merge_constraint_steps``. Without this merge the traversal would walk
-    them in series (f2.1 → entity → f2.2), which is semantically wrong: both
-    filters read attributes of the entity reached by f1, they don't chain.
+    Conjunctive layers: a step group with several fids (a ``con`` group from
+    ``question_chains``) means those facts constrain the SAME entity reached by
+    the prior step — they are NOT sequential hops. Their selected relations are
+    UNIONED into one step, mirroring stage's ``_merge_constraint_steps``. Without
+    this merge the traversal would walk them in series (f2 → entity → f3), which
+    is semantically wrong: both filters read attributes of the entity reached by
+    the prior step, they don't chain. Grouping is explicit (the model writes
+    ``con``), parsed into ``ctx.fact_steps`` by the harness.
     """
     fids = [fid for fid in ctx.fact_ids if fid in ctx.fact_relations]
     if not fids or ctx.anchor_idx is None:
         return _json_result({"error": "no_facts_or_anchor",
                              "evidence": [], "candidates": []})
-    # Group sibling facts f{N}.k into one step (relation union). Plain ids
-    # (f1, f2, ...) each remain their own step. Order is preserved by first
-    # appearance, so the step sequence stays [f1, f2(=union of f2.1,f2.2), f3].
-    step_fids, step_relations = _group_parallel_facts(fids, ctx.fact_relations)
+    # Build ordered steps from the explicit question_chains structure parsed in
+    # harness (ctx.fact_steps): each entry is [fid] (sequential step) or
+    # [fid, ...] (a conjunctive `con` layer — those facts' relations are unioned
+    # at one layer, not chained in series). Falls back to all-facts-sequential
+    # when no chains were declared.
+    step_fids, step_relations = _steps_to_groups(
+        getattr(ctx, "fact_steps", None) or [], ctx.fact_relations, fids)
 
     # Build a minimal CaseState and run the proven stage-5 traversal
     cs = CaseState(case_id=ctx.case_id or "agent", case_num=ctx.case_num or 0,
@@ -1079,9 +1110,13 @@ async def _do_select(ctx) -> str:
         }
 
         # Compose the branch block with the #N marker on the RIGHT of each leaf.
-        cand_str = ", ".join(cands[:3])
-        if len(cands) > 3:
-            cand_str += f", ... (+{len(cands) - 3})"
+        # overview shows FEW candidates per branch — this display is only to help
+        # the model CHOOSE which branches to expand, NOT to answer from. The full
+        # candidate set (the answer leaves) is surfaced by expand_branches (which
+        # the model must call to answer). Keep this small to avoid clutter.
+        cand_str = ", ".join(cands[:5])
+        if len(cands) > 5:
+            cand_str += f", ... (+{len(cands) - 5})"
         header = (f"  branch {bid}: {pe.readable}  →  {len(cands)} candidates "
                   f"[{cand_str}]")
 
@@ -1116,7 +1151,7 @@ async def _do_select(ctx) -> str:
     return _json_result({
         "n_patterns": len(ranked),
         "overview": overview_text,
-        "candidates": ctx.selected_candidates[:20],
+        "candidates": ctx.selected_candidates[:50],
     })
 
 
@@ -1229,7 +1264,7 @@ def _do_expand_branch(args: Dict[str, Any], ctx) -> str:
             if key not in seen_t:
                 seen_t.add(key); all_triples.append(tr)
         per_branch.append({"branch_id": bid, "readable": readable,
-                           "candidates": cands[:15], "n_triples": len(triples)})
+                           "candidates": cands[:30], "n_triples": len(triples)})
         if tree_lines:
             tree_sections.append(f"=== branch {bid}: {readable} ===\n" +
                                  "\n".join(tree_lines))
@@ -1239,7 +1274,7 @@ def _do_expand_branch(args: Dict[str, Any], ctx) -> str:
     payload = {
         "branches_expanded": bids,
         "n_branches": len(bids),
-        "candidates": all_cands[:50],
+        "candidates": all_cands[:100],
         "n_candidates": len(all_cands),
         "triples": triple_strs,
         "n_triples": len(all_triples),

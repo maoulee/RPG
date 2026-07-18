@@ -8,7 +8,7 @@ Instead of tool-call round-trips (agent_call per turn), this mode:
 5. Appends results, updates state, repeats until all cases DONE
 
 The LLM returns content (not tool_calls), in a JSON envelope:
-  {"tool": "retrieve", "args": {"fact_id": "f1", "relation_hint": "..."}}
+  {"tool": "retrieve", "args": {"fact_id": "f1", "subquestion": "..."}}
 
 This achieves ~17x throughput vs per-case round-trips, matching baseline's
 batch-call pattern while keeping the agent's free orchestration (model decides
@@ -296,6 +296,7 @@ async def run_react_batch(cases_to_run, args, output_dir: str):
                 rc.ctx.fact_satisfies = dict(getattr(rc.state, "fact_satisfies", {}) or {})
                 rc.ctx.fact_start_types = dict(getattr(rc.state, "fact_start_types", {}) or {})
                 rc.ctx.fact_start_entities = dict(getattr(rc.state, "fact_start_entities", {}) or {})
+                rc.ctx.fact_steps = list(getattr(rc.state, "fact_steps", []) or [])
 
                 # Dispatch tool (reuses existing _do_* functions)
                 try:
@@ -485,6 +486,7 @@ async def run_react_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
         rc.ctx.fact_satisfies = dict(getattr(rc.state, "fact_satisfies", {}) or {})
         rc.ctx.fact_start_types = dict(getattr(rc.state, "fact_start_types", {}) or {})
         rc.ctx.fact_start_entities = dict(getattr(rc.state, "fact_start_entities", {}) or {})
+        rc.ctx.fact_steps = list(getattr(rc.state, "fact_steps", []) or [])
         # Sync model-chosen anchor/endpoints so _resolve_anchor can use them.
         # Done right after decompose validate, before dispatch runs GTE.
         rc.ctx._model_anchor = getattr(rc.state, "anchor", None) or ""
@@ -523,7 +525,7 @@ async def run_react_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
                 rc._empty_answer_retried = True
                 # Roll state back so `answer` is legal again on the next turn.
                 rc.state.state = "ANSWER"
-                cand_pool = rc.ctx.selected_candidates[:20]
+                cand_pool = rc.ctx.selected_candidates[:50]
                 nudge = (
                     "Your answer was empty. An empty answer scores 0 — you must "
                     "output your best guess. From the retrieved candidate pool "
