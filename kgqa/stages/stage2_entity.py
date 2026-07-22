@@ -25,8 +25,15 @@ import aiohttp
 # GTE retrieval helper
 # ---------------------------------------------------------------------------
 
-async def gte_retrieve(session, query, candidates, candidate_texts=None, top_k=10):
-    payload = {"query": query, "candidates": candidates, "candidate_texts": candidate_texts, "top_k": top_k}
+# Generic doc-similarity task instruct for Qwen3-Embedding (case-free: no
+# KG/attribute/answer-type wording). Validated to maximize gold-relation recall
+# without overfitting; passed explicitly so it applies regardless of the server
+# default (TASK_DESC).
+GTE_INSTRUCT = "Given a query, retrieve the document most semantically similar to it"
+
+
+async def gte_retrieve(session, query, candidates, candidate_texts=None, top_k=10, instruct=GTE_INSTRUCT):
+    payload = {"query": query, "candidates": candidates, "candidate_texts": candidate_texts, "top_k": top_k, "instruct": instruct}
     async with session.post(f"{GTE_API_URL}/retrieve", json=payload, timeout=aiohttp.ClientTimeout(total=60)) as resp:
         data = await resp.json()
     return data.get("results", [])

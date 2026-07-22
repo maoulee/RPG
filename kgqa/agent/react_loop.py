@@ -34,7 +34,7 @@ from kgqa.agent.loop import (
 from kgqa.agent.harness import AgentState, validate, _allowed_hint
 from kgqa.agent import tools as T
 from kgqa.agent.loader import agents_md
-from kgqa.llm.batch import batch_call_llm
+from kgqa.llm.batch import batch_call_llm, batch_call_llm_with_reasoning
 
 
 # ---------------------------------------------------------------------------
@@ -60,10 +60,6 @@ class ReactCase:
         # as anchor, skip generic type words, mark constraint entities as
         # endpoints). This mirrors stage's ENTITY_ANALYSIS_PROMPT.
         q_ents = self.ctx.sample.get("q_entity", []) or []
-        if q_ents:
-            user += f"\nKnown entities: {q_ents}"
-        if self.ctx.anchor_name:
-            user += f"\nAnchor entity (starting point): {self.ctx.anchor_name}"
         self.messages = [
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": user},
@@ -234,7 +230,7 @@ async def run_react_batch(cases_to_run, args, output_dir: str):
                       for i in range(0, len(prompts), batch_chunk)]
 
             async def _batch_chunk(chunk):
-                return await batch_call_llm(session, chunk, max_tokens=max_tokens)
+                return await batch_call_llm_with_reasoning(session, chunk, max_tokens=max_tokens)
 
             try:
                 chunk_results = await asyncio.gather(*[_batch_chunk(c) for c in chunks])
@@ -245,17 +241,19 @@ async def run_react_batch(cases_to_run, args, output_dir: str):
                     rc.failure_reason = f"batch_call error: {e}"
                 break
 
-            # Flatten chunked results back to per-case order
+            # Flatten chunked results back to per-case order (contents + reasoning)
             responses = []
-            for cr in chunk_results:
-                responses.extend(cr)
+            responses_reasoning = []
+            for cr_contents, cr_reasoning in chunk_results:
+                responses.extend(cr_contents)
+                responses_reasoning.extend(cr_reasoning)
 
             dt_batch = time.perf_counter() - t_batch
             print(f"  Batch done in {dt_batch:.1}s ({len(active)/dt_batch:.1f} cases/s)",
                   flush=True)
 
             # 4. Parse + dispatch per case (concurrent)
-            async def process_case(rc, raw_response):
+            async def process_case(rc, raw_response, reasoning=None):
                 """Parse LLM output, validate, dispatch tool, append result."""
                 if not raw_response or not raw_response.strip():
                     # Empty response — nudge
@@ -264,9 +262,17 @@ async def run_react_batch(cases_to_run, args, output_dir: str):
                                         "content": rc.allowed_tools_hint()})
                     return
 
-                # Append assistant message (content-only, no tool_calls)
-                rc.messages.append({"role": "assistant", "content": raw_response})
-                rc.ctx.trajectory.append({"role": "assistant", "content": raw_response})
+                # Append assistant message (content-only, no tool_calls). Attach
+                # the vLLM <think> reasoning so batch trajectories carry the
+                # model's CoT (parity with run_react_case's per-call path).
+                asst_msg = {"role": "assistant", "content": raw_response}
+                if reasoning:
+                    asst_msg["reasoning"] = reasoning
+                rc.messages.append(asst_msg)
+                traj_step = {"role": "assistant", "content": raw_response}
+                if reasoning:
+                    traj_step["reasoning"] = reasoning
+                rc.ctx.trajectory.append(traj_step)
 
                 # Parse JSON envelope
                 tool_name, parsed_args = parse_react_output(raw_response)
@@ -297,6 +303,7 @@ async def run_react_batch(cases_to_run, args, output_dir: str):
                 rc.ctx.fact_start_types = dict(getattr(rc.state, "fact_start_types", {}) or {})
                 rc.ctx.fact_start_entities = dict(getattr(rc.state, "fact_start_entities", {}) or {})
                 rc.ctx.fact_steps = list(getattr(rc.state, "fact_steps", []) or [])
+                rc.ctx.chains = list(getattr(rc.state, "chains", []) or [])
 
                 # Dispatch tool (reuses existing _do_* functions)
                 try:
@@ -316,12 +323,13 @@ async def run_react_batch(cases_to_run, args, output_dir: str):
 
             # Process all cases concurrently (dispatch is mostly fast except retrieve)
             dispatch_sem = asyncio.Semaphore(16)
-            async def process_with_sem(rc, raw):
+            async def process_with_sem(rc, raw, rsn):
                 async with dispatch_sem:
-                    await process_case(rc, raw)
+                    await process_case(rc, raw, rsn)
 
             await asyncio.gather(*[
-                process_with_sem(rc, raw) for rc, raw in zip(active, responses)
+                process_with_sem(rc, raw, rsn)
+                for rc, raw, rsn in zip(active, responses, responses_reasoning)
             ])
 
             done_count = sum(1 for rc in react_cases if rc.done)

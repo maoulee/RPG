@@ -47,6 +47,7 @@ class AgentState:
     fact_start_types: dict = field(default_factory=dict)  # id -> start_type (anchor name for f1, type noun for f2+)
     fact_start_entities: dict = field(default_factory=dict)  # id -> start_entity (only for multi-anchor chain roots)
     fact_steps: list = field(default_factory=list)      # ordered step groups (each=[fid] seq, or [fid,...] a `con` conjunctive layer)
+    chains: list = field(default_factory=list)          # parsed question_chains: [{anchor (name), fact_steps ([groups])}, ...]; one entry per independent anchor (multi-anchor). Single-chain = 1 entry.
     anchor: Optional[str] = None                       # model-chosen anchor entity name
     endpoints: list = field(default_factory=list)      # model-chosen endpoint entity names (constraints)
     retrieved: list = field(default_factory=list)      # fact_ids already retrieved (via fallback retrieve)
@@ -193,42 +194,61 @@ def validate(state: AgentState, tool_calls) -> tuple:
         # where the model planned a chain in `qs` but emitted fewer facts) is
         # rejected so the model re-emits a coherent decomposition.
         declared = set(unique_ids)
-        chains = args.get("question_chains") or []
-        chain0 = chains[0] if (isinstance(chains, list) and chains and isinstance(chains[0], dict)) else {}
-        fact_steps = []
-        for el in (chain0.get("steps") or []):
-            if isinstance(el, str):
-                fid = el.strip()
-                if not fid:
-                    continue
-                if fid not in declared:
-                    return (False, f"step references fact '{fid}' but it is not "
-                            "declared in facts[]. Declare it or fix the reference.",
-                            state)
-                fact_steps.append([fid])
-            elif isinstance(el, dict):
-                con_ids = el.get("con") or []
-                if isinstance(con_ids, str):
-                    con_ids = [con_ids]
-                grp = []
-                for fid in con_ids:
-                    fid = str(fid).strip()
+        chains_raw = args.get("question_chains") or []
+
+        def _parse_steps(steps):
+            # Parse one chain's steps into ordered groups. Each element is a
+            # fact id (sequential step -> [fid]) or {"con":[ids]} (conjunctive:
+            # those facts constrain the SAME entity, relations unioned at one
+            # layer, not chained -> [fid,...]). Returns (groups, err).
+            groups = []
+            for el in (steps or []):
+                if isinstance(el, str):
+                    fid = el.strip()
                     if not fid:
                         continue
                     if fid not in declared:
-                        return (False, f"con group references fact '{fid}' but it "
-                                "is not declared in facts[]. Declare it or fix the "
-                                "reference.", state)
-                    grp.append(fid)
-                if grp:
-                    fact_steps.append(grp)
-        if not fact_steps:
-            # No question_chains (or empty steps) → facts in order are the
-            # implicit sequential chain.
-            fact_steps = [[f] for f in unique_ids]
+                        return None, (f"step references fact '{fid}' but it is not "
+                                      "declared in facts[]. Declare it or fix the reference.")
+                    groups.append([fid])
+                elif isinstance(el, dict):
+                    con_ids = el.get("con") or []
+                    if isinstance(con_ids, str):
+                        con_ids = [con_ids]
+                    grp = []
+                    for fid in con_ids:
+                        fid = str(fid).strip()
+                        if not fid:
+                            continue
+                        if fid not in declared:
+                            return None, (f"con group references fact '{fid}' but it "
+                                          "is not declared in facts[]. Declare it or fix the reference.")
+                        grp.append(fid)
+                    if grp:
+                        groups.append(grp)
+            return groups, None
+
+        # Parse ALL chains (multi-anchor: each entry = one independent subgraph
+        # retrieval with its own anchor). Previously only chains[0] was parsed,
+        # silently dropping multi-anchor chains.
+        parsed_chains = []
+        if isinstance(chains_raw, list) and chains_raw and isinstance(chains_raw[0], dict):
+            for ch in chains_raw:
+                ch_anchor = str(ch.get("anchor") or "").strip()
+                groups, err = _parse_steps(ch.get("steps") or [])
+                if err:
+                    return (False, err, state)
+                if groups:
+                    parsed_chains.append({"anchor": ch_anchor, "fact_steps": groups})
+        if not parsed_chains:
+            # No question_chains (or empty steps) → single implicit chain, facts
+            # in order are the sequential chain.
+            parsed_chains = [{"anchor": "", "fact_steps": [[f] for f in unique_ids]}]
         state.fact_start_types = start_types
         state.fact_start_entities = start_entities
-        state.fact_steps = fact_steps
+        state.chains = parsed_chains
+        # Backward compat: fact_steps = first chain's steps (single-chain path).
+        state.fact_steps = parsed_chains[0]["fact_steps"]
         # Model-chosen anchor and endpoints (LLM ambiguity analysis). The
         # system resolves these to graph idx in loop.py after validate().
         state.anchor = args.get("anchor") or chain0.get("anchor")

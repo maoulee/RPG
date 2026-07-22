@@ -97,6 +97,7 @@ class CaseContext:
     fact_start_types: Dict[str, str] = field(default_factory=dict)  # id -> start_type (anchor name for f1, type noun for f2+)
     fact_start_entities: Dict[str, str] = field(default_factory=dict)  # id -> start_entity (multi-anchor chain roots only)
     fact_steps: List[List[str]] = field(default_factory=list)  # ordered step groups from question_chains: each = [fid] (sequential) or [fid,...] (a `con` conjunctive layer)
+    chains: List[dict] = field(default_factory=list)  # parsed question_chains: [{anchor (name|""), fact_steps ([groups])}, ...]; one per independent anchor (multi-anchor). Single-chain = 1 entry.
     fact_relations: Dict[str, set] = field(default_factory=dict)  # fact_id -> GTE relation idx set
     fact_relation_candidates: Dict[str, list] = field(default_factory=dict)  # fact_id -> pruned candidate rel idx (model picks from these)
     fact_paths: Dict[str, list] = field(default_factory=dict)
@@ -259,8 +260,6 @@ async def run_agent_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": f"Question: {ctx.question}"},
     ]
-    if ctx.anchor_name:
-        messages[1]["content"] += f"\nAnchor entity (starting point): {ctx.anchor_name}"
 
     max_iters = int(getattr(args, "agent_max_iters", 16))
     agent_failed = False

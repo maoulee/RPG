@@ -380,7 +380,7 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
 
         witness_nodes = witness.get("nodes", [])
 
-        cand_list = sorted(lp.get("candidates", []))[:20]
+        cand_list = sorted(lp.get("candidates", []))[:50]
 
         sig_nodes = []
         for node_idx in witness_nodes:
@@ -507,10 +507,46 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
                 for rel_idx in sp_rels[: max(0, len(display_nodes) - 1)]
             ]
             sig = (tuple(display_nodes), tuple(display_rels))
-            if sig in tree_seen:
-                continue
-            tree_seen.add(sig)
-            tree_paths.append({"nodes": display_nodes, "relations": display_rels})
+            if sig not in tree_seen:
+                tree_seen.add(sig)
+                tree_paths.append({"nodes": display_nodes, "relations": display_rels})
+            # Mirror _expand_sibling_cvts: emit sibling-CVT display paths so the
+            # tree shows disambiguating CVTs (e.g. a performance CVT and its
+            # character_note) that the graph-side enrichment adds to triples but
+            # which are absent from the raw witness-path nodes. Without this the
+            # rendered tree shows only the shallow witness CVT and hides the
+            # branch carrying the answer. Uses display_nodes[i-1] as the parent
+            # so _render_path_tree nests the sibling under the same parent edge.
+            sib_pair_seen = set()
+            for i in range(1, len(sp_nodes)):
+                cvt_idx = sp_nodes[i]
+                cvt_name = ents[cvt_idx] if 0 <= cvt_idx < len(ents) else ""
+                if not is_cvt_like(cvt_name):
+                    continue
+                prev_idx = sp_nodes[i - 1]
+                rel_idx = sp_rels[i - 1] if i - 1 < len(sp_rels) else None
+                if rel_idx is None:
+                    continue
+                pair = (prev_idx, rel_idx)
+                if pair in sib_pair_seen:
+                    continue
+                sib_pair_seen.add(pair)
+                rel_disp = rel_to_text(rels_list[rel_idx]) if 0 <= rel_idx < len(rels_list) else "?"
+                prev_disp = display_nodes[i - 1]
+                for edge_h, edge_r, edge_t in node_edges.get(prev_idx, []):
+                    if edge_h != prev_idx or edge_r != rel_idx or edge_t == cvt_idx:
+                        continue
+                    t_name = ents[edge_t] if 0 <= edge_t < len(ents) else ""
+                    if not is_cvt_like(t_name):
+                        continue
+                    sib_disp = _node_display(edge_t, expand_full=True)
+                    s_nodes = [prev_disp, sib_disp]
+                    s_rels = [rel_disp]
+                    s_sig = (tuple(s_nodes), tuple(s_rels))
+                    if s_sig in tree_seen:
+                        continue
+                    tree_seen.add(s_sig)
+                    tree_paths.append({"nodes": s_nodes, "relations": s_rels})
 
         result[label] = PatternEvidence(
             label=label,

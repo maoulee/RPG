@@ -50,7 +50,7 @@ def build_agent_reason_prompt(cs, pattern_text, answer_type_hint, rewritten_hint
     cs.complexity. Returns (system, user) — note the reversed order vs the
     legacy _build_*_prompt helpers, which return (prompt, system). The Stage 8
     dispatch wraps this consistently (see stage8_reason.py agent branch)."""
-    cand = ", ".join(cs.answer_candidates[:20]) if cs.answer_candidates else "No candidates"
+    cand = ", ".join(cs.answer_candidates[:50]) if cs.answer_candidates else "No candidates"
     inputs = (
         f"QUESTION: {cs.question}\n"
         f"{answer_type_hint}{rewritten_hint}\n\n"

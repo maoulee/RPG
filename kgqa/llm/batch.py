@@ -145,6 +145,25 @@ async def batch_call_llm(
     ``KGQA_LLM_BATCH_TEMPERATURE`` / ``KGQA_LLM_BATCH_TOP_P`` — useful for
     deterministic (temperature=0) reproduction.
     """
+    results, _reasoning = await _call_many(
+        session,
+        prompts,
+        max_tokens=max_tokens,
+        temperature=_env_float("KGQA_LLM_BATCH_TEMPERATURE", 0.3),
+        top_p=_env_float("KGQA_LLM_BATCH_TOP_P", 0.8),
+    )
+    return results
+
+
+async def batch_call_llm_with_reasoning(
+    session: aiohttp.ClientSession,
+    prompts: List[List[Dict[str, str]]],
+    max_tokens: int = 500,
+) -> tuple:
+    """Same as ``batch_call_llm`` but ALSO returns the vLLM ``<think>`` reasoning
+    field per prompt. Returns ``(results, reasoning)``. Used by run_react_batch
+    so batch trajectories carry the model's CoT (parity with the per-call path
+    which already captures reasoning via _call_single_with_reasoning)."""
     return await _call_many(
         session,
         prompts,
@@ -160,13 +179,14 @@ async def batch_call_llm_hot(
     max_tokens: int = 500,
 ) -> List[Optional[str]]:
     """Same as ``batch_call_llm`` but with hotter retry sampling."""
-    return await _call_many(
+    results, _reasoning = await _call_many(
         session,
         prompts,
         max_tokens=max_tokens,
         temperature=0.7,
         top_p=0.9,
     )
+    return results
 
 
 async def _call_many(
@@ -175,14 +195,16 @@ async def _call_many(
     max_tokens: int,
     temperature: float,
     top_p: float,
-) -> List[Optional[str]]:
+) -> tuple:
+    """Returns (results, reasoning)."""
     if not prompts:
-        return []
+        return [], []
 
     start_time = time.perf_counter()
     _USAGE["logical_prompts"] += len(prompts)
 
     results: List[Optional[str]] = [None] * len(prompts)
+    reasoning: List[Optional[str]] = [None] * len(prompts)
     uncached: List[tuple[int, str, List[Dict[str, str]]]] = []
     for idx, prompt in enumerate(prompts):
         key = _cache_key(prompt, max_tokens, temperature, top_p)
@@ -204,21 +226,23 @@ async def _call_many(
         async def _run_chunk(chunk):
             async with sem:
                 chunk_prompts = [item[2] for item in chunk]
-                return chunk, await _call_chunk(
+                chunk_contents, chunk_reasoning = await _call_chunk(
                     session,
                     chunk_prompts,
                     max_tokens=max_tokens,
                     temperature=temperature,
                     top_p=top_p,
                 )
+                return chunk, chunk_contents, chunk_reasoning
 
-        for chunk, chunk_results in await asyncio.gather(*[_run_chunk(chunk) for chunk in chunks]):
-            for (orig_idx, key, _), response in zip(chunk, chunk_results):
+        for chunk, chunk_results, chunk_reasoning in await asyncio.gather(*[_run_chunk(chunk) for chunk in chunks]):
+            for (orig_idx, key, _), response, rsn in zip(chunk, chunk_results, chunk_reasoning):
                 results[orig_idx] = response
+                reasoning[orig_idx] = rsn
                 _write_cache(key, response)
 
     _USAGE["wall_seconds"] += time.perf_counter() - start_time
-    return results
+    return results, reasoning
 
 
 async def _call_chunk(
@@ -227,15 +251,19 @@ async def _call_chunk(
     max_tokens: int,
     temperature: float,
     top_p: float,
-) -> List[Optional[str]]:
+) -> tuple:
+    """Returns (results, reasoning_results). reasoning_results[idx] is the vLLM
+    `<think>` field; None when the batch endpoint wasn't used or fell back to
+    single calls (no reasoning separation there)."""
     global _BATCH_ENDPOINT_DISABLED
 
     if not prompts:
-        return []
+        return [], []
     if len(prompts) == 1 or not _USE_BATCH_ENDPOINT or _BATCH_ENDPOINT_DISABLED:
-        return await _call_individual_concurrent(
+        indiv = await _call_individual_concurrent(
             session, prompts, max_tokens=max_tokens, temperature=temperature, top_p=top_p
         )
+        return indiv, [None] * len(prompts)
 
     payload = build_payload(prompts, max_tokens, temperature=temperature, top_p=top_p)
     last_error: Exception | None = None
@@ -292,7 +320,7 @@ async def _call_chunk(
                 for idx, fallback_result in zip(missing, fallback_results):
                     results[idx] = fallback_result or ""
 
-            return results
+            return results, reasoning_results
         except Exception as exc:
             last_error = exc
             if attempt < 2:
@@ -302,9 +330,10 @@ async def _call_chunk(
     _BATCH_ENDPOINT_DISABLED = True
     if last_error is not None:
         print(f"  LLM batch endpoint failed; falling back to concurrent single calls: {last_error}")
-    return await _call_individual_concurrent(
+    indiv = await _call_individual_concurrent(
         session, prompts, max_tokens=max_tokens, temperature=temperature, top_p=top_p
     )
+    return indiv, [None] * len(prompts)
 
 
 async def _call_individual_concurrent(

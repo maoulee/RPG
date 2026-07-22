@@ -342,7 +342,7 @@ async def dispatch(tool_name: str, args: Dict[str, Any], ctx, session) -> str:
         return await _do_select(ctx)
 
     if tool_name in ("expand_branch", "expand_branches"):
-        return _do_expand_branch(args, ctx)
+        return await _do_expand_branch(args, ctx, session)
 
     if tool_name == "answer":
         return _do_answer(args, ctx)
@@ -1217,7 +1217,258 @@ def _cvt_attr_summary(triples, max_lines: int = 60) -> str:
     return "\n".join(lines[:max_lines])
 
 
-def _do_expand_branch(args: Dict[str, Any], ctx) -> str:
+def _constraint_attr_summary(triples, candidates):
+    """Detect DISCRIMINATING attributes among sibling candidates in the expand
+    tree — attrs whose VALUES DIFFER across candidates (incl. present-vs-absent).
+
+    Works on the expand triples (the tree), not a flat subgraph re-resolve. For
+    each candidate, resolves its direct + CVT-mediated attrs from the triples,
+    finds attrs where values differ across candidates, and returns a highlighted
+    summary so the answer stage can apply the constraint.
+
+    Handles both HOLDER-type (PM from/to via office_holders CVT) and VALUE-type
+    (population/CPI/champion as direct or CVT attr of the candidate).
+    """
+    from kgqa.traversal.cvt import is_cvt_like
+    _NOISY_PREFIX = ("type.", "common.", "kg.", "user.", "base.ontologies.")
+    _NOISY_SHORT = {"type", "types", "instance", "instances", "notable_types",
+                    "topic_equivalent_webpage", "webpage", "mid", "guid",
+                    "key", "keys", "permission", "is_reviewed", "article",
+                    "description", "alias", "name"}  # NOTE: no_value KEPT (incumbent signal)
+
+    def _short(r):
+        return r.rsplit(".", 1)[-1] if r else r
+
+    def _noisy(r):
+        r = str(r)
+        return r.startswith(_NOISY_PREFIX) or _short(r) in _NOISY_SHORT
+
+    # Build candidate -> {attr_short: set(values)} from triples.
+    # Two patterns: direct (cand, rel, val) and CVT (cand, rel, CVT)->(CVT, rel2, val).
+    cand_set = {str(c) for c in candidates if c}
+    cvt_out = {}  # cvt -> [(short_rel, value)]
+    for tr in triples:
+        if not (isinstance(tr, (tuple, list)) and len(tr) == 3):
+            continue
+        h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
+        if is_cvt_like(h) and not is_cvt_like(t):
+            if not _noisy(r):
+                cvt_out.setdefault(h, []).append((_short(r), t))
+
+    holder_attrs = {}  # candidate -> {attr_short: set(values)}
+    for cvt, attrs in cvt_out.items():
+        holder = None
+        for s, v in attrs:
+            if s in ("office_holder", "actor", "director", "spouse", "student",
+                     "champion", "person", "student_"):
+                holder = v
+                break
+        if holder is None:
+            holder = cvt  # no holder attr — the CVT itself
+        for s, v in attrs:
+            holder_attrs.setdefault(str(holder), {}).setdefault(s, set()).add(str(v))
+    # Also direct attrs of named candidates
+    for tr in triples:
+        if not (isinstance(tr, (tuple, list)) and len(tr) == 3):
+            continue
+        h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
+        if h in cand_set and not is_cvt_like(t) and not _noisy(r):
+            holder_attrs.setdefault(h, {}).setdefault(_short(r), set()).add(str(t))
+
+    if len(holder_attrs) < 2:
+        return ""
+
+    # Find discriminating attrs: values differ across >=2 candidates (incl ABSENT).
+    all_attrs = set()
+    for a in holder_attrs.values():
+        all_attrs |= set(a.keys())
+    discrim = {}
+    for attr in all_attrs:
+        vals = {h: (a[attr] if attr in a else "ABSENT") for h, a in holder_attrs.items()}
+        if len(vals) >= 2:
+            repr_vals = {h: (frozenset(v) if isinstance(v, set) else v) for h, v in vals.items()}
+            if len(set(repr_vals.values())) > 1:
+                discrim[attr] = vals
+
+    if not discrim:
+        return ""
+
+    lines = ["DISCRIMINATING ATTRIBUTES (values differ across candidates — apply as constraint):"]
+    for attr, vals in sorted(discrim.items()):
+        parts = []
+        for h, v in list(vals.items())[:6]:
+            vstr = ", ".join(sorted(v)) if isinstance(v, set) and v else str(v)
+            parts.append(f"{h}={vstr}")
+        lines.append(f"  ⚡ {attr}: " + " | ".join(parts))
+    return "\n".join(lines)
+
+
+async def _relevant_constraint_summary(all_cands, ctx, session, top_k: int = 3, covered=None) -> str:
+    """Sample the question-relevant CONSTRAINT relation from each answer
+    candidate's neighborhood and surface its values across candidates.
+
+    Why: the discriminator relation normally reaches expand evidence via
+    decompose->select, but if the model selected the wrong branch, the
+    constraint is absent and the model over-emits (e.g. emits every PM
+    instead of the incumbent). This walks each candidate's 1-hop +
+    CVT-bridged neighborhood from the FULL edge set on ctx (independent of
+    which branches were selected), GTE-ranks the neighborhood relations
+    against the question, and surfaces the top-k relations' values across
+    candidates so the model can discriminate.
+
+    Gates / self-limiting:
+    - needs >=2 candidates and a non-empty question;
+    - skips CVT-id values (empty mediator nodes) and bookkeeping relations;
+    - masks relations whose values are identical across all candidates
+      (no discrimination) — keeps present-vs-absent as discriminating;
+    - returns "" when no question-relevant discriminating relation is present
+      (so data-gap cases like empty statistical_region CVTs inject nothing).
+    """
+    from kgqa.traversal.cvt import is_cvt_like
+    if session is None or len(all_cands) < 2 or not getattr(ctx, "question", ""):
+        return ""
+
+    _NOISY_PREFIX = ("type.", "common.", "kg.", "user.", "base.ontologies.", "freebase.")
+    _NOISY_SHORT = {"type", "types", "instance", "instances", "notable_types",
+                    "topic_equivalent_webpage", "webpage", "mid", "guid", "key",
+                    "keys", "permission", "is_reviewed", "article", "description",
+                    "alias", "name", "no_value"}
+
+    def _short(r):
+        r = str(r) if r else ""
+        return r.rsplit(".", 1)[-1].replace("_", " ") if r else r
+
+    def _noise(r):
+        r = str(r) if r else ""
+        return r.startswith(_NOISY_PREFIX) or r.rsplit(".", 1)[-1] in _NOISY_SHORT
+
+    ents, rel_txt = ctx.ents, ctx.rel_texts
+    h_ids, r_ids, t_ids = ctx.h_ids, ctx.r_ids, ctx.t_ids
+
+    # candidate name -> idx; sibling set = candidates themselves. Sibling
+    # values are structural links (stadium<->team), not constraints -> excluded.
+    name_to_idx = {}
+    for i, e in enumerate(ents):
+        name_to_idx.setdefault(normalize(e), i)
+    sibling_idx = {name_to_idx[n] for n in (normalize(c) for c in all_cands)
+                   if n in name_to_idx}
+    if len(sibling_idx) < 2:
+        return ""
+
+    # PASS 1 (single over edges): per candidate, split 1-hop relations into
+    #   (a) CVT-pointing ENTRY relations -> cand_cvt_rels[ci][rel] = {cvt_idx}
+    #   (b) direct named/literal values   -> cand_direct[ci][rel]   = {value}
+    cand_cvt_rels = {ci: {} for ci in sibling_idx}
+    cand_direct = {ci: {} for ci in sibling_idx}
+    touched_cvts = set()
+    for i in range(len(h_ids)):
+        H, R, T = h_ids[i], r_ids[i], t_ids[i]
+        rname = rel_txt[R] if 0 <= R < len(rel_txt) else ""
+        if _noise(rname):
+            continue
+        rt = _short(rname)
+        for ci, other in ((H, T), (T, H)):
+            if ci not in sibling_idx:
+                continue
+            oname = ents[other] if 0 <= other < len(ents) else ""
+            if is_cvt_like(oname):
+                if covered and oname in covered:
+                    continue  # CVT already in expand evidence (select hit) -> FALLBACK ONLY: skip to avoid loop
+                cand_cvt_rels[ci].setdefault(rt, set()).add(other)
+                touched_cvts.add(other)
+            elif oname and other not in sibling_idx:
+                cand_direct[ci].setdefault(rt, set()).add(oname)
+
+    # GTE-rank the CVT-POINTING entry relations vs the question. Restricting to
+    # CVT-pointing relations (the user's "is this relation a CVT attribute?")
+    # avoids direct relations of noisy sibling candidates dominating the rank
+    # (e.g. a country candidate's "national anthem" matching the question's
+    # filter clause and crowding out the leaders' office relations).
+    all_rels = sorted({r for ci in sibling_idx for r in cand_cvt_rels[ci].keys()})
+    if not all_rels:
+        return ""
+    if len(all_rels) <= top_k:
+        top_rels = all_rels
+    else:
+        try:
+            rows = await gte_retrieve(session, ctx.question, all_rels,
+                                      candidate_texts=all_rels, top_k=top_k)
+        except Exception as _e:
+            import sys as _sys
+            print(f"  GTE error in _relevant_constraint_summary: {_e}", file=_sys.stderr)
+            return ""
+        top_rels = [r.get("candidate") for r in rows
+                    if isinstance(r.get("candidate"), str) and r["candidate"] in all_rels]
+    top_rels = list(dict.fromkeys(top_rels))[:top_k]
+    if not top_rels:
+        return ""
+
+    # PASS 2 (single over edges): precompute attrs of every touched CVT once
+    # (exclude siblings, CVT ids, noise). cvt_attrs[cvt] = {attr: {value}}.
+    cvt_attrs = {}
+    if touched_cvts:
+        for i in range(len(h_ids)):
+            H, R, T = h_ids[i], r_ids[i], t_ids[i]
+            cvt = H if H in touched_cvts else (T if T in touched_cvts else None)
+            if cvt is None:
+                continue
+            rname = rel_txt[R] if 0 <= R < len(rel_txt) else ""
+            if _noise(rname):
+                continue
+            other = T if H == cvt else H
+            oname = ents[other] if 0 <= other < len(ents) else ""
+            if not oname or is_cvt_like(oname) or other in sibling_idx:
+                continue
+            cvt_attrs.setdefault(cvt, {}).setdefault(_short(rname), set()).add(oname)
+
+    # Per candidate: merge attrs from the top-rel-pointed CVTs + direct values.
+    cand_nb = {}
+    for ci in sibling_idx:
+        nb = {}
+        for rt in top_rels:
+            if rt in cand_direct[ci]:
+                nb.setdefault(rt, set()).update(cand_direct[ci][rt])
+            for cvt in cand_cvt_rels[ci].get(rt, ()):
+                for at, vals in cvt_attrs.get(cvt, {}).items():
+                    nb.setdefault(at, set()).update(vals)
+        if nb:
+            cand_nb[ci] = nb
+    if len(cand_nb) < 2:
+        return ""
+    idx_to_name = {ci: ents[ci] for ci in cand_nb}
+
+    # Surface DISCRIMINATING attrs (values differ across >=2 candidates OR
+    # present-vs-absent) — the CVT attrs the model needs (e.g. from /
+    # has_no_value=incumbent for office_holders).
+    all_attr = sorted({a for nb in cand_nb.values() for a in nb})
+    n_cand = len(cand_nb)
+    kept = []
+    for at in all_attr:
+        present = [sorted(v) for nb in cand_nb.values() if (v := nb.get(at))]
+        absent = n_cand - len(present)
+        repr_vals = {tuple(v) for v in present}
+        if (len(present) >= 2 and len(repr_vals) > 1) or (present and absent):
+            kept.append(at)
+    if not kept:
+        return ""
+    kept = kept[:8]
+
+    lines = ["QUESTION-RELEVANT ATTRIBUTES (compare values across candidates to apply the question's constraint):"]
+    for at in kept:
+        per = {idx_to_name[ci]: sorted(v) for ci, nb in cand_nb.items() if (v := nb.get(at))}
+        if not per:
+            continue
+        absent = [n for n in idx_to_name.values() if n not in per]
+        parts = [f"{c}={','.join(v[:2])}" for c, v in list(per.items())[:6]]
+        if absent:
+            parts.append(f"{len(absent)} other(s) lack it")
+        lines.append(f"  - {at}: " + " | ".join(parts))
+    if len(lines) <= 1:
+        return ""
+    return "\n".join(lines[:9])
+
+
+async def _do_expand_branch(args: Dict[str, Any], ctx, session) -> str:
     """Expand one or more branches to show their FULL evidence.
 
     Accepts both the batch form (branch_ids: ['1','2']) and the legacy single
@@ -1271,6 +1522,20 @@ def _do_expand_branch(args: Dict[str, Any], ctx) -> str:
 
     triple_strs = [f"({h}, {r}, {t})" for h, r, t in all_triples[:80]]
     cand_attrs = _cvt_attr_summary(all_triples)
+    # Constraint-awareness: detect discriminating attrs among sibling candidates
+    # in the tree + append them so the answer stage can apply the constraint.
+    constraint_attrs = _constraint_attr_summary(all_triples, all_cands)
+    if constraint_attrs:
+        cand_attrs = (cand_attrs + "\n" + constraint_attrs) if cand_attrs else constraint_attrs
+    # FALLBACK constraint sampling: surface constraints NOT already in the
+    # expand evidence (select missed them). `covered` = CVT entities already in
+    # the selected-branch triples — the helper skips them, so it only fills
+    # gaps (avoids re-deriving what select already provided = loop) AND drops
+    # already-selected filter-clause CVTs that would otherwise dominate GTE.
+    covered = {str(e) for tr in all_triples for e in (tr[0], tr[2]) if is_cvt_like(str(e))}
+    rel_constraint = await _relevant_constraint_summary(all_cands, ctx, session, covered=covered)
+    if rel_constraint:
+        cand_attrs = (cand_attrs + "\n" + rel_constraint) if cand_attrs else rel_constraint
     payload = {
         "branches_expanded": bids,
         "n_branches": len(bids),

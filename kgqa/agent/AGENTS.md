@@ -26,16 +26,18 @@ rejects out-of-order calls. (`retrieve` is an optional fallback, see § decompos
 Decompose ONLY what the stem asks. Each fact is one sub-question — a full question
 in the stem's own words — and the facts are ordered so each answer feeds the next.
 The order of `facts` IS the solving order. Do not write action commands
-("find…"/"get…"), do not add verification or planning facts, do not decompose
-beyond the stem.
+("find…"/"get…"), do not add planning facts, do not decompose beyond the stem.
+**Each fact must have a subject entity and an object entity** (one entity → another
+via a relation), producing a new entity for the next fact to depart from.
 
 `facts`: `[{"id": "f1", "subquestion": "<sub-question>", "start_type": "<type>"}]`.
 - `start_type`: the TYPE this step's answer is — i.e. what the next step starts
   from. For the first fact, the anchor's type.
 - ids are flat: `f1`, `f2`, `f3`, …
 
-`anchor`: the known concrete entity the chain starts from (lowest-ambiguity name;
-never a type word). Optional — the system derives it if you omit it.
+`anchor`: a concrete entity **explicitly mentioned in the question stem** — copy it
+verbatim from the stem text. Never infer, invent, or substitute an entity the stem
+does not mention. Never use a type word.
 
 `question_chains`: OMIT for a single sequential question (the facts in order ARE
 the chain). Include it only when the stem needs it:
@@ -43,8 +45,14 @@ the chain). Include it only when the stem needs it:
   those facts in one step `{"con": ["f2", "f3"]}`. The system walks their
   relations at one layer (union), not in series — this keeps the chain sound; you
   do not compute the AND.
-- **Multiple independent questions**: one entry per question, each with its own
-  `anchor` and ordered `steps`.
+- **Multiple anchor entities** (the stem names 2+ distinct entities): give EACH
+  entity its own chain — one `question_chains` entry per entity, each with its
+  own `anchor` and short `steps`. Do NOT serialize them into one long chain from
+  a single anchor. Reason: decomposition is subgraph retrieval — each chain is a
+  short independent subgraph, and short chains are more reliable than one deep
+  chain whose errors compound hop-by-hop. You then join the subgraphs (the entity
+  satisfying every chain). Whenever the stem has more than one entity, prefer
+  parallel short chains — it keeps chain depth minimal.
 
 Each chain is `{"anchor": "<entity>", "steps": [<fact-id> | {"con": [<fact-ids>]}, …]}`.
 Every fact-id you write in `question_chains` MUST be declared in `facts` — the
@@ -112,6 +120,10 @@ otherwise return every candidate. Coexisting facts (a set of championships,
 languages, members) are all kept even if the question reads singular. When
 unsure, keep. Graph evidence only; entities verbatim, most-certain first (the
 first entity = top-1 / Hit@1).
+- **Each answer MUST be a full entity name copied from the evidence — NEVER a bare
+  number, year, date, or timestamp.** If a branch shows only a year or numeric
+  value, return the event/entity node it is an attribute of (the named thing, not
+  the bare value).
 
 ## Output format
 Each turn: ONE line of evidence (what this step does + the key

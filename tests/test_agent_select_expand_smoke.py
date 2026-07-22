@@ -137,7 +137,8 @@ def main():
     print("SMOKE TEST: _do_expand_branch on ['1']")
     print("=" * 70)
     if ctx.branches:
-        exp_raw = T._do_expand_branch({"branch_ids": ["1"]}, ctx)
+        exp_raw = asyncio.get_event_loop().run_until_complete(
+            T._do_expand_branch({"branch_ids": ["1"]}, ctx, None))
         exp = json.loads(exp_raw)
         print(f"\nbranches_expanded: {exp.get('branches_expanded')}")
         print(f"n_branches: {exp.get('n_branches')}")

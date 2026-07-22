@@ -373,7 +373,7 @@ _RERANK_TOKEN_TRUE_ID = None
 _RERANK_PREFIX = "<|im_start|>system\nJudge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be \"yes\" or \"no\".<|im_end|>\n<|im_start|>user\n"
 _RERANK_SUFFIX = "<|im_end|>\n<|im_start|>assistant\n\n\n\n\n"
 _RERANK_MAX_LENGTH = 8192
-_RERANK_INSTRUCT = "Given a knowledge graph question, retrieve relevant graph relations that connect entities to answer the question"
+_RERANK_INSTRUCT = "Given a query, retrieve the document most semantically similar to it"
 
 
 def _load_rerank_model(model_path):
