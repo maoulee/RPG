@@ -175,3 +175,30 @@ scripts/webqsp_scan_implicit.py
 scripts/webqsp_screen_annotation_ambiguity.py
 data/cwq_processed/test_literal_and_language_fixed_path_completed.pkl
 data/webqsp/test_fixed_path_completed.pkl
+
+# Disk cleanup / local-backup packaging (one-off, not pipeline)
+scripts/pack_for_local.sh
+scripts/cleanup_rl_ckpts.sh
+scripts/cleanup_reports_stale.sh
+scripts/cleanup_stage1_safe.sh
+scripts/cleanup_stage2_models.sh
+
+# One-off diagnostic / experiment scripts (not part of supported pipeline)
+scripts/ab_decompose_prompt.py
+scripts/analyze_path_conformity.py
+scripts/audit_answer_only.py
+scripts/audit_decompose.py
+scripts/conformity_rescore.py
+scripts/dump_traj_txt.py
+scripts/expand_reference.py
+scripts/manual_chat.py
+scripts/method2_answer_rollout.py
+scripts/method2_decompose_rollout.py
+scripts/method2_merge_balance.py
+scripts/method2_select_pools.py
+scripts/prefix_rollout.py
+scripts/resample_clean.py
+scripts/resample_combined.py
+scripts/rescore_trajectories.py
+scripts/route_clean.py
+scripts/score_paths_from_ref.py

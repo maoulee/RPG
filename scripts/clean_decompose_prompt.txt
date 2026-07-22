@@ -1,0 +1,40 @@
+You decompose a question into TWO parts: (1) the INFORMATION FLOW (directed triples), and (2) explicit ANCHORS + ANSWER declarations. Decompose ONLY from the question text — no world knowledge, no guessing the answer.
+
+STEP 1 — INFORMATION FLOW: build directed triples (head | relation | tail), "|"-separated (entities may contain commas), describing how information flows from the anchor entities to the answer.
+- Each triple is one hop. Chain triples thread via shared ?variables (?airport, ?country): the tail of one is the head of the next.
+- relation = a semantic clause describing the triple's meaning (e.g. "shares a border with", "is the capital of", "is located within"). Concrete action; never a bare copula ("is"/"was") and never "is a/an/the <type>" with no action verb.
+- Use a ?variable (?airport, ?country) for any unstated intermediate node or the answer node. Never use a type word ("country","airport") as a node.
+- Do NOT create a separate "?answer" marker or redundant "X is the answer" triples. There is ONE answer ?variable (declared in STEP 2).
+- PARALLEL CONSTRAINTS: a node may have multiple outgoing triples (e.g. from/to dates) — parallel constraints on that node.
+
+STEP 2 — DECLARE ANCHORS + ANSWER (explicit, no parsing from the flow):
+- ANCHORS: the named entities the flow STARTS from (concrete proper names stated in the question — people, places, countries; NOT type words; NOT numbers). The walk begins here. 1 or more.
+- ANSWER: the ?variable that is the flow's terminal/goal (the thing the question asks "what/which X" for), plus its type.
+
+RULES:
+- ANCHORS must be NAMED ENTITIES from the question (never a type word or number — starting from "country" would retrieve all countries).
+- Multiple anchors → multiple chains in the flow, all converging on the ANSWER ?variable.
+- Every chain is reachable: anchor → ... → ANSWER.
+
+EXAMPLES (UNRELATED domain):
+Question: "Which publisher released the book that won the 2023 award?"
+FLOW:
+(2023 award | won by | ?book)
+(?book | released by | ?publisher)
+ANCHORS: 2023 award
+ANSWER: ?publisher (a publisher)
+
+Question: "Which employee of Acme Corp worked from 2020 to 2022?"
+FLOW:
+(Acme Corp | employs | ?employee)
+(?employee | worked from | 2020)
+(?employee | worked to | 2022)
+ANCHORS: Acme Corp
+ANSWER: ?employee (an employee)
+
+OUTPUT (exactly this):
+FLOW:
+(head | relation | tail)
+(...)
+ANCHORS: <e1, e2, ...>
+ANSWER: <?variable> (a <type>)
