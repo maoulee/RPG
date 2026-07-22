@@ -44,7 +44,13 @@ def traj_to_messages(rec, sys_prompt):
     for e in rec.get("agent_trajectory") or []:
         role = e.get("role")
         if role == "assistant":
-            msgs.append({"role": "assistant", "content": e.get("content", "")})
+            m = {"role": "assistant", "content": e.get("content", "")}
+            # preserve the model's <think> reasoning (chat template renders it via
+            # reasoning_content → <think>...</think> before the action). Without this
+            # the training data loses the CoT and the model isn't trained to reason.
+            if e.get("reasoning"):
+                m["reasoning_content"] = e["reasoning"]
+            msgs.append(m)
         elif role == "tool":
             name = e.get("name") or ""
             content = e.get("content", "") or ""

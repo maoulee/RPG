@@ -1091,6 +1091,10 @@ def main():
     p.add_argument("--resume", default=None,
                    help="Resume from a checkpoint dir (e.g. checkpoint/.../checkpoint-200). "
                         "Restores LoRA adapter + DeepSpeed optimizer state + step counter.")
+    p.add_argument("--init-lora", default=None,
+                   help="Iterative self-training: load a previous LoRA adapter as the starting "
+                        "point (fresh optimizer, new data) and continue refining it. No merge. "
+                        "e.g. checkpoint/rollout_train (loads its adapter weights).")
     p.add_argument("--epochs", type=float, default=2.0)
     p.add_argument("--lr", type=float, default=1e-5)
     p.add_argument("--batch-size", type=int, default=1)
@@ -1264,6 +1268,16 @@ def main():
             "q_proj", "k_proj", "v_proj", "o_proj",                          # 8 full-attn
             "in_proj_qkv", "in_proj_z", "in_proj_b", "in_proj_a", "out_proj",  # 24 linear-attn
         ])
+
+    # Iterative self-training: continue from a previous LoRA (load its adapter
+    # weights, fresh optimizer) instead of fresh init. Avoids merge (no-merge
+    # policy) and keeps ONE adapter refined across rollout rounds. peft_config=None
+    # so SFTTrainer trains the existing LoRA rather than wrapping a fresh one.
+    if args.init_lora:
+        from peft import PeftModel
+        print(f"  [init-lora] continuing from previous adapter: {args.init_lora}")
+        model = PeftModel.from_pretrained(model, args.init_lora, is_trainable=True)
+        peft_config = None
 
     if args.origin_stage:
         # SFTConfig for pre-tokenized data: we supply labels (origin turns only),

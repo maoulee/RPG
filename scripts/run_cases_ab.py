@@ -19,7 +19,7 @@ from kgqa.core.config import DEFAULT_CWQ
 from kgqa.agent.react_loop import run_react_case as run_agent_case
 import argparse
 
-PILOT = "reports/cwq_gte_bridge_100/results.json"
+PILOT = os.environ.get("KGQA_PILOT", "reports/cwq_gte_bridge_100/results.json")
 
 
 def main():

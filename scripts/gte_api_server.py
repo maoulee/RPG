@@ -33,7 +33,7 @@ tokenizer = None
 model = None
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-TASK_DESC = "Given a knowledge graph question, retrieve relevant graph relations that answer the question"
+TASK_DESC = "Given a query, retrieve the document most semantically similar to it"
 
 # ── Config ──────────────────────────────────────────────────────────
 MAX_CAND_LEN = 128

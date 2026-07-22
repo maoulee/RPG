@@ -150,6 +150,8 @@ def parse_trajectory(case: Dict[str, Any]) -> Dict[str, Any]:
     select_pool: List[str] = []
     plan_reachable: List[str] = []   # ALL entities on plan-stage paths + CVT attr values
     expand_triples: List[str] = []   # all entities appearing in expand's (h,r,t) triples
+    expand_candidates: List[str] = []   # flat `candidates` list from expand (terminal entities)
+    expand_attr_values: List[str] = []  # raw CVT `candidate_attrs` lines (key=value) from expand
     selected_relations: Dict[str, List[str]] = {}
     has_select_relations = False
     has_select = False
@@ -216,6 +218,19 @@ def parse_trajectory(case: Dict[str, Any]) -> Dict[str, Any]:
                 for p in parts:
                     if p and not p.startswith("m.") and not p.startswith("g."):
                         expand_triples.append(p)
+            # CVT-transparent capture: the expand result also carries a flat
+            # `candidates` list and `candidate_attrs` (CVT key=value lines). The
+            # answer frequently lives ONLY here — as a CVT attribute value (e.g.
+            # "institution=Belmont University"), never in the (h,r,t) triples.
+            # Score against all three or the answer is scored unreachable (=0).
+            for c in (data.get("candidates") or []):
+                if c:
+                    expand_candidates.append(str(c))
+            ca = data.get("candidate_attrs")
+            if isinstance(ca, list):
+                expand_attr_values.extend(str(x) for x in ca if x)
+            elif isinstance(ca, str) and ca:
+                expand_attr_values.append(ca)
             # Current agent format: `expand_branches` returns branches_expanded
             # (ordered id list) + per_branch [{branch_id, candidates}]. Older
             # single-branch format used one branch_id + flat candidates.
@@ -268,6 +283,8 @@ def parse_trajectory(case: Dict[str, Any]) -> Dict[str, Any]:
         "select_pool": select_pool,           # last-step terminal entities (legacy)
         "plan_reachable": plan_reachable,      # ALL entities + CVT attrs on plan paths
         "expand_triples": expand_triples,      # entities on expanded (h,r,t) triples
+        "expand_candidates": expand_candidates,    # flat candidates list from expand
+        "expand_attr_values": expand_attr_values,  # CVT candidate_attrs lines from expand
         "selected_relations": selected_relations,  # {fact_id: [rels]} from select_relations
         "has_select_relations": has_select_relations,
         "has_select": has_select,
@@ -362,55 +379,54 @@ def score_case(case: Dict[str, Any]) -> Dict[str, Any]:
         hit = sum(1 for g in gt_norm if any(_matches_strict(g, u) for u in pool_norm))
         return hit / len(gt_norm)
 
-    # ---- U: expanded-subgraph candidate pool (fallback chain) ----
-    # U is the pool the model could actually reason over at answer time. It is
-    # the union of expanded-branch candidates; if the model skipped expand, U
-    # falls back to plan_reachable (everything on plan-stage paths, incl CVT
-    # attrs) — because the model SAW the overview and could reason over it.
-    U_list: List[str] = []
-    for bid in expanded_ids:
-        U_list.extend(branch_cand.get(bid, []))
-    U_source = "expanded"
+    # ---- FULL structured reachable pools (CVT-transparent) ----
+    # The agent surfaces graph entities in SEVERAL structured fields per stage.
+    # The old code scored each stage against ONE field (S_plan: answer_candidates
+    # only; S_select: expand triples only) → missed answers living in the others,
+    # chiefly CVT attribute values (candidate_attrs) and the flat `candidates`
+    # list. That produced the ~57% false-zero artifact (S_select=0 / S_plan=0
+    # even though the answer was reachable). Score against the per-stage UNION.
+    expand_cands = list(p.get("expand_candidates") or [])
+    expand_attrs = list(p.get("expand_attr_values") or [])
+    bc_flat = [c for bid in expanded_ids for c in branch_cand.get(bid, [])]
+    expand_full = (list(p.get("expand_triples") or []) + expand_cands
+                   + expand_attrs + bc_flat)
+    plan_full = (list(p["answer_candidates"] or [])
+                 + list(p.get("select_pool") or [])
+                 + list(plan_reachable or []))
+
+    # ---- U: the pool the model could actually reason over at answer time ----
+    # Union of the expanded subgraph (incl CVT attribute values) + everything on
+    # plan-stage paths. The model SAW the overview/tree and could reason over all
+    # of it, so CVT attribute values count as reachable for S_reason too — this
+    # stops S_reason being forced to 0 by a CVT-only answer (the S_reason artifact).
+    U_list = expand_full + list(plan_reachable or [])
+    U_source = "expand_full+plan_reachable"
     if not U_list:
-        U_list = plan_reachable or select_pool
-        U_source = "plan_reachable_fallback"
-    if not U_list:
-        U_list = p["answer_candidates"]   # last resort: global pool
+        U_list = list(p["answer_candidates"] or [])
         U_source = "answer_candidates_fallback"
 
     # =====================================================================
-    # S_plan: did the plan REACH the answer?
-    # Ground truth = the STRUCTURED candidate pool the traversal produced
-    # (ctx.all_candidates / answer_candidates), where candidate_hit already
-    # decides reachability. The rendered-overview text regex (_extract_plan_
-    # reachable) is NOT trustworthy: rendering format changes (e.g. the grouped
-    # `nodeN: [A | B | C]` render at formatting.py:708) silently defeat the
-    # regex, scoring a reached answer as 0. So S_plan is computed ONLY from the
-    # structured pool. Records without a structured pool score 0 (flagged
-    # "no_structured_pool"); the fix for those is to capture the pool at sample
-    # time, not to re-mine rendered text.
+    # S_plan: did the plan REACH the answer? (structured pool UNION)
+    # answer_candidates (captured at sample time) + select_relations `candidates`
+    # + plan_reachable (named nodes + CVT attr values parsed from the overview).
     # =====================================================================
-    plan_pool = p["answer_candidates"] or []
+    plan_pool = plan_full
     S_plan = _recall_in(plan_pool)
     if not plan_pool:
         notes.append("no_structured_pool")
 
     # =====================================================================
-    # S_select: did the EXPANDED paths carry the answer?
-    # When the model expands branches, expand returns (h,r,t) triples for the
-    # selected paths. S_select = GT recall over all entities on those triples
-    # (both endpoints + CVT attribute tails), capped by S_plan (can't select
-    # what the plan never reached). No expand → pass-through (S_select=S_plan).
+    # S_select: did the EXPANDED paths carry the answer? (structured UNION)
+    # expand triples endpoints + flat candidates + CVT candidate_attrs + branch
+    # candidates, capped by S_plan. No expand → pass-through (S_select = S_plan).
     # =====================================================================
-    expand_ents = p.get("expand_triples") or []
     n_expanded = len(expanded_ids)
-    if n_expanded and expand_ents:
-        S_select_raw = _recall_in(expand_ents)
+    if n_expanded and expand_full:
+        S_select_raw = _recall_in(expand_full)
     elif n_expanded:
-        # expand happened but no triples recorded; fall back to branch_cand
-        bc_flat = [c for bid in expanded_ids for c in branch_cand.get(bid, [])]
-        S_select_raw = _recall_in(bc_flat) if bc_flat else 0.0
-        notes.append("select_from_branch_cand")
+        S_select_raw = 0.0
+        notes.append("select_empty_pool")
     else:
         # No expand call → selection is pass-through; the model reasoned over
         # whatever the plan exposed (the overview). S_select = S_plan.
@@ -457,7 +473,7 @@ def score_case(case: Dict[str, Any]) -> Dict[str, Any]:
             "S_select": round(S_select, 4),
             "select_recall": round(S_select_raw, 4) if n_expanded else None,
             "n_expanded": n_expanded,
-            "expand_ents_size": len(expand_ents) if n_expanded else 0,
+            "expand_ents_size": len(expand_full) if n_expanded else 0,
             "expanded_ids": expanded_ids,
             "U_size": len(U_list),
             "U_source": U_source,

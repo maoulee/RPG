@@ -53,7 +53,7 @@ from kgqa.agent.react_loop import ReactCase, parse_react_output
 from kgqa.agent.harness import validate, _allowed_hint
 from kgqa.agent import tools as T
 from kgqa.agent.loop import _ctx_to_result_dict
-from kgqa.llm.batch import batch_call_llm
+from kgqa.llm.batch import batch_call_llm, batch_call_llm_with_reasoning
 
 # All known GT-quality masks. Cases in any of these are skipped entirely —
 # their GT is wrong-type, noisy, or otherwise unusable for training.
@@ -302,7 +302,7 @@ async def sample_all(cases: List[tuple], num_samples: int, max_rounds: int,
                       for i in range(0, len(prompts), batch_chunk)]
 
             async def _batch_chunk(chunk):
-                return await batch_call_llm(session, chunk, max_tokens=max_tokens)
+                return await batch_call_llm_with_reasoning(session, chunk, max_tokens=max_tokens)
 
             try:
                 chunk_results = await asyncio.gather(*[_batch_chunk(c) for c in chunks])
@@ -314,16 +314,18 @@ async def sample_all(cases: List[tuple], num_samples: int, max_rounds: int,
                 break
 
             responses = []
-            for cr in chunk_results:
-                responses.extend(cr)
+            responses_reasoning = []
+            for cr_contents, cr_reasoning in chunk_results:
+                responses.extend(cr_contents)
+                responses_reasoning.extend(cr_reasoning)
             print(f"  Batch done in {time.perf_counter()-t_batch:.1f}s", flush=True)
 
-            async def process(meta, sid, rc, raw):
+            async def process(meta, sid, rc, raw, rsn):
                 async with dispatch_sem:
-                    await _process_one(meta, sid, rc, raw, session)
+                    await _process_one(meta, sid, rc, raw, session, rsn)
 
-            await asyncio.gather(*[process(m, s, rc, r)
-                                   for (m, s, rc), r in zip(active, responses)])
+            await asyncio.gather(*[process(m, s, rc, r, rsn)
+                                   for (m, s, rc), r, rsn in zip(active, responses, responses_reasoning)])
 
             done = sum(1 for _, _, rc in instances if rc.done)
             failed = sum(1 for _, _, rc in instances if rc.failed)
@@ -388,15 +390,22 @@ async def sample_all(cases: List[tuple], num_samples: int, max_rounds: int,
     return records
 
 
-async def _process_one(meta, sid, rc: ReactCase, raw_response, session):
-    """Parse one LLM response, validate, dispatch tool, append to rc.messages."""
+async def _process_one(meta, sid, rc: ReactCase, raw_response, session, reasoning=None):
+    """Parse one LLM response, validate, dispatch tool, append to rc.messages.
+    Attaches the vLLM <think> reasoning so trajectories carry the full CoT."""
     if not raw_response or not raw_response.strip():
         rc.messages.append({"role": "assistant", "content": ""})
         rc.messages.append({"role": "user", "content": rc.allowed_tools_hint()})
         return
 
-    rc.messages.append({"role": "assistant", "content": raw_response})
-    rc.ctx.trajectory.append({"role": "assistant", "content": raw_response})
+    asst_msg = {"role": "assistant", "content": raw_response}
+    if reasoning:
+        asst_msg["reasoning"] = reasoning
+    rc.messages.append(asst_msg)
+    traj_step = {"role": "assistant", "content": raw_response}
+    if reasoning:
+        traj_step["reasoning"] = reasoning
+    rc.ctx.trajectory.append(traj_step)
 
     tool_name, parsed_args = parse_react_output(raw_response)
     if not tool_name:
@@ -419,8 +428,22 @@ async def _process_one(meta, sid, rc: ReactCase, raw_response, session):
         return
 
     rc.state = new_state
+    # Sync harness state into ctx (mirror run_react_batch). CRITICAL: the
+    # model-chosen anchor MUST be resolved BEFORE decompose dispatch — otherwise
+    # _gte_for_fact uses ctx.anchor_name = the build_context default (q_entity
+    # fallback, e.g. "Nijmegen" instead of the model's "France"), giving a wrong
+    # scope + candidate-text so GTE returns the wrong relations (the adjoin-miss
+    # bug: GTE is stable, but it was fed the wrong anchor's neighborhood).
     rc.ctx.fact_ids = list(getattr(rc.state, "fact_ids", []) or [])
     rc.ctx.fact_satisfies = dict(getattr(rc.state, "fact_satisfies", {}) or {})
+    rc.ctx.fact_start_types = dict(getattr(rc.state, "fact_start_types", {}) or {})
+    rc.ctx.fact_start_entities = dict(getattr(rc.state, "fact_start_entities", {}) or {})
+    rc.ctx.fact_steps = list(getattr(rc.state, "fact_steps", []) or [])
+    rc.ctx._model_anchor = getattr(rc.state, "anchor", None) or ""
+    rc.ctx._model_endpoints = list(getattr(rc.state, "endpoints", []) or [])
+    if tool_name == "decompose":
+        from kgqa.agent.loop import _resolve_anchor
+        _resolve_anchor(rc.ctx)
 
     try:
         result_str = await T.dispatch(tool_name, parsed_args, rc.ctx, session)
