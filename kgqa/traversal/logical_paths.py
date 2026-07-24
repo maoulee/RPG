@@ -247,10 +247,19 @@ def build_mode_level_logical_paths(anchor_idx, step_relations, h_ids, r_ids, t_i
                 endpoint_hits = _endpoint_bridge_paths(state, step_idx)
                 if endpoint_hits:
                     next_active.extend(endpoint_hits)
-                elif state["depth"] > 0:
-                    # Hit-and-stop: a failed step should preserve the best
-                    # path reached so far, not append same-domain exploratory
-                    # edges and present them as if the step was matched.
+                else:
+                    # Bridge (step-skip): carry the state forward so a LATER
+                    # step's relations can be attempted from the current
+                    # endpoint — or from the anchor itself when NO step has
+                    # matched yet (step-0 dead-end borrows the next step's
+                    # relations, mirroring frontier_expand_layers). No edges
+                    # are appended (unlike exploratory expansion), so this
+                    # never fabricates a matched step; a state that never
+                    # advances (depth 0) is still excluded from summaries by
+                    # the depth>0 filter below, so an all-dead walk yields [].
+                    # Each decompose-step is counted at most once: a skipped
+                    # step stays in skipped_steps and is removed from
+                    # covered_steps during logical-path aggregation.
                     skipped = dict(state)
                     skipped["skipped_steps"] = state["skipped_steps"] | frozenset({step_idx})
                     next_active.append(skipped)
@@ -296,6 +305,11 @@ def build_mode_level_logical_paths(anchor_idx, step_relations, h_ids, r_ids, t_i
         for rp in raw_paths:
             skipped.update(rp.get("skipped_steps", frozenset()))
             covered.update(rp.get("covered_steps", frozenset()))
+        # Mutual exclusivity: a step hit by ANY witness is covered, not
+        # skipped. Each decompose-step is counted at most once (a step can
+        # never be both covered and skipped), which keeps the hit-step
+        # ranking honest under step-skip — no 二次命中 / double-count.
+        skipped -= covered
         lp["skipped_steps"] = frozenset(skipped)
         lp["covered_steps"] = frozenset(covered)
         lp["endpoint_steps"] = frozenset().union(
