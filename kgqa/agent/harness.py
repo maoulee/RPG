@@ -1,7 +1,7 @@
 """Tool-call ORDER state machine for the agent.
 
 Enforces the strict sequence:
-    INIT  → only `decompose`        (stores facts[], anchor, endpoints; runs GTE)
+    INIT  → only `decompose`        (parses FLOW/ANCHORS/ANSWER triples; runs GTE per triple)
     RETRIEVE → optional `retrieve`  (fallback to re-fetch a fact's candidates)
     SELECT_RELATIONS → only `select_relations`  (picks relations + traverses)
     EXPAND → `expand_branches` (0-N) or `answer`
@@ -48,7 +48,8 @@ class AgentState:
     fact_start_entities: dict = field(default_factory=dict)  # id -> start_entity (only for multi-anchor chain roots)
     fact_steps: list = field(default_factory=list)      # ordered step groups (each=[fid] seq, or [fid,...] a `con` conjunctive layer)
     chains: list = field(default_factory=list)          # parsed question_chains: [{anchor (name), fact_steps ([groups])}, ...]; one entry per independent anchor (multi-anchor). Single-chain = 1 entry.
-    anchor: Optional[str] = None                       # model-chosen anchor entity name
+    anchor: Optional[str] = None                       # model-chosen anchor entity name (= entities[0], compat for single-chain _resolve_anchor)
+    entities: list = field(default_factory=list)        # ALL named entities the model declared (each → its own chain)
     endpoints: list = field(default_factory=list)      # model-chosen endpoint entity names (constraints)
     retrieved: list = field(default_factory=list)      # fact_ids already retrieved (via fallback retrieve)
     n_selects: int = 0
@@ -87,6 +88,131 @@ def _tool_args(tool_call: dict) -> dict:
         except Exception:
             return {}
     return raw or {}
+
+
+def _parse_triple_decompose(args: dict):
+    """Parse triple-format decompose args {flow, anchors, answer} into the SAME
+    structures the facts-format produces, so all downstream code (GTE, select,
+    walk, expand, answer) is reused unchanged.
+
+    Returns:
+      None              — not triple-format (no `flow` key); caller falls back to
+                          the facts-format parser.
+      {"error": str}    — malformed triple decompose; caller rejects w/ guidance.
+      {fact_ids, fact_texts, chains, anchor, ...} — parsed.
+
+    Chain derivation (分解一致): each declared ANCHOR traces the FLOW to the ANSWER
+    ?variable via shared ?variables. At each spine node, the spine edge (tail=?var)
+    AND any parallel outgoing triples (constraints on that node) ALL depart that
+    node → one conjunctive layer [spine_fid, *constraint_fids] (relations unioned,
+    matching facts-format `con` semantics). Constraints on the TERMINAL answer
+    node form their own con layer (e.g. worked-from / worked-to on the answer).
+    """
+    flow = args.get("flow")
+    if flow is None:
+        return None
+    if not isinstance(flow, list) or not flow:
+        return {"error": "decompose `flow` is empty. Emit FLOW triples "
+                         "(head|relation|tail)."}
+
+    entities = args.get("entities") or []
+    if isinstance(entities, str):
+        entities = [a.strip() for a in entities.split(",") if a.strip()]
+    # Strip surrounding <> (some prompts bracket placeholders; the model can copy
+    # them literally, which would break head==anchor matching in the trace).
+    def _ent(s):
+        return str(s).strip().strip("<>").strip()
+    entities = [_ent(a) for a in entities if _ent(a)]
+    entities_missing = not entities
+
+    ans = str(args.get("answer") or "").strip()
+    ans_var = ""
+    ans_type = ""
+    if ans.startswith("?"):
+        paren = ans.split("(", 1)
+        head = paren[0].strip()
+        ans_var = head.split()[0] if head else ""
+        if len(paren) > 1:
+            inside = paren[1].split(")", 1)[0].strip()
+            parts = inside.split()
+            if parts and parts[0] in ("a", "an"):
+                parts = parts[1:]
+            ans_type = " ".join(parts)
+    if not ans_var:
+        return {"error": "decompose `answer` must be a ?variable, e.g. "
+                         '"?country (a country)".'}
+
+    triples = []
+    for t in flow:
+        if isinstance(t, (list, tuple)) and len(t) >= 3:
+            triples.append((_ent(t[0]), str(t[1]).strip(), _ent(t[2])))
+        elif isinstance(t, str):
+            parts = [p.strip() for p in t.split("|")]
+            if len(parts) >= 3:
+                triples.append((_ent(parts[0]), parts[1], _ent("|".join(parts[2:]).strip())))
+    if not triples:
+        return {"error": "decompose `flow` had no parseable (head|relation|tail) "
+                         "triples."}
+
+    # Empty `entities` → the model didn't list the named entities. The flow's
+    # first non-variable head IS the seed entity (the model always places it as
+    # f1's head); use it as a graceful fallback so downstream still runs, and
+    # flag it so validate can reject-and-retry on the first attempt (the schema
+    # requires entities >= 1). This replaces the old silent fallback that left
+    # anchor="" and let _resolve_anchor pick a hub/generic q_entity (e.g.
+    # "Gold medal" over "Dewitt High School").
+    if entities_missing:
+        for tr in triples:
+            h = tr[0]
+            if h and not h.startswith("?"):
+                entities = [h]
+                break
+
+    fact_ids = []
+    fact_texts = {}
+    tri_fid = {}
+    for tr in triples:
+        if tr not in tri_fid:
+            fid = f"f{len(fact_ids) + 1}"
+            tri_fid[tr] = fid
+            fact_ids.append(fid)
+            fact_texts[fid] = f"({tr[0]} | {tr[1]} | {tr[2]})"
+    out = {}
+    for tr in triples:
+        out.setdefault(tr[0], []).append(tr)
+
+    def trace(anchor):
+        steps = []
+        cur = anchor
+        visited = set()
+        while cur != ans_var and cur not in visited:
+            visited.add(cur)
+            outs = out.get(cur, [])
+            if not outs:
+                break
+            spine = next((t for t in outs if t[2].startswith("?")), None) or outs[0]
+            departing = [tri_fid[spine]] + [tri_fid[t] for t in outs if t is not spine]
+            steps.append(departing)  # con layer if >1 (all depart `cur`)
+            cur = spine[2]
+        if cur == ans_var:
+            cons = [tri_fid[t] for t in out.get(ans_var, [])]
+            if cons:
+                steps.append(cons)
+        return steps
+
+    if entities:
+        chains = [{"anchor": a, "fact_steps": trace(a)} for a in entities]
+        for ch in chains:
+            if not ch["fact_steps"]:
+                return {"error": f"entity '{ch['anchor']}' could not trace to "
+                                 f"answer {ans_var} via FLOW."}
+    else:
+        chains = [{"anchor": "", "fact_steps": [[fid] for fid in fact_ids]}]
+
+    return {"fact_ids": fact_ids, "fact_texts": fact_texts, "chains": chains,
+            "anchor": entities[0] if entities else "",
+            "entities": entities, "entities_missing": entities_missing,
+            "answer_type": ans_type}
 
 
 def validate(state: AgentState, tool_calls) -> tuple:
@@ -137,127 +263,53 @@ def validate(state: AgentState, tool_calls) -> tuple:
         if name != "decompose":
             return (False,
                     f"Wrong order: '{name}' called before decompose. "
-                    "You MUST call `decompose` first to break the question into facts.",
+                    "You MUST call `decompose` first to emit FLOW + ANCHORS + ANSWER.",
                     state)
-        facts = args.get("facts") or []
-        if not isinstance(facts, list) or not facts:
+        # ── decompose = TRIPLE format (FLOW + ANCHORS + ANSWER) — replaces facts ──
+        # Triples ARE the decomposition (the legacy facts/question_chains mechanism
+        # is removed): each triple is one hop of the information flow; ANCHORS are
+        # the named entities the flow starts from; ANSWER is the terminal ?variable.
+        # GTE runs PER-TRIPLE (hint = the triple's relation clause) and the walk
+        # runs PER-ANCHOR along the flow — both driven by this information flow.
+        # expand_branches (path selection) + answer reuse the original engines
+        # unchanged. Produces state.chains in the shape downstream expects.
+        tri = _parse_triple_decompose(args)
+        if tri is None:
             return (False,
-                    "decompose returned no `facts` array. Re-call decompose with a "
-                    "non-empty `facts` array (each fact has id, text, subquestion).",
-                    state)
-        ids = []
-        texts = {}
-        satisfies = {}
-        start_types = {}
-        start_entities = {}
-        for f in facts:
-            if not isinstance(f, dict):
-                continue
-            fid = f.get("id") or f.get("fact_id")
-            if fid is None:
-                continue
-            fid = str(fid)
-            ids.append(fid)
-            texts[fid] = f.get("text", "")
-            sat = f.get("satisfies")
-            if sat:
-                satisfies[fid] = str(sat)
-            st = f.get("start_type")
-            if st:
-                start_types[fid] = str(st)
-            se = f.get("start_entity")
-            if se:
-                start_entities[fid] = str(se)
-        # Deduplicate while preserving order
-        seen = set()
-        unique_ids = []
-        for fid in ids:
-            if fid not in seen:
-                seen.add(fid)
-                unique_ids.append(fid)
-        if not unique_ids:
+                    "decompose must emit the TRIPLE format: args.flow (a list of "
+                    "[head, relation, tail] triples), args.anchors (the named "
+                    "entities the flow starts from), args.answer (the ?variable "
+                    "the question asks for, + its type). No `flow` found.", state)
+        if "error" in tri:
+            return (False, tri["error"], state)
+        # Empty-entities intercept (reject once, then accept the flow-head
+        # fallback): the schema requires entities >= 1. On the FIRST empty
+        # attempt, reject with guidance so the model re-declares the named
+        # entities (it knows them — they are the flow heads). On a second empty
+        # attempt, accept _parse_triple_decompose's flow-head fallback (avoids
+        # a stuck loop; never silently picks a q_entity hub).
+        if tri.get("entities_missing") and state.n_decomposes == 0:
+            state.n_decomposes += 1
             return (False,
-                    "decompose facts had no usable ids. Give each fact a stable "
-                    "id like 'f1', 'f2'.",
-                    state)
-        state.fact_ids = unique_ids
-        state.fact_texts = texts
-        state.fact_satisfies = satisfies
-        # Parse question_chains[].steps into ordered step groups. facts ARE the
-        # sub-question decomposition; chains only organize them (multi-question /
-        # conjunctive). Each step element is a fact id (a sequential step) or
-        # {"con":[ids]} (conjunctive: those facts constrain the SAME entity, so
-        # their relations are unioned at one layer, not chained). OMIT
-        # question_chains for a single sequential question → facts in order are
-        # the implicit chain. Every fact referenced in a step MUST be declared
-        # in facts[] — a dangling reference (the old qs↔facts divergence bug,
-        # where the model planned a chain in `qs` but emitted fewer facts) is
-        # rejected so the model re-emits a coherent decomposition.
-        declared = set(unique_ids)
-        chains_raw = args.get("question_chains") or []
-
-        def _parse_steps(steps):
-            # Parse one chain's steps into ordered groups. Each element is a
-            # fact id (sequential step -> [fid]) or {"con":[ids]} (conjunctive:
-            # those facts constrain the SAME entity, relations unioned at one
-            # layer, not chained -> [fid,...]). Returns (groups, err).
-            groups = []
-            for el in (steps or []):
-                if isinstance(el, str):
-                    fid = el.strip()
-                    if not fid:
-                        continue
-                    if fid not in declared:
-                        return None, (f"step references fact '{fid}' but it is not "
-                                      "declared in facts[]. Declare it or fix the reference.")
-                    groups.append([fid])
-                elif isinstance(el, dict):
-                    con_ids = el.get("con") or []
-                    if isinstance(con_ids, str):
-                        con_ids = [con_ids]
-                    grp = []
-                    for fid in con_ids:
-                        fid = str(fid).strip()
-                        if not fid:
-                            continue
-                        if fid not in declared:
-                            return None, (f"con group references fact '{fid}' but it "
-                                          "is not declared in facts[]. Declare it or fix the reference.")
-                        grp.append(fid)
-                    if grp:
-                        groups.append(grp)
-            return groups, None
-
-        # Parse ALL chains (multi-anchor: each entry = one independent subgraph
-        # retrieval with its own anchor). Previously only chains[0] was parsed,
-        # silently dropping multi-anchor chains.
-        parsed_chains = []
-        if isinstance(chains_raw, list) and chains_raw and isinstance(chains_raw[0], dict):
-            for ch in chains_raw:
-                ch_anchor = str(ch.get("anchor") or "").strip()
-                groups, err = _parse_steps(ch.get("steps") or [])
-                if err:
-                    return (False, err, state)
-                if groups:
-                    parsed_chains.append({"anchor": ch_anchor, "fact_steps": groups})
-        if not parsed_chains:
-            # No question_chains (or empty steps) → single implicit chain, facts
-            # in order are the sequential chain.
-            parsed_chains = [{"anchor": "", "fact_steps": [[f] for f in unique_ids]}]
-        state.fact_start_types = start_types
-        state.fact_start_entities = start_entities
-        state.chains = parsed_chains
-        # Backward compat: fact_steps = first chain's steps (single-chain path).
-        state.fact_steps = parsed_chains[0]["fact_steps"]
-        # Model-chosen anchor and endpoints (LLM ambiguity analysis). The
-        # system resolves these to graph idx in loop.py after validate().
-        state.anchor = args.get("anchor") or chain0.get("anchor")
-        eps = args.get("endpoints")
-        state.endpoints = list(eps) if isinstance(eps, list) else ([eps] if eps else [])
+                    "decompose `entities` is empty. Declare EVERY named entity the "
+                    "question names (the proper nouns — people, places, countries, "
+                    "orgs — that the flow starts from); `entities` requires >= 1. "
+                    "Each entity becomes its own walk. Re-call `decompose` with "
+                    "`entities` filled.", state)
+        state.fact_ids = tri["fact_ids"]
+        state.fact_texts = tri["fact_texts"]
+        state.fact_satisfies = {}
+        state.fact_start_types = {}
+        state.fact_start_entities = {}
+        state.chains = tri["chains"]
+        state.fact_steps = tri["chains"][0]["fact_steps"] if tri["chains"] else []
+        state.anchor = tri["anchor"]
+        state.entities = tri.get("entities") or []
+        state.endpoints = []
         state.n_decomposes += 1
-        # decompose now includes GTE candidates inline → skip RETRIEVE, go
-        # straight to SELECT_RELATIONS. (retrieve remains available as a
-        # fallback via the RETRIEVE state if the model re-enters it.)
+        # GTE runs inline in _do_decompose (per-triple) → skip RETRIEVE, go
+        # straight to SELECT_RELATIONS. (retrieve remains available as a fallback
+        # via the RETRIEVE state if the model re-enters it.)
         state.state = SELECT_RELATIONS
         return (True, "", state)
 

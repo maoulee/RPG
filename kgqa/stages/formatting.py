@@ -474,22 +474,21 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
         def _node_display(node_idx, expand_full=False):
             name = ents[node_idx] if 0 <= node_idx < len(ents) else "?"
             if is_cvt_like(name):
+                # CVT event node: show its attrs INLINE on the node — use the
+                # FULL graph attrs (not just the narrow witness-path ones) so
+                # every CVT node carries its attrs (e.g. adjoins=Montana).
                 path_attrs = [a for a in cvt_attrs.get(name, [])
                               if not _is_noisy_cvt_attr_short(a)]
-                if expand_full:
-                    graph_attrs = [a for a in _cvt_attr_display(node_idx)
-                                   if not _is_noisy_cvt_attr_short(a)]
-                    seen_a = set(path_attrs)
-                    merged = list(path_attrs)
-                    for a in graph_attrs:
-                        if a not in seen_a:
-                            merged.append(a)
-                            seen_a.add(a)
-                    if merged:
-                        return f"{name}: [" + ", ".join(merged[:20]) + "]"
-                else:
-                    if path_attrs:
-                        return f"{name}: [" + ", ".join(path_attrs[:20]) + "]"
+                graph_attrs = [a for a in _cvt_attr_display(node_idx)
+                               if not _is_noisy_cvt_attr_short(a)]
+                seen_a = set(path_attrs)
+                merged = list(path_attrs)
+                for a in graph_attrs:
+                    if a not in seen_a:
+                        merged.append(a)
+                        seen_a.add(a)
+                if merged:
+                    return f"{name}: [" + ", ".join(merged[:20]) + "]"
                 return f"{name}: []"
             return name
 

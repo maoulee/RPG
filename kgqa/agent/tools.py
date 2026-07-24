@@ -10,6 +10,7 @@ miss diagnosed in the stage pipeline.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from typing import Any, Dict, List
@@ -28,7 +29,7 @@ from typing import Any, Dict, List
 # recall 112) — keep 30.
 _GTE_TOPK = int(os.environ.get("KGQA_GTE_TOPK", "30"))
 
-from kgqa.core.utils import normalize
+from kgqa.core.utils import normalize, candidate_hit
 from kgqa.stages.stage2_entity import gte_retrieve
 from kgqa.traversal.k_queue import k_queue_traverse
 from kgqa.traversal.frontier import relation_prior_expand
@@ -88,79 +89,49 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
         "function": {
             "name": "decompose",
             "description": (
-                "Decompose the question STEM into an ordered chain of sub-questions. "
-                "Each fact is one sub-question (a full question in the stem's own "
-                "words); fact 1's answer feeds fact 2, and so on — the order of "
-                "`facts` IS the solving order. Decompose only what the stem asks. "
-                "MUST be the first tool call. Never merge two sub-questions into one "
-                "fact; emit the sub-question itself, not an action command."
+                "Decompose the question into an INFORMATION FLOW of directed triples. "
+                "Each triple is one hop (head | relation | tail); triples thread via "
+                "shared ?variables to flow from the named ANCHORS to the ANSWER. "
+                "MUST be the first tool call. The system runs GTE per triple (the "
+                "relation clause is the hint) and walks each anchor along the flow."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "facts": {
+                    "flow": {
                         "type": "array",
-                        "description": "Ordered sub-questions (the solving chain).",
+                        "description": ("Directed triples describing how information flows "
+                                        "from the anchors to the answer. Thread via shared "
+                                        "?variables: the tail of one triple is the head of "
+                                        "the next. relation = a semantic clause (e.g. "
+                                        "'shares a border with'); never a bare copula. Use a "
+                                        "?variable for any unstated intermediate or the answer."),
                         "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {"type": "string",
-                                       "description": "Stable fact id, e.g. 'f1', 'f2', 'f3'."},
-                                "subquestion": {
-                                    "type": "string",
-                                    "description": (
-                                        "this step's sub-question — a full question in "
-                                        "the stem's own words (the retrieval query AND "
-                                        "the solving step). No bare phrase, no action "
-                                        "verb, no inferred vocabulary, no verification fact."
-                                    ),
-                                },
-                                "start_type": {
-                                    "type": "string",
-                                    "description": "entity TYPE this step's answer is (what the next step starts from, e.g. 'team', 'stadium'); for the first fact, the anchor's type.",
-                                },
-                            },
-                            "required": ["id", "subquestion", "start_type"],
+                            "type": "array",
+                            "description": "[head, relation, tail]",
+                            "items": {},
+                            "minItems": 3,
                         },
                         "minItems": 1,
                     },
-                    "anchor": {
+                    "entities": {
+                        "type": "array",
+                        "description": ("EVERY named entity the question names — the proper "
+                                        "nouns the flow starts from (people, places, "
+                                        "countries, orgs; NOT type words, NOT numbers, NOT "
+                                        "?variables). List them ALL: each entity becomes its "
+                                        "own converging walk to the answer. Required (>= 1)."),
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                    },
+                    "answer": {
                         "type": "string",
-                        "description": "known concrete entity the chain starts from (lowest-ambiguity name). Optional — the system derives it if omitted.",
-                    },
-                    "question_chains": {
-                        "type": "array",
-                        "description": "OMIT for a single sequential question (facts in order are the chain). Include only for: (a) same-layer conjunctive constraints — wrap those facts in one step {\"con\":[fact ids]}; or (b) 2+ independent questions — one entry per question, each with its own anchor.",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "anchor": {"type": "string",
-                                           "description": "known entity this chain starts from (omit to use the top-level anchor)."},
-                                "steps": {
-                                    "type": "array",
-                                    "description": "ordered solving steps. Each element is a fact id (a sequential step) or {\"con\":[fact ids]} (conjunctive: those facts' relations are unioned at one layer, not chained). Every fact id here MUST be declared in facts[].",
-                                    "items": {},
-                                },
-                            },
-                            "required": ["steps"],
-                        },
-                    },
-                    "conditions": {
-                        "type": "array",
-                        "description": "Filters on the answer (temporal, superlative, type). Empty if none.",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {"type": "string"},
-                                "type": {"type": "string",
-                                         "description": "e.g. 'before', 'after', 'largest', 'type'."},
-                                "value": {"type": "string"},
-                            },
-                            "required": ["id", "type", "value"],
-                        },
+                        "description": ("The ?variable that is the flow's terminal/goal "
+                                        "(the thing the question asks 'what/which X' for), "
+                                        "plus its type, e.g. '?country (a country)'."),
                     },
                 },
-                "required": ["facts"],
+                "required": ["flow", "entities", "answer"],
             },
         },
     },
@@ -225,25 +196,6 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
                     },
                 },
                 "required": ["selections"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "select",
-            "description": (
-                "LEGACY — traversal now runs inline inside select_relations and "
-                "its evidence tree is returned there. This tool is kept only for "
-                "back-compat and is not offered in any active state. Do not call."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "note": {"type": "string",
-                             "description": "Optional one-line rationale (ignored by the system)."},
-                },
-                "required": [],
             },
         },
     },
@@ -336,11 +288,6 @@ async def dispatch(tool_name: str, args: Dict[str, Any], ctx, session) -> str:
     if tool_name == "select_relations":
         return await _do_select_relations(args, ctx, session)
 
-    if tool_name == "select":
-        # Legacy: select is now merged into select_relations, but keep for
-        # backward compat with any trajectory that calls it directly.
-        return await _do_select(ctx)
-
     if tool_name in ("expand_branch", "expand_branches"):
         return await _do_expand_branch(args, ctx, session)
 
@@ -348,6 +295,84 @@ async def dispatch(tool_name: str, args: Dict[str, Any], ctx, session) -> str:
         return _do_answer(args, ctx)
 
     return _json_result({"error": f"unknown tool: {tool_name}"})
+
+
+# ── Matched GTE for the triple decompose ──
+# This is the GTE debugged alongside scripts/clean_decompose_prompt.txt: the
+# query AND candidates are LABELED TRIPLES "head:(h) relation:(r) tail:(t)" with
+# a relation-semantics instruct, top-15. The full triple context (not a bare
+# relation clause) is what makes "played for ?team" match the TEAM relation
+# (sports.pro_athlete.teams) instead of the athlete relation — the failure mode
+# where a terse hint drifted to the wrong relation surface.
+_TRIPLE_GTE_INSTRUCT = ("Retrieve the triple-format question (head, relation, tail) "
+                        "that is semantically consistent with the natural-language "
+                        "query question — both ask about the same thing")
+_TRIPLE_GTE_TOPK = 15
+
+
+def _rel_last2(rel_id: str) -> str:
+    segs = str(rel_id).split(".")
+    return " ".join(p.replace("_", " ") for p in segs[-2:]) if len(segs) >= 2 else str(rel_id).replace("_", " ")
+
+
+async def _gte_for_triple(ctx, session, head, rel_clause, tail):
+    """Labeled-triple GTE (matched with the triple decompose). Returns matched
+    relation indices (top-_TRIPLE_GTE_TOPK). The /retrieve service always returns
+    top-K rows by similarity (never empty) — any "0 candidates" is a mapping bug,
+    so this maps each row robustly via index (int OR string), candidate (rel id),
+    or text (labeled), whichever yields a valid rel index."""
+    # Query = the triple's natural-language sub-question (the relation clause),
+    # UNWRAPPED. Candidate = a triple-format QUESTION "head | relation(last2) | ?"
+    # (generic ? blank, NOT the named ?var). Both sides are questions; the instruct
+    # asks whether they are semantically consistent. The earlier "head:(h) relation:(r)
+    # tail:(t)" wrapping poisoned ranking (a location head dragged matches to location
+    # relations); the flat triple-question + pure-question query avoids that.
+    query = rel_clause
+    labeled = [f"{head} | {_rel_last2(r)} | ?" for r in ctx.rels]
+    lab2idx = {lab: i for i, lab in enumerate(labeled)}
+    rel_id_to_idx = {r: i for i, r in enumerate(ctx.rels)}
+    # The /retrieve service resets connections under batch concurrency (Errno 104);
+    # a reset must NOT silently zero out a triple's candidates (cascades into a bad
+    # walk). Retry with backoff — a fresh call succeeds (the ranking itself is fine).
+    rows = None
+    for _attempt in range(4):
+        try:
+            rows = await gte_retrieve(session, query, ctx.rels,
+                                      candidate_texts=labeled, top_k=_TRIPLE_GTE_TOPK,
+                                      instruct=_TRIPLE_GTE_INSTRUCT)
+            break
+        except Exception as _e:
+            if _attempt < 3:
+                await asyncio.sleep(0.4 * (_attempt + 1))
+                continue
+            import sys as _sys
+            print(f"  GTE error in _gte_for_triple (4 retries failed): {_e}", file=_sys.stderr)
+            rows = []
+    rows = rows or []
+    out = []
+    for r in rows:
+        mapped = None
+        # 1) index (service returns it as int OR string) — the position in the
+        #    candidates list, the most reliable mapping.
+        idx = r.get("index")
+        try:
+            idx = int(idx)
+        except (TypeError, ValueError):
+            idx = None
+        if isinstance(idx, int) and 0 <= idx < len(ctx.rels):
+            mapped = idx
+        # 2) fallbacks: candidate / text may carry the rel id or the labeled text
+        if mapped is None:
+            for key in (r.get("candidate"), r.get("text")):
+                if not isinstance(key, str):
+                    continue
+                if key in lab2idx:
+                    mapped = lab2idx[key]; break
+                if key in rel_id_to_idx:
+                    mapped = rel_id_to_idx[key]; break
+        if mapped is not None and mapped not in out:
+            out.append(mapped)
+    return out
 
 
 async def _gte_for_fact(ctx, session, fact_id, hint):
@@ -405,71 +430,59 @@ async def _gte_for_fact(ctx, session, fact_id, hint):
 
 
 async def _do_decompose(args: Dict[str, Any], ctx, session) -> str:
-    """Decompose the question into facts + run GTE retrieve for each fact.
+    """Triple decompose — run GTE PER-TRIPLE, driven by the information flow.
 
-    Merges the old decompose + retrieve into one step: the model writes facts
-    (each with subquestion), and the system immediately runs GTE semantic
-    search for each fact's hint, returning the structurally-pruned candidate
-    relations inline. The model then calls select_relations to pick from these.
+    The harness has already parsed the model's FLOW (triples) + ANCHORS + ANSWER
+    into ``ctx.fact_ids`` / ``ctx.fact_texts`` (one fid per triple hop, in flow
+    order) and ``ctx.chains`` (per-anchor ordered hops, with con layers). This
+    handler runs GTE once per triple: the triple's RELATION CLAUSE is the GTE
+    hint (the flow itself drives relation selection — not a separate subquestion
+    per fact). It stores each triple's candidate relations on
+    ``ctx.fact_relation_candidates`` and returns them inline so the model picks
+    from them in select_relations.
 
-    The model also outputs `anchor` and optional `endpoints` (LLM ambiguity
-    analysis). These are resolved to graph idx by _resolve_anchor (called in
-    react_loop after validate). decompose itself just echoes them back.
-
-    If structural pruning yields empty for a fact (relations outside 2-hop
-    scope), falls back to raw GTE top-15 so the model always has candidates.
+    This REPLACES the legacy facts-array decompose: triples are the decomposition.
+    The walk (per-anchor, along the flow) and the original expand_branches +
+    answer run unchanged downstream.
     """
-    facts = args.get("facts", [])
-    chains = args.get("question_chains") or []
-    chain_anchor = chains[0].get("anchor") if (isinstance(chains, list) and chains) else None
-    anchor = args.get("anchor") or chain_anchor
-    endpoints = args.get("endpoints") or []
-    conditions = args.get("conditions", [])
+    entities = args.get("entities") or []
+    if isinstance(entities, str):
+        entities = [a.strip() for a in entities.split(",") if a.strip()]
+    anchor = entities[0] if entities else ""
+    if anchor and not ctx.anchor_name:
+        ctx.anchor_name = anchor  # used by _gte_for_fact as f1's start_type
 
-    # Build candidate_relations for each fact via GTE, then present each fact's
-    # question text + subquestion ALONGSIDE its candidate relations so the
-    # model can judge each candidate's relevance to that fact's specific
-    # question (rather than matching relation names against the whole question).
-    candidates_per_fact = {}
-    gte_raw_per_fact = {}
-    for f in facts:
-        fid = str(f.get("id") or f.get("fact_id") or "")
-        if not fid:
-            continue
-        hint = f.get("subquestion") or f.get("relation_hint") or f.get("text") or ctx.question
-        cands, gte_raw = await _gte_for_fact(ctx, session, fid, hint)
-        candidates_per_fact[fid] = cands
-        gte_raw_per_fact[fid] = gte_raw
-        # Store on ctx so select_relations can validate picks
-        ctx.fact_relation_candidates[fid] = cands
-
-    # Co-locate each fact's question text with its candidate relations. The
-    # model reads each fact as a unit: "this step asks for X — which of these
-    # relations expresses X?". This avoids the model matching a relation name
-    # against the whole-question wording and missing relations that carry the
-    # answer but read like attribute labels (e.g. education.institution for a
-    # "where did X go to college" question).
-    facts_with_candidates = []
-    for f in facts:
-        fid = str(f.get("id") or f.get("fact_id") or "")
-        cands = candidates_per_fact.get(fid, [])
-        facts_with_candidates.append({
+    triples_with_candidates = []
+    for fid in ctx.fact_ids:
+        # Parse the triple "(head | relation | tail)" and run the MATCHED labeled-
+        # triple GTE (head/relation/tail context + relation-semantics instruct,
+        # top-15) — the GTE debugged with clean_decompose_prompt.txt. The full
+        # triple context keeps a clause like "played for ?team" on the team
+        # relation surface, not drifting to the athlete relation.
+        txt = ctx.fact_texts.get(fid, "")
+        inner = txt.strip().strip("()")
+        parts = [p.strip() for p in inner.split("|")] if inner else []
+        head = parts[0] if len(parts) >= 1 else ""
+        rel_clause = parts[1] if len(parts) >= 2 else (txt or ctx.question)
+        tail = parts[2] if len(parts) >= 3 else ""
+        cands = await _gte_for_triple(ctx, session, head, rel_clause, tail)
+        ctx.fact_relation_candidates[fid] = cands  # select_relations validates picks
+        triples_with_candidates.append({
             "id": fid,
-            "text": f.get("text", ""),
-            "subquestion": f.get("subquestion") or f.get("relation_hint", ""),
-            "start_type": f.get("start_type", ""),
+            "triple": txt,
+            "relation_hint": rel_clause,
             "candidate_relations": [ctx.rels[i] for i in cands if i < len(ctx.rels)],
         })
 
     return _json_result({
-        "facts": facts_with_candidates,
-        "conditions": conditions,
-        "anchor": anchor,
-        "endpoints": endpoints,
-        "note": ("Each fact now lists its candidate_relations next to its text. "
-                 "For EACH fact, read its text/subquestion and select ALL "
-                 "relations that express what that step asks for. Call "
-                 "select_relations with one entry per fact."),
+        "flow": triples_with_candidates,
+        "entities": entities,
+        "answer": args.get("answer", ""),
+        "note": ("Per-triple GTE done (driven by the information flow). For EACH "
+                 "triple, select ALL relations that express its relation_hint, then "
+                 "call select_relations with one entry per fact id. When there are "
+                 "multiple entities the walk runs once per entity and the branches "
+                 "are namespaced (F*, N*, ...); pick across all entities."),
     })
 
 
@@ -788,6 +801,37 @@ def _compact_overview(overview: str) -> str:
     return overview
 
 
+def _resolve_chain_anchor(ctx, anchor_name: str):
+    """Resolve a multi-anchor chain's declared anchor NAME to a graph entity idx.
+
+    Exact normalize match first, then substring (len>=3) — same logic as
+    loop._resolve_anchor. Falls back to ctx.anchor_idx (the primary anchor)
+    when the name is empty/unresolvable, so a mis-declared anchor degrades to
+    the primary rather than dropping the chain.
+    """
+    if not anchor_name:
+        return ctx.anchor_idx
+    mn = normalize(anchor_name)
+    if not mn:
+        return ctx.anchor_idx
+    import re
+    # System-layer block: a pure number/date/value is NOT a named entity — drop it
+    # (keeps digit-bearing NAMES like "WW2", "Boeing 747", which contain letters).
+    if re.match(r'^[\d.\-/\s]+$', anchor_name) and any(c.isdigit() for c in anchor_name):
+        return None
+    from kgqa.traversal.cvt import is_cvt_like
+    def _named(i):  # CVT nodes are never valid named entities — system-layer block
+        return not is_cvt_like(ctx.ents[i])
+    for i, e in enumerate(ctx.ents):
+        if normalize(e) == mn and _named(i):
+            return i
+    for i, e in enumerate(ctx.ents):
+        en = normalize(e)
+        if len(mn) >= 3 and (mn in en or en in mn) and _named(i):
+            return i
+    return None
+
+
 async def _do_select_relations(args: Dict[str, Any], ctx, session) -> str:
     """Model decision: pick the relation(s) forming the answer chain, per fact,
     THEN run the graph traversal (formerly the separate `select` tool) and
@@ -830,24 +874,136 @@ async def _do_select_relations(args: Dict[str, Any], ctx, session) -> str:
             chosen[fid] = set(candidates)
             ctx.fact_relations[fid] = set(candidates)
 
+    # Core-rule enforcement (harness-layer intercept): if the model emitted ANY
+    # relation not returned by the tool, REJECT once and tell it to re-select from
+    # the candidate_relations — do not silently drop the invented name. The loop
+    # leaves the model in EXPAND, where one backward `select_relations` rewrite is
+    # allowed (MAX_SELECTS=2); a second invalid attempt falls through and proceeds
+    # with the valid subset (graceful, avoids getting stuck).
+    if skipped and not getattr(ctx, "_select_invalid_retried", False):
+        ctx._select_invalid_retried = True
+        inv = "; ".join(f"{s['fact_id']}: {s['invalid']}" for s in skipped)
+        valid_per_fact = {
+            s["fact_id"]: [ctx.rels[i] for i in ctx.fact_relation_candidates.get(s["fact_id"], [])][:20]
+            for s in skipped
+        }
+        return _json_result({
+            "error": ("selection REJECTED — these relations were NOT returned by the "
+                     f"tool: {inv}. The tool did not return those relations. Re-call "
+                     "`select_relations` using ONLY relations from each fact's "
+                     "candidate_relations (Core rule: emit only what the tool returned)."),
+            "invalid": skipped,
+            "valid_candidates": valid_per_fact,
+        })
+
     selected_summary = {fid: [ctx.rels[i] for i in ids] for fid, ids in chosen.items()}
 
-    # ── Run the traversal (merged from _do_select) ──
-    traverse_result = await _do_select(ctx)
+    # ── Run the traversal ──
+    # Single chain (the common case): walk once, EXACTLY as before (baseline).
+    # Multiple chains (multi-anchor): walk EACH anchor independently via _do_select
+    # (the single-anchor engine is reused UNCHANGED — no rewrite of ranking /
+    # materialize / evidence-building), then present a COMPACT combined overview
+    # (one header line per branch, namespaced F1../N1.. per anchor) so the model
+    # picks branches across anchors. Full triples are revealed by expand_branches
+    # — the overview's job is to let the model CHOOSE by relation chain, not to
+    # dump every candidate. This is the validated mechanism: the mature pipeline
+    # is sufficient; what was missing was walking every declared anchor instead
+    # of only chains[0].
+    chains = list(getattr(ctx, "chains", []) or [])
 
-    # Parse the traverse result to merge with selection summary
-    try:
-        traverse_obj = json.loads(traverse_result)
-    except Exception:
-        traverse_obj = {"error": "traverse failed"}
+    if len(chains) <= 1:
+        traverse_result = await _do_select(ctx)
+        try:
+            traverse_obj = json.loads(traverse_result)
+        except Exception:
+            traverse_obj = {"error": "traverse failed"}
+        if "overview" in traverse_obj:
+            traverse_obj["overview"] = _compact_overview(traverse_obj["overview"])
+        traverse_obj["selected"] = selected_summary
+        traverse_obj["skipped_invalid"] = skipped
+        return _json_result(traverse_obj)
 
-    # Compact the candidate display: ≤3 per branch + ellipsis
-    if "overview" in traverse_obj:
-        traverse_obj["overview"] = _compact_overview(traverse_obj["overview"])
+    # ── Multi-anchor: per-anchor _do_select, namespace branches, merge ──
+    _ANCHOR_TAGS = ["F", "N", "P", "Q", "R", "S"]
+    merged_branches: Dict[str, dict] = {}
+    merged_all_candidates: List[str] = list(getattr(ctx, "all_candidates", []) or [])
+    sections: List[str] = []
+    per_anchor: Dict[str, dict] = {}
+    for ci, chain in enumerate(chains[:len(_ANCHOR_TAGS)]):
+        tag = _ANCHOR_TAGS[ci]
+        anc_name = (chain.get("anchor") or "").strip()
+        anc_idx = _resolve_chain_anchor(ctx, anc_name)
+        if anc_idx is None:
+            continue
+        chain_steps = chain.get("fact_steps") or []
+        chain_fids = []
+        for grp in chain_steps:
+            if isinstance(grp, str):
+                grp = [grp]
+            chain_fids.extend(f for f in grp if f in ctx.fact_relations)
+        if not chain_fids:
+            continue
+        # Isolate this chain: temporarily scope ctx to THIS anchor + chain's
+        # facts so _do_select (which reads anchor_idx / fact_ids / fact_steps)
+        # walks only this chain. Dispatch is sequential per case, so save/restore
+        # is safe. fact_relations holds all facts; only this chain's fids are
+        # referenced via the scoped fact_ids/fact_steps.
+        saved = (ctx.anchor_idx, ctx.anchor_name, ctx.fact_steps, ctx.fact_ids)
+        ctx.anchor_idx = anc_idx
+        ctx.anchor_name = anc_name or ctx.ents[anc_idx]
+        ctx.fact_steps = chain_steps
+        ctx.fact_ids = chain_fids
+        ctx.branches = {}
+        try:
+            await _do_select(ctx)   # populates ctx.branches {"1":..,"2":..} (ranked)
+        finally:
+            ctx.anchor_idx, ctx.anchor_name, ctx.fact_steps, ctx.fact_ids = saved
+        # Move this chain's ranked branches into the merged namespaced dict.
+        chain_branches = list(ctx.branches.items())
+        for bid, br in chain_branches:
+            merged_branches[f"{tag}{bid}"] = br
+        merged_all_candidates.extend(getattr(ctx, "all_candidates", []) or [])
+        anc_display = ctx.ents[anc_idx] if 0 <= anc_idx < len(ctx.ents) else anc_name
+        per_anchor[tag] = {"anchor": anc_display, "n_branches": len(chain_branches)}
+        # Compact header per branch (relation chain + sample candidates + #ID).
+        lines = [f"=== ANCHOR: {anc_display}  (branches #{tag}1..#{tag}{len(chain_branches)}) ==="]
+        for bid, br in chain_branches:
+            nbid = f"{tag}{bid}"
+            cands = br.get("candidates", []) or []
+            cs = ", ".join(cands[:5]) + (f"  (+{len(cands)-5})" if len(cands) > 5 else "")
+            lines.append(f"  {nbid}: {br.get('readable','')}  ->  {len(cands)} cand [{cs}]")
+        sections.append("\n".join(lines))
 
-    traverse_obj["selected"] = selected_summary
-    traverse_obj["skipped_invalid"] = skipped
-    return _json_result(traverse_obj)
+    ctx.branches = merged_branches
+    # Dedup the cross-anchor candidate pool (for gt_hit / answer fallback).
+    seen = set(); dedup = []
+    for c in merged_all_candidates:
+        nc = normalize(c)
+        if nc and nc not in seen:
+            seen.add(nc); dedup.append(c)
+    ctx.all_candidates = dedup
+    ctx.selected_candidates = dedup[:60]
+
+    combined = "\n\n".join(sections) if sections else "(no branches)"
+    overview_text = (
+        f"MULTI-ANCHOR RETRIEVE: {len(merged_branches)} branches across "
+        f"{len(per_anchor)} anchors (namespaced F*, N*, ...).\n"
+        "Each branch shows its relation chain + a few candidates + a #ID marker. "
+        "Branches are pre-ranked within each anchor by relation-chain alignment "
+        "with your facts. ANALYZE both anchors' trees, pick the branches relevant "
+        "to the question — the answer must satisfy EVERY anchor's constraint (e.g. "
+        "borders France AND contains an airport serving Nijmegen) — and call "
+        "expand_branches(['F1','N2',...]). Then answer from what you expanded.\n\n"
+        + combined
+    )
+    return _json_result({
+        "n_patterns": len(merged_branches),
+        "overview": overview_text,
+        "candidates": dedup[:50],
+        "per_anchor": per_anchor,
+        "selected": selected_summary,
+        "skipped_invalid": skipped,
+    })
 
 
 def _paths_to_preview(paths, ctx, limit: int = 10) -> List[str]:
@@ -1067,10 +1223,10 @@ async def _do_select(ctx) -> str:
     # order, so iterating pat_evidence in insertion order == ranked order.
     ranked = list(pat_evidence.items())
 
-    # Cap the overview to keep it readable (the model can still expand any
-    # branch whose #N appears). Hint-aligned order means the most relevant
-    # branches are always at the top.
-    ranked = ranked[:30]
+    # Cap the overview to the top-20 hint-aligned branches per chain (the model
+    # can still expand any branch whose #N appears). Hint-aligned order means the
+    # most relevant branches are always at the top.
+    ranked = ranked[:20]
 
     # ── Build numbered tree overview (numbers on the RIGHT, per user spec) ──
     ctx.branches = {}
@@ -1118,14 +1274,13 @@ async def _do_select(ctx) -> str:
         if len(cands) > 5:
             cand_str += f", ... (+{len(cands) - 5})"
         header = (f"  branch {bid}: {pe.readable}  →  {len(cands)} candidates "
-                  f"[{cand_str}]")
+                  f"[{cand_str}]    #{bid}")
 
-        # Append #N to the right of each rendered tree line.
-        if tree_lines:
-            body = "\n".join(f"    {ln}    #{bid}" for ln in tree_lines)
-        else:
-            body = ""
-        overview_blocks.append(header + ("\n" + body if body else ""))
+        # Compact overview: branch HEADER only (relation chain + sample candidates
+        # + #N marker). The node-level tree is NOT rendered here — it bloats the
+        # context and the model picks branches by relation chain, not node detail.
+        # The full tree is revealed by expand_branches (stored in ctx.branches).
+        overview_blocks.append(header)
 
     # Collect all candidates (for gt_hit + fallback).
     seen = set(); dedup = []
@@ -1155,7 +1310,7 @@ async def _do_select(ctx) -> str:
     })
 
 
-def _cvt_attr_summary(triples, max_lines: int = 60) -> str:
+def _cvt_attr_summary(triples, candidates=None, max_lines: int = 60) -> str:
     """Per-CVT attribute summary for the answer step.
 
     Inline-resolves CVT nodes so each holder's tenure attrs sit on one line
@@ -1172,6 +1327,7 @@ def _cvt_attr_summary(triples, max_lines: int = 60) -> str:
                     "topic_equivalent_webpage", "webpage", "mid", "guid",
                     "key", "keys", "permission", "is_reviewed", "no_value"}
     _HOLDER_RELS = {"office_holder", "actor", "director", "spouse"}
+    cand_set = {str(c) for c in (candidates or [])}  # attrs key by these names, not m-IDs
 
     def _short(r):
         return r.rsplit(".", 1)[-1] if r else r
@@ -1192,8 +1348,18 @@ def _cvt_attr_summary(triples, max_lines: int = 60) -> str:
             continue
         s = _short(r)
         cvt_attrs.setdefault(h, []).append((s, t))
+        # Resolve the CVT to a NAMED entity (never the opaque m-ID): holder-rel
+        # first, else any named candidate it points to.
         if s in _HOLDER_RELS:
             cvt_holder[h] = t
+        elif h not in cvt_holder and str(t) in cand_set:
+            cvt_holder[h] = t
+    # CVTs still unmapped: fall back to their first named entity (not the m-ID).
+    for cvt in list(cvt_attrs):
+        if cvt not in cvt_holder:
+            named = [v for _, v in cvt_attrs[cvt] if not is_cvt_like(str(v))]
+            if named:
+                cvt_holder[cvt] = named[0]
 
     lines = []
     # incumbents (has_no_value = no end date) first so the current holder surfaces
@@ -1203,6 +1369,7 @@ def _cvt_attr_summary(triples, max_lines: int = 60) -> str:
         holder = cvt_holder.get(cvt, cvt)
         return (0 if has_incumbent else 1, holder)
 
+    _seen = set()  # dedup identical (holder, attrs) lines — don't repeat identical attrs
     for cvt, attrs in sorted(cvt_attrs.items(), key=_sort_key):
         holder = cvt_holder.get(cvt, cvt)
         parts = []
@@ -1213,7 +1380,9 @@ def _cvt_attr_summary(triples, max_lines: int = 60) -> str:
             else:
                 parts.append(f"{s}={v}")
         if parts:
-            lines.append(f"  - {holder}: {', '.join(parts[:8])}")
+            ln = f"  - {holder}: {', '.join(parts[:8])}"
+            if ln not in _seen:
+                _seen.add(ln); lines.append(ln)
     return "\n".join(lines[:max_lines])
 
 
@@ -1264,7 +1433,14 @@ def _constraint_attr_summary(triples, candidates):
                 holder = v
                 break
         if holder is None:
-            holder = cvt  # no holder attr — the CVT itself
+            # resolve to a named entity (never the opaque m-ID): a candidate it
+            # points to, else its first named value.
+            holder = next((v for _, v in attrs if str(v) in cand_set), None)
+            if holder is None:
+                named = [v for _, v in attrs if not is_cvt_like(str(v))]
+                holder = named[0] if named else None
+        if holder is None:
+            continue  # CVT with no named entity — skip it (don't emit an m-ID key)
         for s, v in attrs:
             holder_attrs.setdefault(str(holder), {}).setdefault(s, set()).add(str(v))
     # Also direct attrs of named candidates
@@ -1521,7 +1697,7 @@ async def _do_expand_branch(args: Dict[str, Any], ctx, session) -> str:
                                  "\n".join(tree_lines))
 
     triple_strs = [f"({h}, {r}, {t})" for h, r, t in all_triples[:80]]
-    cand_attrs = _cvt_attr_summary(all_triples)
+    cand_attrs = _cvt_attr_summary(all_triples, all_cands)
     # Constraint-awareness: detect discriminating attrs among sibling candidates
     # in the tree + append them so the answer stage can apply the constraint.
     constraint_attrs = _constraint_attr_summary(all_triples, all_cands)
@@ -1536,6 +1712,19 @@ async def _do_expand_branch(args: Dict[str, Any], ctx, session) -> str:
     rel_constraint = await _relevant_constraint_summary(all_cands, ctx, session, covered=covered)
     if rel_constraint:
         cand_attrs = (cand_attrs + "\n" + rel_constraint) if cand_attrs else rel_constraint
+    # Merge expand-revealed candidates into ctx.all_candidates so the answer
+    # off-pool check (in _do_answer) validates against the FULL select+expand
+    # pool, not just the select-stage candidates. Without this, a correct
+    # answer entity revealed only by expand looks "off-pool" and gets wrongly
+    # rejected (the model then fails to recover -> empty answer). The check
+    # should fire only when an entity NEVER appeared in any expanded branch.
+    _existing_all = list(getattr(ctx, "all_candidates", []) or [])
+    _seen_all = {normalize(c) for c in _existing_all}
+    for _cand in all_cands:
+        _nc = normalize(_cand)
+        if _nc not in _seen_all:
+            _seen_all.add(_nc); _existing_all.append(_cand)
+    ctx.all_candidates = _existing_all
     payload = {
         "branches_expanded": bids,
         "n_branches": len(bids),
@@ -1552,11 +1741,41 @@ async def _do_expand_branch(args: Dict[str, Any], ctx, session) -> str:
 
 def _do_answer(args: Dict[str, Any], ctx) -> str:
     """Capture the model's answer entities. The `entities` array is the
-    authoritative answer surface (schema-required)."""
-    entities = args.get("entities") or []
+    authoritative answer surface (schema-required).
+
+    Fallback: the model frequently emits the §Answer checklist's ANSWER field
+    as the tool arg key (``ANSWER``) instead of the schema's ``entities`` — it
+    knows the answer but the call slips format. Accept ``ANSWER``/``answer`` so
+    a correct answer is never dropped to empty on a key-name mismatch."""
+    entities = args.get("entities")
+    if entities is None:
+        entities = args.get("ANSWER") or args.get("answer") or []
+    if isinstance(entities, str):
+        # checklist ANSWER may be a comma/pipe-separated string
+        entities = [e.strip() for e in entities.replace("|", ",").split(",") if e.strip()]
     if not isinstance(entities, list):
         entities = []
     entities = [str(e).strip() for e in entities if str(e).strip()]
+
+    # Off-pool check: answer entities should come from the retrieved evidence.
+    # If the model emits an entity NOT in the candidate pool, flag it ONCE (it
+    # may be hallucinating or answering before expanding) and reject with the
+    # pool so it re-answers from evidence. A second attempt is accepted (the
+    # terminal answer is never blocked forever). candidate_hit (normalized
+    # substring + fuzzy) lets legitimate name variants pass.
+    pool = list(getattr(ctx, "all_candidates", []) or [])
+    if entities and pool and not getattr(ctx, "_answer_offpool_retried", False):
+        offpool = [e for e in entities if not candidate_hit(pool, [e])]
+        if offpool:
+            ctx._answer_offpool_retried = True
+            return _json_result({
+                "error": (f"answer entities NOT in the retrieved evidence: {offpool}. "
+                          "Only answer with entities present in the expanded branches / "
+                          "candidate pool. Expand the relevant branches first, then "
+                          "re-call `answer` with entities from the evidence."),
+                "offpool": offpool,
+                "candidate_pool": pool[:30],
+            })
 
     ctx.llm_answer_preds = entities
     ctx.llm_answer_str = " | ".join(entities)

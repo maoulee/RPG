@@ -299,11 +299,24 @@ async def run_react_batch(cases_to_run, args, output_dir: str):
 
                 # Sync harness state into ctx (like loop.py does)
                 rc.ctx.fact_ids = list(getattr(rc.state, "fact_ids", []) or [])
+                rc.ctx.fact_texts = dict(getattr(rc.state, "fact_texts", {}) or {})
                 rc.ctx.fact_satisfies = dict(getattr(rc.state, "fact_satisfies", {}) or {})
                 rc.ctx.fact_start_types = dict(getattr(rc.state, "fact_start_types", {}) or {})
                 rc.ctx.fact_start_entities = dict(getattr(rc.state, "fact_start_entities", {}) or {})
                 rc.ctx.fact_steps = list(getattr(rc.state, "fact_steps", []) or [])
                 rc.ctx.chains = list(getattr(rc.state, "chains", []) or [])
+                # Re-resolve the anchor from the model-declared entities so the
+                # single-anchor walk (_do_select uses ctx.anchor_idx) follows what
+                # the model declared — not the build_context q_entity default
+                # (which blindly takes the first q_entity, e.g. "Gold medal" over
+                # "Dewitt High School"). Multi-anchor walks resolve each chain
+                # anchor independently via ctx.chains + _resolve_chain_anchor.
+                # (run_react_case already does this; the batch path must too.)
+                if tool_name == "decompose":
+                    rc.ctx._model_anchor = getattr(rc.state, "anchor", None) or ""
+                    rc.ctx._model_endpoints = list(getattr(rc.state, "endpoints", []) or [])
+                    from kgqa.agent.loop import _resolve_anchor
+                    _resolve_anchor(rc.ctx)
 
                 # Dispatch tool (reuses existing _do_* functions)
                 try:
@@ -319,7 +332,33 @@ async def run_react_batch(cases_to_run, args, output_dir: str):
 
                 # Check completion
                 if rc.state.state == "DONE":
-                    rc.done = True
+                    # ── Boundary defense: empty-answer retry (parity with run_react_case) ──
+                    # An empty answer scores 0; a best-guess from the retrieved pool
+                    # retains recall. When the model emits `answer` with NO entities
+                    # (over-cautious "can't verify the constraint"), feed the signal
+                    # back ONCE and force a guess. The model still picks which entity.
+                    ans_entities = (parsed_args.get("entities")
+                                    if tool_name == "answer" else None) or []
+                    if (tool_name == "answer" and not ans_entities
+                            and not getattr(rc, "_empty_answer_retried", False)
+                            and rc.ctx.selected_candidates):
+                        rc._empty_answer_retried = True
+                        rc.state.state = "ANSWER"  # roll back so `answer` is legal again
+                        cand_pool = rc.ctx.selected_candidates[:50]
+                        nudge = (
+                            "Your answer was empty. An empty answer scores 0 — you must "
+                            "output your best guess. From the retrieved candidate pool "
+                            f"{cand_pool}, pick the entity (or entities) MOST likely to "
+                            "answer the question and call `answer` again. When you "
+                            "cannot verify a constraint from the graph, default to "
+                            "keeping the candidates that best match the rest of the "
+                            "question; never output an empty list."
+                        )
+                        rc.messages.append({"role": "user", "content": nudge})
+                        rc.ctx.trajectory.append({"role": "tool", "name": "answer",
+                                                  "content": nudge})
+                    else:
+                        rc.done = True
 
             # Process all cases concurrently (dispatch is mostly fast except retrieve)
             dispatch_sem = asyncio.Semaphore(16)
@@ -491,6 +530,7 @@ async def run_react_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
         rc.state = new_state
 
         rc.ctx.fact_ids = list(getattr(rc.state, "fact_ids", []) or [])
+        rc.ctx.fact_texts = dict(getattr(rc.state, "fact_texts", {}) or {})
         rc.ctx.fact_satisfies = dict(getattr(rc.state, "fact_satisfies", {}) or {})
         rc.ctx.fact_start_types = dict(getattr(rc.state, "fact_start_types", {}) or {})
         rc.ctx.fact_start_entities = dict(getattr(rc.state, "fact_start_entities", {}) or {})

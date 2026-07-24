@@ -331,6 +331,7 @@ async def run_agent_case(session: aiohttp.ClientSession, sample: Dict[str, Any],
         # Sync the ordered fact ids (from the harness state) so _do_select can
         # build multi-step step_relations in decompose order.
         ctx.fact_ids = list(getattr(state, "fact_ids", []) or [])
+        ctx.fact_texts = dict(getattr(state, "fact_texts", {}) or {})
         ctx.fact_satisfies = dict(getattr(state, "fact_satisfies", {}) or {})
         try:
             result_str = await T.dispatch(tool_name, parsed_args, ctx, session)
