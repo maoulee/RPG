@@ -24,7 +24,7 @@ dependencies = [
   "tqdm",
   "transformers",
   "uvicorn",
-  "vllm==0.19.1",
+  "vllm==0.25.1",
 ]
 
 [project.optional-dependencies]
@@ -32,3 +32,25 @@ dev = [
   "pytest",
   "ipython",
 ]
+# Offline GRPO training stack (matched to the qwen35 env, torch 2.11.0+cu130).
+# NOTE: causal-conv1d + flash-linear-attention are built separately from git
+# against the CUDA 13 toolkit (see memory: container-rebuilt-env) — not pip pins.
+training = [
+  "liger-kernel>=0.8.1",
+  "peft>=0.19.1",
+  "deepspeed>=0.19.3",
+  "datasets>=5.0.0",
+  "trl>=1.9.0",
+  "accelerate>=1.14.0",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+# Explicit package discovery — the repo root has many top-level dirs
+# (data/, reports/, scripts/, specs/, etc.) so setuptools' flat-layout
+# auto-discovery refuses to build. Only kgqa/ is an importable package.
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["kgqa*"]
