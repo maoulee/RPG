@@ -308,6 +308,12 @@ _TRIPLE_GTE_INSTRUCT = ("Retrieve the triple-format question (head, relation, ta
                         "that is semantically consistent with the natural-language "
                         "query question — both ask about the same thing")
 _TRIPLE_GTE_TOPK = 15
+# Grounded-GTE pool-size gate: each hop's candidate pool is its 2-hop-reachable
+# relation set. If that set is smaller than _GTE_POOL_MIN (sparse anchor or a
+# broken chain — too narrow to rank meaningfully), the hop expands to the full
+# relation set. Tuned to keep sparse-anchor cases ranked.
+_GTE_POOL_MIN = 8
+
 
 
 def _rel_last2(rel_id: str) -> str:
@@ -315,12 +321,20 @@ def _rel_last2(rel_id: str) -> str:
     return " ".join(p.replace("_", " ") for p in segs[-2:]) if len(segs) >= 2 else str(rel_id).replace("_", " ")
 
 
-async def _gte_for_triple(ctx, session, head, rel_clause, tail):
+async def _gte_for_triple(ctx, session, head, rel_clause, tail, pool_relids=None):
     """Labeled-triple GTE (matched with the triple decompose). Returns matched
     relation indices (top-_TRIPLE_GTE_TOPK). The /retrieve service always returns
     top-K rows by similarity (never empty) — any "0 candidates" is a mapping bug,
     so this maps each row robustly via index (int OR string), candidate (rel id),
-    or text (labeled), whichever yields a valid rel index."""
+    or text (labeled), whichever yields a valid rel index.
+
+    pool_relids: the candidate pool = these relation indices (the chain-wise
+    2-hop-reachable set, grounded GTE). When None, the pool is the full relation
+    set (entity-agnostic, prior behavior). Grounding the pool to the reachable
+    set lets structurally-correct relations that are buried under surface-token
+    matches in the full set (e.g. location.location.containedby for an
+    airport->country hop) surface into top-K — GTE never sees unreachable
+    relations. Returns FULL relation indices either way."""
     # Query = the triple's natural-language sub-question (the relation clause),
     # UNWRAPPED. Candidate = a triple-format QUESTION "head | relation(last2) | ?"
     # (generic ? blank, NOT the named ?var). Both sides are questions; the instruct
@@ -328,16 +342,22 @@ async def _gte_for_triple(ctx, session, head, rel_clause, tail):
     # tail:(t)" wrapping poisoned ranking (a location head dragged matches to location
     # relations); the flat triple-question + pure-question query avoids that.
     query = rel_clause
-    labeled = [f"{head} | {_rel_last2(r)} | ?" for r in ctx.rels]
-    lab2idx = {lab: i for i, lab in enumerate(labeled)}
-    rel_id_to_idx = {r: i for i, r in enumerate(ctx.rels)}
+    # Candidate pool: grounded (2-hop-reachable) when pool_relids given, else full.
+    if pool_relids is not None:
+        pool_idx = sorted(i for i in set(pool_relids) if 0 <= i < len(ctx.rels))
+    else:
+        pool_idx = list(range(len(ctx.rels)))
+    rels_pool = [ctx.rels[i] for i in pool_idx]
+    labeled = [f"{head} | {_rel_last2(r)} | ?" for r in rels_pool]
+    lab2loc = {lab: i for i, lab in enumerate(labeled)}      # labeled text -> pool-local idx
+    relid2loc = {r: i for i, r in enumerate(rels_pool)}      # rel id -> pool-local idx
     # The /retrieve service resets connections under batch concurrency (Errno 104);
     # a reset must NOT silently zero out a triple's candidates (cascades into a bad
     # walk). Retry with backoff — a fresh call succeeds (the ranking itself is fine).
     rows = None
     for _attempt in range(4):
         try:
-            rows = await gte_retrieve(session, query, ctx.rels,
+            rows = await gte_retrieve(session, query, rels_pool,
                                       candidate_texts=labeled, top_k=_TRIPLE_GTE_TOPK,
                                       instruct=_TRIPLE_GTE_INSTRUCT)
             break
@@ -351,27 +371,29 @@ async def _gte_for_triple(ctx, session, head, rel_clause, tail):
     rows = rows or []
     out = []
     for r in rows:
-        mapped = None
+        loc = None
         # 1) index (service returns it as int OR string) — the position in the
-        #    candidates list, the most reliable mapping.
+        #    candidates list (pool-local), the most reliable mapping.
         idx = r.get("index")
         try:
             idx = int(idx)
         except (TypeError, ValueError):
             idx = None
-        if isinstance(idx, int) and 0 <= idx < len(ctx.rels):
-            mapped = idx
-        # 2) fallbacks: candidate / text may carry the rel id or the labeled text
-        if mapped is None:
+        if isinstance(idx, int) and 0 <= idx < len(rels_pool):
+            loc = idx
+        # 2) candidate / text may carry the rel id or the labeled text (pool-local)
+        if loc is None:
             for key in (r.get("candidate"), r.get("text")):
                 if not isinstance(key, str):
                     continue
-                if key in lab2idx:
-                    mapped = lab2idx[key]; break
-                if key in rel_id_to_idx:
-                    mapped = rel_id_to_idx[key]; break
-        if mapped is not None and mapped not in out:
-            out.append(mapped)
+                if key in lab2loc:
+                    loc = lab2loc[key]; break
+                if key in relid2loc:
+                    loc = relid2loc[key]; break
+        if loc is not None:
+            full = pool_idx[loc]   # map pool-local position -> full relation index
+            if full not in out:
+                out.append(full)
     return out
 
 
@@ -452,27 +474,79 @@ async def _do_decompose(args: Dict[str, Any], ctx, session) -> str:
     if anchor and not ctx.anchor_name:
         ctx.anchor_name = anchor  # used by _gte_for_fact as f1's start_type
 
-    triples_with_candidates = []
-    for fid in ctx.fact_ids:
-        # Parse the triple "(head | relation | tail)" and run the MATCHED labeled-
-        # triple GTE (head/relation/tail context + relation-semantics instruct,
-        # top-15) — the GTE debugged with clean_decompose_prompt.txt. The full
-        # triple context keeps a clause like "played for ?team" on the team
-        # relation surface, not drifting to the athlete relation.
+    # ---- Grounded GTE (SYSTEM step, deterministic): per chain, per hop, the
+    # candidate pool is the 2-hop-reachable relations of the entities the
+    # previous hop reached (the chain prefix). hop1 = anchor's 2-hop; hop_i =
+    # prior-hop-hit entities' 2-hop. GTE ranks WITHIN this pool, so it never
+    # sees structurally-unreachable relations — a correct relation buried under
+    # surface-token matches in the full set (e.g. location.location.containedby
+    # for an airport->country hop) surfaces into top-K. The LLM's
+    # select_relations later picks from these grounded candidates (unchanged).
+    chains = list(getattr(ctx, "chains", []) or [])
+    if not chains:
+        # No chain structure (single sequential question): one chain from the anchor.
+        chains = [{"anchor": (ctx.anchor_name or ""),
+                   "fact_steps": [[f] for f in ctx.fact_ids]}]
+
+    def _parse_triple(fid):
         txt = ctx.fact_texts.get(fid, "")
         inner = txt.strip().strip("()")
         parts = [p.strip() for p in inner.split("|")] if inner else []
         head = parts[0] if len(parts) >= 1 else ""
         rel_clause = parts[1] if len(parts) >= 2 else (txt or ctx.question)
         tail = parts[2] if len(parts) >= 3 else ""
+        return txt, head, rel_clause, tail
+
+    entries = {}   # fid -> entry dict (output in fid order below)
+    done_fids = set()
+    for chain in chains:
+        anc_name = (chain.get("anchor") or "").strip()
+        anc_idx = _resolve_chain_anchor(ctx, anc_name) if anc_name else ctx.anchor_idx
+        if anc_idx is None:
+            continue   # chain's fids fall through to the full-pool orphan pass
+        frontier = {anc_idx}
+        visited = set(frontier)
+        for step in (chain.get("fact_steps") or []):
+            grp = step if isinstance(step, list) else [step]
+            fids = [f for f in grp if f in ctx.fact_ids and f not in done_fids]
+            if not fids:
+                continue
+            pool = _reach2_relids(ctx, frontier)
+            if len(pool) < _GTE_POOL_MIN:
+                pool = set(range(len(ctx.rels)))   # too narrow -> full set
+            step_cands = {}
+            for fid in fids:
+                txt, head, rel_clause, tail = _parse_triple(fid)
+                cands = await _gte_for_triple(ctx, session, head, rel_clause, tail,
+                                              pool_relids=pool)
+                ctx.fact_relation_candidates[fid] = cands
+                step_cands[fid] = set(cands)
+                entries[fid] = {
+                    "id": fid, "triple": txt, "relation_hint": rel_clause,
+                    "candidate_relations": [ctx.rels[i] for i in cands if i < len(ctx.rels)],
+                }
+                done_fids.add(fid)
+            # Advance the frontier: entities reached via this step's candidate
+            # relations become the prefix for the next hop's grounded pool.
+            step_rels = set().union(*step_cands.values()) if step_cands else set()
+            if step_rels:
+                nxt = _entities_via_relations(frontier, step_rels, ctx, exclude=visited)
+                nxt = _passthrough_cvts(nxt, ctx, exclude=visited)
+                if nxt:
+                    visited |= nxt
+                    frontier = nxt
+    # Orphan facts (not in any chain / unresolved anchor): full-pool GTE.
+    for fid in ctx.fact_ids:
+        if fid in done_fids:
+            continue
+        txt, head, rel_clause, tail = _parse_triple(fid)
         cands = await _gte_for_triple(ctx, session, head, rel_clause, tail)
-        ctx.fact_relation_candidates[fid] = cands  # select_relations validates picks
-        triples_with_candidates.append({
-            "id": fid,
-            "triple": txt,
-            "relation_hint": rel_clause,
+        ctx.fact_relation_candidates[fid] = cands
+        entries[fid] = {
+            "id": fid, "triple": txt, "relation_hint": rel_clause,
             "candidate_relations": [ctx.rels[i] for i in cands if i < len(ctx.rels)],
-        })
+        }
+    triples_with_candidates = [entries[f] for f in ctx.fact_ids if f in entries]
 
     return _json_result({
         "flow": triples_with_candidates,
@@ -618,6 +692,37 @@ def _anchor_outgoing_rel_ids(ctx) -> set:
             if h == mid or t == mid:
                 out.add(r)
 
+    return out
+
+
+def _reach2_relids(ctx, entity_set) -> set:
+    """2-hop reachable relation indices from a SET of entities (undirected, any
+    intermediate — CVT or regular). Generalizes _anchor_outgoing_rel_ids to a
+    frontier set. Used by the chain-wise grounded GTE: hop_i's candidate pool
+    = the 2-hop relations of the entities hop_{i-1} reached (the chain prefix).
+
+    hop1 callers pass {anchor} (equivalent to _anchor_outgoing_rel_ids); hop_i
+    callers pass the prior hop's hit entities. Same 1-hop + 2-hop-any structure
+    as _anchor_outgoing_rel_ids so the GTE pool matches the traversal's
+    max_hops_per_step=2 hop-spanning.
+    """
+    out = set()
+    ent_set = set(e for e in entity_set if e is not None and 0 <= e < len(ctx.ents))
+    if not ent_set:
+        return out
+    neighbors = set()
+    for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+        if h in ent_set or t in ent_set:
+            out.add(r)
+            if h in ent_set and 0 <= t < len(ctx.ents):
+                neighbors.add(t)
+            if t in ent_set and 0 <= h < len(ctx.ents):
+                neighbors.add(h)
+    neighbors -= ent_set
+    for mid in neighbors:
+        for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+            if h == mid or t == mid:
+                out.add(r)
     return out
 
 
