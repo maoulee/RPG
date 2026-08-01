@@ -723,6 +723,12 @@ def _reach2_relids(ctx, entity_set) -> set:
         for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
             if h == mid or t == mid:
                 out.add(r)
+    # Filter structural noise (common.topic.*, type.*, kg.*, base.ontologies.*,
+    # etc.) — these exist on every entity and pollute the GTE candidate pool
+    # with generic noise that outranks specific gold relations for vague queries.
+    # Aligns the GTE pool with the walk's _build_adj(skip_rel_ids=noisy_rel_ids).
+    from kgqa.traversal.path_utils import _is_noisy_path_relation
+    out = {r for r in out if not _is_noisy_path_relation(ctx.rels[r])}
     return out
 
 
@@ -909,16 +915,18 @@ def _compact_overview(overview: str) -> str:
 def _resolve_chain_anchor(ctx, anchor_name: str):
     """Resolve a multi-anchor chain's declared anchor NAME to a graph entity idx.
 
-    Exact normalize match first, then substring (len>=3) — same logic as
-    loop._resolve_anchor. Falls back to ctx.anchor_idx (the primary anchor)
-    when the name is empty/unresolvable, so a mis-declared anchor degrades to
-    the primary rather than dropping the chain.
+    Exact normalize match first, then substring (len>=3, overlap>=40%) —
+    tighter than loop._resolve_anchor to avoid cross-language false matches
+    (e.g. a typo 'Lavinge' substring-matching an unrelated Thai entity).
+    Returns None for empty/unresolvable names — the chain is DROPPED (its
+    fids fall through to the full-pool GTE), NOT fallen back to the primary
+    anchor (which would ground the wrong entity).
     """
     if not anchor_name:
-        return ctx.anchor_idx
+        return None  # empty name = no anchor → drop chain (was: ctx.anchor_idx)
     mn = normalize(anchor_name)
-    if not mn:
-        return ctx.anchor_idx
+    if not mn or len(mn) < 2:
+        return None
     import re
     # System-layer block: a pure number/date/value is NOT a named entity — drop it
     # (keeps digit-bearing NAMES like "WW2", "Boeing 747", which contain letters).
@@ -930,10 +938,20 @@ def _resolve_chain_anchor(ctx, anchor_name: str):
     for i, e in enumerate(ctx.ents):
         if normalize(e) == mn and _named(i):
             return i
+    # Substring match: require BOTH names >=3 chars + meaningful overlap
+    # (shorter >= 40% of longer) to prevent short/garbage/cross-language names
+    # from false-matching.
     for i, e in enumerate(ctx.ents):
         en = normalize(e)
-        if len(mn) >= 3 and (mn in en or en in mn) and _named(i):
-            return i
+        if not en or len(en) < 3 or len(mn) < 3:
+            continue
+        if not _named(i):
+            continue
+        if mn in en or en in mn:
+            shorter = min(len(mn), len(en))
+            longer = max(len(mn), len(en))
+            if shorter >= longer * 0.4:
+                return i
     return None
 
 
@@ -979,27 +997,22 @@ async def _do_select_relations(args: Dict[str, Any], ctx, session) -> str:
             chosen[fid] = set(candidates)
             ctx.fact_relations[fid] = set(candidates)
 
-    # Core-rule enforcement (harness-layer intercept): if the model emitted ANY
-    # relation not returned by the tool, REJECT once and tell it to re-select from
-    # the candidate_relations — do not silently drop the invented name. The loop
-    # leaves the model in EXPAND, where one backward `select_relations` rewrite is
-    # allowed (MAX_SELECTS=2); a second invalid attempt falls through and proceeds
-    # with the valid subset (graceful, avoids getting stuck).
-    if skipped and not getattr(ctx, "_select_invalid_retried", False):
-        ctx._select_invalid_retried = True
-        inv = "; ".join(f"{s['fact_id']}: {s['invalid']}" for s in skipped)
-        valid_per_fact = {
-            s["fact_id"]: [ctx.rels[i] for i in ctx.fact_relation_candidates.get(s["fact_id"], [])][:20]
-            for s in skipped
-        }
-        return _json_result({
-            "error": ("selection REJECTED — these relations were NOT returned by the "
-                     f"tool: {inv}. The tool did not return those relations. Re-call "
-                     "`select_relations` using ONLY relations from each fact's "
-                     "candidate_relations (Core rule: emit only what the tool returned)."),
-            "invalid": skipped,
-            "valid_candidates": valid_per_fact,
-        })
+    # Non-blocking validation (REPORT, not a hard reject): if the model emitted any
+    # relation not in that fact's candidate set, the offending names are already
+    # recorded in `skipped`; the VALID subset is locked into ctx.fact_relations
+    # above (and if NOTHING was valid, that fact falls back to all candidates,
+    # lines above). We PROCEED to run the traversal on the valid subset and surface
+    # the dropped names in the result's `skipped_invalid` field (fact_id → invalid
+    # list) so the model can see what was filtered — but we do NOT block or force a
+    # re-select.
+    #
+    # Why no hard reject: in one-shot rollout each candidate gets a single
+    # execution. A hard reject returns BEFORE the traversal → ctx.branches stays
+    # empty → score_variant("plan") = 0 for EVERY rejected candidate → the whole
+    # K-candidate group collapses to "skip" (no variance, none ≥ CORRECT).
+    # Reporting + proceeding keeps the valid subset's traversal scoreable in BOTH
+    # the agent loop and the rollout. (Was: reject-once via _select_invalid_retried;
+    # that flag is now unused — the graceful path is always taken.)
 
     selected_summary = {fid: [ctx.rels[i] for i in ids] for fid, ids in chosen.items()}
 
