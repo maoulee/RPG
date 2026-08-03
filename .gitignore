@@ -202,3 +202,11 @@ scripts/resample_combined.py
 scripts/rescore_trajectories.py
 scripts/route_clean.py
 scripts/score_paths_from_ref.py
+
+# SAPS anonymized upload package — reproducible build artifacts, not source.
+# Regenerate from the tracked tree (see SAPS_code/README.md recipe).
+SAPS_code/
+SAPS_code.zip
+SAPS_code.tar.gz
+# stray empty draft at repo root (real paper lives in paper/, which is ignored)
+saps.tex
