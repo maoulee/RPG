@@ -100,6 +100,8 @@ class CaseContext:
     chains: List[dict] = field(default_factory=list)  # parsed question_chains: [{anchor (name|""), fact_steps ([groups])}, ...]; one per independent anchor (multi-anchor). Single-chain = 1 entry.
     fact_relations: Dict[str, set] = field(default_factory=dict)  # fact_id -> GTE relation idx set
     fact_relation_candidates: Dict[str, list] = field(default_factory=dict)  # fact_id -> pruned candidate rel idx (model picks from these)
+    fact_entities: Dict[str, List[int]] = field(default_factory=dict)  # SEQ pipeline: fact_id -> resolved entity idx frontier (fact_i's hits feed fact_{i+1} grounding). Empty for SAPS.
+    subgraph_entities: set = field(default_factory=set)  # SEQ pipeline: accumulated entity idx seen across all retrieve_subgraph trees (+ anchor). Center-boundary check. Empty for SAPS.
     fact_paths: Dict[str, list] = field(default_factory=dict)
     all_paths: list = field(default_factory=list)
     all_candidates: List[str] = field(default_factory=list)
