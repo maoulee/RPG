@@ -102,6 +102,8 @@ class CaseContext:
     fact_relation_candidates: Dict[str, list] = field(default_factory=dict)  # fact_id -> pruned candidate rel idx (model picks from these)
     fact_entities: Dict[str, List[int]] = field(default_factory=dict)  # SEQ pipeline: fact_id -> resolved entity idx frontier (fact_i's hits feed fact_{i+1} grounding). Empty for SAPS.
     subgraph_entities: set = field(default_factory=set)  # SEQ pipeline: accumulated entity idx seen across all retrieve_subgraph trees (+ anchor). Center-boundary check. Empty for SAPS.
+    var_bindings: Dict[str, List[str]] = field(default_factory=dict)  # SEQ pipeline: ?variable -> bound entity NAMES, populated from the model's checkpoint declarations ([fid ✓] ?var = [v1,...]). Tools expand "?var" in `entities` via this map. Empty for SAPS.
+    accumulated_triples: set = field(default_factory=set)  # SEQ pipeline: set of (h_name, r_name, t_name) seen across prior retrieve_subgraph calls. Used by display cycle-suppression: a chain whose edge repeats/inverses an accumulated edge (subgraph N looping back onto subgraph 1) is dropped from the tree. Empty for SAPS.
     fact_paths: Dict[str, list] = field(default_factory=dict)
     all_paths: list = field(default_factory=list)
     all_candidates: List[str] = field(default_factory=list)

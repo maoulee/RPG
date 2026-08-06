@@ -6,10 +6,34 @@ endpoint rescue patterns, and grouped-triple displays for LLM reasoning.
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Dict, List, Tuple
 
 from kgqa.core.utils import normalize, rel_to_text
 from kgqa.traversal.cvt import is_cvt_like, expand_through_cvt
+
+
+# Latin-script allow-ranges for the multilingual-noise filter. Freebase stores
+# the same entity's aliases in many scripts (CJK/Arabic/Cyrillic/…) as separate
+# "entities" — those flood evidence with unreadable duplicates, so non-Latin
+# LETTERS are dropped. But Latin-with-diacritics/symbols MUST stay: U+2212 minus
+# in 'UTC−05:00', Vietnamese 'Tiến Quân Ca', 'Zürich', 'Bø'. isascii() was too
+# coarse (it dropped these legit entities → empty evidence); this script check
+# keeps the multilingual-noise intent without the over-broad ASCII restriction.
+_LATIN_RANGES = ((0x0000, 0x024F), (0x1E00, 0x1EFF), (0x2C60, 0x2C7F))
+
+
+def _is_latinish(name) -> bool:
+    """True if name contains no non-Latin LETTER (allows Latin+diacritics, digits,
+    punctuation, and symbols like U+2212). Drops CJK/Arabic/Cyrillic/etc. words."""
+    for ch in str(name):
+        if not unicodedata.category(ch).startswith("L"):   # non-letter allowed
+            continue
+        cp = ord(ch)
+        if not any(lo <= cp <= hi for lo, hi in _LATIN_RANGES):
+            return False
+    return True
+
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +246,7 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
             h_name = ents[h_idx] if 0 <= h_idx < len(ents) else "?"
             t_name = ents[t_idx] if 0 <= t_idx < len(ents) else "?"
             r_text = rel_to_text(rels_list[r_idx]) if 0 <= r_idx < len(rels_list) else "?"
-            if not h_name.isascii() or not t_name.isascii():
+            if not _is_latinish(h_name) or not _is_latinish(t_name):
                 return
             if len(normalize(h_name)) < 2 or len(normalize(t_name)) < 2:
                 return
@@ -271,7 +295,7 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
             score = (
                 0 if other_idx in witness_node_set else 1,
                 1 if _meta_rel_priority(rel_name) else 0,
-                0 if other_name.isascii() else 1,
+                0 if _is_latinish(other_name) else 1,
                 len(normalize(other_name)) < 2,
                 rel_to_text(rel_name) if rel_name else "",
                 other_name,
@@ -906,7 +930,7 @@ def format_subgraph_with_cvt(triples, max_lines=80, max_tails=50):
             key=lambda x: (
                 1 if _is_noisy_cvt_attr(x[0]) else 0,
                 1 if is_cvt_like(x[1]) else 0,
-                0 if x[1].isascii() else 1,
+                0 if _is_latinish(x[1]) else 1,
                 len(normalize(x[1])) < 2,
                 x[0],
                 x[1],
@@ -1149,7 +1173,7 @@ def _extract_path_candidates(paths, anchor_idx, ents, h_ids, r_ids, t_ids):
     unique = []
     for c in cands:
         nc = normalize(c)
-        if len(nc) < 2 or not c.isascii():
+        if len(nc) < 2 or not _is_latinish(c):
             continue
         if nc not in seen:
             seen.add(nc)

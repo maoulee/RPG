@@ -26,6 +26,50 @@ RETRIEVE = "RETRIEVE"   # retrieve_relations / retrieve_subgraph / answer
 DONE = "DONE"
 
 
+def _parse_subgraphs_decompose(args: dict) -> dict:
+    """Parse the subgraphs decompose format (each named entity anchors a subgraph).
+    Returns the same structure as _parse_triple_decompose so downstream code is unchanged."""
+    subgraphs = args.get("subgraphs") or []
+    entities = args.get("entities") or []
+    if isinstance(entities, str):
+        entities = [e.strip() for e in entities.split(",") if e.strip()]
+    answer = str(args.get("answer") or "").strip()
+
+    if not subgraphs:
+        return {"error": "decompose must emit `subgraphs` (list of {id, anchor, facts})."}
+    if not answer.startswith("?"):
+        return {"error": "decompose `answer` must be a ?variable."}
+
+    fact_ids, fact_texts, chains = [], {}, []
+    for sg in subgraphs:
+        if not isinstance(sg, dict):
+            continue
+        sg_anchor = str(sg.get("anchor") or "").strip()
+        sg_facts = sg.get("facts") or []
+        sg_fids = []
+        for fact in sg_facts:
+            if not isinstance(fact, (list, tuple)) or len(fact) < 3:
+                continue
+            head, rel, tail = str(fact[0]).strip(), str(fact[1]).strip(), str(fact[2]).strip()
+            if not head or not rel:
+                continue
+            fid = f"f{len(fact_ids) + 1}"
+            fact_ids.append(fid)
+            fact_texts[fid] = f"({head} | {rel} | {tail})"
+            sg_fids.append(fid)
+        if sg_fids:
+            chains.append({"anchor": sg_anchor, "fact_steps": [[f] for f in sg_fids]})
+
+    if not fact_ids:
+        return {"error": "subgraphs contained no valid facts. Each fact: [head, sub-question, tail]."}
+    if not entities:
+        return {"error": "`entities` is empty. List every named entity.", "entities_missing": True}
+
+    first_anchor = chains[0].get("anchor", "") if chains else ""
+    return {"fact_ids": fact_ids, "fact_texts": fact_texts, "chains": chains,
+            "anchor": first_anchor, "entities": entities, "answer": answer}
+
+
 @dataclass
 class SeqAgentState:
     state: str = INIT
@@ -85,12 +129,22 @@ def validate(state: SeqAgentState, tool_calls) -> tuple:
     # ── INIT: only decompose ──
     if state.state == INIT:
         if name != "decompose":
-            return (False, "Call `decompose` first to emit FLOW + entities + answer.", state)
-        tri = _parse_triple_decompose(args)
+            return (False, "Call `decompose` first.", state)
+        # parse: subgraphs (new format) or flow (old fallback)
+        if "subgraphs" in args:
+            tri = _parse_subgraphs_decompose(args)
+        else:
+            tri = _parse_triple_decompose(args)
         if tri is None:
-            return (False, "decompose must emit the TRIPLE format: args.flow, args.entities, args.answer.", state)
+            return (False, "decompose must emit `subgraphs` (or `flow`) + entities + answer.", state)
         if "error" in tri:
-            return (False, tri["error"], state)
+            err = tri["error"]
+            if "could not trace" in err:
+                err += (" — every named ENTITY must have its own chain TO the answer ?variable. "
+                        "If an entity is a CONSTRAINT, declare its chain FROM the constraint TO the answer "
+                        "(e.g., [constraint_entity, 'which X are in this place', ?answer]), "
+                        "not FROM the answer TO the constraint.")
+            return (False, err, state)
         if tri.get("entities_missing") and state.n_decomposes == 0:
             state.n_decomposes += 1
             return (False, "decompose `entities` is empty. List EVERY named entity in the question.", state)

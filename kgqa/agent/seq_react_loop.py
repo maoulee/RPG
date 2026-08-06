@@ -14,6 +14,7 @@ harness, tools, AGENTS.md are not touched.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -27,6 +28,51 @@ from kgqa.agent import seq_tools as ST
 from kgqa.agent.react_loop import parse_react_output, _to_tool_calls  # reuse verbatim
 
 _AGENT_DIR = Path(__file__).resolve().parent
+
+# Model checkpoint declaration: `[fid ✓] ?var = [v1 | v2 | ...]` (| -separated values,
+# the same separator as the tree display — avoids comma-in-entity-name collisions).
+# Later declarations override earlier ones (a fact may be re-resolved with tighter bindings).
+_CKPT_RE = re.compile(r'\[[^\]]*?✓\]\s*(\?\w+)\s*=\s*\[([^\]]*)\]')
+
+
+def _update_var_bindings(ctx, content: str) -> None:
+    """Parse the model's checkpoint declarations and merge into ctx.var_bindings
+    (?variable -> bound entity names). The model declares the curated binding for a
+    variable after the retrieve_subgraph that resolves it; downstream tool calls that
+    reference `?var` are expanded from this map (seq_tools._expand_entities)."""
+    if not content:
+        return
+    vb = getattr(ctx, "var_bindings", None)
+    if vb is None:
+        ctx.var_bindings = vb = {}
+    for m in _CKPT_RE.finditer(content):
+        var, vals = m.group(1), m.group(2)
+        parts = [p.strip() for p in re.split(r'[|,]', vals) if p.strip()]
+        if parts:
+            vb[var] = parts
+
+
+def _parse_with_repair(content: str):
+    """parse_react_output with conservative system-level JSON repair for MINOR format
+    errors. Layered (each repair only fires if the previous failed to yield a tool):
+      1. strict parse (parse_react_output, which already does bracket-balance truncation
+         recovery + the ?variable quoting applied upstream).
+      2. trailing-comma removal — a comma immediately before '}' or ']' is always invalid
+         JSON, so stripping it is always safe (a common model slip).
+    Structural errors (missing brace mid-object) are NOT auto-repaired — the format nudge
+    handles those via re-emit. SAPS parse_react_output is left untouched.
+    """
+    tool, args = parse_react_output(content)
+    if tool:
+        return tool, args
+    repaired = re.sub(r',(\s*[}\]])', r'\1', content)
+    if repaired != content:
+        tool, args = parse_react_output(repaired)
+        if tool:
+            return tool, args
+    return None, None
+
+
 
 
 def seq_agents_md() -> str:
@@ -45,7 +91,21 @@ class SeqReactCase:
         self.failure_reason = ""
         self.done = False
         self._empty_answer_retried = False
+        # anti-loop: track consecutive identical tool calls so a stuck model (re-issuing
+        # the same retrieve_relations/subgraph) is nudged to converge instead of burning
+        # the turn budget (root cause of 2209/1864 empty-FAILs).
+        self._last_tool_sig = None
+        self._tool_repeat = 0
         self._init_messages()
+
+    def loop_nudge(self) -> str:
+        tool = self._last_tool_sig[0] if self._last_tool_sig else "the tool"
+        return (
+            f"⚠ You already called `{tool}` with these EXACT arguments, and the result was already "
+            f"returned to you — calling it again returns the same evidence and cannot advance the fact. "
+            f"Act on the result you already have: either SELECT a structural relation from the "
+            f"candidate_relations and call `retrieve_subgraph`, or declare your variable bindings and "
+            f"call `answer`. Do not re-call `{tool}` with the same arguments.")
 
     def _init_messages(self):
         self.messages = [
@@ -80,7 +140,10 @@ async def run_seq_react_case(session: aiohttp.ClientSession, sample: Dict[str, A
         if not rc.is_active:
             break
         msgs = list(rc.messages)
-        msgs.append({"role": "user", "content": rc.allowed_tools_hint()})
+        hint = rc.allowed_tools_hint()
+        if rc._tool_repeat >= 2:  # stuck on the same call — force convergence
+            hint = rc.loop_nudge() + "\n" + hint
+        msgs.append({"role": "user", "content": hint})
 
         try:
             raw_response, reasoning = await _call_single_with_reasoning(
@@ -103,17 +166,41 @@ async def run_seq_react_case(session: aiohttp.ClientSession, sample: Dict[str, A
         if reasoning:
             traj_step["reasoning"] = reasoning
         rc.ctx.trajectory.append(traj_step)
+        # merge any checkpoint variable-bindings the model just declared, so the
+        # dispatch below (and later turns) can expand `?var` in tool `entities`.
+        _update_var_bindings(rc.ctx, raw_response)
 
-        tool_name, parsed_args = parse_react_output(raw_response)
+        # repair unquoted ?variables in JSON values (?region → "?region") — the base
+        # model sometimes omits quotes around ?variables, producing invalid JSON
+        import re as _re
+        raw_response = _re.sub(r'(?<=[,\[\s:])\?(\w+)(?=[,\]\s}])', r'"?\1"', raw_response)
+
+        tool_name, parsed_args = _parse_with_repair(raw_response)
         if not tool_name:
-            rc.messages.append({"role": "user",
-                                "content": f"Could not parse tool call. Output JSON like: "
-                                           f"{{\"tool\": \"...\", \"args\": {{...}}}}. "
-                                           f"{rc.allowed_tools_hint()}"})
+            # if the model wrote an answer checklist but the `tool:` call didn't parse,
+            # give the EXACT answer format so it can submit instead of collapsing
+            if "CANDIDATES" in raw_response or "ANSWER:" in raw_response:
+                fmt_nudge = ("Your content has an answer checklist but no valid `tool:` call was parsed. "
+                             "To submit your answer, emit exactly ONE line:\n"
+                             'tool: {"tool": "answer", "args": {"entities": ["..."]}}')
+            else:
+                fmt_nudge = (f"Could not parse a tool call. Emit ONE line starting with `tool:` "
+                             f"followed by valid JSON:\n"
+                             f'tool: {{"tool": "...", "args": {{...}}}}\n'
+                             f"{rc.allowed_tools_hint()}")
+            rc.messages.append({"role": "user", "content": fmt_nudge})
             rc.ctx.trajectory.append({"role": "tool", "content": "(unparsed)"})
+            rc._last_tool_sig = None; rc._tool_repeat = 0   # different action — reset anti-loop
             continue
 
         parsed_args = parsed_args or {}
+        # anti-loop: detect consecutive IDENTICAL tool calls (same tool + same args)
+        sig = (tool_name, json.dumps(parsed_args, sort_keys=True, ensure_ascii=False))
+        if sig == rc._last_tool_sig:
+            rc._tool_repeat += 1
+        else:
+            rc._last_tool_sig = sig
+            rc._tool_repeat = 1
         ok, err, new_state = seq_validate(rc.state, _to_tool_calls(tool_name, parsed_args))
         if not ok:
             rc.messages.append({"role": "user", "content": f"REJECTED: {err}"})
