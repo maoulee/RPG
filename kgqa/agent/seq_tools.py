@@ -325,6 +325,42 @@ _EDGE_NOISY_SHORT = {
 }
 
 
+def _canonicalize_triples(triples, ctx) -> list:
+    """Flip triples whose rendered direction is REVERSED vs the raw graph edge.
+
+    The walk is undirected (DIRECTED_TRAVERSAL=0): an edge is traversed from
+    whichever side the center sits on, and the recorded triple puts the CENTER
+    first. That reverses relations which canonically point INTO the center — e.g.
+    `sports.mascot.team` is mascot→team, but retrieved from the team center it
+    renders as 'team --team--> mascot', the wrong way. The base model reads the
+    arrow literally, so a reversed arrow misleads it. This flips direct (both
+    named, non-CVT) triples back to the raw canonical (h→t) direction. CVT-
+    mediated triples keep their traversal direction (the CVT is the raw source
+    of its out-edges, so they are already canonical)."""
+    raw = set(zip(ctx.h_ids, ctx.r_ids, ctx.t_ids))
+    n2i = {normalize(e): i for i, e in enumerate(ctx.ents) if e}
+    r2i = {}
+    for i, r in enumerate(ctx.rels):
+        r2i.setdefault(r, i)
+    out = []
+    for tr in triples:
+        if not (isinstance(tr, (tuple, list)) and len(tr) == 3):
+            out.append(tr); continue
+        h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
+        if is_cvt_like(h) or is_cvt_like(t):
+            out.append(tr); continue                       # CVT-mediated: keep
+        hi, ri, ti = n2i.get(normalize(h)), r2i.get(r), n2i.get(normalize(t))
+        if hi is None or ri is None or ti is None:
+            out.append(tr); continue
+        if (hi, ri, ti) in raw:
+            out.append(tr)                                 # already canonical
+        elif (ti, ri, hi) in raw:
+            out.append((t, r, h))                          # reversed → flip
+        else:
+            out.append(tr)
+    return out
+
+
 def _resolve_cvt_edges(triples) -> list:
     """Flatten CVT-mediated 2-paths into named→named edges for display.
 
@@ -763,10 +799,12 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
     _collect_cvt_neighbors_to_pool(ctx)
 
     # ── relation-grouped tree (replaces pattern-based _format_merged) ──────────────
-    # Resolve CVT-mediated edges → named→named, deduped. Inverse / variant relations that
-    # surfaced the SAME entity pair via N different patterns (film.film_subject.films vs
-    # film.film.subjects; people.person.sibling_s vs people.sibling_relationship.sibling)
-    # collapse to ONE edge per entity pair here — the root cause of the 4× tree explosion.
+    # First flip any triples whose direction is reversed vs the raw graph (the undirected
+    # walk records center-first, which reverses relations pointing INTO the center, e.g.
+    # mascot.team rendered as 'team --team--> mascot'). Then resolve CVT-mediated edges
+    # → named→named, deduped. Inverse / variant relations that surfaced the SAME entity
+    # pair via N patterns collapse to ONE edge per entity pair here.
+    all_triples = _canonicalize_triples(all_triples, ctx)
     resolved = _resolve_cvt_edges(all_triples)
     # Cross-subgraph dedup: edges already shown in a PRIOR retrieve_subgraph are not
     # re-displayed (sg2 does not repeat sg1's content). Tracked as resolved (entity-pair)

@@ -144,11 +144,43 @@ def build_mode_level_logical_paths(anchor_idx, step_relations, h_ids, r_ids, t_i
             if max_hops_per_step < 2:
                 continue
             used1 = used_edges | frozenset({e1})
+            # CASE B: 2-hop bridge — end -> nb1 -> nb2 (rel2 in target)
             for nb2, rel2, e2 in adj.get(nb1, ()):
                 if e2 in used1:
                     continue
                 if rel2 in target_rels:
                     hits.append(_make_hit((nb1, nb2), (rel1, rel2), (e1, e2), rel2))
+
+            # CASE C: CVT-transparent 3-edge path — end -> nb1 -> nb2 -> nb3 (rel3 in target).
+            # A CVT mediator collapses its in/out edges into ONE logical hop, so a 3-graph-hop
+            # path with EXACTLY ONE CVT mediator (at nb1 or nb2) is within the 2-logical-hop
+            # budget. This is what makes the WALK match the relation POOL's reachability:
+            # _seq_pool_relids surfaces a relation behind a CVT bridge + one named hop (e.g.
+            # museum --org_rel--> CVT --child--> university, then university's `colors`) via its
+            # CVT-transparent hop, the model selects it, and CASE C lets the walk actually
+            # traverse it — without it, retrieve_relations returns a relation the walk can't
+            # reach ("reached nothing"). Gated: FINAL edge must be a target relation (emitted
+            # endpoints are target answers, few) and exactly one CVT mediator (no CVT->CVT) —
+            # so no beam explosion.
+            nb1_is_cvt = 0 <= nb1 < len(ents) and is_cvt_like(ents[nb1])
+            if not nb1_is_cvt:
+                continue   # the common CVT-bridge case has the mediator at the front (nb1);
+            # nb1-is-CVT covers museum->CVT->university->target. (nb2-CVT symmetric case is
+            # rarer and would fire here too if the `continue` above were removed; kept narrow
+            # to bound fan-out.)
+            for nb2, rel2, e2 in adj.get(nb1, ()):
+                if e2 in used1 or nb2 == end or nb2 == nb1:
+                    continue
+                if 0 <= nb2 < len(ents) and is_cvt_like(ents[nb2]):
+                    continue   # CVT->CVT: skip (ambiguous, rare)
+                used2 = used1 | frozenset({e2})
+                for nb3, rel3, e3 in adj.get(nb2, ()):
+                    if e3 in used2 or rel3 not in target_rels:
+                        continue
+                    if nb3 == end or nb3 == nb1 or nb3 == nb2:
+                        continue
+                    hits.append(_make_hit((nb1, nb2, nb3), (rel1, rel2, rel3),
+                                           (e1, e2, e3), rel3))
         return hits
 
     endpoint_targets = set(breakpoint_indices or ()) - {anchor_idx, None}
