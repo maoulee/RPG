@@ -43,10 +43,11 @@ def _name_to_idx(name: str, ctx) -> int | None:
     for i, en in enumerate(norms):
         if en == n:
             return i
-    # 2. substring (both directions)
+    # 2. substring (both directions) — skip empty norms (Hebrew/CJK normalize to "" →
+    # "" in anything = True, which resolves to the wrong entity)
     if len(n) >= 3:
         for i, en in enumerate(norms):
-            if n in en or en in n:
+            if en and len(en) >= 2 and (n in en or en in n):
                 return i
     # 3. accent-insensitive — strip accents on RAW entity text BEFORE normalize
     #    (normalize corrupts Vietnamese diacritics into spaces; must strip first)
@@ -528,7 +529,7 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
     Accepts a single entity or a LIST of entities. When multiple entities are passed,
     the GTE candidate pool is the UNION of all entities' 2-hop reachable relations —
     ensuring relations visible from ANY candidate are surfaced (not just the first)."""
-    raw = args.get("entities") or ([args.get("entity")] if args.get("entity") else [])
+    raw = args.get("center") or args.get("entities") or ([args.get("entity")] if args.get("entity") else [])
     entities = [str(e) for e in raw if e]
     question = args.get("question") or args.get("subquestion") or ""
     if not entities:
@@ -579,10 +580,10 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
     merged — dense tree + a candidate_attrs summary grouped by candidate under the shared
     relation pattern, so the model can compare across candidates (e.g. latest/largest).
     Accumulates seen entities into the subgraph."""
-    raw = args.get("entities") or ([args.get("entity")] if args.get("entity") else [])
+    raw = args.get("center") or args.get("entities") or ([args.get("entity")] if args.get("entity") else [])
     entities = [str(e) for e in raw if e]
     rel_names = args.get("relations") or []
-    fid = str(args.get("fact_id") or args.get("step") or "")
+    fid = str(args.get("sg") or args.get("fact_id") or args.get("step") or "")
     if not entities:
         return _json_result({"error": "no entities provided."})
     entities, _err = _expand_entities(entities, ctx)
@@ -681,7 +682,8 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
 # ───────────────────────── SEQ dispatch ─────────────────────────
 
 async def dispatch(tool_name: str, args: Dict[str, Any], ctx, session) -> str:
-    if tool_name == "decompose":
+    # accept both new SEQ names and old names (backward-compat for stale trajectories)
+    if tool_name in ("plan", "decompose"):
         return await _do_seq_decompose(args, ctx, session)
     if tool_name == "retrieve_relations":
         return await retrieve_relations(args, ctx, session)

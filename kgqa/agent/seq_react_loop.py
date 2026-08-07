@@ -25,6 +25,7 @@ from kgqa.agent.seq_harness import (
     SeqAgentState, validate as seq_validate, _allowed_hint as seq_allowed_hint,
 )
 from kgqa.agent import seq_tools as ST
+from kgqa.agent.seq_schemas import validate_args
 from kgqa.agent.react_loop import parse_react_output, _to_tool_calls  # reuse verbatim
 
 _AGENT_DIR = Path(__file__).resolve().parent
@@ -47,29 +48,128 @@ def _update_var_bindings(ctx, content: str) -> None:
         ctx.var_bindings = vb = {}
     for m in _CKPT_RE.finditer(content):
         var, vals = m.group(1), m.group(2)
-        parts = [p.strip() for p in re.split(r'[|,]', vals) if p.strip()]
+        parts = [p.strip() for p in re.split(r'\s*\|\s*', vals) if p.strip()]
         if parts:
             vb[var] = parts
 
 
+def _parse_flat(content: str):
+    """Parse a flat key:value tool-call format (no JSON braces/brackets).
+    Each line is 'key: value'. Lists use '|'. Facts use 'head | sub-question | tail'.
+    Subgraph fields: 'sgN.anchor: value', 'sgN.fM: head | sub-question | tail'.
+
+    This is inherently more stable than JSON: no brace/bracket matching, each line
+    is independent (robust to reasoning-leak corruption — a leaked line doesn't
+    break the structure). The model outputs this format; the parser constructs the
+    args dict, which is then validated by Pydantic."""
+    lines = content.split('\n')
+    tool_name = None
+    kv: dict = {}
+    sg_data: dict = {}   # {sg_id: {'anchor': str, 'facts': list}}
+
+    for line in lines:
+        line = line.strip().strip('`').strip()
+        if not line or line.startswith('#') or line.startswith('```') or line.startswith('json'):
+            continue
+        if line.lower().startswith('tool:'):
+            tool_name = line.split(':', 1)[1].strip()
+            continue
+        if ':' not in line:
+            continue
+        key, _, val = line.partition(':')
+        key, val = key.strip(), val.strip()
+
+        # subgraph fields: sgN.anchor / sgN.fM
+        if '.' in key and key.split('.')[0].lower().startswith('sg'):
+            parts = key.split('.', 1)
+            sg_id, field = parts[0], parts[1]
+            sg = sg_data.setdefault(sg_id, {'anchor': '', 'facts': []})
+            if field.lower() == 'anchor':
+                sg['anchor'] = val
+            elif field.lower().startswith('f'):   # fact: head | sub-question | tail
+                fact = [p.strip() for p in val.split('|')]
+                if len(fact) >= 3:
+                    sg['facts'].append(fact[:3])
+            continue
+
+        # regular key:value — pipe-separated for list fields
+        list_keys = ('entities', 'center', 'relations', 'candidates')
+        if '|' in val and key.lower() in list_keys:
+            kv[key] = [v.strip() for v in val.split('|') if v.strip()]
+        else:
+            kv[key] = val
+
+    if not tool_name:
+        return None, None
+
+    # construct args dict based on tool_name
+    def _as_list(v):
+        return v if isinstance(v, list) else ([v] if v else [])
+
+    if tool_name in ('plan', 'decompose'):
+        subgraphs = [{'id': sg_id, 'anchor': sg['anchor'], 'facts': sg['facts']}
+                     for sg_id, sg in sorted(sg_data.items())]
+        return tool_name, {
+            'subgraphs': subgraphs,
+            'entities': _as_list(kv.get('entities')),
+            'answer': kv.get('answer', ''),
+        }
+    if tool_name == 'retrieve_relations':
+        return tool_name, {
+            'center': _as_list(kv.get('center')),
+            'question': kv.get('question', ''),
+        }
+    if tool_name == 'retrieve_subgraph':
+        return tool_name, {
+            'center': _as_list(kv.get('center')),
+            'relations': _as_list(kv.get('relations')),
+            'sg': kv.get('sg', ''),
+        }
+    if tool_name == 'answer':
+        return tool_name, {'entities': _as_list(kv.get('entities'))}
+    return tool_name, kv
+
+
 def _parse_with_repair(content: str):
-    """parse_react_output with conservative system-level JSON repair for MINOR format
-    errors. Layered (each repair only fires if the previous failed to yield a tool):
-      1. strict parse (parse_react_output, which already does bracket-balance truncation
-         recovery + the ?variable quoting applied upstream).
-      2. trailing-comma removal — a comma immediately before '}' or ']' is always invalid
-         JSON, so stripping it is always safe (a common model slip).
-    Structural errors (missing brace mid-object) are NOT auto-repaired — the format nudge
-    handles those via re-emit. SAPS parse_react_output is left untouched.
-    """
+    """parse_react_output with conservative JSON repair + multi-tool retry.
+    Layered:
+      1. strict parse (whole content — parse_react_output does bracket-balance + ?var quoting).
+      2. trailing-comma repair (whole content).
+      3. multi-tool retry: the model's reasoning may LEAK mid-JSON (vLLM reasoning_end_str
+         force-injected at thinking-budget exhaustion), corrupting the first `tool:` segment.
+         The model often re-emits a CLEAN `tool:` line after the leak — scan ALL `tool:`
+         occurrences, try each segment, return the first that yields a valid tool. This
+         eliminates the ~52 decompose rejections caused by the reasoning-leak-on-long-payload.
+      4. flat format: no JSON braces — each line is an independent key:value pair.
+         Inherently stable (reasoning-leak corrupts one line, not the whole structure).
+         The model may output flat format OR corrupted JSON — this catches both.
+    SAPS parse_react_output is left untouched."""
+    # 1. strict parse (whole content)
     tool, args = parse_react_output(content)
     if tool:
         return tool, args
+    # 2. trailing-comma repair
     repaired = re.sub(r',(\s*[}\]])', r'\1', content)
     if repaired != content:
         tool, args = parse_react_output(repaired)
         if tool:
             return tool, args
+    # 3. multi-tool retry: reasoning-leak may corrupt the first tool: JSON mid-write;
+    #    the model often re-emits a clean version. Try each tool: occurrence.
+    for m in re.finditer(r'tool:\s*\{', content):
+        segment = content[m.start():]
+        tool, args = parse_react_output(segment)
+        if tool:
+            return tool, args
+        seg_repaired = re.sub(r',(\s*[}\]])', r'\1', segment)
+        if seg_repaired != segment:
+            tool, args = parse_react_output(seg_repaired)
+            if tool:
+                return tool, args
+    # 4. flat format fallback: no JSON — each line is key:value (robust to leaks).
+    tool, args = _parse_flat(content)
+    if tool:
+        return tool, args
     return None, None
 
 
@@ -173,19 +273,47 @@ async def run_seq_react_case(session: aiohttp.ClientSession, sample: Dict[str, A
         # repair unquoted ?variables in JSON values (?region → "?region") — the base
         # model sometimes omits quotes around ?variables, producing invalid JSON
         import re as _re
-        raw_response = _re.sub(r'(?<=[,\[\s:])\?(\w+)(?=[,\]\s}])', r'"?\1"', raw_response)
+        # quote unquoted ?variables — ONLY for JSON format (flat format doesn't need
+        # quoting; applying it there adds spurious double-quotes that break Pydantic
+        # validation: answer: ?x → answer: "?x" → Pydantic sees '"?x"' not '?x')
+        if _re.search(r'tool:\s*\{', raw_response):
+            raw_response = _re.sub(r'(?<=[,\[\s:])\?(\w+)(?=[,\]\s}])', r'"?\1"', raw_response)
 
         tool_name, parsed_args = _parse_with_repair(raw_response)
         if not tool_name:
             # if the model wrote an answer checklist but the `tool:` call didn't parse,
-            # give the EXACT answer format so it can submit instead of collapsing
-            if "CANDIDATES" in raw_response or "ANSWER:" in raw_response:
+            # DIAGNOSTIC: try to find the tool: JSON and report the SPECIFIC parse error
+            # so the model knows exactly what to fix (not just "could not parse").
+            _diag = None
+            for m in re.finditer(r'tool:\s*(\{)', raw_response):
+                _seg = raw_response[m.start(1):]
+                # extract the first balanced {...} (best effort)
+                _depth, _end = 0, 0
+                for _i, _c in enumerate(_seg):
+                    if _c == '{': _depth += 1
+                    elif _c == '}': _depth -= 1
+                    if _depth == 0 and _i > 0:
+                        _end = _i + 1; break
+                _candidate = _seg[:_end] if _end else _seg
+                try:
+                    json.loads(_candidate)
+                except json.JSONDecodeError as je:
+                    _diag = (f"The `tool:` JSON has a syntax error: {je.msg} at char {je.pos}. "
+                             f"This usually means the JSON was truncated or reasoning text leaked in. "
+                             f"Re-emit ONE clean `tool:` line with complete, valid JSON.")
+                    break
+                except Exception:
+                    _diag = "The `tool:` JSON could not be parsed. Re-emit ONE clean `tool:` line."
+                    break
+            if _diag:
+                fmt_nudge = _diag
+            elif "CANDIDATES" in raw_response or "ANSWER:" in raw_response:
                 fmt_nudge = ("Your content has an answer checklist but no valid `tool:` call was parsed. "
                              "To submit your answer, emit exactly ONE line:\n"
                              'tool: {"tool": "answer", "args": {"entities": ["..."]}}')
             else:
-                fmt_nudge = (f"Could not parse a tool call. Emit ONE line starting with `tool:` "
-                             f"followed by valid JSON:\n"
+                fmt_nudge = (f"No `tool:` line found or it has no JSON. Emit ONE line starting with "
+                             f"`tool:` followed by valid JSON:\n"
                              f'tool: {{"tool": "...", "args": {{...}}}}\n'
                              f"{rc.allowed_tools_hint()}")
             rc.messages.append({"role": "user", "content": fmt_nudge})
@@ -194,6 +322,16 @@ async def run_seq_react_case(session: aiohttp.ClientSession, sample: Dict[str, A
             continue
 
         parsed_args = parsed_args or {}
+        # Pydantic schema validation — formal parameter checking with specific
+        # field-level errors (replaces generic parse-failure nudges). Also normalizes
+        # old param names (entities→center, fact_id→sg) and fills defaults.
+        validated_args, schema_err = validate_args(tool_name, parsed_args)
+        if schema_err:
+            rc.messages.append({"role": "user", "content": f"REJECTED: {schema_err}"})
+            rc.ctx.trajectory.append({"role": "tool", "content": f"REJECTED: {schema_err}"})
+            rc._last_tool_sig = None; rc._tool_repeat = 0
+            continue
+        parsed_args = validated_args
         # anti-loop: detect consecutive IDENTICAL tool calls (same tool + same args)
         sig = (tool_name, json.dumps(parsed_args, sort_keys=True, ensure_ascii=False))
         if sig == rc._last_tool_sig:
