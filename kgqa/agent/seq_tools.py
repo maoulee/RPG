@@ -656,14 +656,30 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
             return _json_result({"error": (f"'{e}' is not in the retrieved subgraph. Centers "
                                            f"must come from a previous retrieve_subgraph tree.")})
         idxs.append(i)
-    # union pool: all entities' 2-hop reachable relations + one CVT-transparent hop
-    pool = set()
-    for i in idxs:
-        pool |= _seq_pool_relids(ctx, {i})
-    if len(pool) < _GTE_POOL_MIN:
-        pool = set(range(len(ctx.rels)))
-    head = entities[0] if len(entities) == 1 else "these entities"
-    cands = await _gte_for_triple(ctx, session, head, question, "", pool_relids=pool)
+    # GTE per-entity (NOT a generic "these entities" head). A multi-entity call is a
+    # variable expansion (?var → several bindings); each entity's relevant relations
+    # differ. One generic-head call on the union pool loses the entity-specific ranking
+    # signal — e.g. [San Francisco Giants, Crazy Crab] for "last win World Series"
+    # dropped `sports.sports_team.championships` (ranked #1 for the Giants alone) out
+    # of the top-15, surfacing only generic season/stats relations. So rank each
+    # entity's OWN pool with its OWN name, then union (dedup, per-entity rank order).
+    if len(idxs) == 1:
+        pool = _seq_pool_relids(ctx, {idxs[0]})
+        if len(pool) < _GTE_POOL_MIN:
+            pool = set(range(len(ctx.rels)))
+        cands = await _gte_for_triple(ctx, session, entities[0], question, "",
+                                      pool_relids=pool)
+    else:
+        cands, seen = [], set()
+        for ent, i in zip(entities, idxs):
+            ent_pool = _seq_pool_relids(ctx, {i})
+            if len(ent_pool) < _GTE_POOL_MIN:
+                ent_pool = set(range(len(ctx.rels)))
+            ranked = await _gte_for_triple(ctx, session, ent, question, "",
+                                           pool_relids=ent_pool)
+            for r in ranked:
+                if r not in seen:
+                    seen.add(r); cands.append(r)
     _note = ("Pick the structural BRIDGE relation(s) whose information advances this fact. "
              "Do NOT pick attribute relations (date/name/type/role) — the system reveals "
              "those automatically inside CVTs. "
