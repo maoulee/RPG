@@ -65,6 +65,97 @@ def _name_to_idx(name: str, ctx) -> int | None:
     return None
 
 
+def _match_sim(a, b) -> float:
+    """Name-similarity ratio (0–1) between an input and a matched entity, to tell a
+    confident match from a substring-FRAGMENT match. _name_to_idx's substring step
+    matches 'museum' inside 'harvard museum of modern colors' (a fragment → wrong
+    entity), which a None-check alone misses. difflib fuzzy in _name_to_idx already
+    gates at 0.85, so a real fuzzy/typo match scores ≥0.85; a fragment scores far
+    below — 0.80 separates them."""
+    import difflib
+    return difflib.SequenceMatcher(None, normalize(str(a)), normalize(str(b))).ratio()
+
+
+def _looks_like_value(name) -> bool:
+    """True if the input is a literal VALUE (numeric/coordinate/raw date), not a named
+    entity. The model sometimes passes a value as a center (e.g. '-1.61' a latitude,
+    '8848' an elevation, '1969-07-20' a date). These have no semantic name, so GTE
+    entity-resolution can't help — reject them up-front with a clear message rather
+    than routing through the correction loop (which would return no candidates)."""
+    s = str(name).strip().strip("'\"")
+    if len(s) < 2:
+        return False
+    digits = sum(c.isdigit() for c in s)
+    # mostly digits/punctuation: coordinates, numbers, ISO dates, UTC offsets
+    return digits >= max(2, len(s) * 0.5)
+
+
+async def _entity_correction(name, question, ctx, session, top_k_candidates: int = 5,
+                             top_k_rels: int = 3):
+    """Entity-name CORRECTION (model-in-the-loop, not auto-resolve).
+
+    When an input entity name isn't in the graph (_name_to_idx fails), GTE-find
+    candidate entities by NAME similarity, and for each candidate show its TOP-K
+    question-relevant NEIGHBOR relations (GTE: original question vs the candidate's
+    1-hop relations). The model reads the neighbor relations to disambiguate (a
+    battle has commander/participants; a city has population/area) and re-calls with
+    the right entity. Name-match alone is unreliable (several high-similarity
+    candidates), so the relations are the disambiguation signal — but the MODEL
+    decides, the system only informs.
+
+    Only for the initial named entity (literal center), NOT for ?var bindings.
+    Returns a list of {name, neighbor_relations} candidates, or None if no
+    session / no named entities / GTE fails (caller falls back to a plain error)."""
+    from kgqa.stages.stage2_entity import gte_retrieve
+    if session is None or not str(name).strip():
+        return None
+    # named entities only (skip CVT m-ids + short/empty norms that match anything)
+    named = [(i, e) for i, e in enumerate(ctx.ents)
+             if e and not is_cvt_like(e) and len(normalize(e)) >= 3]
+    if not named:
+        return None
+    idxs = [i for i, _ in named]
+    names = [e for _, e in named]
+    name2idx = {e: i for i, e in zip(idxs, names)}   # name → graph idx (first occurrence)
+    # 1. GTE candidate entities by name similarity to the (wrong) input.
+    #    gte_retrieve returns rows with 'candidate' (the matched name) + 'score'.
+    try:
+        rows = await gte_retrieve(session, str(name), names,
+                                  candidate_texts=names, top_k=top_k_candidates)
+    except Exception:
+        return None
+    out = []
+    for row in rows:
+        ename = row.get("candidate")
+        if not ename:
+            continue
+        eidx = name2idx.get(ename)
+        if eidx is None:
+            continue
+        # 2. this candidate's 1-hop NEIGHBOR relations
+        rels_1hop = set()
+        for k in range(len(ctx.h_ids)):
+            if (ctx.h_ids[k] == eidx or ctx.t_ids[k] == eidx) and 0 <= ctx.r_ids[k] < len(ctx.rels):
+                rels_1hop.add(ctx.r_ids[k])
+        if not rels_1hop:
+            continue
+        rel_names = sorted(rels_1hop, key=lambda r: ctx.rels[r])
+        # 3. top-K question-relevant NEIGHBOR relations — reuse the proven _gte_for_triple
+        #    (raw relation names embed poorly; _gte_for_triple labels them as
+        #    'head | rel | ?' triples, which GTE ranks correctly).
+        try:
+            ranked = await _gte_for_triple(ctx, session, ename, question or str(name),
+                                           "", pool_relids=rels_1hop)
+            top_rels = [ctx.rels[r] for r in ranked[:top_k_rels] if 0 <= r < len(ctx.rels)]
+        except Exception:
+            top_rels = [ctx.rels[r] for r in rel_names[:top_k_rels]]
+        if top_rels:
+            out.append({"name": ename, "neighbor_relations": top_rels[:top_k_rels]})
+        if len(out) >= top_k_candidates:
+            break
+    return out if out else None
+
+
 def _expand_entities(entities, ctx):
     """Expand any ?variable in an entity-name list to its declared bindings
     (ctx.var_bindings, populated from the model's checkpoints). Literal named
@@ -685,9 +776,29 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
     # resolve all entities + boundary check
     idxs = []
     for e in entities:
+        if _looks_like_value(e):
+            return _json_result({"entity_error": f"'{e}' is a VALUE (numeric), not a named "
+                              "graph entity. A coordinate/number/date is not a center — pick a "
+                              "named entity from a previous retrieve_subgraph tree."})
         i = _name_to_idx(e, ctx)
-        if i is None:
-            return _json_result({"error": f"entity '{e}' not found in the subgraph."})
+        # fire CORRECTION only on no-match OR a clear substring-FRAGMENT match (sim<0.5).
+        # _name_to_idx matches 'museum' inside 'harvard museum of modern colors' (a fragment
+        # → wrong entity). difflib-fuzzy in _name_to_idx gates at 0.85, so a real fuzzy/typo
+        # match (≥0.85) and near-matches (plural etc.) pass through; only genuine fragments
+        # fire the correction. (A higher threshold over-fires and disrupts good flows — base
+        # model is unfamiliar with the correction nudge and burns a turn re-selecting.)
+        if i is None or _match_sim(e, ctx.ents[i]) < 0.50:
+            cands = await _entity_correction(e, question, ctx, session)
+            if cands:
+                return _json_result({
+                    "entity_error": f"'{e}' is not a confident entity in the graph.",
+                    "candidates": cands,
+                    "note": "Pick the correct entity from `candidates` — each lists its "
+                            "question-relevant NEIGHBOR relations (use them to tell e.g. a "
+                            "battle from a city of the same name). Re-call with the right entity."})
+            if i is None:
+                return _json_result({"error": f"entity '{e}' not found in the subgraph."})
+            # low-conf match but no correction candidates → fall through with the match
         if not _in_subgraph(i, ctx):
             return _json_result({"error": (f"'{e}' is not in the retrieved subgraph. Centers "
                                            f"must come from a previous retrieve_subgraph tree.")})
@@ -756,13 +867,34 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
                                       "returned by retrieve_relations."})
 
     # resolve + boundary-check each center (skip any not yet in the subgraph, proceed with the rest)
+    for e in entities:
+        if _looks_like_value(e):
+            return _json_result({"entity_error": f"'{e}' is a VALUE (numeric), not a named "
+                              "graph entity. A coordinate/number/date is not a center — pick a "
+                              "named entity from a previous retrieve_subgraph tree."})
     centers, skipped = [], []
+    bad_name = None                     # an entity whose NAME is wrong/low-conf → correct
     for e in entities:
         i = _name_to_idx(e, ctx)
-        if i is None or not _in_subgraph(i, ctx):
-            skipped.append(e)
-        else:
+        if i is None or _match_sim(e, ctx.ents[i]) < 0.50:
+            if bad_name is None:
+                bad_name = e            # no-match or substring-fragment match → correct
+            if i is None:
+                continue
+            # low-conf match present but flagged → still try it as a center below if in-subgraph
+        if i is not None and not _in_subgraph(i, ctx):
+            skipped.append(e)           # in graph but not yet retrieved → boundary skip
+        elif i is not None:
             centers.append((e, i))
+    if bad_name is not None:
+        # entity-name CORRECTION: wrong/low-conf name → offer GTE candidates + NEIGHBOR relations
+        cands = await _entity_correction(bad_name, getattr(ctx, "question", ""), ctx, session)
+        if cands:
+            return _json_result({
+                "entity_error": f"'{bad_name}' is not an entity in the graph.",
+                "candidates": cands,
+                "note": "Pick the correct entity from `candidates` — each lists its "
+                        "NEIGHBOR relations (use them to disambiguate). Re-call with the right entity."})
     if not centers:
         return _json_result({"error": (f"none of {entities} are in the retrieved subgraph. Centers "
                                        f"must come from a previous retrieve_subgraph tree (or the "
