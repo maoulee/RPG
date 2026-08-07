@@ -84,11 +84,17 @@ def get_entity_contexts(entity_names, h_ids, r_ids, t_ids, ents, rels):
 # ---------------------------------------------------------------------------
 
 def candidate_hit(cands: List[str], targets: List[str]) -> bool:
+    # Filter empties AFTER normalize: brackets/punctuation like "[]" or "()" normalize
+    # to "" and `"" in target` is True for every string — an empty answer would match
+    # everything (f1=1.0). Same guard as the empty-string _name_to_idx fix.
     norm_cands = [normalize(c) for c in cands if c.strip()]
+    norm_cands = [c for c in norm_cands if len(c) >= 2]
     if not norm_cands:
         return False
     for t in targets:
         nt = normalize(t)
+        if len(nt) < 2:
+            continue
         for c in norm_cands:
             if c == nt or nt in c or c in nt:
                 return True
@@ -166,6 +172,10 @@ def compute_match_stats(predicted: List[str], gold: List[str]) -> Dict[str, floa
 
     norm_pred = [normalize(c) for c in predicted if c.strip()]
     norm_gold = [normalize(t) for t in gold if t.strip()]
+    # Drop empty/short normalizations: "[]"/"()" normalize to "" and `"" in target`
+    # is True for every string, which would score an empty answer as f1=1.0.
+    norm_pred = [c for c in norm_pred if len(c) >= 2]
+    norm_gold = [t for t in norm_gold if len(t) >= 2]
     if not norm_pred or not norm_gold:
         return {'precision': 0.0, 'recall': 0.0, 'f1': 0.0,
                 'matched_gold': 0, 'matched_pred': 0, 'n_gold': len(gold), 'n_pred': len(predicted)}

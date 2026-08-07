@@ -308,6 +308,108 @@ def _format_pattern_body(pe, accumulated=None, max_tails: int = 60, max_chains: 
     return out
 
 
+def _short_rel(r: str) -> str:
+    """Last path segment of a relation name (organization.organization.parent → parent)."""
+    r = str(r)
+    return r.rsplit(".", 1)[-1] if r else r
+
+
+# Noisy relation short-names to drop from the rendered tree (bookkeeping / type / role
+# noise that floods high-degree entities — "Politician --notable_types--> …", "Author
+# --profession--> …"). Holds no answer signal.
+_EDGE_NOISY_SHORT = {
+    "type", "types", "instance", "instances", "notable_types", "notable_type",
+    "profession", "webpage", "mid", "guid", "key", "keys", "permission",
+    "article", "description", "alias", "name", "topic_equivalent_webpage",
+    "is_reviewed", "image", "webpage_topic",
+}
+
+
+def _resolve_cvt_edges(triples) -> list:
+    """Flatten CVT-mediated 2-paths into named→named edges for display.
+
+    A Freebase compound fact runs (named --r1--> CVT --r2--> named2); the CVT is a
+    transparent mediator and r2 is the meaningful role edge. This collapses such
+    2-paths to (named, r2, named2). Direct named→named edges are kept. CVT tails
+    with no named head and pure CVT↔CVT edges are dropped (not answerable).
+
+    Inverse / variant relations that surface the SAME entity pair via different
+    relation names (film.film_subject.films vs film.film.subjects; people.person.
+    sibling_s vs people.sibling_relationship.sibling) all collapse onto one named
+    edge per entity pair after resolution — the root cause of the 4× pattern
+    explosion. Returns [(head_name, rel_short, tail_name)] all named.
+    """
+    cvt_out = {}                       # cvt_name -> [(rel_short, named_tail)]
+    direct = []
+    for tr in triples:
+        if not (isinstance(tr, (tuple, list)) and len(tr) == 3):
+            continue
+        h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
+        if is_cvt_like(h) and not is_cvt_like(t):
+            cvt_out.setdefault(h, []).append((_short_rel(r), t))
+        elif not is_cvt_like(h) and not is_cvt_like(t):
+            sr = _short_rel(r)
+            if sr in _EDGE_NOISY_SHORT or normalize(h) == normalize(t):
+                continue                   # drop bookkeeping noise + self-loops
+            direct.append((h, sr, t))
+    resolved = []
+    seen = set()
+    for h, r, t in direct:
+        k = (normalize(h), r, normalize(t))
+        if k not in seen:
+            seen.add(k); resolved.append((h, r, t))
+    for tr in triples:
+        if not (isinstance(tr, (tuple, list)) and len(tr) == 3):
+            continue
+        h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
+        if not is_cvt_like(h) and is_cvt_like(t):     # named → CVT: continue through it
+            for r2, t2 in cvt_out.get(t, ()):
+                if is_cvt_like(t2) or r2 in _EDGE_NOISY_SHORT:
+                    continue
+                if normalize(h) == normalize(t2):
+                    continue                           # self-loop (e.g. sibling listing self)
+                k = (normalize(h), r2, normalize(t2))
+                if k not in seen:
+                    seen.add(k); resolved.append((h, r2, t2))
+    return resolved
+
+
+def _merge_edges(edges, max_per_line: int = 8) -> list:
+    """Merge resolved edges into compact list-form lines, BOTH directions:
+      same (h, r) with differing t      → 'h --r--> t1 | t2 | ...'      (t-list)
+      same (r, t-set) with differing h  → 'h1 | h2 | ... --r--> t1|t2'  (h-list)
+    Grouping by (r, t-set) catches the multi-t case too: 8 siblings each pointing
+    at the same parent-set collapse to '[Ted|Robert|…] --parents--> Joseph|Rose'.
+    Entities joined by ' | '. Returns rendered strings (caller indents)."""
+    by_hr = {}                          # (h, r) -> [t ...] (ordered, deduped)
+    for h, r, t in edges:
+        by_hr.setdefault((h, r), [])
+        if t not in by_hr[(h, r)]:
+            by_hr[(h, r)].append(t)
+    # group the per-h t-lists by (r, t-set) so heads sharing the same tail-set merge
+    groups = {}                         # (r, tuple(ts)) -> [ts_list, [h...]]
+    for (h, r), ts in by_hr.items():
+        key = (r, tuple(ts))
+        if key not in groups:
+            groups[key] = [ts, []]
+        groups[key][1].append(h)
+    out = []
+    for (r, ts), (ts_list, hs) in groups.items():
+        hs = list(dict.fromkeys(hs))
+        h_part = ' | '.join(hs[:max_per_line])
+        if len(hs) > max_per_line:
+            h_part += f" +{len(hs) - max_per_line} more"
+        t_part = ' | '.join(ts_list[:max_per_line])
+        if len(ts_list) > max_per_line:
+            t_part += f" +{len(ts_list) - max_per_line} more"
+        out.append(f"{h_part} --{r}--> {t_part}")
+    return out
+
+
+def _shown_edge_key(h: str, r: str, t: str) -> tuple:
+    return (normalize(h), r, normalize(t))
+
+
 def _format_merged(collected, accumulated=None, max_tails: int = 60, max_chains: int = 4) -> list:
     """Cross-center merged display. `collected` = list of (center_name,
     PatternEvidence) across all centers of one retrieve_subgraph call. Group by
@@ -629,7 +731,6 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
             for c in (p.candidates or []):
                 if not is_cvt_like(c) and c not in candidates:
                     candidates.append(c)
-    tree_lines = _format_merged(collected, prior_triples)
     if not all_triples:
         return _json_result({"error": "the walk reached nothing for these relations. Try a different "
                                       "bridge relation (re-call retrieve_relations), or pick different "
@@ -639,14 +740,33 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
     # ensure ALL tree-visible entities (incl CVT-attr entities pe.triples may miss) are answerable
     _collect_cvt_neighbors_to_pool(ctx)
 
-    # global line budget: P1 (the direct bridge) renders first and carries the signal;
-    # later walk-exploration patterns are truncated with a transparent note so the prompt
-    # cannot explode on high-degree relations (which caused intermittent empty-answer FAILs).
-    _TREE_LINE_BUDGET = 90
+    # ── relation-grouped tree (replaces pattern-based _format_merged) ──────────────
+    # Resolve CVT-mediated edges → named→named, deduped. Inverse / variant relations that
+    # surfaced the SAME entity pair via N different patterns (film.film_subject.films vs
+    # film.film.subjects; people.person.sibling_s vs people.sibling_relationship.sibling)
+    # collapse to ONE edge per entity pair here — the root cause of the 4× tree explosion.
+    resolved = _resolve_cvt_edges(all_triples)
+    # Cross-subgraph dedup: edges already shown in a PRIOR retrieve_subgraph are not
+    # re-displayed (sg2 does not repeat sg1's content). Tracked as resolved (entity-pair)
+    # keys so semantic duplicates with different relation names are also caught — unlike
+    # the old chain-level filter which only knew the few pairs in _INVERSE_PAIR.
+    shown = getattr(ctx, "shown_edges", None)
+    if shown is None:
+        shown = set(); ctx.shown_edges = shown
+    new_edges = [(h, r, t) for (h, r, t) in resolved if _shown_edge_key(h, r, t) not in shown]
+    n_overlap = len(resolved) - len(new_edges)
+    for h, r, t in new_edges:
+        shown.add(_shown_edge_key(h, r, t))
+    # merge: same (h,r) with differing t → 'h --r--> t1 | t2 | ...'; same (r,t) with
+    # differing h → 'h1 | h2 | ... --r--> t'. Either direction, whichever collapses more.
+    tree_lines = [f"  {ln}" for ln in _merge_edges(new_edges)]
+    if not tree_lines and n_overlap:
+        tree_lines = [f"  (all {n_overlap} edges already shown in a prior subgraph — nothing new)"]
+    _TREE_LINE_BUDGET = 60
     if len(tree_lines) > _TREE_LINE_BUDGET:
         dropped = len(tree_lines) - _TREE_LINE_BUDGET
         tree_lines = tree_lines[:_TREE_LINE_BUDGET]
-        tree_lines.append(f"... [+{dropped} lines truncated — full set in candidates / candidate_attrs]")
+        tree_lines.append(f"  ... +{dropped} lines truncated (see candidates / candidate_attrs)")
 
     # candidate_attrs: grouped by candidate under the shared relation pattern (CVT attrs inline,
     # KEEPS has_no_value → "to=(incumbent)"). The cross-candidate comparison view.
@@ -671,11 +791,11 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
                  (("If the question has a discriminator (largest/latest/highest/earliest), read "
                    "`discriminating_attrs` — it lists ONLY the attributes whose values differ across "
                    "candidates, so you can pick the candidate satisfying the constraint. ") if discrim_attrs else "") +
-                 ("tree is grouped by relation PATTERN (one block per relation chain, all roots "
-                  "merged under it): each line is 'root → e1 | e2 | ...' (1-hop) or "
-                  "'root --rel--> mid --rel--> leaf' (multi-hop, hops preserved); '|' separates "
-                  "entities; a CVT node shows its radiating entities inline "
-                  "'m.0xxx: [role=entity | role=entity]'. Pick the next center FROM this tree/attrs."),
+                 ("tree is entity-centric, deduped across subgraphs: each line is "
+                  "'head --rel--> t1 | t2 | ...' (one head, many tails) or "
+                  "'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. "
+                  "Edges already shown in a PRIOR subgraph are NOT repeated here. "
+                  "Pick the next center FROM this tree/attrs."),
     })
 
 

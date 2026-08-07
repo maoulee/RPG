@@ -1465,7 +1465,9 @@ def _cvt_attr_summary(triples, candidates=None, max_lines: int = 60) -> str:
         if _noisy(r):
             continue
         s = _short(r)
-        cvt_attrs.setdefault(h, []).append((s, t))
+        lst = cvt_attrs.setdefault(h, [])
+        if (s, t) not in lst:              # per-CVT dedup: the same attr=value recurs across
+            lst.append((s, t))             # inverse/variant relation patterns (4× explosion)
         # Resolve the CVT to a NAMED entity (never the opaque m-ID): holder-rel
         # first, else any named candidate it points to.
         if s in _HOLDER_RELS:
@@ -1490,8 +1492,11 @@ def _cvt_attr_summary(triples, candidates=None, max_lines: int = 60) -> str:
     _seen = set()  # dedup identical (holder, attrs) lines — don't repeat identical attrs
     for cvt, attrs in sorted(cvt_attrs.items(), key=_sort_key):
         holder = cvt_holder.get(cvt, cvt)
+        nh = normalize(holder)
         parts = []
         for s, v in attrs:
+            if normalize(str(v)) == nh:
+                continue                   # back-edge: holder listed as its own attr value
             if s == "has_no_value":
                 # value names the attribute that is absent (e.g. "To") → incumbent
                 parts.append(f"{str(v).lower()}=(incumbent)")
