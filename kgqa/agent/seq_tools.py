@@ -364,6 +364,16 @@ def _resolve_cvt_edges(triples) -> list:
         h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
         if not is_cvt_like(h) and is_cvt_like(t):     # named → CVT: continue through it
             for r2, t2 in cvt_out.get(t, ()):
+                if r2 == "has_no_value":
+                    # incumbent signal: t2 names the ABSENT attr (e.g. "To") → render as
+                    # 'holder --to--> (incumbent)', the discriminator for current/latest
+                    # holder on exclusive relations. Carried as a triple so it survives
+                    # without the separate discriminating_attrs view.
+                    attr = str(t2).lower()
+                    k = (normalize(h), attr, "(incumbent)")
+                    if k not in seen:
+                        seen.add(k); resolved.append((h, attr, "(incumbent)"))
+                    continue
                 if is_cvt_like(t2) or r2 in _EDGE_NOISY_SHORT:
                     continue
                 if normalize(h) == normalize(t2):
@@ -768,34 +778,28 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
         tree_lines = tree_lines[:_TREE_LINE_BUDGET]
         tree_lines.append(f"  ... +{dropped} lines truncated (see candidates / candidate_attrs)")
 
-    # candidate_attrs: grouped by candidate under the shared relation pattern (CVT attrs inline,
-    # KEEPS has_no_value → "to=(incumbent)"). The cross-candidate comparison view.
-    cand_attrs = _cvt_attr_summary(all_triples, candidates)
-    # discriminating attrs: ONLY attributes whose values DIFFER across candidates (population,
-    # dates, etc.) — the comparison view a discriminator (largest/latest/highest) needs to pick.
-    discrim_attrs = _constraint_attr_summary(all_triples, candidates)
+    # The merged triples above ARE the evidence view — discriminator attrs (dates,
+    # incumbent) live on their own edges ('Robert --to--> 1968', 'Ted --to-->
+    # (incumbent)'), so the model compares candidates directly from the triples.
+    # candidate_attrs / discriminating_attrs are intentionally NOT displayed: they
+    # re-stated the same triples (tree/attrs overlap) and the present-vs-ABSENT flood
+    # over-loaded the prompt. Builders kept (not discarded) for offline scoring.
     multi = len(centers) > 1
     return _json_result({
         "fact_id": fid,
         "entities": [e for e, _ in centers],
-        "tree": "\n".join(tree_lines) if tree_lines else "(empty)",
+        "triples": "\n".join(tree_lines) if tree_lines else "(empty)",
         "candidates": [c for c in candidates if not is_cvt_like(c)][:60],
         "n_candidates": len(candidates),
-        "candidate_attrs": cand_attrs,
-        "discriminating_attrs": discrim_attrs,
         "skipped_centers": skipped,
         "note": ((_nudge + " ") if _nudge else "") +
-                (("Multiple centers retrieved with one shared relation set — read candidate_attrs "
-                  "to COMPARE across candidates (latest/largest; an entry marked to=(incumbent) is "
-                  "the current holder). ") if multi else "") +
-                 (("If the question has a discriminator (largest/latest/highest/earliest), read "
-                   "`discriminating_attrs` — it lists ONLY the attributes whose values differ across "
-                   "candidates, so you can pick the candidate satisfying the constraint. ") if discrim_attrs else "") +
-                 ("tree is entity-centric, deduped across subgraphs: each line is "
-                  "'head --rel--> t1 | t2 | ...' (one head, many tails) or "
+                (("Multiple centers retrieved with one shared relation set — COMPARE them via "
+                  "the triples (an edge '--to--> (incumbent)' marks the current holder). ") if multi else "") +
+                 ("triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or "
                   "'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. "
-                  "Edges already shown in a PRIOR subgraph are NOT repeated here. "
-                  "Pick the next center FROM this tree/attrs."),
+                  "Discriminator attributes (dates, incumbent) appear as their own edges — read "
+                  "them to pick latest/largest/incumbent. Edges already shown in a PRIOR subgraph "
+                  "are NOT repeated. Pick the next center FROM these triples."),
     })
 
 
