@@ -406,13 +406,9 @@ def _merge_edges(edges, max_per_line: int = 8) -> list:
     out = []
     for (r, ts), (ts_list, hs) in groups.items():
         hs = list(dict.fromkeys(hs))
-        h_part = ' | '.join(hs[:max_per_line])
-        if len(hs) > max_per_line:
-            h_part += f" +{len(hs) - max_per_line} more"
-        t_part = ' | '.join(ts_list[:max_per_line])
-        if len(ts_list) > max_per_line:
-            t_part += f" +{len(ts_list) - max_per_line} more"
-        out.append(f"{h_part} --{r}--> {t_part}")
+        # no per-line cap: leaf entities (tails, and merged heads) are shown in full —
+        # truncating them (the old '+N more') lost answer candidates.
+        out.append(f"{' | '.join(hs)} --{r}--> {' | '.join(ts_list)}")
     return out
 
 
@@ -772,11 +768,14 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
     tree_lines = [f"  {ln}" for ln in _merge_edges(new_edges)]
     if not tree_lines and n_overlap:
         tree_lines = [f"  (all {n_overlap} edges already shown in a prior subgraph — nothing new)"]
-    _TREE_LINE_BUDGET = 60
+    # Generous line budget: leaf entities (answer candidates) must NOT be truncated
+    # away. CVT-resolution + inverse-collapse + cross-subgraph dedup already compress
+    # the edge set heavily, so this only bites on pathological high-degree centers.
+    _TREE_LINE_BUDGET = 200
     if len(tree_lines) > _TREE_LINE_BUDGET:
         dropped = len(tree_lines) - _TREE_LINE_BUDGET
         tree_lines = tree_lines[:_TREE_LINE_BUDGET]
-        tree_lines.append(f"  ... +{dropped} lines truncated (see candidates / candidate_attrs)")
+        tree_lines.append(f"  ... +{dropped} lines truncated (see candidates)")
 
     # The merged triples above ARE the evidence view — discriminator attrs (dates,
     # incumbent) live on their own edges ('Robert --to--> 1968', 'Ted --to-->
