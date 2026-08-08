@@ -824,17 +824,25 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
     if _err:
         return _json_result({"error": _err})
     _nudge = _variable_nudge(raw, ctx)
-    # LENIENT entity resolution: skip any center that doesn't resolve (value-like,
-    # sim<0.95, not-in-subgraph) — do NOT block with errors. The model continues with
-    # the valid centers, or if none, answers from current evidence. Blocking errors
-    # burn turns and conflict with the candidate-based workflow.
+    # Entity resolution: for non-resolving centers, offer GTE correction candidates
+    # (non-blocking — model picks one OR continues with current evidence). For values
+    # and no-candidate cases, skip (lenient — don't block the workflow).
     idxs, unresolved = [], []
     for e in entities:
         i = _name_to_idx(e, ctx)
         if _looks_like_value(e) and (i is None or normalize(e) != normalize(ctx.ents[i])):
             unresolved.append(e); continue                      # value-like → skip
         if i is None or _match_sim(e, ctx.ents[i]) < 0.95:
-            unresolved.append(e); continue                      # low-conf / no-match → skip
+            cands = await _entity_correction(e, question, ctx, session)
+            if cands:
+                return _json_result({
+                    "entity_error": f"'{e}' is not a confident graph entity.",
+                    "candidates": cands,
+                    "note": "Pick the correct entity from `candidates` (each shows "
+                            "NEIGHBOR relations to disambiguate). If none fit, continue "
+                            "with current evidence. Re-call with the right entity. "
+                            "WORKFLOW: retrieve_relations → retrieve_subgraph."})
+            unresolved.append(e); continue                      # no candidates → skip
         if not _in_subgraph(i, ctx):
             unresolved.append(e); continue                      # not yet retrieved → skip
         idxs.append(i)
