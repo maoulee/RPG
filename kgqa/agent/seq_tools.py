@@ -618,7 +618,15 @@ def _accumulate(ctx, center_idx: int, pe) -> None:
     for tr in (pe.triples or []):
         if len(tr) == 3:
             at.add((str(tr[0]), str(tr[1]), str(tr[2])))
-    n2i = {normalize(e): i for i, e in enumerate(ctx.ents) if e}
+    # MULTI-map: a name may normalize to several entity indices (text + non_text entity
+    # lists merge duplicates — 'Catholicism' at idx 69 AND 2007). A single-valued dict
+    # keeps only the LAST, but _name_to_idx returns the FIRST → the boundary check
+    # (_in_subgraph) looks for the wrong idx and rejects a valid center. Add ALL matches.
+    from collections import defaultdict
+    n2i_all = defaultdict(list)
+    for i, e in enumerate(ctx.ents):
+        if e:
+            n2i_all[normalize(e)].append(i)
     names = set(pe.candidates or [])
     for tr in (pe.triples or []):
         if len(tr) == 3:
@@ -627,9 +635,8 @@ def _accumulate(ctx, center_idx: int, pe) -> None:
     for nm in names:
         if not nm:
             continue
-        idx = n2i.get(normalize(nm))
-        if idx is not None:
-            se.add(idx)                  # CVT m-ids are centerable too (the model may start from them)
+        for idx in n2i_all.get(normalize(nm), ()):   # add ALL entities with this name
+            se.add(idx)
         if not is_cvt_like(nm):          # only NAMED entities join the answer candidate pool
             nn = normalize(nm)
             if nn not in seen_cand:

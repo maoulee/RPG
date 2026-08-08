@@ -62,10 +62,14 @@ def _update_var_bindings(ctx, content: str) -> None:
             se = getattr(ctx, "subgraph_entities", None)
             if se is not None and getattr(ctx, "ents", None):
                 from kgqa.core.utils import normalize as _norm
-                n2i = {_norm(e): i for i, e in enumerate(ctx.ents) if e}
+                # multi-map: a name can match several indices (text+non_text dup); add ALL
+                from collections import defaultdict as _dd
+                n2i_all = _dd(list)
+                for _i, _e in enumerate(ctx.ents):
+                    if _e:
+                        n2i_all[_norm(_e)].append(_i)
                 for p in parts:
-                    idx = n2i.get(_norm(p))
-                    if idx is not None:
+                    for idx in n2i_all.get(_norm(p), ()):
                         se.add(idx)
 
 
