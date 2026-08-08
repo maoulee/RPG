@@ -95,17 +95,22 @@ def _split_pipe_entities(entities) -> list:
 
 
 def _looks_like_value(name) -> bool:
-    """True if the input is a literal VALUE (numeric/coordinate/raw date), not a named
-    entity. The model sometimes passes a value as a center (e.g. '-1.61' a latitude,
-    '8848' an elevation, '1969-07-20' a date). These have no semantic name, so GTE
-    entity-resolution can't help — reject them up-front with a clear message rather
-    than routing through the correction loop (which would return no candidates)."""
+    """True if the input is a literal VALUE (numeric/coordinate/raw date/UTC offset),
+    not a named entity. Value-like strings resolve UNRELIABLY via fuzzy/substring —
+    'UTC-05:00' fuzzy-matches 'UTC−04:00' (a DIFFERENT timezone, high string-sim but
+    wrong entity) — so callers require EXACT match for value-like centers (see the
+    resolve loops). Named entities ('2014 World Series', 'Boeing 747') are NOT mostly
+    digits and pass through normal resolution."""
     s = str(name).strip().strip("'\"")
     if len(s) < 2:
         return False
     digits = sum(c.isdigit() for c in s)
-    # mostly digits/punctuation: coordinates, numbers, ISO dates, UTC offsets
-    return digits >= max(2, len(s) * 0.5)
+    if digits >= max(2, len(s) * 0.5):
+        return True                          # coordinates, numbers, ISO dates
+    # UTC/GMT offsets: 'UTC-05:00', 'UTC+12', 'GMT-5', 'UTC−04:00' (U+2212 minus)
+    if re.search(r'\b(UTC|GMT)\s*[+\-−]\s*\d', s, re.IGNORECASE):
+        return True
+    return False
 
 
 async def _entity_correction(name, question, ctx, session, top_k_candidates: int = 5,
@@ -791,14 +796,30 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
     if _err:
         return _json_result({"error": _err})
     _nudge = _variable_nudge(raw, ctx)
-    # resolve all entities + boundary check. SKIP values (don't reject the whole call —
-    # a multi-center call may mix a named entity with a value; proceed with the named ones).
-    idxs, value_skipped = [], []
+    # resolve all entities + boundary check. A value-like input ('-1.61', '747') is NOT
+    # special-cased — it flows through _name_to_idx + correction like any name. If it
+    # RESOLVES to an entity ('747' -> 'Boeing 747' via substring), use it as a normal
+    # center; if it can't resolve AND correction has no candidates, SKIP it (don't break a
+    # multi-center call). Only intercept when correction has real candidates.
+    idxs, unresolved = [], []
     for e in entities:
-        if _looks_like_value(e):
-            value_skipped.append(e)           # value is not a center — skip, keep going
-            continue
         i = _name_to_idx(e, ctx)
+        # value-like inputs (UTC offsets, numbers, dates): require a 100% string match.
+        # Fuzzy/substring is UNRELIABLE for values — 'UTC-05:00' fuzzy-matches 'UTC−04:00'
+        # (a different timezone) = the center/retrieval-inconsistency bug. A value-like
+        # name that isn't an EXACT match goes to entity CORRECTION (candidates + NEIGHBOR
+        # relations, model re-selects); if no candidates, skip it (never silently use the
+        # wrong fuzzy match).
+        if _looks_like_value(e) and (i is None or normalize(e) != normalize(ctx.ents[i])):
+            cands = await _entity_correction(e, question, ctx, session)
+            if cands:
+                return _json_result({
+                    "entity_error": f"'{e}' is a value-like name that isn't an exact graph entity.",
+                    "candidates": cands,
+                    "note": "Pick the correct entity from `candidates` (each shows NEIGHBOR "
+                            "relations). A raw value (UTC offset / number) matches unreliably — "
+                            "prefer the named entity or the ?variable. Re-call with the right one."})
+            unresolved.append(e); continue
         # fire CORRECTION only on no-match OR a clear substring-FRAGMENT match (sim<0.5).
         # _name_to_idx matches 'museum' inside 'harvard museum of modern colors' (a fragment
         # → wrong entity). difflib-fuzzy in _name_to_idx gates at 0.85, so a real fuzzy/typo
@@ -815,17 +836,17 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
                             "question-relevant NEIGHBOR relations (use them to tell e.g. a "
                             "battle from a city of the same name). Re-call with the right entity."})
             if i is None:
-                return _json_result({"error": f"entity '{e}' not found in the subgraph."})
+                unresolved.append(e)          # can't resolve, no candidates → skip, keep going
+                continue
             # low-conf match but no correction candidates → fall through with the match
         if not _in_subgraph(i, ctx):
             return _json_result({"error": (f"'{e}' is not in the retrieved subgraph. Centers "
                                            f"must come from a previous retrieve_subgraph tree.")})
         idxs.append(i)
     if not idxs:
-        # all centers were values (numeric/coord/date) — none are usable graph entities
-        return _json_result({"entity_error": f"all centers {value_skipped} are VALUEs "
-                              "(numeric/coordinate/date), not named graph entities. Pick named "
-                              "entities from a previous retrieve_subgraph tree."})
+        return _json_result({"error": f"none of {entities} resolved to a graph entity "
+                              f"(unresolved: {unresolved}). Pick named entities from a "
+                              f"previous retrieve_subgraph tree."})
     # GTE per-entity (NOT a generic "these entities" head). A multi-entity call is a
     # variable expansion (?var → several bindings); each entity's relevant relations
     # differ. One generic-head call on the union pool loses the entity-specific ranking
@@ -889,16 +910,19 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
         return _json_result({"error": "no valid relations provided. Pick from the candidate_relations "
                                       "returned by retrieve_relations."})
 
-    # resolve + boundary-check each center. SKIP values (don't reject the whole call — a
-    # multi-center call may mix a named entity with a value); skip entities not yet in the
-    # subgraph (boundary); flag wrong/low-conf names → entity correction.
-    centers, skipped, value_skipped = [], [], []
+    # resolve + boundary-check each center. value-like inputs require EXACT match (fuzzy
+    # resolves unreliably: 'UTC-05:00' -> 'UTC−04:00'); skip entities not yet in the
+    # subgraph (boundary); flag wrong/low-conf named entities → correction.
+    centers, skipped = [], []
     bad_name = None                     # an entity whose NAME is wrong/low-conf → correct
     for e in entities:
-        if _looks_like_value(e):
-            value_skipped.append(e)      # value is not a center — skip, keep going
-            continue
         i = _name_to_idx(e, ctx)
+        if _looks_like_value(e) and (i is None or normalize(e) != normalize(ctx.ents[i])):
+            # value-like + non-exact: don't use the unreliable fuzzy match ('UTC-05:00'->
+            # 'UTC−04:00'); route to entity CORRECTION (after loop) so the model re-selects.
+            if bad_name is None:
+                bad_name = e
+            continue
         if i is None or _match_sim(e, ctx.ents[i]) < 0.50:
             if bad_name is None:
                 bad_name = e            # no-match or substring-fragment match → correct
@@ -909,10 +933,6 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
             skipped.append(e)           # in graph but not yet retrieved → boundary skip
         elif i is not None:
             centers.append((e, i))
-    if not centers and value_skipped and not bad_name:
-        return _json_result({"entity_error": f"all centers {value_skipped} are VALUEs "
-                              "(numeric/coordinate/date), not named graph entities. Pick named "
-                              "entities from a previous retrieve_subgraph tree."})
     if bad_name is not None:
         # entity-name CORRECTION: wrong/low-conf name → offer GTE candidates + NEIGHBOR relations
         cands = await _entity_correction(bad_name, getattr(ctx, "question", ""), ctx, session)
