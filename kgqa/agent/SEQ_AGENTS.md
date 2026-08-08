@@ -34,7 +34,7 @@ For EACH fact in the plan:
 1. `retrieve_relations(center, sub-question)` → candidate relations.
 2. **Pick** the structural bridge relation(s) from the candidates.
 3. `retrieve_subgraph(center, relations)` → evidence triples.
-4. **Declare the variable checkpoint**: `[fid ✓] ?var = [v1 | v2 | ...]` (the runtime expands later `?var` references to these bindings).
+4. **Declare the variable checkpoint**: `[sgN ✓] ?var = [v1 | v2 | ...]` (the runtime expands later `?var` references to these bindings). Use the subgraph id (e.g. `[sg1 ✓]`).
 
 ### Center entity — where it comes from
 - **Fact 1**: the plan anchor (the literal named entity from the question).
@@ -129,56 +129,92 @@ answer:
 
 ## EXPERIENCE (worked examples — fictional: OrgAlpha / WidgetK / BrzRiver / ZoneK / RegionX / DivA)
 
-### Example 1 — single entity, ALL-relevant relations, structured answer
+Each example shows the COMPLETE tool flow, turn by turn. Flat format. Subgraph IDs (sg1, sg2) used consistently — the checkpoint is `[sgN ✓]`, the retrieve passes `sg: sgN`.
+
+### Example 1 — single entity, full flow
 Q: "Who founded OrgAlpha?"
 ```
-plan → sg1: OrgAlpha → ?founder → ?answer ; entities [OrgAlpha]
-[f1] discovering relations for OrgAlpha
-tool: {"tool":"retrieve_relations","args":{"center":["OrgAlpha"],"question":"who founded this organization"}}
-  → candidates include organization.organization.founders AND organization.organization.founders.inv
-[f1] selecting BOTH founders relations (all relevant — not just the most similar)
-tool: {"tool":"retrieve_subgraph","args":{"center":["OrgAlpha"],"relations":["organization.organization.founders","organization.organization.founders.inv"],"sg":"sg1"}}
-  → OrgAlpha → WidgetK | BrzRiver
-[f1 ✓] ?founder = [WidgetK | BrzRiver]
-CANDIDATES: WidgetK | BrzRiver
-DISCRIMINATOR: none
-ANSWER: WidgetK | BrzRiver      (the structure's yield — both are founders; no world-knowledge "primary founder" filter)
-tool: {"tool":"answer","args":{"entities":["WidgetK","BrzRiver"]}}
+T0  tool: plan
+    entities: OrgAlpha
+    answer: ?founder
+    sg1.anchor: OrgAlpha
+    sg1.f1: OrgAlpha | who founded this organization | ?founder
+
+T1  tool: retrieve_relations
+    center: OrgAlpha
+    question: who founded this organization
+      → candidates: organization.organization.founders, organization.organization.founders.inv
+
+T2  tool: retrieve_subgraph                       ← pick BOTH founders relations (ALL relevant)
+    center: OrgAlpha
+    relations: organization.organization.founders | organization.organization.founders.inv
+    sg: sg1
+      → triples: OrgAlpha --founders--> WidgetK | BrzRiver
+
+T3  [sg1 ✓] ?founder = [WidgetK | BrzRiver]        ← checkpoint: declares ?founder's bindings
+
+T4  CANDIDATES: WidgetK | BrzRiver
+    DISCRIMINATOR: none
+    ANSWER: WidgetK | BrzRiver                      ← ALL (no world-knowledge "primary" filter)
+    tool: answer
+    entities: WidgetK | BrzRiver
 ```
 
-### Example 2 — multi-entity (value-entity 2nd anchor) + variable + intersect
+### Example 2 — convergence (two named entities, shared answer, independent subgraphs)
 Q: "Which region of OrgAlpha lies in ZoneK?"
 ```
-plan → sg1: OrgAlpha → ?region ; sg2: ZoneK → ?region (ZoneK is a value-entity → its OWN subgraph, not a filter) ; answer ?region
-[f1 ✓] ?region = [RegionA | RegionB]                    (from sg1's retrieve_subgraph)
-[f2] discovering relations for ZoneK
-tool: {"tool":"retrieve_relations","args":{"center":["ZoneK"],"question":"which regions use this zone"}}
-[f2] retrieving subgraph for ZoneK
-tool: {"tool":"retrieve_subgraph","args":{"center":["ZoneK"],"relations":["time.time_zone.locations_in_this_time_zone"],"sg":"sg2"}}
-[f2 ✓] ?region = [RegionB | RegionC]
-CANDIDATES: RegionB
-DISCRIMINATOR: none
-ANSWER: RegionB      (the binding common to both subgraphs — the structure's intersection)
-tool: {"tool":"answer","args":{"entities":["RegionB"]}}
+T0  tool: plan
+    entities: OrgAlpha | ZoneK
+    answer: ?region
+    sg1.anchor: OrgAlpha
+    sg1.f1: OrgAlpha | what regions are part of this | ?region
+    sg2.anchor: ZoneK
+    sg2.f1: ZoneK | which regions use this zone | ?region
+
+T1  tool: retrieve_relations
+    center: OrgAlpha
+    question: what regions are part of this
+
+T2  tool: retrieve_subgraph
+    center: OrgAlpha
+    relations: location.location.contains
+    sg: sg1
+      → triples: OrgAlpha --contains--> RegionA | RegionB
+
+T3  [sg1 ✓] ?region = [RegionA | RegionB]
+
+T4  tool: retrieve_relations                       ← sg2 uses NAMED ZoneK (not ?region)
+    center: ZoneK
+    question: which regions use this zone
+
+T5  tool: retrieve_subgraph
+    center: ZoneK
+    relations: time.time_zone.locations_in_this_time_zone
+    sg: sg2
+      → triples: ZoneK --locations--> RegionB | RegionC
+
+T6  [sg2 ✓] ?region = [RegionB | RegionC]
+
+T7  CANDIDATES: RegionB                             ← intersection: common to both subgraphs
+    DISCRIMINATOR: none
+    ANSWER: RegionB
+    tool: answer
+    entities: RegionB
 ```
 
-### Example 3 — structured answer: list-all vs a displayed discriminator
+### Example 3 — discriminator narrows the answer
 ```
-Q1: "Which divisions does OrgAlpha operate in?"
-  → structure yields ?division = [DivA | DivB | DivC]; no displayed attribute discriminates →
-  ANSWER: DivA | DivB | DivC      (ALL — do NOT world-knowledge-pick "the main division")
-
-Q2: "The largest division of OrgAlpha?"
-  → same yield [DivA | DivB | DivC], but the `triples` show a discriminator edge:
-      DivA --area--> large | DivB --area--> small | DivC --area--> medium
-  ANSWER: DivA      (the displayed discriminator edge distinguishes it → narrow to it)
+Q: "The largest division of OrgAlpha?"
+  → triples: DivA --area--> large | DivB --area--> small | DivC --area--> medium
+  → area is a displayed discriminator edge → narrow to DivA
+  ANSWER: DivA
 ```
 
 ### Example 4 — entity, not its value
 ```
 Q: "When did OrgAlpha win the WidgetK Cup?"
-  → the structure reaches the championship EVENT entity `2024 WidgetK Cup`.
-  ANSWER: 2024 WidgetK Cup      (the event entity, which carries the year) — NOT the date `2024-06-15` (an attribute of the event, not the answer).
+  → the structure reaches the EVENT entity "2024 WidgetK Cup"
+  ANSWER: 2024 WidgetK Cup      (the event entity — NOT the date 2024-06-15)
 ```
 
 ---
