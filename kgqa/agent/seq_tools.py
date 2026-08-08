@@ -176,6 +176,21 @@ async def _entity_correction(name, question, ctx, session, top_k_candidates: int
             out.append({"name": ename, "neighbor_relations": top_rels[:top_k_rels]})
         if len(out) >= top_k_candidates:
             break
+    # Seed the candidates into subgraph_entities — when the model re-calls with one,
+    # the boundary check (which requires prior retrieve_subgraph) would otherwise reject
+    # a correction-picked entity (deadlock: correction → pick candidate → "not in prior
+    # retrieve"). The correction sanctions these candidates, so they're valid centers.
+    if out:
+        se = getattr(ctx, "subgraph_entities", None)
+        if se is not None:
+            from collections import defaultdict as _dd
+            n2i_all = _dd(list)
+            for _i, _e in enumerate(ctx.ents):
+                if _e:
+                    n2i_all[normalize(_e)].append(_i)
+            for c in out:
+                for idx in n2i_all.get(normalize(c["name"]), ()):
+                    se.add(idx)
     return out if out else None
 
 
@@ -831,7 +846,8 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
                     "candidates": cands,
                     "note": "Pick the correct entity from `candidates` (each shows NEIGHBOR "
                             "relations). A raw value (UTC offset / number) matches unreliably — "
-                            "prefer the named entity or the ?variable. Re-call with the right one."})
+                            "prefer the named entity or the ?variable. Re-call THIS retrieve_relations "
+                            "with the right entity. WORKFLOW: retrieve_relations → retrieve_subgraph."})
             unresolved.append(e); continue
         # fire CORRECTION only on no-match OR a clear substring-FRAGMENT match (sim<0.5).
         # _name_to_idx matches 'museum' inside 'harvard museum of modern colors' (a fragment
@@ -845,9 +861,11 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
                 return _json_result({
                     "entity_error": f"'{e}' is not a confident entity in the graph.",
                     "candidates": cands,
-                    "note": "Pick the correct entity from `candidates` — each lists its "
-                            "question-relevant NEIGHBOR relations (use them to tell e.g. a "
-                            "battle from a city of the same name). Re-call with the right entity."})
+                    "note": "Pick the correct entity from `candidates` (each shows question-"
+                            "relevant NEIGHBOR relations to disambiguate, e.g. a battle vs a "
+                            "city). Re-call THIS retrieve_relations with the correct entity — it "
+                            "will return candidate relations. WORKFLOW: retrieve_relations first, "
+                            "then retrieve_subgraph with the relations you pick."})
             if i is None:
                 unresolved.append(e)          # can't resolve, no candidates → skip, keep going
                 continue
@@ -958,8 +976,10 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
             return _json_result({
                 "entity_error": f"'{bad_name}' is not an entity in the graph.",
                 "candidates": cands,
-                "note": "Pick the correct entity from `candidates` — each lists its "
-                        "NEIGHBOR relations (use them to disambiguate). Re-call with the right entity."})
+                "note": "Pick the correct entity from `candidates` (each shows NEIGHBOR "
+                        "relations to disambiguate). Re-call THIS retrieve_subgraph with the "
+                        "correct entity + your selected relations. WORKFLOW: retrieve_relations "
+                        "→ retrieve_subgraph per fact."})
     if not centers:
         return _json_result({"error": (f"none of {entities} appeared in a prior retrieve_subgraph. "
                                        f"A center MUST be an entity from a previous retrieve_subgraph's "
