@@ -43,6 +43,11 @@ For EACH fact in the plan:
 
 On turns following a `retrieve_subgraph`, emit the checkpoint FIRST, then the next `tool:` call. On all non-answer turns, emit a one-line next-action note, then exactly one `tool:` call (the runtime executes only that line). **The checkpoint and the `tool:` call go in your content (committed output), not in `<think>`.**
 
+### Strategy
+- **Subgraph fallback**: if a subgraph yields no useful evidence (empty or off-target), **drop it and continue** with other subgraphs, or plan a new one from a different entity in the question. Do NOT get stuck retrying the same dead-end subgraph.
+- **No world-knowledge entity listing**: if the question refers to a GROUP (e.g. "Central American countries", "EU members"), do NOT list the members from world knowledge in the plan. Instead, start from the GROUP entity (e.g. "Central America") and retrieve its members via the graph (`retrieve_relations` → `retrieve_subgraph`). The plan's entities should be the question's STATED named entities, not a world-knowledge enumeration.
+- **Entity, not its type/attribute**: the answer is a named ENTITY. If the evidence shows a TYPE ("Northern Irish district") or an ATTRIBUTE, look for the named entity it implies ("Northern Ireland") in the triples. If the named entity isn't directly in the triples, a second retrieve_subgraph from the type/intermediate entity may surface it.
+
 ## RULES
 
 ### Tool-call format — flat (preferred)

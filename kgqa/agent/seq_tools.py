@@ -833,22 +833,15 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
     for e in entities:
         i = _name_to_idx(e, ctx)
         # value-like inputs (UTC offsets, numbers, dates): require a 100% string match.
-        # Fuzzy/substring is UNRELIABLE for values — 'UTC-05:00' fuzzy-matches 'UTC−04:00'
-        # (a different timezone) = the center/retrieval-inconsistency bug. A value-like
-        # name that isn't an EXACT match goes to entity CORRECTION (candidates + NEIGHBOR
-        # relations, model re-selects); if no candidates, skip it (never silently use the
-        # wrong fuzzy match).
+        # Values (numbers, UTC offsets, dates, IDs) have no semantic name → GTE returns
+        # RANDOM entities (useless noise). Skip GTE entirely; tell the model directly.
         if _looks_like_value(e) and (i is None or normalize(e) != normalize(ctx.ents[i])):
-            cands = await _entity_correction(e, question, ctx, session)
-            if cands:
-                return _json_result({
-                    "entity_error": f"'{e}' is a value-like name that isn't an exact graph entity.",
-                    "candidates": cands,
-                    "note": "Pick the correct entity from `candidates` (each shows NEIGHBOR "
-                            "relations). A raw value (UTC offset / number) matches unreliably — "
-                            "prefer the named entity or the ?variable. Re-call THIS retrieve_relations "
-                            "with the right entity. WORKFLOW: retrieve_relations → retrieve_subgraph."})
-            unresolved.append(e); continue
+            return _json_result({
+                "entity_error": f"'{e}' is a VALUE (numeric/coordinate/date/ID), not a named "
+                    "graph entity. The graph stores it as an ATTRIBUTE of an entity, not as a "
+                    "center. If this value appeared in a previous retrieve_subgraph's triples, "
+                    "it's an attribute value — pass the ENTITY that carries it, or the ?variable. "
+                    "WORKFLOW: retrieve_relations → retrieve_subgraph."})
         # fire CORRECTION only on no-match OR a clear substring-FRAGMENT match (sim<0.5).
         # _name_to_idx matches 'museum' inside 'harvard museum of modern colors' (a fragment
         # → wrong entity). difflib-fuzzy in _name_to_idx gates at 0.85, so a real fuzzy/typo
@@ -954,11 +947,12 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
     for e in entities:
         i = _name_to_idx(e, ctx)
         if _looks_like_value(e) and (i is None or normalize(e) != normalize(ctx.ents[i])):
-            # value-like + non-exact: don't use the unreliable fuzzy match ('UTC-05:00'->
-            # 'UTC−04:00'); route to entity CORRECTION (after loop) so the model re-selects.
-            if bad_name is None:
-                bad_name = e
-            continue
+            # Values (numbers, UTC offsets, IDs) have no semantic name → GTE returns random
+            # entities. Skip GTE; tell the model directly.
+            return _json_result({
+                "entity_error": f"'{e}' is a VALUE (numeric/coordinate/date/ID), not a named "
+                    "graph entity — it's stored as an ATTRIBUTE, not a center. Pass the ENTITY "
+                    "that carries it, or the ?variable. WORKFLOW: retrieve_relations → retrieve_subgraph."})
         if i is None or _match_sim(e, ctx.ents[i]) < 0.95:
             if bad_name is None:
                 bad_name = e            # no-match or substring-fragment match → correct
