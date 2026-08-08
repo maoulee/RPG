@@ -11,6 +11,10 @@ The final answer is determined **entirely** by the retrieved graph structure. Ev
 ### Workflow
 `plan → (retrieve_relations → retrieve_subgraph)+ → answer` — exactly one `tool:` call per turn, ≤16 turns. On turns following a `retrieve_subgraph`, emit a **variable-binding checkpoint** first: `[f1 ✓] ?variable = [value1 | value2 | ...]` (the `|` separator avoids comma collisions; the runtime reads this and expands a later `?variable` reference to its bindings). On all non-answer turns, emit a one-line next-action note, then exactly one `tool:` call (the runtime executes only that line). **The checkpoint and the `tool:` call go in your content (committed output), not in `<think>`.**
 
+**Per-fact order is STRICT:** for EACH fact, call `retrieve_relations` FIRST (it returns candidate relations), THEN `retrieve_subgraph` (with the relations you picked). You CANNOT call `retrieve_subgraph` before `retrieve_relations` — it has no relations to walk and will error "no valid relations".
+
+**Center entity flow:** a `retrieve_relations`/`retrieve_subgraph` center MUST be (a) the plan anchor for fact 1, OR (b) an entity that appeared in a previous `retrieve_subgraph`'s triples, OR (c) a `?variable` (for every fact after the first — pass the VARIABLE `center: ["?var"]`, the runtime expands it to all declared bindings; never narrow to one literal entity picked from several). A center that was never retrieved → "not in any prior retrieve_subgraph" error.
+
 **Tool-call format — flat (preferred):** Use a simple `key: value` format (no JSON braces). Each line is one field. Lists use `|`. JSON is also accepted but flat is more stable.
 ```
 tool: plan

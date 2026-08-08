@@ -152,8 +152,11 @@ def _allowed_hint(state: SeqAgentState) -> str:
         if state.all_retrieved:
             return (f"`retrieve_relations`/`retrieve_subgraph` (extra probes on seen entities) "
                     f"or `answer`. facts: {todo}")
-        return (f"`retrieve_relations` then `retrieve_subgraph` for the next fact, or `answer`. "
-                f"facts: {todo}")
+        return (f"WORKFLOW ORDER per fact: `retrieve_relations` FIRST (returns candidate "
+                f"relations), THEN `retrieve_subgraph` with the relations you picked. You CANNOT "
+                f"call `retrieve_subgraph` before `retrieve_relations` — it has no relations to "
+                f"walk. Next action: `retrieve_relations` for the next unresolved fact, or "
+                f"`answer`. facts: {todo}")
     return "(done)"
 
 
@@ -228,7 +231,8 @@ def validate(state: SeqAgentState, tool_calls) -> tuple:
                                 f"again if you are certain the missing facts are unanswerable."), state)
             state.state = DONE
             return (True, "", state)
-        return (False, "During retrieve: call `retrieve_relations`, `retrieve_subgraph`, or `answer`. "
+        return (False, "Wrong tool in the retrieve phase — and note the WORKFLOW ORDER: "
+                       "`retrieve_relations` must come BEFORE `retrieve_subgraph` for each fact. "
                        + _allowed_hint(state), state)
 
     return (False, f"Conversation finished (state={state.state}).", state)

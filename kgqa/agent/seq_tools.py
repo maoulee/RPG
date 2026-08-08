@@ -847,8 +847,13 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
                 continue
             # low-conf match but no correction candidates → fall through with the match
         if not _in_subgraph(i, ctx):
-            return _json_result({"error": (f"'{e}' is not in the retrieved subgraph. Centers "
-                                           f"must come from a previous retrieve_subgraph tree.")})
+            return _json_result({"error": (f"'{e}' is not in any prior retrieve_subgraph result — "
+                                           f"it was never retrieved. A center MUST be an entity that "
+                                           f"appeared in a previous retrieve_subgraph's triples (or the "
+                                           f"plan anchor for fact 1). If '{e}' is a candidate bound to "
+                                           f"a variable, pass the ?VARIABLE (e.g. center: [\"?country\"]) "
+                                           f"— the runtime expands it to all declared bindings; do NOT "
+                                           f"pass one literal entity picked from several.")})
         idxs.append(i)
     if not idxs:
         return _json_result({"error": f"none of {entities} resolved to a graph entity "
@@ -950,9 +955,11 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
                 "note": "Pick the correct entity from `candidates` — each lists its "
                         "NEIGHBOR relations (use them to disambiguate). Re-call with the right entity."})
     if not centers:
-        return _json_result({"error": (f"none of {entities} are in the retrieved subgraph. Centers "
-                                       f"must come from a previous retrieve_subgraph tree (or the "
-                                       f"anchor for the first fact).")})
+        return _json_result({"error": (f"none of {entities} appeared in a prior retrieve_subgraph. "
+                                       f"A center MUST be an entity from a previous retrieve_subgraph's "
+                                       f"triples (or the plan anchor for fact 1). If any of these is a "
+                                       f"variable binding, pass the ?VARIABLE (center: [\"?var\"]) — the "
+                                       f"runtime expands it to all declared bindings.")})
 
     # per-center walk; accumulate evidence inline, collect PatternEvidence for the
     # cross-center merged display (one block per relation pattern, all roots under it)
