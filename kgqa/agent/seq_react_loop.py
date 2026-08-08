@@ -243,6 +243,24 @@ class SeqReactCase:
             f"candidate_relations and call `retrieve_subgraph`, or declare your variable bindings and "
             f"call `answer`. Do not re-call `{tool}` with the same arguments.")
 
+    def state_aware_hint(self) -> str:
+        """A prefix for the allowed-tools hint, based on the LAST tool call.
+        Prevents the model from re-calling a tool it just called — the generic
+        'retrieve_relations FIRST' hint confuses it into re-calling retrieve_relations
+        when it should proceed to retrieve_subgraph."""
+        if not self._last_tool_sig:
+            return ""
+        last_tool = self._last_tool_sig[0]
+        if last_tool == "retrieve_relations":
+            return ("You have candidate_relations from your last retrieve_relations call. "
+                    "NOW pick the structural bridge relation(s) and call retrieve_subgraph. "
+                    "Do NOT re-call retrieve_relations.\n")
+        if last_tool == "retrieve_subgraph":
+            return ("You just retrieved a subgraph. Declare the checkpoint "
+                    "[fid ✓] ?var = [bindings], then call retrieve_relations for the next "
+                    "fact (or answer if all facts are done).\n")
+        return ""
+
     def _init_messages(self):
         self.messages = [
             {"role": "system", "content": seq_agents_md()},
@@ -340,6 +358,15 @@ class SeqReactCase:
         else:
             self._last_tool_sig = sig
             self._tool_repeat = 1
+        # REJECT identical repeats (not just nudge) — prevents wasted turns.
+        # The model re-calling retrieve_relations with the same args gets the same
+        # candidates. Force it to proceed: pick relations → retrieve_subgraph, or
+        # declare checkpoint → next fact, or answer.
+        if self._tool_repeat >= 2:
+            nudge = self.loop_nudge()
+            self.messages.append({"role": "user", "content": nudge})
+            self.ctx.trajectory.append({"role": "tool", "content": f"REJECTED (repeat): {nudge}"})
+            return "continue"
         ok, err, new_state = seq_validate(self.state, _to_tool_calls(tool_name, parsed_args))
         if not ok:
             self.messages.append({"role": "user", "content": f"REJECTED: {err}"})
@@ -401,7 +428,7 @@ async def run_seq_react_case(session: aiohttp.ClientSession, sample: Dict[str, A
         if not rc.is_active:
             break
         msgs = list(rc.messages)
-        hint = rc.allowed_tools_hint()
+        hint = rc.state_aware_hint() + rc.allowed_tools_hint()
         if rc._tool_repeat >= 2:  # stuck on the same call — force convergence
             hint = rc.loop_nudge() + "\n" + hint
         msgs.append({"role": "user", "content": hint})
@@ -464,7 +491,7 @@ async def run_seq_react_batch(cases_to_run, args):
             # the per-call runner's prompt assembly exactly.
             prompts = []
             for rc in active:
-                hint = rc.allowed_tools_hint()
+                hint = rc.state_aware_hint() + rc.allowed_tools_hint()
                 if rc._tool_repeat >= 2:
                     hint = rc.loop_nudge() + "\n" + hint
                 msgs = list(rc.messages)
