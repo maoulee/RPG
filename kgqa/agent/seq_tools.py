@@ -839,7 +839,7 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
         # match (≥0.85) and near-matches (plural etc.) pass through; only genuine fragments
         # fire the correction. (A higher threshold over-fires and disrupts good flows — base
         # model is unfamiliar with the correction nudge and burns a turn re-selecting.)
-        if i is None or _match_sim(e, ctx.ents[i]) < 0.50:
+        if i is None or _match_sim(e, ctx.ents[i]) < 0.95:
             cands = await _entity_correction(e, question, ctx, session)
             if cands:
                 return _json_result({
@@ -941,7 +941,7 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
             if bad_name is None:
                 bad_name = e
             continue
-        if i is None or _match_sim(e, ctx.ents[i]) < 0.50:
+        if i is None or _match_sim(e, ctx.ents[i]) < 0.95:
             if bad_name is None:
                 bad_name = e            # no-match or substring-fragment match → correct
             if i is None:
@@ -975,11 +975,14 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
     prior_triples = set(getattr(ctx, "accumulated_triples", set()) or set())
     candidates, all_triples = [], []
     collected = []   # (center_name, PatternEvidence)
+    _TOP_PATTERNS = 5   # keep only the top-N patterns (ordered by the walk: path length +
+                        # relation hit) per center — excess patterns are noise; the walk already
+                        # prunes partial-pattern paths (full-pattern only), this caps the count.
     for e, i in centers:
         pe = await _run_walk_one_step(ctx, i, rel_idxs, fid)
         if not pe:
             continue
-        for p in pe.values():
+        for p in list(pe.values())[:_TOP_PATTERNS]:
             collected.append((e, p))
             _accumulate(ctx, i, p)
             for tr in (p.triples or []):
