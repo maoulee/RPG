@@ -52,6 +52,21 @@ def _update_var_bindings(ctx, content: str) -> None:
         parts = [p.strip() for p in re.split(r'\s*\|\s*', vals) if p.strip()]
         if parts:
             vb[var] = parts
+            # Seed declared bindings into subgraph_entities. The model curated these from
+            # a prior retrieve_subgraph (the checkpoint marks the fact resolved); they ARE
+            # valid centers. Without seeding, the boundary check rejects bindings that
+            # appeared in the dense tree but weren't accumulated into the subgraph set
+            # (display/accumulate mismatch) — e.g. ?religion=[Catholicism|...] then
+            # retrieve_relations(center:?religion) failed "not in retrieved subgraph".
+            # Only seed bindings that resolve to a graph entity (hallucinated names stay out).
+            se = getattr(ctx, "subgraph_entities", None)
+            if se is not None and getattr(ctx, "ents", None):
+                from kgqa.core.utils import normalize as _norm
+                n2i = {_norm(e): i for i, e in enumerate(ctx.ents) if e}
+                for p in parts:
+                    idx = n2i.get(_norm(p))
+                    if idx is not None:
+                        se.add(idx)
 
 
 def _parse_flat(content: str):
