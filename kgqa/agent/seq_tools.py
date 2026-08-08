@@ -842,9 +842,28 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
                             "NEIGHBOR relations to disambiguate). If none fit, continue "
                             "with current evidence. Re-call with the right entity. "
                             "WORKFLOW: retrieve_relations → retrieve_subgraph."})
-            unresolved.append(e); continue                      # no candidates → skip
+            # No candidates found — GTE searched and found nothing confident.
+            # Give the model FEEDBACK (not silent skip) so it can adjust.
+            return _json_result({
+                "entity_error": f"'{e}' was not found in the graph and no similar "
+                    "entities were detected by the system's search.",
+                "note": f"The system searched for entities matching '{e}' but found "
+                    "nothing confident. This entity may not exist in this graph snapshot, "
+                    "or its name may be very different. Try a different entity from the "
+                    "question, or if this is a later fact, pick an entity from a previous "
+                    "retrieve_subgraph's triples. "
+                    "WORKFLOW: retrieve_relations → retrieve_subgraph."})
         if not _in_subgraph(i, ctx):
-            unresolved.append(e); continue                      # not yet retrieved → skip
+            # Entity IS in the graph (resolved well) but wasn't retrieved in a prior
+            # subgraph — DISTINCT from the resolution error above. Give feedback.
+            return _json_result({
+                "entity_error": f"'{e}' is in the graph but was not retrieved in any "
+                    "prior retrieve_subgraph.",
+                "note": f"A center must come from a prior retrieve_subgraph's triples "
+                    f"(or the plan anchor for fact 1). '{e}' wasn't in any prior result. "
+                    "If it's a variable binding, pass the ?VARIABLE. Otherwise, retrieve "
+                    "from the question's named entity first. "
+                    "WORKFLOW: retrieve_relations → retrieve_subgraph."})
         idxs.append(i)
     if not idxs:
         return _json_result({"entities": entities, "question": question,
