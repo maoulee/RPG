@@ -824,58 +824,29 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
     if _err:
         return _json_result({"error": _err})
     _nudge = _variable_nudge(raw, ctx)
-    # resolve all entities + boundary check. A value-like input ('-1.61', '747') is NOT
-    # special-cased — it flows through _name_to_idx + correction like any name. If it
-    # RESOLVES to an entity ('747' -> 'Boeing 747' via substring), use it as a normal
-    # center; if it can't resolve AND correction has no candidates, SKIP it (don't break a
-    # multi-center call). Only intercept when correction has real candidates.
+    # LENIENT entity resolution: skip any center that doesn't resolve (value-like,
+    # sim<0.95, not-in-subgraph) — do NOT block with errors. The model continues with
+    # the valid centers, or if none, answers from current evidence. Blocking errors
+    # burn turns and conflict with the candidate-based workflow.
     idxs, unresolved = [], []
     for e in entities:
         i = _name_to_idx(e, ctx)
-        # value-like inputs (UTC offsets, numbers, dates): require a 100% string match.
-        # Values (numbers, UTC offsets, dates, IDs) have no semantic name → GTE returns
-        # RANDOM entities (useless noise). Skip GTE entirely; tell the model directly.
         if _looks_like_value(e) and (i is None or normalize(e) != normalize(ctx.ents[i])):
-            return _json_result({
-                "entity_error": f"'{e}' is a VALUE (numeric/coordinate/date/ID), not a named "
-                    "graph entity. The graph stores it as an ATTRIBUTE of an entity, not as a "
-                    "center. If this value appeared in a previous retrieve_subgraph's triples, "
-                    "it's an attribute value — pass the ENTITY that carries it, or the ?variable. "
-                    "WORKFLOW: retrieve_relations → retrieve_subgraph."})
-        # fire CORRECTION only on no-match OR a clear substring-FRAGMENT match (sim<0.5).
-        # _name_to_idx matches 'museum' inside 'harvard museum of modern colors' (a fragment
-        # → wrong entity). difflib-fuzzy in _name_to_idx gates at 0.85, so a real fuzzy/typo
-        # match (≥0.85) and near-matches (plural etc.) pass through; only genuine fragments
-        # fire the correction. (A higher threshold over-fires and disrupts good flows — base
-        # model is unfamiliar with the correction nudge and burns a turn re-selecting.)
+            unresolved.append(e); continue                      # value-like → skip
         if i is None or _match_sim(e, ctx.ents[i]) < 0.95:
-            cands = await _entity_correction(e, question, ctx, session)
-            if cands:
-                return _json_result({
-                    "entity_error": f"'{e}' is not a confident entity in the graph.",
-                    "candidates": cands,
-                    "note": "Pick the correct entity from `candidates` (each shows question-"
-                            "relevant NEIGHBOR relations to disambiguate, e.g. a battle vs a "
-                            "city). Re-call THIS retrieve_relations with the correct entity — it "
-                            "will return candidate relations. WORKFLOW: retrieve_relations first, "
-                            "then retrieve_subgraph with the relations you pick."})
-            if i is None:
-                unresolved.append(e)          # can't resolve, no candidates → skip, keep going
-                continue
-            # low-conf match but no correction candidates → fall through with the match
+            unresolved.append(e); continue                      # low-conf / no-match → skip
         if not _in_subgraph(i, ctx):
-            return _json_result({"error": (f"'{e}' is not in any prior retrieve_subgraph result — "
-                                           f"it was never retrieved. A center MUST be an entity that "
-                                           f"appeared in a previous retrieve_subgraph's triples (or the "
-                                           f"plan anchor for fact 1). If '{e}' is a candidate bound to "
-                                           f"a variable, pass the ?VARIABLE (e.g. center: [\"?country\"]) "
-                                           f"— the runtime expands it to all declared bindings; do NOT "
-                                           f"pass one literal entity picked from several.")})
+            unresolved.append(e); continue                      # not yet retrieved → skip
         idxs.append(i)
     if not idxs:
-        return _json_result({"error": f"none of {entities} resolved to a graph entity "
-                              f"(unresolved: {unresolved}). Pick named entities from a "
-                              f"previous retrieve_subgraph tree."})
+        return _json_result({"entities": entities, "question": question,
+                             "candidate_relations": [],
+                             "note": ((_nudge + " ") if _nudge else "") +
+                                     f"No valid center resolved from {entities} "
+                                     f"(skipped: {unresolved}). Continue with current "
+                                     "evidence — answer from what you have, or try a "
+                                     "different entity from the question / a previous "
+                                     "retrieve_subgraph's triples."})
     # GTE per-entity (NOT a generic "these entities" head). A multi-entity call is a
     # variable expansion (?var → several bindings); each entity's relevant relations
     # differ. One generic-head call on the union pool loses the entity-specific ranking
