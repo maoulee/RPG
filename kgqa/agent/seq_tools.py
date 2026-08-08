@@ -76,6 +76,24 @@ def _match_sim(a, b) -> float:
     return difflib.SequenceMatcher(None, normalize(str(a)), normalize(str(b))).ratio()
 
 
+def _split_pipe_entities(entities) -> list:
+    """Defensively split a '|'-joined center into its intended multiple entities.
+
+    The model sometimes copies the DISPLAY format ('A | B | C') as ONE center string
+    (e.g. inside a JSON-array element), and the parser keeps it as one entity name →
+    a wrong, unwieldy center. Split on ' | ' (the display separator, which entity
+    names essentially never contain) to recover the intended list. System-layer fix:
+    recovers the intent silently rather than erroring or nudging (no burned turn)."""
+    out = []
+    for e in entities:
+        e = str(e)
+        if " | " in e:
+            out.extend([x.strip() for x in e.split(" | ") if x.strip()])
+        else:
+            out.append(e)
+    return out
+
+
 def _looks_like_value(name) -> bool:
     """True if the input is a literal VALUE (numeric/coordinate/raw date), not a named
     entity. The model sometimes passes a value as a center (e.g. '-1.61' a latitude,
@@ -765,7 +783,7 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
     the GTE candidate pool is the UNION of all entities' 2-hop reachable relations —
     ensuring relations visible from ANY candidate are surfaced (not just the first)."""
     raw = args.get("center") or args.get("entities") or ([args.get("entity")] if args.get("entity") else [])
-    entities = [str(e) for e in raw if e]
+    entities = _split_pipe_entities([str(e) for e in raw if e])
     question = args.get("question") or args.get("subquestion") or ""
     if not entities:
         return _json_result({"error": "no entity provided."})
@@ -773,13 +791,13 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
     if _err:
         return _json_result({"error": _err})
     _nudge = _variable_nudge(raw, ctx)
-    # resolve all entities + boundary check
-    idxs = []
+    # resolve all entities + boundary check. SKIP values (don't reject the whole call —
+    # a multi-center call may mix a named entity with a value; proceed with the named ones).
+    idxs, value_skipped = [], []
     for e in entities:
         if _looks_like_value(e):
-            return _json_result({"entity_error": f"'{e}' is a VALUE (numeric), not a named "
-                              "graph entity. A coordinate/number/date is not a center — pick a "
-                              "named entity from a previous retrieve_subgraph tree."})
+            value_skipped.append(e)           # value is not a center — skip, keep going
+            continue
         i = _name_to_idx(e, ctx)
         # fire CORRECTION only on no-match OR a clear substring-FRAGMENT match (sim<0.5).
         # _name_to_idx matches 'museum' inside 'harvard museum of modern colors' (a fragment
@@ -803,6 +821,11 @@ async def retrieve_relations(args: Dict[str, Any], ctx, session) -> str:
             return _json_result({"error": (f"'{e}' is not in the retrieved subgraph. Centers "
                                            f"must come from a previous retrieve_subgraph tree.")})
         idxs.append(i)
+    if not idxs:
+        # all centers were values (numeric/coord/date) — none are usable graph entities
+        return _json_result({"entity_error": f"all centers {value_skipped} are VALUEs "
+                              "(numeric/coordinate/date), not named graph entities. Pick named "
+                              "entities from a previous retrieve_subgraph tree."})
     # GTE per-entity (NOT a generic "these entities" head). A multi-entity call is a
     # variable expansion (?var → several bindings); each entity's relevant relations
     # differ. One generic-head call on the union pool loses the entity-specific ranking
@@ -852,7 +875,7 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
     relation pattern, so the model can compare across candidates (e.g. latest/largest).
     Accumulates seen entities into the subgraph."""
     raw = args.get("center") or args.get("entities") or ([args.get("entity")] if args.get("entity") else [])
-    entities = [str(e) for e in raw if e]
+    entities = _split_pipe_entities([str(e) for e in raw if e])
     rel_names = args.get("relations") or []
     fid = str(args.get("sg") or args.get("fact_id") or args.get("step") or "")
     if not entities:
@@ -866,15 +889,15 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
         return _json_result({"error": "no valid relations provided. Pick from the candidate_relations "
                                       "returned by retrieve_relations."})
 
-    # resolve + boundary-check each center (skip any not yet in the subgraph, proceed with the rest)
-    for e in entities:
-        if _looks_like_value(e):
-            return _json_result({"entity_error": f"'{e}' is a VALUE (numeric), not a named "
-                              "graph entity. A coordinate/number/date is not a center — pick a "
-                              "named entity from a previous retrieve_subgraph tree."})
-    centers, skipped = [], []
+    # resolve + boundary-check each center. SKIP values (don't reject the whole call — a
+    # multi-center call may mix a named entity with a value); skip entities not yet in the
+    # subgraph (boundary); flag wrong/low-conf names → entity correction.
+    centers, skipped, value_skipped = [], [], []
     bad_name = None                     # an entity whose NAME is wrong/low-conf → correct
     for e in entities:
+        if _looks_like_value(e):
+            value_skipped.append(e)      # value is not a center — skip, keep going
+            continue
         i = _name_to_idx(e, ctx)
         if i is None or _match_sim(e, ctx.ents[i]) < 0.50:
             if bad_name is None:
@@ -886,6 +909,10 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
             skipped.append(e)           # in graph but not yet retrieved → boundary skip
         elif i is not None:
             centers.append((e, i))
+    if not centers and value_skipped and not bad_name:
+        return _json_result({"entity_error": f"all centers {value_skipped} are VALUEs "
+                              "(numeric/coordinate/date), not named graph entities. Pick named "
+                              "entities from a previous retrieve_subgraph tree."})
     if bad_name is not None:
         # entity-name CORRECTION: wrong/low-conf name → offer GTE candidates + NEIGHBOR relations
         cands = await _entity_correction(bad_name, getattr(ctx, "question", ""), ctx, session)
