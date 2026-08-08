@@ -436,6 +436,12 @@ _EDGE_NOISY_SHORT = {
     "profession", "webpage", "mid", "guid", "key", "keys", "permission",
     "article", "description", "alias", "name", "topic_equivalent_webpage",
     "is_reviewed", "image", "webpage_topic",
+    # role/type HUB relations — a broad relation like organization.role.governors lands
+    # on a 'Governor' role entity, whose member/organization edges fan out to EVERY
+    # holder of that role across the graph (bank governors, club governors, …), flooding
+    # the tree with irrelevant entities. These are never answer candidates for a
+    # specific-entity question.
+    "member", "organization", "role", "appointees",
 }
 
 
