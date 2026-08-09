@@ -20,7 +20,7 @@ from typing import Any, Dict
 from kgqa.core.utils import normalize
 from kgqa.traversal.cvt import is_cvt_like
 from kgqa.agent.tools import (
-    _json_result, _gte_for_triple, _reach2_relids, _do_answer, _cvt_attr_summary,
+    _gte_for_triple, _reach2_relids, _do_answer, _cvt_attr_summary,
     _constraint_attr_summary, _GTE_POOL_MIN,
 )
 from kgqa.core.case_state import CaseState
@@ -31,6 +31,27 @@ from kgqa.stages.formatting import build_pattern_evidence_triples
 
 
 # ───────────────────────── helpers ─────────────────────────
+
+def _json_result(payload: Any) -> str:
+    """SEQ tool-result renderer: readable key:value text (NOT JSON).
+    Overrides tools._json_result so SEQ results read naturally for the model; SAPS
+    keeps its own JSON renderer untouched. Skips empty/zero fields; lists → 'a | b';
+    multi-line strings (e.g. triples) get their own indented block."""
+    if not isinstance(payload, dict):
+        return str(payload)
+    lines = []
+    for k, v in payload.items():
+        if v is None or v == "" or v == [] or v == 0:
+            continue
+        if isinstance(v, list):
+            lines.append(f"{k}: {' | '.join(str(x) for x in v)}")
+        elif isinstance(v, str) and "\n" in v:
+            lines.append(f"{k}:")
+            lines.append(v.rstrip())
+        else:
+            lines.append(f"{k}: {v}")
+    return "\n".join(lines) if lines else "(empty)"
+
 
 def _name_to_idx(name: str, ctx) -> int | None:
     """Map entity name → graph idx. Robust to typos (fuzzy) + diacritics (accent-insensitive)."""
