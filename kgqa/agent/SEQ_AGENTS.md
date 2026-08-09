@@ -976,7 +976,7 @@ entities: A | B | ...
 
 The answer set comes entirely from retrieved graph structure.
 
-**Every answer must be a graph ENTITY NAME present in the retrieved evidence — never a bare date, time, number, or type.** When the question asks *when / where / how-many*, return the EVENT or ENTITY that carries the value — e.g. a championship / sports-event entity (not its date), a `governmental_position_held` record (not the year), an award entity (not the year). The event entity carries the time as an attribute; the time itself is not an entity and is never an answer.
+**Every answer must be a graph ENTITY NAME present in the retrieved evidence — never a bare date, time, number, or type.** A bare value (a year, date, or number) is an *attribute* of a graph entity, not an entity itself, so it can never be an answer. When the question asks *when / what year / where / how-many* about an EVENT (championship, finals, series, tournament, inauguration, award, battle), the answer is the **event entity** that carries the value, not the bare value — so bind the answer variable to the **event entity**, not to a date/year variable. Example: "in what year did the team win the Cup?" → answer `2020 Cup Final` (the event entity), NOT `2020` (its year attribute); the event entity carries the year, the year alone is not in the graph.
 
 Return ALL answer-variable bindings unless:
 
