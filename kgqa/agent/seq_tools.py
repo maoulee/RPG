@@ -54,32 +54,59 @@ def _json_result(payload: Any) -> str:
 
 
 def _name_to_idx(name: str, ctx) -> int | None:
-    """Map entity name → graph idx. Robust to typos (fuzzy) + diacritics (accent-insensitive)."""
+    """Map entity name → graph idx. Robust layered resolution:
+    1. RAW exact (name == e) — strongest; excludes prefix-noise entities (:Caribbean) that
+       normalize-collide with the clean name but are isolated pool=0 nodes. Without this,
+       normalize(':Caribbean')=='caribbean'==normalize('Caribbean') and the first collision
+       wins → retrieve_relations gets a pool=0 entity → fallback all-rels → GTE returns
+       unreachable candidates → walk reaches nothing (idx88 root cause).
+    2. normalize exact + COLLISION resolution — when several entities normalize to one key,
+       prefer raw==name, else the SHORTEST raw (prefix-noise ':X' is longer than 'X').
+    3. accent-insensitive (Vietnamese diacritics — normalize corrupts them, strip first).
+    4. substring containment + similarity gate (≥0.85) — variant containment
+       ('United States' ⊂ 'United States of America'), gated so a fragment like 'museum'
+       ⊂ 'harvard museum' (ratio <0.85) doesn't match.
+    5. fuzzy typo (Larr Baer → Larry Baer, difflib ≥0.85)."""
     import difflib, unicodedata
-    n = normalize(str(name))
+    if not name or not str(name).strip():
+        return None
+    name = str(name).strip()
+    n = normalize(name)
     if not n:
         return None
     norms = [normalize(e) for e in ctx.ents]
-    # 1. exact
-    for i, en in enumerate(norms):
-        if en == n:
+
+    # 1. RAW exact
+    for i, e in enumerate(ctx.ents):
+        if e == name:
             return i
-    # 2. substring (both directions) — skip empty norms (Hebrew/CJK normalize to "" →
-    # "" in anything = True, which resolves to the wrong entity)
-    if len(n) >= 3:
-        for i, en in enumerate(norms):
-            if en and len(en) >= 2 and (n in en or en in n):
-                return i
-    # 3. accent-insensitive — strip accents on RAW entity text BEFORE normalize
-    #    (normalize corrupts Vietnamese diacritics into spaces; must strip first)
+
+    # 2. normalize exact + collision resolution (multiple entities → same normalize key)
+    n_matches = [i for i, en in enumerate(norms) if en == n]
+    if n_matches:
+        raw_eq = next((i for i in n_matches if ctx.ents[i] == name), None)
+        if raw_eq is not None:
+            return raw_eq
+        return min(n_matches, key=lambda i: len(ctx.ents[i]))
+
+    # 3. accent-insensitive (strip accents on RAW before normalize)
     def _strip_accents(text):
         return ''.join(c for c in unicodedata.normalize('NFKD', text)
                        if not unicodedata.combining(c))
-    n_na = _strip_accents(n)
-    for i, e in enumerate(ctx.ents):
-        if normalize(_strip_accents(e)) == n_na:
-            return i
-    # 4. fuzzy typo tolerance (Larr Baer → Larry Baer)
+    n_na = normalize(_strip_accents(name))
+    if n_na and n_na != n:
+        for i, e in enumerate(ctx.ents):
+            if normalize(_strip_accents(e)) == n_na:
+                return i
+
+    # 4. substring containment + similarity gate (variants yes, fragments no)
+    if len(n) >= 3:
+        for i, en in enumerate(norms):
+            if (en and len(en) >= 2 and (n in en or en in n)
+                    and _match_sim(name, ctx.ents[i]) >= 0.85):
+                return i
+
+    # 5. fuzzy typo
     close = difflib.get_close_matches(n, norms, n=1, cutoff=0.85)
     if close:
         return norms.index(close[0])
