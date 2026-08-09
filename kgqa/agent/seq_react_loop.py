@@ -267,6 +267,39 @@ class SeqReactCase:
             {"role": "user", "content": f"Question: {self.ctx.question}"},
         ]
 
+    async def prelink(self, session, top_k: int = 6):
+        """Plan-前置: 用数据自带的 qentity（清洁问题实体，正确 FB 名）作为锚点参考注入
+        question + 植入 ctx.subgraph_entities。解决模型抽取错实体名的问题（'Vienna,
+        Austria'→'Vienna'；GTE 噪声 'National Anthem'→'Tiến Quân Ca'）。qentity 覆盖 100%、
+        泄漏 2%、idx 100% 有效。注入邻居关系做 disambiguation。零 GTE 调用（比全文检索版
+        快且无噪声）。措辞克制（参考非强制）以减少对正常 case 的干扰。"""
+        ctx = self.ctx
+        qe_names = ctx.sample.get("q_entity") or []
+        qe_idxs = ctx.sample.get("q_entity_id_list") or []
+        if not qe_names:
+            return
+        se = getattr(ctx, "subgraph_entities", None)
+        out = []
+        for name, idx in zip(qe_names, qe_idxs):
+            if not isinstance(idx, int) or not (0 <= idx < len(ctx.ents)):
+                continue
+            rels_1hop = set()
+            for k in range(len(ctx.h_ids)):
+                if (ctx.h_ids[k] == idx or ctx.t_ids[k] == idx) and 0 <= ctx.r_ids[k] < len(ctx.rels):
+                    rels_1hop.add(ctx.rels[ctx.r_ids[k]])
+            out.append({"name": name, "neighbor_relations": sorted(rels_1hop)[:3]})
+            if se is not None:
+                se.add(idx)
+        if not out:
+            return
+        lines = [f"  - {o['name']}" + (f" (relations: {' | '.join(o['neighbor_relations'])})"
+                  if o['neighbor_relations'] else "") for o in out]
+        self.messages[1]["content"] += (
+            "\n\nQuestion entities (canonical graph names — the system confirmed these are the "
+            "correct graph entities for the entities mentioned in the question). If your planned "
+            "`entities` name does not match the graph, use these canonical names as your anchors:\n"
+            + "\n".join(lines))
+
     @property
     def is_active(self):
         return not self.done and not self.failed
@@ -419,6 +452,7 @@ async def run_seq_react_case(session: aiohttp.ClientSession, sample: Dict[str, A
     from kgqa.llm.client import _call_single_with_reasoning, THINKING_TOKEN_BUDGET as _tb
 
     rc = SeqReactCase(sample, pilot_row, idx)
+    await rc.prelink(session)
     max_rounds = int(getattr(args, "agent_max_iters", 16))
     max_tokens = int(getattr(args, "agent_max_tokens", 1024))
     if _tb > 0:
@@ -482,6 +516,15 @@ async def run_seq_react_batch(cases_to_run, args):
     batch_chunk = int(getattr(args, "batch_chunk", 25))
 
     async with aiohttp.ClientSession() as session:
+        # plan-前置实体预检索（每 case 一次 GTE；并发受限避免 GTE 连接 reset）
+        _pl_sem = asyncio.Semaphore(16)
+
+        async def _pl(_rc):
+            async with _pl_sem:
+                await _rc.prelink(session)
+
+        await asyncio.gather(*[_pl(rc) for rc in react_cases])
+
         for round_num in range(max_rounds):
             active = [rc for rc in react_cases if rc.is_active]
             if not active:

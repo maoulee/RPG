@@ -587,6 +587,132 @@ def _shown_edge_key(h: str, r: str, t: str) -> tuple:
     return (normalize(h), r, normalize(t))
 
 
+def _render_records(all_triples, shown_edges):
+    """Record-centric renderer (replaces _resolve_cvt_edges + _merge_edges).
+
+    CVT-with-holder → record `holder → title [from=..; to=..; ..]`, direction-normalized:
+    holder = the person reached via an `office_holder` (singular) or `positions_held` edge
+    in EITHER direction; `office_holders` (plural) is the title→CVT reverse and is skipped
+    (it was the source of the holder/title direction confusion). CVT-without-holder
+    (non-record schemas) → flattened named→named. Direct named→named edges → merged lines.
+    `has_no_value` → `to=(incumbent)`. Cross-subgraph dedup by record key or edge key.
+    Returns (lines, n_overlap)."""
+    cvt_attrs = {}         # cvt -> [(attr_short, val)]  (CVT→named, excl has_no_value)
+    cvt_holders = {}       # cvt -> [holder name]  (either direction, holder edge)
+    cvt_incumbent = set()  # cvt with a has_no_value edge
+    direct = []
+
+    def _is_holder_rel(r):
+        return r.endswith("office_holder") or "positions_held" in r
+
+    for tr in all_triples:
+        if not (isinstance(tr, (tuple, list)) and len(tr) == 3):
+            continue
+        h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
+        sr = _short_rel(r)
+        if is_cvt_like(h) and not is_cvt_like(t):
+            if sr == "has_no_value" or "has_no_value" in r:
+                cvt_incumbent.add(h); continue
+            cvt_attrs.setdefault(h, []).append((sr, t))
+            if _is_holder_rel(r):
+                cvt_holders.setdefault(h, []).append(t)
+        elif not is_cvt_like(h) and is_cvt_like(t):
+            if _is_holder_rel(r):
+                cvt_holders.setdefault(t, []).append(h)
+            # title→CVT (office_holders plural) reverse: skip — holder/title surface via CVT attrs
+        elif not is_cvt_like(h) and not is_cvt_like(t):
+            if sr in _EDGE_NOISY_SHORT or normalize(h) == normalize(t):
+                continue
+            direct.append((h, sr, t))
+
+    # build records (CVT with holder)
+    records = []
+    seen_rec = set()
+    for cvt, holders in cvt_holders.items():
+        attrs = cvt_attrs.get(cvt, [])
+        title = next((v for a, v in attrs if any(k in a for k in ("basic_title", "office_position_or_title"))), None)
+        from_v = next((v for a, v in attrs if a == "from"), None)
+        to_v = next((v for a, v in attrs if a == "to"), None)
+        if cvt in cvt_incumbent and not to_v:
+            to_v = "(incumbent)"
+        juris = next((v for a, v in attrs if "jurisdiction" in a), None)
+        used = {title, from_v, to_v, juris}
+        extra = [(a, v) for a, v in attrs
+                 if v not in used and a not in ("office_holder", "office_holders",
+                     "office_position_or_title", "basic_title", "from", "to")
+                 and "type" not in a and "review" not in a and not a.startswith("is_")]
+        for hd in holders:
+            key = ("REC", normalize(hd), normalize(title or ""), from_v or "", to_v or "")
+            if key in seen_rec:
+                continue
+            seen_rec.add(key)
+            records.append((hd, title, from_v, to_v, juris, extra))
+
+    # fallback: CVT without holder → flatten its attrs onto the named head (edge-centric)
+    fallback = []
+    for tr in all_triples:
+        if not (isinstance(tr, (tuple, list)) and len(tr) == 3):
+            continue
+        h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
+        if not is_cvt_like(h) and is_cvt_like(t) and t not in cvt_holders:
+            for a, v in cvt_attrs.get(t, []):
+                if is_cvt_like(v) or a in _EDGE_NOISY_SHORT or normalize(h) == normalize(v):
+                    continue
+                fallback.append((h, a, v))
+
+    # dedup against shown_edges (records by record key, edges by edge key)
+    n_overlap = 0
+    new_records = []
+    for rec in records:
+        hd, title, fv, tv, juris, extra = rec
+        rkey = ("REC", normalize(hd), normalize(title or ""), fv or "", tv or "")
+        if rkey in shown_edges:
+            n_overlap += 1; continue
+        shown_edges.add(rkey)
+        new_records.append(rec)
+    new_direct = []
+    for h, r, t in direct + fallback:
+        ekey = _shown_edge_key(h, r, t)
+        if ekey in shown_edges:
+            n_overlap += 1; continue
+        shown_edges.add(ekey)
+        new_direct.append((h, r, t))
+
+    # render
+    def _attrs_str(fv, tv, juris, extra):
+        parts = []
+        if fv:
+            parts.append(f"from={fv[:10]}")
+        if tv:
+            if tv == "(incumbent)":
+                parts.append("to=incumbent")
+            else:
+                parts.append(f"to={tv[:10] if isinstance(tv, str) and len(tv) > 10 else tv}")
+        if juris:
+            parts.append(f"jurisdiction={juris}")
+        for a, v in extra[:2]:
+            parts.append(f"{a}={v}")
+        return "; ".join(parts)
+
+    lines = []
+    by_title = {}
+    for hd, title, fv, tv, juris, extra in new_records:
+        by_title.setdefault(title or "(office)", []).append((hd, fv, tv, juris, extra))
+    for title, recs in by_title.items():
+        if len(recs) == 1:
+            hd, fv, tv, juris, extra = recs[0]
+            astr = _attrs_str(fv, tv, juris, extra)
+            lines.append(f"  {hd} → {title}" + (f"  [{astr}]" if astr else ""))
+        else:
+            lines.append(f"  {title}:")
+            for hd, fv, tv, juris, extra in recs:
+                astr = _attrs_str(fv, tv, juris, extra)
+                lines.append(f"    - {hd}" + (f"  [{astr}]" if astr else ""))
+    for ln in _merge_edges(new_direct):
+        lines.append(f"  {ln}")
+    return lines, n_overlap
+
+
 def _format_merged(collected, accumulated=None, max_tails: int = 60, max_chains: int = 4) -> list:
     """Cross-center merged display. `collected` = list of (center_name,
     PatternEvidence) across all centers of one retrieve_subgraph call. Group by
@@ -1019,26 +1145,16 @@ async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
     # → named→named, deduped. Inverse / variant relations that surfaced the SAME entity
     # pair via N patterns collapse to ONE edge per entity pair here.
     all_triples = _canonicalize_triples(all_triples, ctx)
-    resolved = _resolve_cvt_edges(all_triples)
-    # Cross-subgraph dedup: edges already shown in a PRIOR retrieve_subgraph are not
-    # re-displayed (sg2 does not repeat sg1's content). Tracked as resolved (entity-pair)
-    # keys so semantic duplicates with different relation names are also caught — unlike
-    # the old chain-level filter which only knew the few pairs in _INVERSE_PAIR.
+    # record-centric rendering (replaces _resolve_cvt_edges + _merge_edges):
+    # CVT-with-holder → record `holder → title [from=..; to=..; ..]` (direction-normalized);
+    # CVT-without-holder → flattened named→named; direct edges → merged. Cross-subgraph
+    # dedup by record key (holder,title,from,to) or edge key.
     shown = getattr(ctx, "shown_edges", None)
     if shown is None:
         shown = set(); ctx.shown_edges = shown
-    new_edges = [(h, r, t) for (h, r, t) in resolved if _shown_edge_key(h, r, t) not in shown]
-    n_overlap = len(resolved) - len(new_edges)
-    for h, r, t in new_edges:
-        shown.add(_shown_edge_key(h, r, t))
-    # merge: same (h,r) with differing t → 'h --r--> t1 | t2 | ...'; same (r,t) with
-    # differing h → 'h1 | h2 | ... --r--> t'. Either direction, whichever collapses more.
-    tree_lines = [f"  {ln}" for ln in _merge_edges(new_edges)]
+    tree_lines, n_overlap = _render_records(all_triples, shown)
     if not tree_lines and n_overlap:
-        tree_lines = [f"  (all {n_overlap} edges already shown in a prior subgraph — nothing new)"]
-    # Generous line budget: leaf entities (answer candidates) must NOT be truncated
-    # away. CVT-resolution + inverse-collapse + cross-subgraph dedup already compress
-    # the edge set heavily, so this only bites on pathological high-degree centers.
+        tree_lines = [f"  (all {n_overlap} records/edges already shown in a prior subgraph — nothing new)"]
     _TREE_LINE_BUDGET = 200
     if len(tree_lines) > _TREE_LINE_BUDGET:
         dropped = len(tree_lines) - _TREE_LINE_BUDGET
