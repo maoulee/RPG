@@ -7497,3 +7497,21 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   lane 数)预计 ±5%,不再盲目试。
 - **口径提醒**:冒泡下 phase 行的 llm=/dispatch= 是重叠累计(冒烟 9traj 会显
   示 llm=362s 但墙钟 62s),比较只看总墙钟与 per-case wall。
+
+### 2026-09-07 walk-perf 分支(commit 5e029e6):游走提速 3x,全量 378s=2.6s/traj
+- **profile 发现(单 walk 级)**:两个 regime——稀疏 case 热点在证据构建
+  (formatting._is_latinish 占 58%,5.3k 次/walk);稠密 case(7k+边,度 900+)热点在
+  relation_prior_expand(76%),且**单步 agent walk 的 n_steps<=1 使 RPE 回退无条件
+  触发**;三处邻接(logical_paths/k_queue/frontier RPE)每次 walk 全量重建。
+- **三处等价优化**:① per-case 邻接 memo((id,len,directed,variant) 键,下游全
+  只读已验证);② _is_latinish 字符级 memo(字符表远小于字符串集);③ lane worker
+  gc.set_threshold(2M,100,100)——驻留邻接容器让 gen2 GC 扫描放大(4ms walk 之间
+  300ms GC 尖峰,gc-off 对照平稳)。
+- **等价证据链**:7 组合(case×center×rels,含稠密 212/493/567)walk 输出 pickle
+  sha256 新旧全等;48×3 全量 mean_f1=0.732(=基线顶);tests 115 passed。
+  battery 工具 tmp/walk_ab.py(git stash 旧码对照跑)。
+- **全量数字(冒泡模式)**:701→**378s(-46%)**,2.6s/traj,7.9s/case×3;walk exec
+  456→364s lane 累计且吞吐×3;per-case wall 337→245s;**llm/dispatch 重叠在 walk
+  提速后才真正生效**(之前被 walk 的 CPU 需求顶死 4 核配额)。
+- 速度弧线:串行 ~60min → 轮模式调优 655-701s → 冒泡 670s → **冒泡+walk-perf
+  378s**。分支 walk-perf 保留(未 merge 回 agent-toolcall,待用户裁决)。
