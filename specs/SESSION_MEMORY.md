@@ -7532,3 +7532,26 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **运维规则**:48×3 用 WALK_POOL=3;267×3 用 3-6 均可(6 略优 walk 排队但总墙
   钟无差);BUBBLE_LLM_CONC=256(放开到服务器上限)。再要提速只剩 llm 物理
   (GPU gen 吞吐/thinking budget——后者是行为参数,不动)。
+
+### 2026-09-07 信息增益流水线切换到 walkperf run + teacher 子图分解(tmp/teacher_subgraph_wp)
+- **既有框架确认在案**:IG 演化记录在"行为分类+信息增益联合标注(09-04)"起
+  的系列段落——ΔP→LOO 反事实→联合判定树(结构必要性>结构增益>概率增益)→
+  classifier v3→裁决 v2.1。全部 tmp 资产此前针对 v38n_selrows 基线。
+- **新 run(walkperf,f1 0.732)全流水线重跑**(tmp/*_wp 系列脚本):
+  struct_vars 回放 144(inline,env 与 run 一致含 license filter)→ prob echo
+  打分(v4 规则)→ prefix 边际 → 裁决 v2.1 → **EFFECTIVE 208(58.1%)/
+  REDUNDANT 118(33.0%)/INVALID 15(4.2%)/HARMFUL 17(4.7%)**(358 调用)。
+  vs 旧基线(62.6/27.8/3.2/6.4):RED+5pp(约束低增益上升),HARMFUL 降
+  (ladder/gate 修复生效)。
+- **teacher 子图分解增益**(用户裁决:teacher 轨迹需分子图——某些子图只有
+  部分核心轨迹):tmp/teacher_subgraph_wp.py,单位=fact 块(sg 调用按 fid
+  分组),每块 {introduces_gold, necessary, connector, pp_gain(概率空间
+  prefix 链差), verdict CORE/SUPPORT/PERIPHERAL}。
+  **结果:teacher 轨迹 93/144(f1≥0.8∧gold∈walk),227 fact 块:CORE 143
+  (63%)/SUPPORT 29(13%)/PERIPHERAL 55(24%)。44 个部分核心 fact(核心
+  仅在 teacher seeds 子集:537_a52d sg0=seed{0,2}/sg2=seed{1};1840
+  sg0/sg1 完全互补;576 sg0=seed{1,2}/sg1=seed{2,0})——证明 teacher 库
+  的收录单位必须是 fact 块,整轨迹选择会丢部分核心结构。**
+- 产物(会丢,结论在本条):tmp/{struct_vars_walkperf,prob_walkperf,
+  prefix_walkperf,adjudication_walkperf,teacher_subgraph_wp}.json。
+  下游:OSPD teacher pool 按 fact 块收录规则(待用户审)。
