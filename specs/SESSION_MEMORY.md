@@ -7378,3 +7378,57 @@ OUT=reports/v38_full_fix_48x3.json
 ### 陷阱提醒(再次)
 - N_CASES 默认 3,必须显式设 48
 - SEQ_ZH_QUESTION 是路径(不是开关),指向标注 json 文件
+
+## 2026-09-07 · checkout 事故恢复日:并行调度重建 + 回退归因 + answer-layer pack 从测试恢复(0.608→0.729)
+
+### 事故与恢复全景
+git checkout 摧毁的 seq_react_loop.py 从 /tmp(8/23 快照)恢复后,丢了 8/24-9/3 的
+11 天演化(未提交)。当天跑了 5 轮 48×3 全量 + 1 轮对照,逐步归因并修复:
+
+| run | mean_f1 | 内容 |
+|---|---|---|
+| v38n_selrows(9/3 基线) | 0.7318 | 丢失演化版本的完整代码 |
+| full_fix #1(并行重建后) | 0.5976 | 串行 stub → 并行 run_round_dispatch 重建;zh 注入丢失补回 |
+| full_fix #2 | 0.6508 | CVT license-filter 修复(tree-path node 剥属性尾) |
+| ctrl_base(对照) | 0.6430 | **关 zh/filter/join ≈基线配置→证明回退主因在恢复代码本身** |
+| full_fix #3 | 0.6083 | NONE-ladder 粗重建 + ma-gate 挪到 validate 前(杀 24 僵尸) |
+| **full_fix #5(终)** | **0.7292** | 子代理审计 P0-P3 + ladder 按测试规格重写 |
+
+终态机制计数:zombie=0 crash=0 GATE=9%(基线13%) ma-gate=21 ladder=6;
+gains/drops>0.15 = 11/11(对称 churn);493/537×2/626/576 全部恢复;
+567 两变体仍 0(模型语义选择错——选 A Beautiful Mind 而非 Village of the
+Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)。
+
+### 修复清单(commit 61cb440 + 7631b72)
+1. **P0** `_display_license_filter`:td 查询在 for-lbl 循环外→空 pattern dict
+   时 p 未绑定 UnboundLocalError,整 dispatch 崩(48 崩溃/14 case)。移入循环。
+2. **P1** STAGE GATE:带完整内联 ANSWER_ANALYSIS 块(+BASE_CANDIDATES)的
+   answer 直接过(基线规则 103/103;之前误拦 72 次,重分析毁正确答案)。
+3. **P2** repeat 检测:errored 调用不算 served(_last_tool_errored 旗标),
+   checkpoint 修正重试不再被 REJECTED (repeat) 困死。
+4. **P3** ladder 按测试规格重写(tests/test_commit_widening.py 是丢失功能的
+   **精确规格**,34/34 绿):refusal 短语也路由;首拒保回退权(fall back ONE
+   level);二拒展示绑定;restart 契约(restarted+None=终态空答,premature
+   提醒豁免);MECHANICAL MISMATCH 守卫(alias-var 回退不误伤);checkpoint
+   ack 带 var 状态(?founder=bound(1))。
+5. ma-gate 挪到 seq_validate **之前**(拦截时 state 未转 DONE;否则 24-case
+   僵尸家族:state=DONE+done=False→16 轮全拒)。
+6. 并行 run_round_dispatch 重建(A 全量 parse→B gather IO→C 全量 finalize);
+   48×3 全程 13-16min(llm~400s+dispatch~350s)。
+7. SEQ_ZH_QUESTION 注入重建(_init_messages 追加中文重述;493 0/3→3/3)。
+
+### 教训(trap)
+- **tests/ 是丢失功能的规格库**:checkout 事故后 tests/test_commit_widening.py
+  一直活着,直接对着它重建,比从轨迹反推精确得多。改 harness 前先跑它。
+- **重跑前 rm OUT**:resume 逻辑会把新 run 追加到旧文件(288 条混合的假数据)。
+- **lane 子进程 stdout 块缓冲**:Stage-5 行堆在子进程缓冲里,看 rollout 是否
+  活着要用 vLLM 日志(grep "POST /v1/chat/completions/batch")+子进程 CPU,
+  不要等 stdout。
+- N_SAMPLES 默认 3、N_CASES 默认 3;冒烟 cohort 用 head -3(tmp/smoke_cohort.txt)。
+- 保存 run 产物到 tmp/run_*.json——reports/ 的 OUT 文件会被下次 run 覆盖。
+
+### 本日 run 产物
+- tmp/run_20260907_ctrl_base.json(对照 0.6430)/ tmp/run_20260907_zombiefix.json
+  (0.6083,审计输入)/ tmp/regression_audit_20260907.md(子代理审计报告)
+- reports/v38_full_fix_48x3.json = 终版 0.7292(hit 84.0%,best3 0.8629)
+- 下游:对新 144 轨迹回放 struct_vars → v2.1 裁决 → OSPD teacher pool
