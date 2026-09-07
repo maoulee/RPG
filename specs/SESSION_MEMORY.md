@@ -7477,3 +7477,23 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
      个位数秒,低优先。
 - **run 环境(性能基准)**:WALK_POOL=3 WALK_BATCH_WINDOW=0.3
   GTE_CLIENT_BATCH_WINDOW=0.08 GTE_CLIENT_BATCH_FIRST=0.02 + 原 SEQ_* 组。
+
+### 2026-09-07 冒泡模式上线(commit 5536b1f)+ 4 核硬顶结论
+- **dispatch 分解(最终答案,wall-share 计时)**:B 段 241s 中 walk_flush 墙钟
+  218s(90%),**gte_post 墙钟仅 6s**——GTE 完全不是瓶颈(441s 的 gte lane 数
+  是 server 内部排队累计口径,不占关键路径;共卡抢占被 walk 期间重叠掩盖)。
+  walk 218s = lane 纯计算 ~130s(390s 累计/3 lane)+ 批组装/窗口/调度 ~88s。
+- **SEQ_BUBBLE=1(默认,per-case 协程替轮栅栏)**:case X 的 dispatch 与 case Y
+  的 LLM 重叠;walk/GTE collector 保留合批;LLM 走单请求 POST(sem=
+  BUBBLE_LLM_CONC=128,vLLM continuous batching 原生吃流式到达);hint/repeat
+  nudge/final-turn+1 语义逐 case 等价。SEQ_BUBBLE=0 回退轮模式。
+- **实测 48×3**:总墙钟持平(670 vs 701s)——**4 核 cgroup 是硬顶**:轮模式的
+  llm/dispatch"串行"本质是 CPU 分时(llm 时 vLLM 独占核,dispatch 时 walk
+  lane 独占),冒泡把两边的 CPU 工作压进同一 4 核竞争,GPU 可重叠但 CPU 不能
+  (walk_wait 4s→14936s lane 排队是表象)。**但 per-case wall 减半**(mean 337s/
+  p50 282s vs 698s 全员等满)+ 质量等价(0.672 带内)→ 冒泡保留为默认。
+- **吞吐结论**:4.6-4.9s/traj 已在 4 核+单 vLLM 物理极限附近;再快只能减
+  CPU 工作(walk 算法/slots)或加核。冒泡的边际调参(WALK_BATCH_WINDOW 更小/
+  lane 数)预计 ±5%,不再盲目试。
+- **口径提醒**:冒泡下 phase 行的 llm=/dispatch= 是重叠累计(冒烟 9traj 会显
+  示 llm=362s 但墙钟 62s),比较只看总墙钟与 per-case wall。
