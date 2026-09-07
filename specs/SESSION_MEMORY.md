@@ -7449,3 +7449,31 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **run 间方差**:0.729 vs 0.662 同代码,首个分叉在 step 0 模型自由文本
   (temp=0.3 无固定 seed)——48×3 单轮指标噪声带 ±3-4pp,比较结论须多轮
   或看机制计数;lane 数变化语义中性(perf4 801/801 replay 证)。
+
+### 2026-09-07 dispatch 调优终态:701s=4.9s/traj(达 perf4 水平)+ 局限性清单
+- **容器真相**:cgroup cpu.max=400000/100000=**4 核硬配额**(nproc 显示 128 是宿主
+  视图,勿信)。主进程+vLLM API server+GTE server+walk lanes 共享 4 核。
+- **本轮改动**:WALK_POOL 3(不是 12!4 核下 12 lane 超卖,IPC+切换反税,12→3 反而
+  792→701s);WALK_BATCH_WINDOW=0.3;**GTE_CLIENT_BATCH_WINDOW 1.0→0.08 /
+  FIRST 0.25→0.02**(client 全窗 1s 的 collect 税 1243s→235s 累计,-81%;server
+  端 15ms _merge_jobs 窗口本就会合批,client 长窗是双重合批冗余)。
+- **分解**(144 traj):llm=377s(2.6s/traj,8.3 轮×~23s 批栅栏,物理形态)
+  dispatch=321s(B=320s:A=1s C=0s) walk exec 456s/3lanes≈152s 墙钟
+  gte server 侧 554s 内部;质量 0.672(三轮 0.729/0.662/0.672,带内)。
+- **GTE 卡位答复**:GTE 已在 GPU1(与 vLLM TP-rank1 共卡,GPU1 仅剩 664MB;
+  GPU0 剩 3GB 但同为 rank0);**无空闲卡**;CPU 4 核跑 Qwen3-Embedding-0.6B
+  不可行(已实测放弃)。缓解=client 窗口调优(已做);进一步=CUDA MPS(需重启
+  vLLM,收益:GTE/vLLM kernel 真并发消除抢占抖动)或 GTE 密度治理。
+- **dispatch 剩余局限性(按空间排序)**:
+  1. **轮栅栏串行**:llm(377s)与 dispatch(321s)零重叠——case 级流水(去轮化,
+     collector 合批保留)可让部分 dispatch 与 llm 重叠,潜在全程 -30~40%。
+     结构性改动,需单独验证行为等价;perf4 时代因 sync tax 弃用,但现在
+     A=1s/C=0s,交错税可能已可接受——下一个大优化方向。
+  2. walk exec 152s 墙钟:4 核物理约束,加 lane 无用(超卖),只能减 slots
+     (memo/dedup 已做)或优化 walk 算法。
+  3. GTE 密度 12.3 次/traj(历史 10.2):dedup/memo 已覆盖部分;进一步治理
+     会碰排序语义,属行为实验。
+  4. 每轮 prompt 构建+JSON 序列化(~17MB/轮,在 llm 计时内):orjson 可省
+     个位数秒,低优先。
+- **run 环境(性能基准)**:WALK_POOL=3 WALK_BATCH_WINDOW=0.3
+  GTE_CLIENT_BATCH_WINDOW=0.08 GTE_CLIENT_BATCH_FIRST=0.02 + 原 SEQ_* 组。
