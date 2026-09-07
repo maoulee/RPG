@@ -797,8 +797,17 @@ class SeqReactCase:
         except Exception:
             return ""
 
+    def _emit_tool_note(self, note: str):
+        """Deliver a harness note as both a user message and a trajectory
+        tool step (the standard dual-write for every gate/reminder/nudge)."""
+        self.messages.append({"role": "user", "content": note})
+        self.ctx.trajectory.append({"role": "tool", "content": note})
+
     def _ma_gate_check(self, tool_name, parsed_args):
-        """MULTI-ANCHOR CONSUMPTION GATE + JOIN PATHS (2026-09-01/07)."""
+        """MULTI-ANCHOR CONSUMPTION GATE + JOIN PATHS (2026-09-01/07).
+        SEQ_JOIN_GATE=0 disables (bisect fuse for the full-fix rollout)."""
+        if os.environ.get("SEQ_JOIN_GATE", "1") == "0":
+            return False
         if (tool_name != "answer" or not (parsed_args.get("entities") or [])
                 or getattr(self.ctx, "_ma_gate_fired", False)):
             return False   # don't intercept
@@ -910,9 +919,6 @@ class SeqReactCase:
         orchestration only (sync tax no longer interleaves as 500-coroutine
         fragments)."""
         prep = self._parse_prepare(raw_response, reasoning)
-        # MULTI-ANCHOR GATE: intercept answer when unconsumed entities exist
-        if prep.get("tool") == "answer" and self._ma_gate_check(prep["tool"], prep.get("args", {})):
-            return "continue"
         if "ret" in prep:
             return prep["ret"]
         result_str = await self._execute_tool(prep, session)
@@ -1219,7 +1225,18 @@ class SeqReactCase:
             elif re.search(r"\[[^\]]*[✓✗]\]", raw_response):
                 # checkpoint-only turn: the declarations were already merged by
                 # _update_var_operations above — acknowledge, don't scold.
-                fmt_nudge = ("Checkpoints recorded. Now emit your next tool call, "
+                # Var binding status rides along (ladder pack ②, 2026-08-24):
+                # information, never enforcement — vars link facts, binding
+                # is not forced.
+                _fbv = getattr(self.ctx, "fact_bindings", None) or {}
+                _fvv = getattr(self.ctx, "fact_vars", None) or {}
+                _vstat = "; ".join(
+                    f"{_v}=bound({len(_fbv[_f])})" if _fbv.get(_f)
+                    else f"{_v}=unbound"
+                    for _f, _v in list(_fvv.items())[:8])
+                fmt_nudge = ("Checkpoints recorded. "
+                             + (f"Subgraph vars: {_vstat}\n" if _vstat else "")
+                             + "Now emit your next tool call, "
                              "flat format (one key per line):\n"
                              "tool: retrieve_relations\ncenter: <entity or ?var>\n"
                              "question: <sub-question>\n" + self.allowed_tools_hint())
@@ -1263,6 +1280,14 @@ class SeqReactCase:
                     _dst["covers"] = _src["covers"]
         # anti-loop: consecutive IDENTICAL tool calls
         sig = (tool_name, json.dumps(parsed_args, sort_keys=True, ensure_ascii=False))
+        if getattr(self, "_last_tool_errored", False):
+            # an ERRORED call was never "served" — the checkpoint-corrected
+            # retry is legitimate, not a loop (25_db96/62_bce8 specimens:
+            # unbound-center error → retry with checkpoint → REJECTED (repeat)
+            # → hallucinated relations → dump-all)
+            self._last_tool_sig = None
+            self._tool_repeat = 0
+            self._last_tool_errored = False
         if sig == self._last_tool_sig:
             self._tool_repeat += 1
         else:
@@ -1283,6 +1308,86 @@ class SeqReactCase:
             self.ctx.trajectory.append({"role": "tool", "content": f"REJECTED (repeat): {nudge}"})
             return {"ret": "continue"}
 
+        # NONE/REFUSAL LADDER (answer-layer pack ①, 2026-08-24; restored
+        # 2026-09-07 against tests/test_commit_widening.py): a literal
+        # None/refusal answer means the model declares the exploration
+        # dead-ended — NOT an error to bounce through offpool. Routing:
+        # FIRST refusal keeps the go-back right (fall back ONE level,
+        # re-select the weakest subgraph's relations — never forced to
+        # answer); SECOND refusal → answer from current support with the
+        # bindings shown as basis; after the ONE restart a None/refusal IS
+        # the explicit empty answer (restart contract — accepted).
+        if tool_name == "answer":
+            _ne = parsed_args.get("entities")
+            if _ne is None:
+                _ne = parsed_args.get("ANSWER") or parsed_args.get("answer") or []
+            if isinstance(_ne, str):
+                _ne = [e.strip() for e in _ne.replace("|", ",").split(",") if e.strip()]
+            _s0 = str(_ne[0]).strip().lower() if isinstance(_ne, list) and len(_ne) == 1 else ""
+            _refusal = (_s0 in ("none", "null", "nan")
+                        or (_s0 and re.search(
+                            r"unable to determine|cannot be determined|"
+                            r"cannot determine|undetermined|no valid answer", _s0)))
+            if _refusal:
+                if getattr(self.ctx, "restarted", False):
+                    # restart contract: explicit empty answer; rewrite the
+                    # literal so the offpool check cannot reject it
+                    parsed_args = dict(parsed_args)
+                    parsed_args["entities"] = []
+                else:
+                    self.ctx._refusal_n = getattr(self.ctx, "_refusal_n", 0) + 1
+                    if self.ctx._refusal_n == 1:
+                        self._emit_tool_note(
+                            "NONE → ladder: re-select relations; "
+                            "[explore ✗ none] restarts once\n"
+                            "You may fall back ONE level: re-select the weakest "
+                            "subgraph's relation set (curated relation lists are "
+                            "never exhaustive) and retrieve again. If nothing at "
+                            "all was answer-relevant, declare [explore ✗ none] "
+                            "to restart the case once.")
+                        return {"ret": "continue"}
+                    _fb = getattr(self.ctx, "fact_bindings", None) or {}
+                    _fv = getattr(self.ctx, "fact_vars", None) or {}
+                    _basis = "; ".join(f"{_fv[_f]}={list(_fb[_f])[:4]}"
+                                       for _f in _fb if _f in _fv and _fb[_f])
+                    self.ctx._analysis_pending = False
+                    self._emit_tool_note(
+                        "Second refusal — answer from current support NOW "
+                        f"(bindings so far: {_basis or 'none'}).")
+                    return {"ret": "continue"}
+            elif (isinstance(_ne, list) and _ne
+                    and not getattr(self.ctx, "_varmismatch_retried", False)):
+                # VAR-MISMATCH GUARD (Stalin specimen, 2026-08-24): entities
+                # drawn ENTIRELY from ANOTHER variable's bindings while the
+                # declared answer var has its own — one-shot intercept; the
+                # justified resubmit passes.
+                _av = [str(v) for v in (getattr(self.state, "answer_var", None) or [])]
+                _fv = getattr(self.ctx, "fact_vars", None) or {}
+                _fb = getattr(self.ctx, "fact_bindings", None) or {}
+                _aset = {str(x).strip().lower() for x in _ne}
+                # intercept only when the answer var HAS its own bindings and
+                # the submission is entirely some OTHER var's values (an
+                # alias-var fallback has no answer-var bindings — passes)
+                _own_union = {str(x).strip().lower()
+                              for _v in _av
+                              for _f, xv in _fb.items() if _fv.get(_f) == _v
+                              for x in xv}
+                _mvar = next((_v for _f, _v in _fv.items()
+                              if _v not in _av
+                              and _aset and _aset <= {str(x).strip().lower()
+                                                      for x in (_fb.get(_f) or [])}),
+                             None)
+                if _mvar is not None and _own_union and not (_aset <= _own_union):
+                    self.ctx._varmismatch_retried = True
+                    self._emit_tool_note(
+                        f"MECHANICAL MISMATCH: every submitted entity is a "
+                        f"binding of {_mvar}, but the plan's answer variable "
+                        f"is {' / '.join(_av) or 'unset'}, which has its own "
+                        "bindings. Either submit the answer variable's "
+                        "values, or — if the question genuinely asks for "
+                        f"{_mvar}'s values — justify that and re-submit.")
+                    return {"ret": "continue"}
+
         # EVIDENCE COMMIT trigger (COMMIT-WIDENING): fire the ledger the moment
         # the READY predicate holds — including the very turn the model tries to
         # answer on READY, so that answer hits the STAGE GATE below instead of
@@ -1293,16 +1398,39 @@ class SeqReactCase:
         # EVIDENCE COMMIT is intercepted — the model must emit
         # ANSWER_ANALYSIS first; the harness then signals ANSWER_READY.
         # One-shot: a second attempt passes (budget escape).
-        if (tool_name == "answer"
+        # Empty answers skip the gate (ladder pack ③, 2026-08-24): there is
+        # nothing to analyze — an empty submission was already decided.
+        _ans_entities = (parsed_args.get("entities")
+                         or parsed_args.get("ANSWER")
+                         or parsed_args.get("answer"))
+        if (tool_name == "answer" and _ans_entities
                 and getattr(self.ctx, "_analysis_pending", False)):
             self.ctx._analysis_pending = False
-            self.messages.append({"role": "user", "content":
-                "STAGE GATE: evidence is committed but not yet analyzed. "
-                "Emit ANSWER_ANALYSIS now (BASE_CANDIDATES / REQUIREMENT_"
-                "CHECK / PROVISIONAL_FINAL / REASON) — no answer call. "
-                "The next turn will be ANSWER_READY."})
-            self.ctx.trajectory.append({"role": "tool", "content":
-                "STAGE GATE: ANSWER_ANALYSIS required before answer"})
+            if re.search(r"ANSWER_ANALYSIS[\s\S]{0,600}BASE_CANDIDATES", raw_response):
+                # inline analysis satisfies the gate (baseline rule, 103/103
+                # passed): the model answered WITH its analysis block —
+                # accept it; re-analysis is where correct answers degrade
+                # (626_01ad 1.0→0.25, 60_6b8e 0.94→0.5 specimens).
+                self.ctx._analysis_done = True
+            else:
+                self.messages.append({"role": "user", "content":
+                    "STAGE GATE: evidence is committed but not yet analyzed. "
+                    "Emit ANSWER_ANALYSIS now (BASE_CANDIDATES / REQUIREMENT_"
+                    "CHECK / PROVISIONAL_FINAL / REASON) — no answer call. "
+                    "The next turn will be ANSWER_READY."})
+                self.ctx.trajectory.append({"role": "tool", "content":
+                    "STAGE GATE: ANSWER_ANALYSIS required before answer"})
+                return {"ret": "continue"}
+
+        # MULTI-ANCHOR CONSUMPTION GATE (V3.7g, 2026-09-01, restored
+        # 2026-09-07): intercept the answer ONE round when declared plan
+        # entities never anchored a retrieval — MUST run before seq_validate
+        # transitions the state to DONE: intercepting after the transition
+        # leaves state=DONE with done unset, and every later call dies as
+        # "REJECTED: Conversation finished" until the round budget burns out
+        # (24-zombie family in the 2026-09-07 full-fix run).
+        if tool_name == "answer" and _ans_entities \
+                and self._ma_gate_check(tool_name, parsed_args):
             return {"ret": "continue"}
 
         _ready, _missing = False, None
@@ -1311,6 +1439,11 @@ class SeqReactCase:
             _fb2 = getattr(self.ctx, "fact_bindings", None) or {}
             _vj2 = getattr(self.ctx, "var_joins", None) or {}
             _ready = commit_due(self.state, _cf, _fb2, _vj2)
+            # restart contract: after the ONE restart, an empty answer IS
+            # the terminal the contract mandates — never remind again
+            if (not _ready and getattr(self.ctx, "restarted", False)
+                    and not _ans_entities):
+                _ready = True
             if not _ready:
                 _missing = blocking_facts(self.state, _cf, _fb2, _vj2)
         ok, err, new_state = seq_validate(
@@ -1411,6 +1544,10 @@ class SeqReactCase:
         tool_name = prep["tool"]
         parsed_args = prep["args"]
         raw_response = prep["raw"]
+        # errored calls are not "served": flag for the repeat detector so the
+        # corrected retry is not rejected as a loop (see _parse_prepare)
+        if result_str[:64].lstrip().startswith('{"error"') or '"error"' in result_str[:80]:
+            self._last_tool_errored = True
         self.messages.append({"role": "user",
                               "content": f"Tool result ({tool_name}): {result_str}"})
         self.ctx.trajectory.append({"role": "tool", "name": tool_name,
@@ -1673,10 +1810,6 @@ async def run_round_dispatch(cases_raws, session):
         if rc.done or rc.failed:
             continue
         prep = rc._parse_prepare(raw, reasoning)
-        # MULTI-ANCHOR GATE: intercept answer when unconsumed entities exist
-        if prep.get("tool") == "answer" and \
-                rc._ma_gate_check(prep["tool"], prep.get("args", {})):
-            continue
         if "ret" in prep:
             continue      # early-exit path: message side effects done in A
         prepared.append((rc, prep))

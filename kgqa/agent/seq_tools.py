@@ -3299,21 +3299,24 @@ def _display_license_filter(treq, bres, centers, all_triples, candidates):
                 p.candidates = cands
             except AttributeError:
                 pass
-        td = getattr(p, "tree_data", None)
-        if isinstance(td, dict):
             # tree-path nodes carry the RENDER form 'm.xxx: [attr=.., ..]' —
             # strip the attribute tail before the lic/cvt test, or every
             # CVT-mediated path fails both tests and the V38 renderer (which
             # synthesizes its rows from these paths) goes empty (537 specimen:
             # --film--> edges present in kept_triples yet "triples: (empty)").
-            def _node_ok(n):
-                s = str(n)
-                if s in lic or _cvt(s):
-                    return True
-                head = s.split(":", 1)[0].strip()
-                return head != s and (head in lic or _cvt(head))
-            td["paths"] = [tp for tp in (td.get("paths") or [])
-                           if all(_node_ok(n) for n in (tp.get("nodes") or []))]
+            # MUST stay INSIDE the lbl loop: an empty pattern-dict otherwise
+            # reads a stale/unbound p (UnboundLocalError killed the whole
+            # dispatch — 48 crashes / 14 cases, 2026-09-07 audit).
+            td = getattr(p, "tree_data", None)
+            if isinstance(td, dict):
+                def _node_ok(n):
+                    s = str(n)
+                    if s in lic or _cvt(s):
+                        return True
+                    head = s.split(":", 1)[0].strip()
+                    return head != s and (head in lic or _cvt(head))
+                td["paths"] = [tp for tp in (td.get("paths") or [])
+                               if all(_node_ok(n) for n in (tp.get("nodes") or []))]
     bres2["pe_list"] = pe2
     return kept_triples, kept_candidates, bres2
 
