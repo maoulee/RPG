@@ -125,5 +125,18 @@ class HTTPChatBatch:
             self._achat_batch(messages_list, kw), self._loop)
         return fut.result(timeout=1800)
 
+    async def achat_one(self, messages, thinking_budget=None,
+                        temperature=0.3, max_tokens=None, top_p=0.8,
+                        top_k=20, presence_penalty=1.5, model=None, **_):
+        """Single-request async chat (bubble mode, 2026-09-07): one POST per
+        turn under the client semaphore — the server continuous-batches
+        stream arrivals natively, so per-request injection keeps vLLM's
+        throughput while the rollout drops the round barrier."""
+        tb = thinking_budget or self._tb
+        kw = dict(thinking_budget=tb, temperature=temperature,
+                  max_tokens=max_tokens, top_p=top_p, top_k=top_k,
+                  presence_penalty=presence_penalty)
+        return await self._achat(messages, **kw)
+
     def close(self):
         self._loop.call_soon_threadsafe(self._loop.stop)

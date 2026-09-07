@@ -2445,6 +2445,9 @@ async def _walk_flush_async(batch):
     st["collect_s"] += sum(t_flush - r["t0"] for r in reqs)
     st["burst_span_s"] += max(r["t0"] for r in reqs) - min(r["t0"] for r in reqs)
     PHASE_TIMES["walk_collect"] += sum(t_flush - r["t0"] for r in reqs)
+    # flush WALL (first arrival → every future resolved) — the batch-view cost;
+    # flushes overlap each other/GTE, so the SUM upper-bounds the walk share.
+    _t_first = min(r["t0"] for r in reqs)
     try:
         # 1. unique execution slots per case, memo hits served for free.
         # slot key = (center_idx, frozenset(rel_idxs)) — the walk consumes
@@ -2612,6 +2615,9 @@ async def _walk_flush_async(batch):
         for r in reqs:
             if not r["fut"].done():
                 r["fut"].set_result([{} for _ in r["steps"]])
+    finally:
+        PHASE_TIMES["walk_flush_wall"] = \
+            PHASE_TIMES.get("walk_flush_wall", 0.0) + (_t.perf_counter() - _t_first)
 
 
 async def _run_walk_coordinated(ctx, case_key, steps):

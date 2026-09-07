@@ -102,7 +102,90 @@ async def rollout(llm, cases, n_samples, temperature, thinking_budget, max_round
         for rc in react_cases:
             rc._admit_t = _t_admit
 
+        # BUBBLE MODE (user-approved 2026-09-07): per-case coroutines replace
+        # the lockstep round barrier — case X's dispatch overlaps case Y's LLM
+        # generation. The walk/GTE collectors still coalesce (submissions land
+        # in the same window whatever the scheduler interleaving is); the LLM
+        # goes per-request POST under a semaphore (vLLM continuous-batches
+        # stream arrivals natively). Per-case turn semantics are IDENTICAL to
+        # the lockstep loop (same hint assembly, repeat nudges, final-turn +1).
+        # NOTE: phase llm/dispatch become OVERLAPPED sums in bubble mode —
+        # compare WALL time, not the phase line.
+        if os.environ.get("SEQ_BUBBLE", "1") == "1":
+            from kgqa.core.utils import phase_timer as _bpt
+            _llm_sem = asyncio.Semaphore(
+                int(os.environ.get("BUBBLE_LLM_CONC", "128")))
+            _b_tasks = set()
+            _b_lock = asyncio.Lock()
+
+            async def _b_chat(rc, final=False):
+                if final:
+                    hint = ("FINAL TURN (budget extended by one): submit your "
+                            "final answer NOW with `tool: answer` from the "
+                            "bindings you hold — this is the LAST turn; further "
+                            "retrieval will not be executed. "
+                            + rc.allowed_tools_hint())
+                else:
+                    hint = rc.state_aware_hint() + rc.allowed_tools_hint()
+                    if rc._tool_repeat >= 2:
+                        hint = rc.loop_nudge() + "\n" + hint
+                msgs = list(rc.messages)
+                msgs.append({"role": "user", "content": hint})
+                async with _llm_sem:
+                    with _bpt("llm"):
+                        cr = await llm.achat_one(
+                            msgs, thinking_budget=thinking_budget,
+                            temperature=temperature, max_tokens=max_tokens,
+                            top_p=top_p, top_k=top_k, presence_penalty=presence,
+                            model=os.environ.get("POLICY") or None)
+                with _bpt("dispatch"):
+                    await rc.process_turn(session, cr.text, cr.reasoning)
+
+            async def _b_topup(from_task=False):
+                if not (inflow_target and inflow_target > 0) or not pending:
+                    return
+                async with _b_lock:
+                    n_active = sum(1 for rc in react_cases if rc.is_active)
+                    n_fly = len(_b_tasks) - (1 if from_task else 0)
+                    batch = pending[:max(0, inflow_target - n_active - n_fly)]
+                    if not batch:
+                        return
+                    del pending[:len(batch)]
+                    react_cases.extend(batch)
+                    await asyncio.gather(*[_pl(rc) for rc in batch])
+                    _t_top = _time_mod.time()
+                    for rc in batch:
+                        rc._admit_t = _t_top
+                        _b_tasks.add(asyncio.create_task(_b_case(rc)))
+
+            async def _b_case(rc):
+                try:
+                    for _turn in range(max_rounds):
+                        if not rc.is_active:
+                            break
+                        await _b_chat(rc)
+                    if rc.is_active:
+                        await _b_chat(rc, final=True)
+                except Exception as e:
+                    rc.failed = True
+                    rc.failure_reason = f"bubble error: {e}"
+                rc._done_t = _time_mod.time()
+                await _b_topup(from_task=True)
+
+            for rc in list(react_cases):
+                _b_tasks.add(asyncio.create_task(_b_case(rc)))
+            while _b_tasks:
+                _bdone, _b_tasks = await asyncio.wait(
+                    _b_tasks, timeout=30, return_when=asyncio.FIRST_COMPLETED)
+                print(f"  bubble: {len(_b_tasks)} in flight → "
+                      f"done={sum(1 for rc in react_cases if rc.done)} "
+                      f"failed={sum(1 for rc in react_cases if rc.failed)}"
+                      f"  [t={time.time()-_T0:.0f}s]", flush=True)
+            active = []          # lockstep tail below: nothing left to do
+
         for rnd in range(max_rounds):
+            if rnd == 0 and os.environ.get("SEQ_BUBBLE", "1") == "1":
+                break            # bubble mode already ran everything
             # INFLOW top-up: admit pending trajectories to keep the batch full.
             # Batched (perf audit 2026-08-22): pop the WHOLE gap at once and
             # prelink it concurrently under pl_sem — the old serial per-case
@@ -371,6 +454,8 @@ def main():
         print(f"  phase: llm={_PT['llm']:.0f}s dispatch={_PT['dispatch']:.0f}s "
               f"| rd: A={_PT.get('rd_A', 0):.0f}s B={_PT.get('rd_B', 0):.0f}s "
               f"C={_PT.get('rd_C', 0):.0f}s "
+              f"| wall-share (overlapping): walk_flush={_PT.get('walk_flush_wall', 0):.0f}s "
+              f"gte_post={_PT.get('gte_post_wall', 0):.0f}s "
               f"| inside-dispatch: walk={_PT['walk']:.0f}s "
               f"(collect={_PT['walk_collect']:.0f}s wait={_PT['walk_wait']:.0f}s "
               f"exec={_PT['walk_exec']:.0f}s) "

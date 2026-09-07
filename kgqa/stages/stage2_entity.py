@@ -149,6 +149,9 @@ async def _gte_flush_async(batch):
     st["collect_s"] += sum(t_flush - r["t0"] for r in reqs)
     PHASE_TIMES.setdefault("gte_collect", 0.0)
     PHASE_TIMES["gte_collect"] += sum(t_flush - r["t0"] for r in reqs)
+    # POST wall (flush start → results distributed) — flushes overlap each
+    # other/walk, so the SUM upper-bounds the gte share of the dispatch wall.
+    _t_post0 = time.perf_counter()
     try:
         results = None
         if session is not None:
@@ -184,6 +187,9 @@ async def _gte_flush_async(batch):
         for r in reqs:
             if not r["fut"].done():
                 r["fut"].set_exception(e)
+    finally:
+        PHASE_TIMES["gte_post_wall"] = \
+            PHASE_TIMES.get("gte_post_wall", 0.0) + (time.perf_counter() - _t_post0)
 
 
 async def _gte_collect(session, key, query, candidates, candidate_texts,
