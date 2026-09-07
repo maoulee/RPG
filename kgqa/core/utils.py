@@ -6,18 +6,79 @@ building, candidate matching, and answer-set F1 computation.
 from __future__ import annotations
 
 import re
+import time
 from difflib import SequenceMatcher
+from functools import lru_cache
 from typing import Dict, List
+
+
+# ---------------------------------------------------------------------------
+# Phase timing (perf attribution — where does the ~8s/case go?)
+# Accumulators are process-global; the rollout prints them per stage.
+# llm = chat_batch wall time; dispatch = turn-processing wall (contains
+# walk + render + gte, which are timed separately inside).
+# ---------------------------------------------------------------------------
+PHASE_TIMES: Dict[str, float] = {"llm": 0.0, "dispatch": 0.0,
+                                 "walk": 0.0, "render": 0.0, "gte": 0.0}
+
+
+class phase_timer:
+    """Context manager accumulating wall time into PHASE_TIMES[key]."""
+    __slots__ = ("key", "_t0")
+
+    def __init__(self, key: str):
+        self.key = key
+
+    def __enter__(self):
+        self._t0 = time.perf_counter()
+        return self
+
+    def __exit__(self, *exc):
+        PHASE_TIMES[self.key] += time.perf_counter() - self._t0
+        return False
 
 
 # ---------------------------------------------------------------------------
 # String helpers
 # ---------------------------------------------------------------------------
 
-def normalize(text: str) -> str:
+# PERF-4 (2026-08-23): normalize is called ~6M times per 267×3 replay — the
+# same entity/relation names re-normalized at every call site (render keys,
+# accumulate, canonicalization, name resolution). It is a pure string →
+# string function, so a bounded LRU memo removes ~90% of that work with zero
+# behavior change. Bounded (2^18) to keep memory flat on unbounded query
+# strings; walk-lane workers build their own process-local cache.
+@lru_cache(maxsize=262_144)
+def _normalize_impl(text: str) -> str:
     text = text.strip().lower()
     text = re.sub(r"[^a-z0-9%.' ]+", " ", text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+def normalize(text: str) -> str:
+    # thin wrapper keeps the cached core small and the call sites unchanged
+    # (non-str inputs fail exactly as before, inside the implementation)
+    return _normalize_impl(text)
+
+
+# vLLM reasoning_end_str force-injected at thinking-budget exhaustion. The Qwen3.5
+# chat template puts the <think> OPEN tag in the prompt, so vLLM's boundary search
+# (which scans the OUTPUT) can miss it — when the budget fires mid-word the phrase
+# glues onto the last partial token ("...Engage The CrowdI will now emit...") and
+# lands in content, corrupting tool args and checkpoint bindings downstream.
+_REASONING_LEAK_RE = re.compile(
+    r"I will now emit the tool call based on the reasoning above\.?", re.IGNORECASE)
+
+
+def strip_reasoning_leak(text: str) -> str:
+    """Remove the vLLM-injected reasoning transition phrase (anywhere, glued or
+    standalone) and stray </think> tags. Idempotent; returns text unchanged when
+    clean."""
+    if not text:
+        return text
+    out = _REASONING_LEAK_RE.sub("", text)
+    out = out.replace("</think>", "")
+    return out
 
 
 def rel_to_text(rel: str) -> str:

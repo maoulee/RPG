@@ -39,6 +39,9 @@ def _is_noisy_path_relation(rel_name):
         "kg.",
         "user.",
         "base.ontologies.",
+        "rdf-schema#",       # W3C schema plumbing (domain/range) — same
+        "owl#",              # universal-structural class as type.* (2026-08-21,
+                             # Berlin specimen: outranked the gold relation)
     )
     noisy_shorts = {
         "type",

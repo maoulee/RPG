@@ -97,13 +97,21 @@ scripts/train_grpo.sh
 scripts/start_graph_server_branch.sh
 
 # One-off experiment / diagnostic scripts (process artifacts, not pipeline)
+scripts/aggregate_qa_mismatch.py
 scripts/analyze_select_behavior.py
+scripts/analyze_failure_phase.py
+scripts/audit_qa_mismatch.py
+scripts/audit_qa_mismatch_llm.py
+scripts/audit_qa_mismatch_pass2.py
 scripts/build_advantage_dataset.py
 scripts/build_hybrid_dataset.py
 scripts/build_offline_dataset.py
+scripts/build_qa_mismatch_dump.py
 scripts/count_cwq_hops.py
 scripts/diag_walk_vs_select.py
 scripts/extract_bad_cases.py
+scripts/dump_failure_phase_cases.py
+scripts/dump_v5_regressions.py
 scripts/gen_relation_richtext.py
 scripts/rescore_tests.py
 scripts/sample_trajectories.py
@@ -188,15 +196,28 @@ scripts/ab_decompose_prompt.py
 scripts/analyze_path_conformity.py
 scripts/audit_answer_only.py
 scripts/audit_decompose.py
+scripts/audit_g3_behavior.py
+scripts/render_ab_report.py
 scripts/conformity_rescore.py
 scripts/dump_traj_txt.py
 scripts/expand_reference.py
+scripts/informat_tf_calib.py
+scripts/xtrack_struct_analysis.py
+scripts/golden_path_analysis.py
+scripts/credit_dryrun.py
+scripts/constraint_recover.py
+scripts/unified_classifier.py
+scripts/abstain_resolve.py
+scripts/pair_loo.py
+scripts/tooltrace_calib.py
 scripts/manual_chat.py
 scripts/method2_answer_rollout.py
 scripts/method2_decompose_rollout.py
 scripts/method2_merge_balance.py
 scripts/method2_select_pools.py
 scripts/prefix_rollout.py
+scripts/replay_dispatch.py
+scripts/rerender_reanswer_eval.py
 scripts/resample_clean.py
 scripts/resample_combined.py
 scripts/rescore_trajectories.py
@@ -210,3 +231,8 @@ SAPS_code.zip
 SAPS_code.tar.gz
 # stray empty draft at repo root (real paper lives in paper/, which is ignored)
 saps.tex
+scripts/replay_delta_g.py
+scripts/dump_all_classes.py
+scripts/classifier_v2.py
+scripts/v2_dump.py
+.zcode/

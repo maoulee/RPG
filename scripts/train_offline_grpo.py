@@ -473,6 +473,12 @@ class OfflineGRPOTrainer(SFTTrainer):
         base = _get_base_transformer(model)
         out = base.model(input_ids=input_ids, attention_mask=attention_mask)
         hidden = out.last_hidden_state                  # (B, T, H)
+        if per_token_advantage.dim() == 1:
+            per_token_advantage = per_token_advantage.unsqueeze(0)  # (T,) → (1, T)
+        if hidden.dim() == 2:
+            hidden = hidden.unsqueeze(0)                 # (T, H) → (1, T, H)
+        if labels.dim() == 1:
+            labels = labels.unsqueeze(0)                 # (T,) → (1, T)
         shift_hidden = hidden[:, :-1, :].contiguous()   # (B, T-1, H)
         shift_labels = labels[:, 1:].contiguous()       # (B, T-1)
         B, Tm1, H = shift_hidden.shape

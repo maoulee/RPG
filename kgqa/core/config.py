@@ -49,7 +49,7 @@ def set_allow_1step(v: bool):
 # Default I/O paths
 # ---------------------------------------------------------------------------
 DEFAULT_PILOT = ROOT / "reports/stage_pipeline_test/find_check_plan_pilot_10cases/results.json"
-DEFAULT_CWQ = ROOT / "data/cwq_processed/test_literal_and_language_fixed_path_completed.pkl"
+DEFAULT_CWQ = ROOT / "data/cwq_processed/test_v4_repaired.pkl"
 MASK_WRONG_TYPE = ROOT / "data/cwq_processed/mask_wrong_type_ids.json"
 DEFAULT_OUTPUT = ROOT / "reports/stage_pipeline_test/chain_decompose_test"
 

@@ -6,9 +6,11 @@ Provides NER anchor resolution (resolve_anchor_ner), LLM entity disambiguation
 from __future__ import annotations
 
 import asyncio
+import atexit
+import os
 import re
 import time
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
 from kgqa.core.case_state import CaseState
@@ -32,11 +34,221 @@ import aiohttp
 GTE_INSTRUCT = "Given a query, retrieve the document most semantically similar to it"
 
 
-async def gte_retrieve(session, query, candidates, candidate_texts=None, top_k=10, instruct=GTE_INSTRUCT):
-    payload = {"query": query, "candidates": candidates, "candidate_texts": candidate_texts, "top_k": top_k, "instruct": instruct}
-    async with session.post(f"{GTE_API_URL}/retrieve", json=payload, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+# ---------------------------------------------------------------------------
+# Round-level request collector (perf phase 3, 2026-08-23)
+# ---------------------------------------------------------------------------
+# 267x3 server-side profile: n_jobs=8724, encode_s=285.6 (GPU busy 4.8min) but
+# infer_wait_s=8799 — the request COUNT, not the batch window, is the
+# bottleneck. Same fix shape as the walk coordinator (kgqa/agent/
+# seq_tools.py): concurrent gte_retrieve calls collect in an ADAPTIVE
+# two-stage window — first slice GTE_CLIENT_BATCH_FIRST; a second arrival
+# within the slice extends the deadline to the full window
+# GTE_CLIENT_BATCH_WINDOW (counted from the first arrival); a LONE request
+# flushes right after the first slice (no fixed window tax). One flush = ONE
+# /retrieve_batch POST, results distribute back per request. Identical
+# (pool, query, top_k, instruct) requests share one in-flight future (G=3
+# lockstep emits identical prelink/early queries), and a completed-memo
+# serves repeats with zero HTTP. DETERMINISM: the same key returns the SAME
+# result object — callers must treat rows as read-only (all current callers
+# only read r.get(...) fields).
+# Env: GTE_CLIENT_BATCH_WINDOW (full window s, default 1.0; <=0 = legacy
+# per-request POST), GTE_CLIENT_BATCH_FIRST (first slice s, default 0.25),
+# GTE_CLIENT_MEMO_MAX (completed-memo bound, default 50000).
+_GTE_REQ_BATCH = None                    # open collection batch or None
+_GTE_MEMO = OrderedDict()                # key -> results (completed, bounded)
+_GTE_MEMO_MAX = int(os.environ.get("GTE_CLIENT_MEMO_MAX", "50000") or 0)
+_GTE_BATCH_STATS = {"flushes": 0, "single": 0, "burst": 0, "reqs": 0,
+                    "dedup": 0, "memo_hits": 0, "fallback": 0,
+                    "http_items": 0, "collect_s": 0.0}
+
+
+def _gte_batch_summary():
+    st = _GTE_BATCH_STATS
+    if st["reqs"]:
+        print(f"  gte-batch(client): {st['flushes']} flushes "
+              f"(single={st['single']} burst={st['burst']}) reqs={st['reqs']} "
+              f"http_items={st['http_items']} dedup={st['dedup']} "
+              f"memo={st['memo_hits']} fallback={st['fallback']} "
+              f"collect={st['collect_s']:.1f}s", flush=True)
+
+
+atexit.register(_gte_batch_summary)
+
+
+def _gte_req_key(pool_key, candidates, candidate_texts, query, top_k, instruct):
+    """Identity of one retrieval: pool (registry key, or the value-shipped
+    candidate list) x query x top_k x instruct. Equal keys MUST get equal
+    results, so they dedup onto one server item / one memo entry."""
+    if pool_key is not None:
+        pool = ("k", pool_key)
+    else:
+        pool = ("v", tuple(candidates or []),
+                tuple(candidate_texts or ()))
+    return (pool, query, top_k, instruct)
+
+
+def _gte_open_batch(loop):
+    """Open the collection batch and arm the first-slice callback."""
+    global _GTE_REQ_BATCH
+    first = float(os.environ.get("GTE_CLIENT_BATCH_FIRST", "0.25") or 0)
+    b = {"loop": loop, "reqs": [], "by_key": {}, "t_first": time.perf_counter()}
+    b["cb"] = loop.call_later(max(first, 0.001), _gte_flush_check)
+    _GTE_REQ_BATCH = b
+    return b
+
+
+def _gte_flush_check():
+    """End of the FIRST slice: flush now unless a second request arrived
+    within it — then extend to the FULL window from the first arrival (the
+    round's time cluster still coalesces)."""
+    b = _GTE_REQ_BATCH
+    if b is None:
+        return
+    if len(b["reqs"]) > 1:
+        full = float(os.environ.get("GTE_CLIENT_BATCH_WINDOW", "1.0") or 0)
+        remain = (b["t_first"] + full) - time.perf_counter()
+        if remain > 0:
+            b["loop"].call_later(remain, _gte_flush_now)
+            return
+    _gte_flush_now()
+
+
+def _gte_flush_now():
+    """Close the open batch (later arrivals open a fresh one) and hand it to
+    the async flusher."""
+    global _GTE_REQ_BATCH
+    b, _GTE_REQ_BATCH = _GTE_REQ_BATCH, None
+    if b is not None and b["reqs"]:
+        b["loop"].create_task(_gte_flush_async(b))
+
+
+def _gte_memo_put(key, rows):
+    if key in _GTE_MEMO:
+        _GTE_MEMO.move_to_end(key)
+        return
+    if _GTE_MEMO_MAX > 0:
+        while len(_GTE_MEMO) >= _GTE_MEMO_MAX:
+            _GTE_MEMO.popitem(last=False)
+    _GTE_MEMO[key] = rows
+
+
+async def _gte_flush_async(batch):
+    """One flush = ONE /retrieve_batch POST for every collected request;
+    same-key requests resolve to the SAME result object. A missing endpoint
+    (stale server) or batch-transport failure falls back to the per-request
+    path; any remaining failure raises to every waiter (callers' retry loops
+    re-enter the collector)."""
+    from kgqa.core.utils import PHASE_TIMES
+    reqs = batch["reqs"]
+    session = batch.get("session")
+    st = _GTE_BATCH_STATS
+    t_flush = time.perf_counter()
+    st["flushes"] += 1
+    st["single" if len(reqs) == 1 else "burst"] += 1
+    st["reqs"] += len(reqs)
+    st["collect_s"] += sum(t_flush - r["t0"] for r in reqs)
+    PHASE_TIMES.setdefault("gte_collect", 0.0)
+    PHASE_TIMES["gte_collect"] += sum(t_flush - r["t0"] for r in reqs)
+    try:
+        results = None
+        if session is not None:
+            items = [{"query": r["query"], "candidates": r["candidates"],
+                      "candidate_texts": r["candidate_texts"],
+                      "top_k": r["top_k"], "instruct": r["instruct"],
+                      "pool_key": r["pool_key"]} for r in reqs]
+            try:
+                async with session.post(f"{GTE_API_URL}/retrieve_batch",
+                                        json={"items": items},
+                                        timeout=aiohttp.ClientTimeout(total=120)) as resp:
+                    if resp.status == 200:
+                        results = (await resp.json()).get("results")
+            except Exception:
+                results = None   # batch transport failed → per-request below
+        if results is None:
+            st["fallback"] += 1
+            results = await asyncio.gather(*[
+                _gte_post_one(session, r["query"], r["candidates"],
+                              r["candidate_texts"], r["top_k"], r["instruct"],
+                              r["pool_key"]) for r in reqs])
+        if len(results) != len(reqs):
+            raise RuntimeError(
+                f"/retrieve_batch returned {len(results)} results "
+                f"for {len(reqs)} requests")
+        st["http_items"] += len(reqs)
+        for r, rows in zip(reqs, results):
+            rows = rows or []
+            _gte_memo_put(r["key"], rows)
+            if not r["fut"].done():
+                r["fut"].set_result(rows)
+    except Exception as e:
+        for r in reqs:
+            if not r["fut"].done():
+                r["fut"].set_exception(e)
+
+
+async def _gte_collect(session, key, query, candidates, candidate_texts,
+                       top_k, instruct, pool_key):
+    """Enter the open collection batch (opening one if needed) and await the
+    flush's result. Same-key callers share ONE future."""
+    loop = asyncio.get_running_loop()
+    b = _GTE_REQ_BATCH
+    if b is None or b["loop"] is not loop:
+        # a new event loop (the rollout runs one asyncio.run per stage) must
+        # not enqueue onto a dead loop's batch — its callbacks never fire.
+        b = _gte_open_batch(loop)
+    fut = b["by_key"].get(key)
+    if fut is None:
+        fut = loop.create_future()
+        b["by_key"][key] = fut
+        b["reqs"].append({
+            "key": key, "fut": fut, "t0": time.perf_counter(),
+            "query": query, "candidates": list(candidates or []),
+            "candidate_texts": list(candidate_texts) if candidate_texts else None,
+            "top_k": top_k, "instruct": instruct, "pool_key": pool_key,
+        })
+    else:
+        _GTE_BATCH_STATS["dedup"] += 1
+    if session is not None:
+        b.setdefault("session", session)
+    return await fut
+
+
+async def _gte_post_one(session, query, candidates, candidate_texts, top_k,
+                        instruct, pool_key):
+    """Legacy per-request path (also the batch-transport fallback): one POST
+    per call — the pre-2026-08-23 request, byte-for-byte."""
+    payload = {"query": query, "candidates": candidates,
+               "candidate_texts": candidate_texts, "top_k": top_k,
+               "instruct": instruct}
+    if pool_key is not None:
+        payload["pool_key"] = pool_key
+    async with session.post(f"{GTE_API_URL}/retrieve", json=payload,
+                            timeout=aiohttp.ClientTimeout(total=60)) as resp:
         data = await resp.json()
     return data.get("results", [])
+
+
+async def gte_retrieve(session, query, candidates, candidate_texts=None, top_k=10, instruct=GTE_INSTRUCT, pool_key=None):
+    """pool_key (2026-08-21): register-once candidate pools. First call sends
+    candidates (server registers under pool_key); later calls with the same
+    key may pass candidates=[] — no 10-30KB re-transfer/re-parse. The same
+    (head, pool) is re-queried across facts with only the query changing.
+    Batch-collected (2026-08-23): concurrent calls share one adaptive
+    collection window and one /retrieve_batch POST (see the collector note
+    above); signature and per-call semantics unchanged."""
+    from kgqa.core.utils import PHASE_TIMES
+    PHASE_TIMES["gte_n"] = PHASE_TIMES.get("gte_n", 0.0) + 1
+    if float(os.environ.get("GTE_CLIENT_BATCH_WINDOW", "1.0") or 0) <= 0:
+        return await _gte_post_one(session, query, candidates, candidate_texts,
+                                   top_k, instruct, pool_key)
+    key = _gte_req_key(pool_key, candidates, candidate_texts, query, top_k, instruct)
+    hit = _GTE_MEMO.get(key)
+    if hit is not None:
+        _GTE_MEMO.move_to_end(key)
+        _GTE_BATCH_STATS["memo_hits"] += 1
+        return hit
+    return await _gte_collect(session, key, query, candidates, candidate_texts,
+                              top_k, instruct, pool_key)
 
 
 # ---------------------------------------------------------------------------

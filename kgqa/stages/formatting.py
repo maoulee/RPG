@@ -5,6 +5,7 @@ endpoint rescue patterns, and grouped-triple displays for LLM reasoning.
 """
 from __future__ import annotations
 
+import os
 import re
 import unicodedata
 from typing import Dict, List, Tuple
@@ -224,7 +225,8 @@ def build_endpoint_rescue_patterns(paths, selected_patterns, ents, rels_list,
 # ---------------------------------------------------------------------------
 
 def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_ids, t_ids,
-                                   anchor_idx, max_grouped_lines=120):
+                                   anchor_idx, max_grouped_lines=120,
+                                   selected_rel_ids=None):
     """Build bounded pattern evidence from the witness path plus sibling raw paths.
 
     The Stage 7 logical path is grouped from many raw paths, but a single witness
@@ -241,11 +243,49 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
 
     anchor_name = ents[anchor_idx] if 0 <= anchor_idx < len(ents) else ""
 
+    # schema/meta relation CLASS filter (single choke point for ALL evidence
+    # sources: support paths, CVT expansion, Option-B leaf enumeration). The
+    # walk-level blacklist (k_queue) already blocks traversal, but Option-B's
+    # incident-edge enumeration reads raw node_edges and leaked ontology edges
+    # (type.type.*, freebase.type_profile.*, notable_types...) — these connect
+    # type-label hub nodes ('Film character' deg-23) whose edges then flood the
+    # display and mislead the answer turn. Class-based: relation prefixes,
+    # never entity names.
+    _SCHEMA_REL_PREFIXES = ("type.", "common.", "freebase.", "kg.", "user.",
+                            "base.ontologies.", "owl#", "rdf-schema#")
+
+    def _is_schema_rel(rel_name: str) -> bool:
+        r = (rel_name or "").strip().lower()
+        if r.startswith(_SCHEMA_REL_PREFIXES):
+            return True
+        short = r.rsplit(".", 1)[-1]
+        return short in ("type", "types", "instance", "instances",
+                         "notable_types", "expected_type", "domain",
+                         "properties", "included_types", "kind", "inverseof")
+
+    # PATTERN-PATH DISCIPLINE (SAPS original semantics, restored): an edge enters
+    # evidence ⟺ its relation is in the model-SELECTED set, or it is a CVT role
+    # attribute auto-revealed from a CVT on a selected path. Non-selected
+    # relations traversed en route (support-path intermediates, named-leaf
+    # extensions like Denver--portrayed-->Film off any center path) are NOT
+    # kept — the old pattern-first rendering never kept them either.
+    _sel_ids = set(selected_rel_ids) if selected_rel_ids is not None else None
+
     def _make_adder(triples_list, seen_set):
-        def _add(h_idx, r_idx, t_idx):
+        def _add(h_idx, r_idx, t_idx, cvt_attr=False, path_edge=False):
             h_name = ents[h_idx] if 0 <= h_idx < len(ents) else "?"
             t_name = ents[t_idx] if 0 <= t_idx < len(ents) else "?"
             r_text = rel_to_text(rels_list[r_idx]) if 0 <= r_idx < len(rels_list) else "?"
+            if _is_schema_rel(r_text):
+                return
+            # cvt_attr: auto-revealed CVT role attribute; path_edge: an edge of a
+            # QUALIFIED support path (last-hop-selected). Mid-path relations may
+            # be unselected — rejecting them (the old behavior) severed the head
+            # from the evidence: the display showed tail-only edges with the
+            # CENTER absent from every triple (Gingrich audit, 2026-08-19).
+            if (_sel_ids is not None and r_idx not in _sel_ids
+                    and not cvt_attr and not path_edge):
+                return
             if not _is_latinish(h_name) or not _is_latinish(t_name):
                 return
             if len(normalize(h_name)) < 2 or len(normalize(t_name)) < 2:
@@ -302,7 +342,7 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
             )
             scored.append((score, h_idx, r_idx, t_idx))
         for _, h_idx, r_idx, t_idx in sorted(scored):
-            add(h_idx, r_idx, t_idx)
+            add(h_idx, r_idx, t_idx, cvt_attr=True)
 
     def _expand_sibling_cvts(path_nodes, path_rels, add):
         """For each CVT in the path, find and expand ALL sibling CVTs reachable
@@ -333,12 +373,34 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
                 if not is_cvt_like(t_name):
                     continue
                 if edge_t != node_idx:
-                    # Add parent edge first so formatter recognizes sibling
-                    add(prev_idx, rel_idx, edge_t)
-                    _expand_endpoint_cvt(edge_t, add, path_nodes)
+                    # sibling path keeps the pattern shape: the sibling CVT must
+                    # itself touch a selected relation (its last hop rides one,
+                    # like the path CVT it siblings). Only then may the —
+                    # possibly unselected — parent edge enter evidence, via the
+                    # cvt_attr channel (pattern-path discipline, user ruling).
+                    _sib_selected = _sel_ids is None or any(
+                        e[1] in _sel_ids for e in node_edges.get(edge_t, []))
+                    if _sib_selected:
+                        # Add parent edge first so formatter recognizes sibling
+                        add(prev_idx, rel_idx, edge_t, cvt_attr=True)
+                        _expand_endpoint_cvt(edge_t, add, path_nodes)
 
     def _path_sig(path):
         return (tuple(path.get("nodes", [])), tuple(path.get("relations", [])))
+
+    def _true_edge(u, r_idx, v):
+        """Resolve the STORED orientation of a path hop (u, r, v): the undirected
+        walk records hops in path order, so a reverse-traversed edge would display
+        a semantically backwards triple ('mascot --team_mascot--> team' — Bernie
+        Brewer specimen, 2026-08-19). Return the graph's actual (h, r, t); prefer
+        the forward orientation when both exist."""
+        for h_, r_, t_ in node_edges.get(u, ()):
+            if r_ == r_idx and t_ == v:
+                return h_, r_, t_
+        for h_, r_, t_ in node_edges.get(v, ()):
+            if r_ == r_idx and t_ == u:
+                return h_, r_, t_
+        return u, r_idx, v
 
     def _support_diversity_key(path):
         nodes = path.get("nodes", [])
@@ -389,12 +451,80 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
         add = _make_adder(pat_triples, pat_seen)
 
         support_paths = _select_support_paths(lp)
+        if _sel_ids is not None:
+            # PATTERN-PATH ADJUDICATION (user rulings 2026-08-17/19): last hop
+            # rides a selected relation, and SHORTEST-FIRST — if the CENTER
+            # already has direct selected-relation edges, longer detour paths
+            # through a NAMED mid node ('Nordic <--contains_major_portion_of--
+            # Northern Europe --contains--> member' while 'Nordic --contains-->
+            # member' exists) are NOT pattern paths — the detour edges must
+            # not enter evidence. Without a direct selected edge (Düsseldorf
+            # --kind_of→: no 1-hop kind_of) the 2-hop detour IS the only
+            # route and stays. CVT mids are transparent either way.
+            # PER-RELATION (Greeley fixture, 2026-08-19): the gate is keyed to
+            # the path's LAST relation, not the whole selected set. A payload
+            # relation with no direct instantiation at the center (school_type
+            # from a city center) keeps its named-mid route even when a BRIDGE
+            # relation selected in the same call (contains) has direct edges —
+            # the set-level gate silently voided every 2-hop-only sibling the
+            # GTE pool had guaranteed walkable.
+            _direct_sel_rels = {er for _eh, er, _et in node_edges.get(anchor_idx, [])
+                                if er in _sel_ids}
+
+            def _hop_ok(sp):
+                rels_, nodes_ = sp.get("relations", []), sp.get("nodes", [])
+                if not rels_ or rels_[-1] not in _sel_ids:
+                    return False
+                if rels_[-1] not in _direct_sel_rels:
+                    return True
+                # SAME-RELATION chain detour (Nordics guard, 2026-08-19): a
+                # chain whose mid hop REPEATS the last-hop relation (over a
+                # NAMED node) while that relation has a direct instantiation
+                # at the center is a back-edge detour — 'Nordic --contains-->
+                # Scandinavia --contains--> member' when 'Nordic --contains-->
+                # member' exists. CVT mids are transparent (a CVT same-rel
+                # passage is the education-family bridge, not a detour).
+                for j, r_ in enumerate(rels_[:-1]):
+                    if (r_ == rels_[-1]
+                            and 0 <= nodes_[j + 1] < len(ents)
+                            and not is_cvt_like(ents[nodes_[j + 1]])):
+                        return False
+                for j, r_ in enumerate(rels_[:-1]):
+                    if r_ in _sel_ids:
+                        continue
+                    nxt = ents[nodes_[j + 1]] if 0 <= nodes_[j + 1] < len(ents) else ""
+                    if not is_cvt_like(nxt):
+                        return False
+                return True
+            support_paths = [sp for sp in support_paths if _hop_ok(sp)]
+            # CVT BRIDGE (Ethiopia reachability under the hop gate): the walk
+            # expands only step_relations from the center, so when the model
+            # selects the ROLE direction (office_holder) instead of the CONNEC-
+            # TOR (governing_officials), the center's CVTs are unreachable
+            # except by beam luck. Construct the bridges explicitly — center
+            # --any-rel--> CVT --selected--> target — the exact unselected-hop
+            # shape the gate admits. No named-entity detours can arise here
+            # (the mid node IS a CVT by construction).
+            for _eh, _er, _et in node_edges.get(anchor_idx, []):
+                _cvt = _et if _eh == anchor_idx else _eh
+                _nm = ents[_cvt] if 0 <= _cvt < len(ents) else ""
+                if not (_nm and is_cvt_like(_nm)):
+                    continue
+                for _e2h, _e2r, _e2t in node_edges.get(_cvt, []):
+                    if _e2r not in _sel_ids:
+                        continue
+                    _tgt = _e2t if _e2h == _cvt else _e2h
+                    _tn = ents[_tgt] if 0 <= _tgt < len(ents) else ""
+                    if _tn and not is_cvt_like(_tn):
+                        support_paths.append({"nodes": [anchor_idx, _cvt, _tgt],
+                                              "relations": [_er, _e2r]})
         expanded_cvts = set()
         for sp in support_paths:
             sp_nodes = sp.get("nodes", [])
             sp_rels = sp.get("relations", [])
             for i in range(min(len(sp_rels), len(sp_nodes) - 1)):
-                add(sp_nodes[i], sp_rels[i], sp_nodes[i + 1])
+                _h_, _r_, _t_ = _true_edge(sp_nodes[i], sp_rels[i], sp_nodes[i + 1])
+                add(_h_, _r_, _t_, path_edge=True)
             for node_idx in sp_nodes:
                 node_name = ents[node_idx] if 0 <= node_idx < len(ents) else ""
                 if is_cvt_like(node_name) and node_idx not in expanded_cvts:
@@ -402,9 +532,158 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
                     expanded_cvts.add(node_idx)
             _expand_sibling_cvts(sp_nodes, sp_rels, add)
 
+        # Option B: leaf-set full enumeration. Same-prefix/different-leaf support
+        # paths are ONE one-hop pattern with N leaves — the 24-path support cap
+        # must bound path-SHAPE variety, never leaf cardinality. Enumerate ALL
+        # edges of the witness's last hop from the local graph, BOTH orientations
+        # (mirrors _expand_sibling_cvts, already unbounded for CVT siblings).
+        # Both orientations is deliberate: (a) the walk is UNDIRECTED, so the
+        # witness's stored orientation is an arbitrary ranking artifact — gating
+        # on it silently empties the leaf set when the witness happened to be
+        # traversed backwards (observed: offpool rejecting the model's answers
+        # because the pool missed the displayed leaves); (b) WebQSP's list GT is
+        # orientation-loose (books ABOUT Darwin are gold for 'books written by
+        # Darwin'). Added in path direction; the renderer's canonicalizer aligns
+        # raw direction downstream.
+        w_nodes = witness.get("nodes", [])
+        w_rels = witness.get("relations", [])
+        if (len(w_nodes) >= 2 and len(w_rels) >= len(w_nodes) - 1
+                and (_sel_ids is None or w_rels[-1] in _sel_ids)
+                and (_sel_ids is None or _hop_ok(witness))):
+            # witness channel too: the fan-out anchor w_nodes[-2] must be on a
+            # pattern path (same shortest-first adjudication) — otherwise
+            # detours re-enter through enumeration.
+            _pen, _lrel = w_nodes[-2], w_rels[-1]
+            # BOTH directions (user ruling, 2026-08-19): edge orientation does
+            # not matter — `root --r1--> node1 <--r2-- node2` is as legal as
+            # the forward shape. The ONLY constraint is the LAST hop rides the
+            # selected relation (already enforced above). Reverse gold hops
+            # ('institution --students_graduates--> person' queried from the
+            # person center) MUST enumerate — an out-edge-only variant emptied
+            # those subgraphs entirely.
+            # ANCHOR (Bernie Brewer specimen, 2026-08-19): the fan-out node is
+            # the TRUE HEAD of the last-hop edge, not the path's [-2] node — a
+            # reverse-traversed final hop (center <--team_mascot-- team) left
+            # the anchor on the center (a mascot has no team_mascot out-edges)
+            # and the leaf enumeration silently yielded ONE witness instead of
+            # the full tail set.
+            _pen = _true_edge(w_nodes[-2], _lrel, w_nodes[-1])[0]
+            for _eh, _er, _et in node_edges.get(_pen, []):
+                if _er != _lrel:
+                    continue
+                _other = _et if _eh == _pen else _eh
+                add(_pen, _lrel, _other)
+
+        # CVT auto-penetration POST-PASS REMOVED (user ruling, 2026-08-17):
+        # evidence lives on pattern paths whose LAST hop rides a selected
+        # relation (support paths, sibling CVTs, Option-B leaves) — nothing is
+        # disclosed from mere adjacency of the center or of entities that
+        # happened to surface. The adjacency blowout this pass caused (China:
+        # 13k edges, job records under a trade query) violated the original
+        # pattern-path discipline; the chained-path support filter above now
+        # covers the Ethiopia reachability case this pass was invented for.
+
         witness_nodes = witness.get("nodes", [])
 
-        cand_list = sorted(lp.get("candidates", []))[:50]
+        # candidates = lp candidates ∪ non-CVT entities of the (now fully
+        # enumerated) triples — the pool must cover every leaf or the offpool
+        # answer check rejects legitimately-enumerated entities. No [:50] cap:
+        # list-type patterns legitimately carry hundreds of leaves (display is
+        # capped downstream by the renderer).
+        _lp_cands = list(lp.get("candidates", []))
+        _tri_cands = [n for tr_ in pat_triples for n in (tr_[0], tr_[2])
+                      if not is_cvt_like(n)]
+        _seen_c = set()
+        cand_list = []
+        for _n in _lp_cands + _tri_cands:
+            _k = normalize(_n)
+            if _k and _k not in _seen_c:
+                _seen_c.add(_k)
+                cand_list.append(_n)
+
+        # GHOST-CANDIDATE EDGE GUARANTEE (user ruling 2026-09-05, Disney
+        # specimen): lp["candidates"] covers the walk's FULL leaf enumeration,
+        # while pat_triples carries only the bounded support-path set (≤24
+        # shapes + CVT expansion) and lp["raw_paths"] is itself capped — a
+        # candidate whose paths lost every cut used to surface nameless (the
+        # ack said "candidates not shown above: X (walk candidates — no
+        # visible edge this case)"), severing the render from the actual
+        # connectivity the walk found. Every candidate the render NAMES must
+        # now carry ≥1 visible connecting edge: reconstruct anchor→candidate
+        # through the LOCAL graph along the lp's own rel_chain (the chain the
+        # walk used to reach it) and admit the hops via the path_edge channel.
+        # Bounded ghosts per pattern; the renderer caps rows downstream.
+        _ghost_paths = []
+        if (os.environ.get("SEQ_GHOST_EDGES", "1") != "0" and _lp_cands):
+            _have = {normalize(n) for tr_ in pat_triples
+                     for n in (tr_[0], tr_[2])}
+            _want = [c for c in cand_list if normalize(c) not in _have]
+            if _want:
+                _rel_id_by_name = {}
+                for _ri, _rn in enumerate(rels_list):
+                    _rel_id_by_name.setdefault(_rn, _ri)
+                _chain_rids = set()
+                for _rc in (lp.get("rel_chain") or []):
+                    for _part in str(_rc).split(" -> "):
+                        _rid = _rel_id_by_name.get(_part.strip())
+                        if _rid is not None:
+                            _chain_rids.add(_rid)
+                if _chain_rids:
+                    _ent_idx_by_name = {}
+                    for _ei, _en in enumerate(ents):
+                        if not is_cvt_like(_en):
+                            _ent_idx_by_name.setdefault(normalize(_en), _ei)
+                    _n_ghost = 0
+                    if os.environ.get("SEQ_GHOST_DEBUG"):
+                        print(f"[ghost] {label}: missing={len(_want)} "
+                              f"chain_rids={len(_chain_rids)}", flush=True)
+                    for _c in _want[:60]:
+                        _tidx = _ent_idx_by_name.get(normalize(_c))
+                        if _tidx is None or _tidx == anchor_idx:
+                            continue
+                        _prev = {anchor_idx: None}
+                        _q = [(anchor_idx, 0)]
+                        _found = False
+                        while _q and not _found:
+                            _u, _d = _q.pop(0)
+                            if _d >= 4:
+                                continue
+                            for _eh, _er, _et in node_edges.get(_u, ()):
+                                if _er not in _chain_rids:
+                                    continue
+                                _v = _et if _eh == _u else _eh
+                                if _v in _prev:
+                                    continue
+                                _prev[_v] = (_eh, _er, _et)
+                                if _v == _tidx:
+                                    _found = True
+                                    break
+                                _q.append((_v, _d + 1))
+                        if _found:
+                            _seq_nodes = [_tidx]
+                            _seq_rels = []
+                            _node = _tidx
+                            while _prev[_node] is not None:
+                                _eh, _er, _et = _prev[_node]
+                                _hops_edge = (_eh, _er, _et)
+                                _seq_rels.append(_er)
+                                _node = _eh if _et == _node else _et
+                                _seq_nodes.append(_node)
+                            _seq_nodes.reverse()
+                            _seq_rels.reverse()
+                            # admit every hop of the reconstructed chain
+                            for _k in range(len(_seq_rels)):
+                                _eh2 = _seq_nodes[_k]
+                                _er2 = _seq_rels[_k]
+                                _et2 = _seq_nodes[_k + 1]
+                                _te = _true_edge(_eh2, _er2, _et2)
+                                add(_te[0], _te[1], _te[2], path_edge=True)
+                            _ghost_paths.append((list(_seq_nodes),
+                                                 list(_seq_rels)))
+                            _n_ghost += 1
+                    if os.environ.get("SEQ_GHOST_DEBUG"):
+                        print(f"[ghost] {label}: reconnected {_n_ghost}",
+                              flush=True)
 
         sig_nodes = []
         for node_idx in witness_nodes:
@@ -570,6 +849,20 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
                         continue
                     tree_seen.add(s_sig)
                     tree_paths.append({"nodes": s_nodes, "relations": s_rels})
+
+        # GHOST-CANDIDATE paths also enter the tree (V38 renders from
+        # tree_data.paths, not .triples): without this the reconnected edges
+        # exist in triples only and the display still shows the candidate
+        # nameless.
+        for _g_nodes, _g_rels in _ghost_paths:
+            _dn = [_node_display(_gi, expand_full=(_gp >= len(_g_nodes) - 2))
+                   for _gp, _gi in enumerate(_g_nodes)]
+            _dr = [rel_to_text(rels_list[_gr]) if 0 <= _gr < len(rels_list) else "?"
+                   for _gr in _g_rels]
+            _gsig = (tuple(_dn), tuple(_dr))
+            if _gsig not in tree_seen:
+                tree_seen.add(_gsig)
+                tree_paths.append({"nodes": _dn, "relations": _dr})
 
         result[label] = PatternEvidence(
             label=label,

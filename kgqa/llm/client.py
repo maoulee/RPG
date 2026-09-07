@@ -52,6 +52,8 @@ LLM_TOP_P = _env_float("KGQA_LLM_TOP_P", 0.8)
 # tool-calling agent loops on the same expand_branch call (repeated tokens).
 LLM_TOP_K = int(os.getenv("KGQA_LLM_TOP_K", "20"))
 LLM_PRESENCE_PENALTY = _env_float("KGQA_LLM_PRESENCE_PENALTY", 1.5)
+_seed = os.getenv("LLM_SEED", "").strip()
+LLM_SEED = int(_seed) if _seed else None
 
 _LOCAL_API = any(host in LLM_API_URL for host in ("localhost", "127.0.0.1", "0.0.0.0"))
 SEND_CHAT_TEMPLATE_KWARGS = _env_bool("KGQA_LLM_SEND_CHAT_TEMPLATE_KWARGS", _LOCAL_API)
@@ -119,6 +121,10 @@ def build_payload(messages, max_tokens: int, temperature: float | None = None,
         "top_k": LLM_TOP_K,
         "presence_penalty": LLM_PRESENCE_PENALTY,
     }
+    # per-request sampling seed (OpenAI-standard param; vLLM honors it). Set
+    # LLM_SEED for reproducible sampling runs (e.g. multi-seed stability tests).
+    if LLM_SEED is not None:
+        payload["seed"] = LLM_SEED
     # Top-level hard cap wins precedence: when THINKING_TOKEN_BUDGET > 0 we want
     # <think> ON so there is reasoning to cap. Override the soft enable_thinking
     # flag in that case (it would otherwise suppress thinking entirely).

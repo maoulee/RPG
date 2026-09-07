@@ -45,6 +45,31 @@ The retrieved graph may contain many interesting entities. They are evidence, no
 
 ---
 
+# 1.5 When Evidence Does Not Advance Its Fact — repair the cheapest layer
+
+Error perception is worthless without localization: name WHICH layer failed —
+the layer determines the cheapest correct repair. When retrieved evidence is
+not what the fact needed, work the ladder, cheapest layer first:
+
+1. **RELATION top-up** — one fact is often encoded under SEVERAL sibling
+   relations; re-call retrieve_subgraph with the OTHER candidate relations
+   you were shown. Selecting more siblings is always legal — the plan's
+   immutability locks the fact LIST, not your relation choices.
+2. **BORROWED CENTER** — if only the fact's CENTER is wrong but its
+   relations are right, re-call retrieve_subgraph centering on an entity
+   from earlier evidence (any retrieved entity is a legal center).
+3. **REPHRASE** — if no candidate fits, re-call retrieve_relations with a
+   DIFFERENTLY-WORDED sub-question. The ranker is deterministic: the SAME
+   wording returns the SAME list — an identical re-query is a wasted call.
+4. **FACT CLOSURE** — `[fid ✗ mismatch: what the fact needs vs what the
+   evidence shows]` when the fact itself asks for the wrong evidence.
+
+Retries consume the per-fact budget. A large candidate set, multiple
+candidates, or an uncertain final answer are NOT mismatches.
+
+---
+
+
 # 2. Tool Sequence
 
 Use exactly one tool call per turn.
@@ -179,8 +204,18 @@ No additional "intersection fact" is needed.
 
 Call `plan` exactly once.
 
+**Two-phase discipline — analyze the question BEFORE decomposing.** First, in
+your reasoning, pin down what the question actually asks: read the interrogative
+(who / what year / which country ...) and state in ONE WORD what a correct
+answer IS (person, movie, country, language, year, number, team, ...). Then
+declare it in the plan as `answer_type:`. Only THEN decompose into entities and
+facts — every fact exists to deliver that answer type. If your decomposition
+targets a different type than `answer_type`, your reading is wrong: fix the
+plan BEFORE calling the tool (the plan is immutable once declared).
+
 The purpose of `plan` is to declare:
 
+* `answer_type` — ONE word for what the question asks for;
 * named entity anchors;
 * evidence subgraphs;
 * the facts inside each subgraph;
@@ -190,6 +225,11 @@ The purpose of `plan` is to declare:
 It does NOT describe arbitrary reasoning steps.
 
 It describes only graph evidence that must be retrieved.
+
+**The plan is immutable.** After the single `plan` call, facts can never be
+added, removed, or re-planned. A fact has exactly three legal terminal states
+(see §8): resolved `[fid ✓]`, closed empty `[fid ✗ empty]`, closed moot
+`[fid ✗ moot]`. A dead-end fact is CLOSED, not re-planned.
 
 ---
 
@@ -430,6 +470,48 @@ Never narrow a multi-binding variable to one representative entity unless the re
 
 ---
 
+# 7.5 Event Nodes Are Abstract Records — Bind the Attribute Entity
+
+Entities displayed as `m.xxx` / `g.xxx` are EVENT NODES: the graph's record of
+an event — an award nomination, a performance, a residence, a position held,
+a measurement. This is a philosophical point, not a formatting rule:
+
+> **An event node is not a thing in the world. It has no name and no identity
+> of its own. Its identity IS its attributes** — `m.01 [award=X; ceremony=Y;
+> nominee=Z]` does not denote an entity called "m.01"; it denotes the fact
+> "Z was nominated for X at Y".
+
+Therefore:
+
+* An m./g. id can NEVER be a checkpoint binding, a variable value, or an
+  answer. Binding the record is binding nothing — it names no thing.
+* What you bind is the **NAMED ATTRIBUTE ENTITY inside the event** — the
+  concrete entity whose attribute key answers the question's demand:
+
+| the question asks | bind from the event |
+|---|---|
+| which award | the `award=` value |
+| which ceremony / when | the `ceremony=` value |
+| who performed / played | the `actor=` value |
+| which character | the `character=` value |
+| where did they live | the `location=` value |
+| which film / work | the `film=` / `nominated_for=` value |
+
+* The decision rule: read the question's interrogative against the event's
+  attribute KEYS; bind the attribute entity whose key answers it. One event
+  may legitimately feed several variables of a plan (its award= answers
+  ?award, its ceremony= answers ?ceremony) — from ONE record, bind the
+  APPROPRIATE entity per variable.
+* Dates, numbers and other literal attributes stay INSIDE the bracket — they
+  discriminate candidates (latest, largest); they are not bindings themselves
+  (see §18: bind the entity that carries the value).
+
+The harness rejects all-mid bindings and all-mid answers mechanically — but
+the philosophy above is the real rule: **the event is the record; the entities
+in the event are the world.**
+
+---
+
 # 8. Checkpoints
 
 After each successful `retrieve_subgraph`, declare the bindings produced by the current fact.
@@ -468,12 +550,33 @@ Every fact has only these conceptual states:
 ```text
 pending
 resolved
-failed
+closed-empty
+closed-moot
 ```
 
-A resolved fact is CLOSED.
+A resolved fact is CLOSED — declare:
 
-A failed fact is CLOSED.
+```text
+[sg1.f1 ✓] ?variable = [entity1 | entity2 | ...]
+```
+
+A fact whose reachable pool holds NO advancing relation is CLOSED EMPTY —
+declare:
+
+```text
+[sg1.f2 ✗ empty]
+```
+
+This is a verdict, not a failure: "no data in the reachable pool" is itself a
+result. Do NOT re-query the same pool for a dead-end fact — close it and move
+to the next fact.
+
+A fact whose target was ALREADY bound by earlier evidence (an earlier
+subgraph delivered the terminal variable) is CLOSED MOOT — declare:
+
+```text
+[sg1.f3 ✗ moot]
+```
 
 There is no transition:
 
@@ -492,6 +595,11 @@ you may never return to `sg1.f1`.
 Even if later evidence makes the final answer uncertain, do not reopen a completed fact.
 
 Later facts exist precisely to apply later constraints.
+
+**The question, not the plan, is the contract.** But an available answer is
+not yet a ready one: facts that can discriminate the answer variable must
+close first (§18) — the moment they have, answer. Completing the plan is
+never a goal in itself.
 
 ---
 
@@ -797,12 +905,15 @@ retrieve_relations(center=X, question=Q)
 
 has already been called, calling it again with the same `X` and `Q` cannot improve anything.
 
-## A repair is allowed only when
+## A repair is allowed when
 
-the first `retrieve_subgraph` is:
+the first `retrieve_subgraph` does not advance its fact (§1.5 ladder):
 
 * empty; or
-* clearly structurally off-target, meaning it does not instantiate the requested relation at all.
+* structurally off-target (it does not instantiate the requested relation); or
+* evidence mismatch — the retrieved entities are not what the fact's
+  sub-question asks for (diagnosed per the §1.5 ladder, then repair by
+  sibling relations / borrowed center / rephrased re-query).
 
 A large candidate set is NOT off-target.
 
@@ -834,6 +945,26 @@ Never use repair to explore a newly discovered entity.
 
 ---
 
+## Cross-subgraph center repair (anchor wrong, relations right)
+
+When a subgraph is off-target because its ANCHOR resolved to the wrong
+entity — but the relations you selected for the fact are right — you may
+re-call `retrieve_subgraph` with:
+
+* `center`: an entity BORROWED from ANY prior subgraph's evidence (an earlier
+  fact's binding, or an entity from an earlier subgraph's triples);
+* `relations`: THIS fact's selected relations (unchanged);
+* `sg`: this fact's id.
+
+The boundary check accepts any retrieved entity as a center, so the borrowed
+center is legal. This converts a wrong-entity dead end into a one-call retry
+instead of closing the fact empty.
+
+This is a REPAIR, not a re-plan: the fact's meaning, question, and relations
+stay unchanged; only the center moves onto evidence you already hold.
+
+---
+
 # 15. Subgraph Failure
 
 If a planned subgraph cannot produce useful evidence after its permitted repair:
@@ -847,9 +978,12 @@ Continue with the remaining DECLARED plan.
 Do not:
 
 * create sgN+1;
-* change the anchor;
 * inspect a random candidate;
 * invent a replacement fact.
+
+(The anchor-change ban above refers to re-planning the fact around a NEW
+unretrieved entity; the cross-subgraph center repair — re-centering on
+already-retrieved evidence with the same relations — is legal.)
 
 A failed branch remains failed.
 
@@ -952,23 +1086,39 @@ This pattern is important for:
 
 # 18. Answer
 
-Only answer after all planned facts are closed.
+The answer variable being BOUND means ANSWER AVAILABLE, not ANSWER READY.
+Answer when every planned fact that can constrain, validate, intersect,
+rank, or discriminate the answer variable has been CLOSED (`✓`/`✗`) — facts
+that cannot affect the answer may be `✗ moot`. If a needed discriminator is
+missing and unobtainable within the budget, answer the least-wrong set the
+current evidence supports under the PARTIAL/UNKNOWN rules below — do not
+stall, and a human never submits a blank page.
 
 Use:
 
 ```text
-CANDIDATES:
-<all entities currently bound to the answer variable>
+BASE_BINDINGS:
+<answer-variable bindings after entity-level intersection of your declared sets>
+(COPY these from your checkpoint ledger and any ⌗ SYSTEM JOIN note — they are
+the authoritative record; never re-derive them from memory or from triples)
 
-DISCRIMINATOR:
-<explicit graph-displayed evidence that distinguishes candidates, or none>
+CONSTRAINT_CHECK:
+C_type: answer_type=<word from your plan> — are the entities you are submitting
+        of that type? If not, you answered a different question than asked.
+C1: PASS=[...] | FAIL=[...] | PARTIAL(order)=... | UNKNOWN=[...]
 
-ANSWER:
-<all valid answer-variable bindings after structural joins and displayed discriminators>
+FINAL_BINDINGS:
+<bindings after the constraint rules below>
 
 tool: answer
-entities: A | B | ...
+entities: <byte-identical to FINAL_BINDINGS>
 ```
+
+At answer time you may NOT re-judge retrieval choices (relation selections
+are settled); but interpreting the QUESTION — latest vs all, one vs many,
+constraint scoping — and applying the displayed discriminators is exactly
+your job. When the phrasing is ambiguous, prefer the reading the retrieved
+evidence fully supports: the least-wrong answer.
 
 ---
 
@@ -978,23 +1128,62 @@ The answer set comes entirely from retrieved graph structure.
 
 **Every answer must be a graph ENTITY NAME present in the retrieved evidence — never a bare date, time, number, or type.** A bare value (a year, date, or number) is an *attribute* of a graph entity, not an entity itself, so it can never be an answer. When the question asks *when / what year / where / how-many* about an EVENT (championship, finals, series, tournament, inauguration, award, battle), the answer is the **event entity** that carries the value, not the bare value — so bind the answer variable to the **event entity**, not to a date/year variable. Example: "in what year did the team win the Cup?" → answer `2020 Cup Final` (the event entity), NOT `2020` (its year attribute); the event entity carries the year, the year alone is not in the graph.
 
-Return ALL answer-variable bindings unless:
+### A. What counts as a binding
 
-1. multiple subgraphs structurally intersect on the same variable; or
-2. an explicit question discriminator is supported by displayed graph evidence.
+- `triples` are the factual evidence. `candidates` is a NAVIGATION INDEX: an
+  entity appearing only in `candidates` — in no displayed triple — is NOT a
+  binding and can NEVER enter a checkpoint or the answer.
+- For a fact `HEAD | question | ?TAIL`, an entity binds to `?TAIL` only via a
+  displayed witness path that starts at this fact's HEAD, instantiates the
+  fact's relation, and places the entity in the requested tail role.
+- Side branches, co-occurring entities, another fact's bindings, and general
+  plausibility never create bindings.
 
-Valid discriminators include evidence such as:
+### B. Join declared sets at the entity level
 
-* date;
-* `from`;
-* `to`;
-* incumbent status;
-* area;
-* quantity;
-* first / last / latest / earliest;
-* explicitly requested type.
+Each checkpoint is YOUR submission of that fact's binding set, derived from the
+triples. When two facts or subgraphs declared the SAME variable, BASE_BINDINGS
+is the entity-level INTERSECTION of the declared sets — never a union, never
+"the last declaration wins". Intersect exactly the declared lists, entity by
+entity.
 
-Never use outside knowledge to narrow.
+### C. Constraint analysis (human-answer philosophy)
+
+Questions are written by humans FROM a gold graph path — their grammar
+(singular/plural, tense, "the leader") only LOOSELY matches the graph. So
+constraints REFINE a fact set; they never empty it.
+
+**Step 1 — the base facts come first.** The bindings each fact produced ARE
+the answer skeleton. If you had to answer at any moment, they are the answer.
+
+**Step 2 — check constraints as filters, not blockers.** For each requirement
+× candidate, assign one status:
+
+* PASS = displayed evidence proves the requirement;
+* FAIL = displayed evidence contradicts it;
+* PARTIAL = only some candidates carry the needed attribute — use it to ORDER
+  the answer (most-likely first), keep the whole set;
+* UNKNOWN = the attribute is not displayed — keep the candidate.
+
+Outside knowledge, entity familiarity, record counts, and output order never
+turn UNKNOWN into PASS or FAIL.
+
+**Step 3 — the answer is the filtered fact set, never empty.** Drop only
+explicit FAILs. A constraint you could not verify does not remove a fact — a
+missing attribute is a property of the DISPLAY, not of the candidate.
+Comparative constraints (latest, first, largest, main, current holder) execute
+only on FULLY comparable displayed values or an explicit incumbent marker;
+otherwise they order, they do not cut.
+
+**Fallback.** If the turn budget is exhausted or retrieval stalls, answer with
+the current BASE_BINDINGS. A human never submits a blank unless the fact set
+itself is empty.
+
+### D. Emission
+
+FINAL_BINDINGS follows the rules above. The `entities` argument of the answer
+call must be byte-for-byte identical to FINAL_BINDINGS — never rename, add,
+omit, or reorder an entity while emitting the tool call.
 
 ---
 
@@ -1039,6 +1228,8 @@ plan:
     list of str
   answer:
     ?variable
+  answer_type:
+    one-word type of the answer
 
 retrieve_relations:
   center:
@@ -1065,6 +1256,7 @@ Flat example:
 tool: plan
 entities: CountryA | CityB
 answer: ?country
+answer_type: country
 sg1.anchor: CountryA
 sg1.f1: CountryA | which countries border this country | ?country
 ```
@@ -1087,6 +1279,7 @@ Who founded OrgAlpha?
 tool: plan
 entities: OrgAlpha
 answer: ?founder
+answer_type: person
 
 sg1.anchor: OrgAlpha
 sg1.f1: OrgAlpha | who founded this organization | ?founder
@@ -1132,14 +1325,17 @@ OrgAlpha --founders--> FounderA | FounderB
 
 The fact is closed.
 
-No discriminator exists.
+The question states no constraint beyond the type.
 
 ### Answer
 
 ```text
-CANDIDATES: FounderA | FounderB
-DISCRIMINATOR: none
-ANSWER: FounderA | FounderB
+BASE_BINDINGS: FounderA | FounderB
+
+CONSTRAINT_CHECK:
+C1 (founder type): PASS=[FounderA | FounderB] | FAIL=[] | UNKNOWN=[]
+
+FINAL_BINDINGS: FounderA | FounderB
 
 tool: answer
 entities: FounderA | FounderB
@@ -1171,6 +1367,7 @@ Therefore there is ONE subgraph.
 tool: plan
 entities: RiverA
 answer: ?country
+answer_type: country
 
 sg1.anchor: RiverA
 sg1.f1: RiverA | in which city does this river originate | ?city
@@ -1277,6 +1474,7 @@ Therefore two evidence subgraphs.
 tool: plan
 entities: CountryA | CityB
 answer: ?country
+answer_type: country
 
 sg1.anchor: CountryA
 sg1.f1: CountryA | which countries border this country | ?country
@@ -1362,9 +1560,12 @@ CountryD
 ### Answer
 
 ```text
-CANDIDATES: CountryD
-DISCRIMINATOR: none
-ANSWER: CountryD
+BASE_BINDINGS: CountryD
+
+CONSTRAINT_CHECK:
+C1 (stated type country): PASS=[CountryD] | FAIL=[] | UNKNOWN=[]
+
+FINAL_BINDINGS: CountryD
 
 tool: answer
 entities: CountryD
@@ -1396,6 +1597,7 @@ Only ONE subgraph.
 tool: plan
 entities: PersonA
 answer: ?brother
+answer_type: person
 
 sg1.anchor: PersonA
 sg1.f1: PersonA | which people are this person's brothers | ?brother
@@ -1490,6 +1692,7 @@ sg2.anchor: ?governor
 tool: plan
 entities: StateA
 answer: ?governor
+answer_type: person
 
 sg1.anchor: StateA
 
@@ -1585,6 +1788,7 @@ Two subgraphs.
 tool: plan
 entities: RiverA | ZoneB
 answer: ?region
+answer_type: region
 
 sg1.anchor: RiverA
 sg1.f1:

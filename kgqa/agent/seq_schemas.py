@@ -29,6 +29,10 @@ class PlanArgs(BaseModel):
         description="every named entity from the question")
     answer: str = Field(default="",
         description="the answer ?variable, e.g. '?answer'")
+    answer_type: str = Field(default="",
+        description="ONE word for what the question asks for (person, movie, country, "
+                    "language, year, number, ...) — derived from the question's "
+                    "interrogative; the answer entities must be of this type")
 
     @field_validator("answer")
     @classmethod
@@ -101,6 +105,13 @@ def validate_args(tool_name: str, args: Dict[str, Any]) -> Tuple[Optional[dict],
     mapped: Dict[str, Any] = {}
     for k, v in args.items():
         mapped[mapping.get(k, k)] = v
+
+    # COERCE before rejecting (V21 audit: 33 schema rejections were scalars
+    # where lists are expected — JSON/hybrid turns land here as bare strings;
+    # the flat parser's pipe-lists already coerce. Coerce str→[str].)
+    for lf in ("entities", "center", "relations"):
+        if lf in mapped and isinstance(mapped[lf], str):
+            mapped[lf] = [mapped[lf]]
 
     try:
         validated = model(**mapped)

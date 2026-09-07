@@ -79,7 +79,7 @@ def _candidate_name_counts_from_paths(paths, ents, anchor_idx, breakpoint_indice
 def build_mode_level_logical_paths(anchor_idx, step_relations, h_ids, r_ids, t_ids,
                                    ents, rels_list, breakpoint_indices,
                                    beam_width=80, max_hops_per_step=2,
-                                   max_states=1200, max_raw_paths_per_pattern=24,
+                                   max_states=1200, max_raw_paths_per_pattern=90,
                                    relation_list=None):
     """Traverse relation modes first and keep bounded witness paths.
 
@@ -123,34 +123,28 @@ def build_mode_level_logical_paths(anchor_idx, step_relations, h_ids, r_ids, t_i
                 continue
             if rel1 in target_rels:
                 hits.append(_make_hit((nb1,), (rel1,), (e1,), rel1))
-                # CVT transparency: a 1-hop target hit landing on a CVT mediator
-                # must continue through the CVT to its target-relation out-edges.
-                # A CVT-mediated fact carries BOTH the in- and out-relations
-                # (e.g. people.person.education -> CVT -> education.education.
-                # institution); matching only the in-edge leaves the CVT a dead
-                # end and loses the answer behind it. This within-step 2-hop
-                # (max_hops_per_step>=2) mirrors the CVT-bridging already in
-                # _anchor_outgoing_rel_ids / expand_through_cvt.
-                if (max_hops_per_step >= 2 and 0 <= nb1 < len(ents)
-                        and is_cvt_like(ents[nb1])):
-                    used1 = used_edges | frozenset({e1})
-                    for nb2, rel2, e2 in adj.get(nb1, ()):
-                        if e2 in used1:
-                            continue
-                        if rel2 in target_rels:
-                            hits.append(_make_hit((nb1, nb2), (rel1, rel2),
-                                                   (e1, e2), rel2))
-                continue
             if max_hops_per_step < 2:
                 continue
             used1 = used_edges | frozenset({e1})
-            # CASE B: 2-hop bridge — end -> nb1 -> nb2 (rel2 in target)
+            # ORIGINAL DESIGN (per-relation last-hop walk, restored 2026-08-19):
+            # enumerate ALL 2-hop completions whose LAST hop rides a selected
+            # relation — from EVERY first hop, target-hit or not. The old
+            # "hit-and-stop" (CASE A continue / CASE B non-target-only) made a
+            # bridge+payload selection walkable only when the graph happened
+            # to store a reverse-direction UNSELECTED edge for the bridge
+            # (Greeley contains/containedby luck); single-direction data
+            # silently lost the payload relation (Bernie Brewer specimen).
+            # Detour pruning (same-relation back-edge chains, Nordics) lives
+            # in the evidence adjudication layer (_hop_ok), NOT here — the
+            # walk only enumerates, direction constraints live downstream.
+            # The 1-hop-target CVT extension below is subsumed by this loop
+            # (CVT mids are traversed like any other).
             for nb2, rel2, e2 in adj.get(nb1, ()):
                 if e2 in used1:
                     continue
                 if rel2 in target_rels:
-                    hits.append(_make_hit((nb1, nb2), (rel1, rel2), (e1, e2), rel2))
-
+                    hits.append(_make_hit((nb1, nb2), (rel1, rel2),
+                                           (e1, e2), rel2))
             # CASE C: CVT-transparent 3-edge path — end -> nb1 -> nb2 -> nb3 (rel3 in target).
             # A CVT mediator collapses its in/out edges into ONE logical hop, so a 3-graph-hop
             # path with EXACTLY ONE CVT mediator (at nb1 or nb2) is within the 2-logical-hop

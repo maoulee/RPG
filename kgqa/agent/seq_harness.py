@@ -58,14 +58,23 @@ def _parse_subgraphs_decompose(args: dict) -> dict:
 
     fact_ids, fact_texts, chains = [], {}, []
     sg_info = {}   # {sg_id → n_facts} for per-fact budget tracking
+    fact_covers = {}   # fid → requirement id (V2.1 Question Contract linkage)
+    # COMMIT-WIDENING (2026-08-22): fact identity spans three namespaces at
+    # runtime — f1 (declared id), sg1 (retrieve_subgraph's `sg:` arg),
+    # sg1.f1 (checkpoint declarations). Key everything to the DECLARED id so
+    # completion counting and the READY predicate see one key per fact.
+    sg_fact_ids = {}   # {sg_id → [fid, ...]} in declaration order
+    fact_key_map = {}  # alias → declared fid
+    fact_edges = {}    # fid → (head_token, tail_token), ?var kept verbatim
     for sg in subgraphs:
         if not isinstance(sg, dict):
             continue
         sg_id = str(sg.get("id") or f"sg{len(sg_info) + 1}")
         sg_anchor = str(sg.get("anchor") or "").strip()
         sg_facts = sg.get("facts") or []
+        sg_cov = sg.get("covers") or {}
         sg_fids = []
-        for fact in sg_facts:
+        for fi, fact in enumerate(sg_facts, 1):
             if not isinstance(fact, (list, tuple)) or len(fact) < 3:
                 continue
             head, rel, tail = str(fact[0]).strip(), str(fact[1]).strip(), str(fact[2]).strip()
@@ -74,10 +83,17 @@ def _parse_subgraphs_decompose(args: dict) -> dict:
             fid = f"f{len(fact_ids) + 1}"
             fact_ids.append(fid)
             fact_texts[fid] = f"({head} | {rel} | {tail})"
+            fact_edges[fid] = (head, tail)
+            fact_key_map[fid] = fid
+            fact_key_map[f"{sg_id}.f{fi}"] = fid
             sg_fids.append(fid)
+            cov = sg_cov.get(f"f{fi}") or sg_cov.get(str(fi))
+            if cov:
+                fact_covers[fid] = str(cov).strip().upper()
         if sg_fids:
             chains.append({"anchor": sg_anchor, "fact_steps": [[f] for f in sg_fids]})
             sg_info[sg_id] = len(sg_fids)
+            sg_fact_ids[sg_id] = list(sg_fids)
 
     if not fact_ids:
         return {"error": "subgraphs contained no valid facts. Each fact: [head, sub-question, tail]."}
@@ -90,9 +106,26 @@ def _parse_subgraphs_decompose(args: dict) -> dict:
         return {"error": "`entities` is empty. List every named entity in the question.", "entities_missing": True}
 
     first_anchor = chains[0].get("anchor", "") if chains else ""
+    requirements = args.get("requirements") if isinstance(args.get("requirements"), dict) else {}
+    # answer var(s): the declared `answer` ?variable is authoritative; when the
+    # plan format carries no explicit marker, fall back to the tail variables of
+    # facts covered by an answer-kind requirement.
+    answer_var = [answer] if answer.startswith("?") else []
+    if not answer_var:
+        for rid, req in (requirements or {}).items():
+            if not isinstance(req, dict) or "answer" not in str(req.get("kind", "")).lower():
+                continue
+            for fid, cov_rid in fact_covers.items():
+                if cov_rid == str(rid).upper():
+                    tail = fact_edges.get(fid, ("", ""))[1]
+                    if tail.startswith("?") and tail not in answer_var:
+                        answer_var.append(tail)
     return {"fact_ids": fact_ids, "fact_texts": fact_texts, "chains": chains,
             "anchor": first_anchor, "entities": entities, "answer": answer,
-            "sg_info": sg_info}
+            "sg_info": sg_info, "requirements": requirements,
+            "fact_covers": fact_covers, "sg_facts": sg_fact_ids,
+            "fact_key_map": fact_key_map, "fact_edges": fact_edges,
+            "answer_var": answer_var}
 
 
 @dataclass
@@ -114,32 +147,166 @@ class SeqAgentState:
 
     # subgraph tracking (SEQ redesign — per-fact budget + deviation detection)
     sg_plan: dict = field(default_factory=dict)    # {sg_id → n_facts} from decompose
+    requirements: dict = field(default_factory=dict)  # V2.1: R/D id → {kind, text}
+    fact_covers: dict = field(default_factory=dict)   # V2.1: fid → requirement id
     sg_calls: dict = field(default_factory=dict)   # {sg_id → retrieve_subgraph call count}
     sg_done: set = field(default_factory=set)      # resolved/failed sg_ids
+
+    # COMMIT-WIDENING pack (2026-08-22): READY-predicate state, filled at plan
+    # parse / PLAN EXTEND; closed_fids+declared_fids are synced from ctx each turn.
+    answer_var: list = field(default_factory=list)   # ?vars carrying the answer
+    fact_key_map: dict = field(default_factory=dict) # alias (f1/sg1/sg1.f2) → declared fid
+    fact_edges: dict = field(default_factory=dict)   # fid → (head, tail) tokens
+    sg_facts: dict = field(default_factory=dict)     # sg_id → [fid, ...] in order
+    closed_fids: set = field(default_factory=set)    # fids closed by ✗ declarations
+    declared_fids: set = field(default_factory=set)  # fids with an accepted ✓ checkpoint
 
     def sg_budget(self, sg_id: str) -> int:
         """Max retrieve calls for this subgraph = 3 × n_facts (1 relations + 1 subgraph + 1 repair per fact)."""
         return 3 * self.sg_plan.get(sg_id, 1)
 
+    def done_fids(self) -> set:
+        """Declared fids that no longer need retrieval: retrieved, ✓ checkpointed,
+        ✗ closed, or inside a budget-intercepted subgraph."""
+        done = set(self.retrieved_fids) | self.closed_fids | self.declared_fids
+        for sg in self.sg_done:
+            done.update(self.sg_facts.get(sg, ()))
+        return {f for f in done if f in self.fact_ids}
+
     @property
     def n_done(self) -> int:
-        # count by fact_id when available, else by retrieve_subgraph calls
-        return max(len(self.retrieved_fids), self.n_subgraphs)
+        # count by done fids when available, else by retrieve_subgraph calls
+        return max(len(self.done_fids()), self.n_subgraphs)
 
     @property
     def all_retrieved(self) -> bool:
-        # sg-based: all declared subgraphs resolved or failed — ONLY when sg_done is
-        # fully populated (i.e., every sg was either completed or budget-intercepted).
-        # Otherwise fall back to the call-count method (normal completion doesn't
-        # explicitly mark sg_done — the model just moves on or answers).
-        if self.sg_plan and len(self.sg_done) >= len(self.sg_plan):
-            return all(sg in self.sg_done for sg in self.sg_plan)
-        # fallback: call-count method
-        return bool(self.fact_ids) and self.n_done >= len(self.fact_ids)
+        # every declared fact CLOSED (retrieved ✓/✗ closure, or its subgraph was
+        # budget-intercepted); the raw call-count is the last fallback for plans
+        # whose retrieve_subgraph calls never carried a usable sg id.
+        if not self.fact_ids:
+            return False
+        if self.done_fids() >= set(self.fact_ids):
+            return True
+        return self.n_subgraphs >= len(self.fact_ids)
+
+
+def norm_fact_key(state: SeqAgentState, key: str) -> str:
+    """Canonical (declared) fact id for any of the three runtime namespaces:
+    `f1` (declared), `sg1` (retrieve_subgraph's sg arg — resolves to the group's
+    first fact not yet retrieved/closed/declared, mirroring the sequential
+    workflow; else the group's last fact), `sg1.f2` (checkpoint declaration).
+    Unknown keys pass through unchanged so budget/closure stores stay inspectable."""
+    k = str(key or "").strip()
+    if not k:
+        return ""
+    for cand in (k, k.lower()):
+        if cand in state.fact_key_map:
+            return state.fact_key_map[cand]
+    if k in state.fact_ids:
+        return k
+    base = k.split(".")[0]
+    fids = ()
+    for cand in (k, base, k.lower(), base.lower()):
+        fids = state.sg_facts.get(cand) or ()
+        if fids:
+            break
+    if fids:
+        busy = set(state.retrieved_fids) | state.closed_fids | state.declared_fids
+        for f in fids:
+            if f not in busy:
+                return f
+        return fids[-1]
+    return k
+
+
+def _norm_done(state: SeqAgentState, closed_facts: dict) -> set:
+    """done fids, counting ctx-side closures (✗ keys may be any namespace)."""
+    done = state.done_fids()
+    done |= {norm_fact_key(state, k) for k in (closed_facts or {})}
+    return {f for f in done if f in state.fact_ids}
+
+
+def _answer_vars_bound(state: SeqAgentState, fact_bindings: dict,
+                       var_joins: dict) -> bool:
+    """Every declared answer var has non-empty values — via a join intersection
+    or any fact binding whose plan edge touches the var (tail = binding site,
+    head = discriminator-walk site)."""
+    for av in state.answer_var:
+        if not av:
+            continue
+        join = (var_joins or {}).get(av)
+        if join and join[1]:
+            continue
+        bound = False
+        for raw_fid, vals in (fact_bindings or {}).items():
+            fid = norm_fact_key(state, raw_fid)
+            head, tail = state.fact_edges.get(fid, ("", ""))
+            if av in (head, tail) and vals:
+                bound = True
+                break
+        if not bound:
+            return False
+    return True
+
+
+def blocking_facts(state: SeqAgentState, closed_facts: dict, fact_bindings: dict,
+                   var_joins: dict) -> list:
+    """OPEN declared facts that can still change WHICH entity answers — the
+    inverse of ready_to_commit branch 2. The early-answer reminder lists only
+    these; an empty list means READY and the reminder must stay silent."""
+    done = _norm_done(state, closed_facts)
+    open_facts = [f for f in state.fact_ids if f not in done]
+    if not open_facts:
+        return []
+    avs = {v for v in state.answer_var if v}
+    if not avs or not _answer_vars_bound(state, fact_bindings, var_joins):
+        return open_facts
+    tail_ans = {f for f in state.fact_ids
+                if state.fact_edges.get(f, ("", ""))[1] in avs}
+    tail_ans_rids = {state.fact_covers.get(f) for f in tail_ans}
+    blocking = []
+    for f in open_facts:
+        head, tail = state.fact_edges.get(f, ("", ""))
+        # tail==answer: would re-bind / intersect the answer set;
+        # head==answer: discriminator walk (overshoot) — must finish first;
+        # shared covers: a second anchor constraining the same requirement
+        # under an alias variable can still eliminate candidates.
+        if tail in avs or head in avs:
+            blocking.append(f)
+        elif state.fact_covers.get(f) and state.fact_covers.get(f) in tail_ans_rids:
+            blocking.append(f)
+    return blocking
+
+
+def ready_to_commit(state: SeqAgentState, closed_facts: dict, fact_bindings: dict,
+                    var_joins: dict) -> bool:
+    """EVIDENCE COMMIT / answer-readiness (COMMIT-WIDENING, 2026-08-22):
+    branch 1 — every declared fact is CLOSED (retrieved or ✗ closure, via the
+    key map); branch 2 — the answer var is bound AND no OPEN fact can still
+    change it (see blocking_facts). Deliberately NO transitive closure."""
+    if not state.fact_ids:
+        return False
+    if _norm_done(state, closed_facts) >= set(state.fact_ids):
+        return True
+    if not state.answer_var:
+        return False
+    if not _answer_vars_bound(state, fact_bindings, var_joins):
+        return False
+    return not blocking_facts(state, closed_facts, fact_bindings, var_joins)
+
+
+def commit_due(state: SeqAgentState, closed_facts: dict, fact_bindings: dict,
+               var_joins: dict) -> bool:
+    """SEQ_WIDE_COMMIT (default on) selects the READY predicate; setting it off
+    falls back to the legacy all_retrieved trigger — the regression bisect fuse."""
+    import os
+    if os.environ.get("SEQ_WIDE_COMMIT", "1").strip().lower() in ("0", "off", "false", "no"):
+        return bool(state.all_retrieved)
+    return ready_to_commit(state, closed_facts, fact_bindings, var_joins)
 
 
 def _todo(state: SeqAgentState) -> str:
-    done = set(state.retrieved_fids)
+    done = state.done_fids()
     marks = " ".join(f"{'✓' if f in done else '⬜'}{f}" for f in state.fact_ids) or "(no facts)"
     return f"{marks}  (retrieved {state.n_done}/{len(state.fact_ids)})"
 
@@ -160,8 +327,14 @@ def _allowed_hint(state: SeqAgentState) -> str:
     return "(done)"
 
 
-def validate(state: SeqAgentState, tool_calls) -> tuple:
-    """One tool per turn. Returns (ok, err_msg, new_state)."""
+def validate(state: SeqAgentState, tool_calls, ready: bool = False,
+             missing_facts=None) -> tuple:
+    """One tool per turn. Returns (ok, err_msg, new_state).
+
+    ``ready``/``missing_facts`` are supplied by the loop ONLY for `answer`
+    calls: ready = the ctx-aware READY predicate held (skip the early-answer
+    reminder entirely); missing_facts = the constraining-facts list for the
+    reminder message. Both default to the legacy pure-state behavior."""
     if not tool_calls:
         return (False, "No tool call. " + _allowed_hint(state), state)
     if len(tool_calls) > 1:
@@ -192,12 +365,29 @@ def validate(state: SeqAgentState, tool_calls) -> tuple:
         if tri.get("entities_missing") and state.n_decomposes == 0:
             state.n_decomposes += 1
             return (False, "decompose `entities` is empty. List EVERY named entity in the question.", state)
+        # answer_type REQUIRED (plan-contract v2) — checked HERE, before the INIT→
+        # RETRIEVE transition, so a rejected plan leaves the state machine in INIT
+        # and re-emitting the plan stays legal. The CH specimen (2026-08-19) showed
+        # the desync: validate transitioned on parse success, the tool-layer gate
+        # then rejected, and the phase gate blocked the re-emission it had demanded
+        # ("Wrong tool in the retrieve phase") — deadlock.
+        if not str(args.get("answer_type", "") or "").strip():
+            return (False, "plan requires `answer_type` — ONE word for what the "
+                           "question asks for (person, country, movie, year, language, ...), "
+                           "derived from the question's interrogative. Re-emit the plan with it.",
+                    state)
         state.fact_ids = tri["fact_ids"]
         state.fact_texts = tri["fact_texts"]
         state.chains = tri["chains"]
+        state.requirements = tri.get("requirements") or {}
+        state.fact_covers = tri.get("fact_covers") or {}
         state.anchor = tri["anchor"]
         state.entities = tri.get("entities") or []
         state.sg_plan = tri.get("sg_info", {})       # {sg_id → n_facts} for per-fact budget
+        state.sg_facts = tri.get("sg_facts", {}) or {}
+        state.fact_key_map = tri.get("fact_key_map", {}) or {}
+        state.fact_edges = tri.get("fact_edges", {}) or {}
+        state.answer_var = tri.get("answer_var", []) or []
         state.n_decomposes += 1
         state.state = RETRIEVE
         return (True, "", state)
@@ -209,23 +399,33 @@ def validate(state: SeqAgentState, tool_calls) -> tuple:
         if name == "retrieve_subgraph":
             state.n_subgraphs += 1
             sg = str(args.get("sg") or args.get("fact_id") or args.get("step") or "")
-            if sg and sg not in state.retrieved_fids:
-                state.retrieved_fids.append(sg)
+            canon = norm_fact_key(state, sg)
+            if sg and canon not in state.retrieved_fids:
+                state.retrieved_fids.append(canon)
             # per-fact budget deviation detection: each sg gets 3 × n_facts retrieve calls
-            if sg and sg in state.sg_plan:
-                state.sg_calls[sg] = state.sg_calls.get(sg, 0) + 1
-                budget = state.sg_budget(sg)
-                if state.sg_calls[sg] > budget:
-                    state.sg_done.add(sg)
-                    return (False, (f"Subgraph {sg} used {state.sg_calls[sg]} retrieval calls "
-                                   f"(budget {budget} = 3×{state.sg_plan[sg]} facts). It appears stuck. "
-                                   f"Mark {sg} done and proceed to the next subgraph, or answer from current evidence."),
+            # (sg1.f2-style args are counted against their base group)
+            base_sg = sg.split(".")[0].strip() if sg else ""
+            if base_sg and base_sg in state.sg_plan:
+                state.sg_calls[base_sg] = state.sg_calls.get(base_sg, 0) + 1
+                budget = state.sg_budget(base_sg)
+                if state.sg_calls[base_sg] > budget:
+                    state.sg_done.add(base_sg)
+                    return (False, (f"Subgraph {base_sg} used {state.sg_calls[base_sg]} retrieval calls "
+                                    f"(budget {budget} = 3×{state.sg_plan[base_sg]} facts). It appears stuck — "
+                                    f"further retrieval for {base_sg} will be rejected. Answer NOW from the "
+                                    f"evidence already retrieved, or (only if other facts remain) call "
+                                    f"retrieve_relations for a DIFFERENT fact's center."),
                             state)
             return (True, "", state)
         if name == "answer":
-            if not state.all_retrieved and not state.reminded:
+            # READY (loop-computed with ctx bindings) ⇒ no reminder at all — the
+            # EVIDENCE COMMIT signal owns that turn; a reminder here would
+            # double-reject. Otherwise list only facts that still CONSTRAIN the
+            # answer (blocking set), not every unretrieved fact.
+            if not ready and not state.all_retrieved and not state.reminded:
                 state.reminded = True
-                missing = [f for f in state.fact_ids if f not in state.retrieved_fids]
+                missing = (missing_facts if missing_facts is not None
+                           else [f for f in state.fact_ids if f not in state.retrieved_fids])
                 return (False, (f"You answered before retrieving every declared fact "
                                 f"(missing: {missing}). Retrieve them first — or call `answer` "
                                 f"again if you are certain the missing facts are unanswerable."), state)

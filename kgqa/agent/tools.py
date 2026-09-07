@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from typing import Any, Dict, List
 
 # Structural prune was REMOVED (3-run multi-sample A/B, n=45 heldout): the
@@ -29,7 +30,7 @@ from typing import Any, Dict, List
 # recall 112) — keep 30.
 _GTE_TOPK = int(os.environ.get("KGQA_GTE_TOPK", "30"))
 
-from kgqa.core.utils import normalize, candidate_hit
+from kgqa.core.utils import normalize, candidate_hit, strip_reasoning_leak
 from kgqa.stages.stage2_entity import gte_retrieve
 from kgqa.traversal.k_queue import k_queue_traverse
 from kgqa.traversal.frontier import relation_prior_expand
@@ -304,10 +305,20 @@ async def dispatch(tool_name: str, args: Dict[str, Any], ctx, session) -> str:
 # relation clause) is what makes "played for ?team" match the TEAM relation
 # (sports.pro_athlete.teams) instead of the athlete relation — the failure mode
 # where a terse hint drifted to the wrong relation surface.
-_TRIPLE_GTE_INSTRUCT = ("Retrieve the triple-format question (head, relation, tail) "
-                        "that is semantically consistent with the natural-language "
-                        "query question — both ask about the same thing")
+_TRIPLE_GTE_INSTRUCT = ("Given a natural-language question about the head entity, "
+                        "retrieve the knowledge-graph relation whose semantics match "
+                        "what the question asks — the relation must connect the head "
+                        "entity to the answer.")
+# V3 semantic-match instruct (2026-08-22, user ruling 本质是关系语义是否与问题相符合):
+# validated on the gold-relation suite (195 cases, production last2+head format):
+# recall@5 0.231 vs V2's 0.210, @10/@15 parity (0.333/0.385 vs 0.328/0.385);
+# MLK specimen film-bias: base phrasing film.* 9→6 slots, location family
+# 6/7/11→2/5/7; "where" phrasing location family returns to the window
+# (12th) from absent. Replaces V2 (whose "question's topic" wording coupled
+# "shot"→film corpus and amplified paraphrase variance).
+# lever that rescues the Iraq specimen (form_of_government #25 -> top-5).
 _TRIPLE_GTE_TOPK = 15
+_REGISTERED_POOLS = set()   # pool_keys registered with the GTE server (process lifetime)
 # Grounded-GTE pool-size gate: each hop's candidate pool is its 2-hop-reachable
 # relation set. If that set is smaller than _GTE_POOL_MIN (sparse anchor or a
 # broken chain — too narrow to rank meaningfully), the hop expands to the full
@@ -351,23 +362,35 @@ async def _gte_for_triple(ctx, session, head, rel_clause, tail, pool_relids=None
     labeled = [f"{head} | {_rel_last2(r)} | ?" for r in rels_pool]
     lab2loc = {lab: i for i, lab in enumerate(labeled)}      # labeled text -> pool-local idx
     relid2loc = {r: i for i, r in enumerate(rels_pool)}      # rel id -> pool-local idx
+    # POOL_KEY (2026-08-21): same (head, pool) re-queried across facts — register
+    # the candidate list once per process; later queries ship the key only.
+    import hashlib as _hl
+    _pk = _hl.md5(("|".join(rels_pool) + f"#{head}").encode()).hexdigest()[:20]
+    _first_time = _pk not in _REGISTERED_POOLS
     # The /retrieve service resets connections under batch concurrency (Errno 104);
     # a reset must NOT silently zero out a triple's candidates (cascades into a bad
     # walk). Retry with backoff — a fresh call succeeds (the ranking itself is fine).
     rows = None
-    for _attempt in range(4):
-        try:
-            rows = await gte_retrieve(session, query, rels_pool,
-                                      candidate_texts=labeled, top_k=_TRIPLE_GTE_TOPK,
-                                      instruct=_TRIPLE_GTE_INSTRUCT)
-            break
-        except Exception as _e:
-            if _attempt < 3:
-                await asyncio.sleep(0.4 * (_attempt + 1))
-                continue
-            import sys as _sys
-            print(f"  GTE error in _gte_for_triple (4 retries failed): {_e}", file=_sys.stderr)
-            rows = []
+    from kgqa.core.utils import phase_timer
+    with phase_timer("gte"):
+        for _attempt in range(4):
+            try:
+                rows = await gte_retrieve(
+                    session, query,
+                    rels_pool if _first_time else [],
+                    candidate_texts=labeled if _first_time else None,
+                    top_k=_TRIPLE_GTE_TOPK,
+                    instruct=_TRIPLE_GTE_INSTRUCT,
+                    pool_key=_pk)
+                _REGISTERED_POOLS.add(_pk)
+                break
+            except Exception as _e:
+                if _attempt < 3:
+                    await asyncio.sleep(0.4 * (_attempt + 1))
+                    continue
+                import sys as _sys
+                print(f"  GTE error in _gte_for_triple (4 retries failed): {_e}", file=_sys.stderr)
+                rows = []
     rows = rows or []
     out = []
     for r in rows:
@@ -695,6 +718,22 @@ def _anchor_outgoing_rel_ids(ctx) -> set:
     return out
 
 
+def _full_adj(ctx):
+    """Per-ctx full undirected adjacency (list per entity idx of (rel, other)),
+    built ONCE per ctx — shared by _reach2_relids' BFS and the SEQ pool's
+    CVT-transparent expansion (both previously rescanned all edges per call,
+    blocking the event loop on hub cases)."""
+    _adj_full = getattr(ctx, "_full_adj_idx", None)
+    if _adj_full is None or len(_adj_full) != len(ctx.ents):
+        _adj_full = [[] for _ in range(len(ctx.ents))]
+        for hh, rr, tt in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+            if 0 <= hh < len(_adj_full) and 0 <= tt < len(_adj_full):
+                _adj_full[hh].append((rr, tt))
+                _adj_full[tt].append((rr, hh))
+        ctx._full_adj_idx = _adj_full
+    return _adj_full
+
+
 def _reach2_relids(ctx, entity_set) -> set:
     """2-hop reachable relation indices from a SET of entities (undirected, any
     intermediate — CVT or regular). Generalizes _anchor_outgoing_rel_ids to a
@@ -710,6 +749,15 @@ def _reach2_relids(ctx, entity_set) -> set:
     ent_set = set(e for e in entity_set if e is not None and 0 <= e < len(ctx.ents))
     if not ent_set:
         return out
+    # per-case pool memo (user design: 同case内GTE/池常驻): rephrase loops
+    # re-query the SAME center set — reachability is deterministic, so the
+    # pool is memoized per (frozen center set) on ctx.
+    _memo = getattr(ctx, "_pool_memo", None)
+    if _memo is None:
+        _memo = {}; ctx._pool_memo = _memo
+    _mk = frozenset(ent_set)
+    if _mk in _memo:
+        return set(_memo[_mk])
     neighbors = set()
     for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
         if h in ent_set or t in ent_set:
@@ -719,16 +767,96 @@ def _reach2_relids(ctx, entity_set) -> set:
             if t in ent_set and 0 <= h < len(ctx.ents):
                 neighbors.add(h)
     neighbors -= ent_set
-    for mid in neighbors:
-        for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
-            if h == mid or t == mid:
-                out.add(r)
-    # Filter structural noise (common.topic.*, type.*, kg.*, base.ontologies.*,
-    # etc.) — these exist on every entity and pollute the GTE candidate pool
-    # with generic noise that outranks specific gold relations for vague queries.
-    # Aligns the GTE pool with the walk's _build_adj(skip_rel_ids=noisy_rel_ids).
+    # HIT LOGIC (user ruling, 2026-08-19): the budget is TWO NAMED hops;
+    # CVT nodes are TRANSPARENT — passing through one costs no hop (and a
+    # path ENDING on a CVT is also penetrated). BFS by named-hop cost:
+    # cost 0 = centers, cost 1 = direct named neighbors (+ everything behind
+    # transparent CVT chains at the same cost), cost 2 = one more named hop
+    # (again with free CVT passage). Relations on any edge touched along the
+    # way enter the pool.
+    # full adjacency index, built ONCE per ctx (single O(E) pass) — the BFS
+    # visits thousands of unique nodes on hub centers; per-node edge scans
+    # are O(V×E) (France: 0.9s per pool call in the event loop).
+    _adj_full = _full_adj(ctx)
+
+    def _adj(i):
+        return _adj_full[i] if 0 <= i < len(_adj_full) else ()
+
+    def _expand(seed, cost_budget):
+        seen, frontier, cost = set(seed), set(seed), 0
+        while frontier and cost < cost_budget:
+            nxt, stack = set(), list(frontier)
+            while stack:   # current named-hop layer; CVTs extend it for free
+                i = stack.pop()
+                for rr, other in _adj(i):
+                    if other in seen or not (0 <= other < len(ctx.ents)):
+                        continue
+                    seen.add(other)
+                    if str(ctx.ents[other]).startswith(("m.", "g.")):
+                        stack.append(other)     # transparent: same layer
+                    else:
+                        nxt.add(other)          # named: costs the next hop
+            frontier = nxt
+            cost += 1
+        return seen
+
+    reach = _expand(ent_set, 2)
+    for hh, rr, tt in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+        if hh in reach or tt in reach:
+            out.add(rr)
+    # PER-CTX EDGE INDEX + PAYS CACHE (2026-08-22 perf): the walkability and
+    # renderability filters were O(pool × all-edges) per call — hub cases
+    # (France: 184 pool rels × 5189 edges ≈ 1M iterations, ~1s) ran this in
+    # the event loop and blocked every concurrent case. Both filters now run
+    # on a per-relation edge list built once per ctx; the center-independent
+    # pays bit is precomputed with it.
+    def _is_cvt(i):
+        return 0 <= i < len(ctx.ents) and str(ctx.ents[i]).startswith(("m.", "g."))
+    _edges = getattr(ctx, "_rel_edges_idx", None)
+    if _edges is None or len(_edges) != len(ctx.rels):
+        from collections import defaultdict as _dd
+        _cvt_named = _dd(set)
+        _edges = _dd(list)
+        for hh, rr2, tt in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+            _edges[rr2].append((hh, tt))
+            hc, tc = _is_cvt(hh), _is_cvt(tt)
+            if hc and not tc and 0 <= tt < len(ctx.ents):
+                _cvt_named[hh].add(tt)
+            elif tc and not hc and 0 <= hh < len(ctx.ents):
+                _cvt_named[tt].add(hh)
+        _pays = {}
+        for rr2, es in _edges.items():
+            _pays[rr2] = any(
+                (hh != tt) and (
+                    (not _is_cvt(hh) and not _is_cvt(tt))
+                    or (hh in _cvt_named and (_cvt_named[hh] - {tt}))
+                    or (tt in _cvt_named and (_cvt_named[tt] - {hh}))
+                )
+                for hh, tt in es)
+        ctx._rel_edges_idx = _edges
+        ctx._rel_pays_idx = _pays
+    _edges = ctx._rel_edges_idx
+    _pays = ctx._rel_pays_idx
+
+    # WALKABILITY INVARIANT (user ruling, 2026-08-21): pool membership ⟺ the
+    # relation has a WALKABLE instantiation from the centers. A pattern path
+    # is ≤2 named hops with the SELECTED relation as the LAST hop — so the
+    # relation is walkable iff it has an edge whose endpoint is within ONE
+    # named hop (CVT-transparent) of a center. Edges whose endpoints sit at
+    # 2 named hops (King specimen: featured_film_locations on the director's
+    # OTHER films) are only usable as hop-3 — the walk correctly refuses
+    # them, so the pool must not offer them as if they were current-fact
+    # bridges ("关系可达但是子图不可达" seam). Pool = walkable-last-hop set.
+    walk_reach = _expand(ent_set, 1)
+    # RENDERABILITY INVARIANT (Norwood specimen, 2026-08-22): 能选必可达 must
+    # hold through to the DISPLAY — bare-CVT-stub / self-loop instantiations
+    # pay nothing (see the pays precompute above).
     from kgqa.traversal.path_utils import _is_noisy_path_relation
-    out = {r for r in out if not _is_noisy_path_relation(ctx.rels[r])}
+    out = {r for r in out
+           if not _is_noisy_path_relation(ctx.rels[r])
+           and _pays.get(r, True)
+           and any((hh in walk_reach or tt in walk_reach)
+                   for hh, tt in _edges.get(r, ()))}
     return out
 
 
@@ -1862,6 +1990,52 @@ async def _do_expand_branch(args: Dict[str, Any], ctx, session) -> str:
         payload["tree"] = "\n\n".join(tree_sections)
     return _json_result(payload)
 
+# '#center::relation' — '::' NOT '|': the flat protocol splits entity lists on
+# '|', so a '#Smokey Robinson|track' ref parses as TWO entities. '|' still
+# accepted in the regex for refs that arrive intact (quoted JSON).
+_BRANCH_RE = re.compile(r"^#(.{1,200}?)(?:::|\|)(.{1,300})$")
+
+
+def _expand_branch_refs(ctx, entities):
+    """Expand '#center|relation' answer refs into ALL local entities of that edge
+    pattern (list-question protocol). The retrieve_subgraph renderer caps huge
+    pattern lines and advertises this ref; expanding here lets the model answer
+    with the full list via a compressed submission instead of enumerating
+    hundreds of entities. Relation matches full name, dotted suffix, or short
+    form. Falls back to the literal string when nothing matches (a stray '#a|b'
+    should still be visible in the offpool feedback, not silently dropped)."""
+    from kgqa.core.utils import normalize as _norm
+    out = []
+    for e in entities:
+        m = _BRANCH_RE.match(e.strip())
+        if not m:
+            out.append(e)
+            continue
+        center, rel = m.group(1).strip(), m.group(2).strip()
+        H, R, T = ctx.h_ids, ctx.r_ids, ctx.t_ids
+        ents, rels = ctx.ents, ctx.rels
+        got, seen = [], set()
+        for k in range(len(H)):
+            r_name = str(rels[R[k]]) if 0 <= R[k] < len(rels) else ""
+            if not (r_name == rel or r_name.endswith("." + rel)
+                    or r_name.rsplit(".", 1)[-1] == rel):
+                continue
+            h_name, t_name = str(ents[H[k]]), str(ents[T[k]])
+            if _norm(h_name) == _norm(center):
+                other = t_name
+            elif _norm(t_name) == _norm(center):
+                other = h_name
+            else:
+                continue
+            if (not other.strip() or is_cvt_like(other)
+                    or _norm(other) in seen or _norm(other) == _norm(center)):
+                continue
+            seen.add(_norm(other))
+            got.append(other)
+        out.extend(got if got else [e])
+    return out
+
+
 def _do_answer(args: Dict[str, Any], ctx) -> str:
     """Capture the model's answer entities. The `entities` array is the
     authoritative answer surface (schema-required).
@@ -1879,6 +2053,39 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
     if not isinstance(entities, list):
         entities = []
     entities = [str(e).strip() for e in entities if str(e).strip()]
+    # value-level guard (harness fix P6): belt-and-braces behind the ingress
+    # sanitizer — if a reasoning-leak fragment survived into an entity value
+    # (glued onto a name), strip it here so the offpool check and the final
+    # answer never carry the artifact.
+    entities = [strip_reasoning_leak(e).strip() for e in entities]
+    entities = [e for e in entities if e]
+    # MID-format entities can never be correct (gold is always display names);
+    # evidence trees sometimes display raw mids (m.0h2z5vr) which the offpool
+    # check would otherwise pass — strip them outright.
+    import re as _re_mid
+    _pre_mid_strip = entities
+    entities = [e for e in entities
+                if not _re_mid.fullmatch(r"[mg]\.[0-9a-z_]{2,}", e.strip().lower())]
+    # SYSTEM-LEVEL REJECTION (2026-08-21, Lauren/Kim specimens): a submission
+    # consisting ENTIRELY of event-node mids was silently stripped to empty and
+    # ACCEPTED as an empty answer — measured 34% of all empty answers. Reject
+    # ONCE with the fix instruction (same one-shot semantics as the offpool
+    # check); the retry with named attribute values passes normally.
+    if _pre_mid_strip and not entities and not getattr(ctx, "_answer_cvt_retried", False):
+        ctx._answer_cvt_retried = True
+        return _json_result({
+            "error": ("answer entities were ALL event nodes (m./g. ids). An event "
+                      "node is an abstract RECORD — it names no thing, so accepting "
+                      "it would score an EMPTY answer (see §7.5). The entities "
+                      "INSIDE each event's bracket are the world: re-call `answer` "
+                      "binding, per variable, the attribute entity whose KEY answers "
+                      "the question (award question → the award= value; residence → "
+                      "location=; who played → actor=; which film → film=)."),
+        })
+    # branch-ref expansion must precede the offpool check: expanded entities are
+    # graph-derived (always on-pool), the raw '#center|relation' string is not.
+    entities = _expand_branch_refs(ctx, entities)
+    entities = [e for e in entities if e]
 
     # Off-pool check: answer entities should come from the retrieved evidence.
     # If the model emits an entity NOT in the candidate pool, flag it ONCE (it
