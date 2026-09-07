@@ -7432,3 +7432,20 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   (0.6083,审计输入)/ tmp/regression_audit_20260907.md(子代理审计报告)
 - reports/v38_full_fix_48x3.json = 终版 0.7292(hit 84.0%,best3 0.8629)
 - 下游:对新 144 轨迹回放 struct_vars → v2.1 裁决 → OSPD teacher pool
+
+### 2026-09-07 性能口径澄清 + 12-lane 调优(commit 987d388)
+- **口径**:用户历史"5s/case"= perf4 单采样口径(450s/100traj=4.5s/traj)。
+  当前 48×3 全量 792s = 5.5s/**traj**(16.5s/case×3)——同量级,+22%。
+- **分解**(rd_A/rd_B/rd_C 计时,全量):A=1s C=0s(同步税已死 ✓),B=393s 纯 IO;
+  llm=377s=2.6s/traj(与 perf4 2.68 完全一致——8.1 轮 × ~23s 批栅栏是物理形态:
+  每轮墙钟由最慢生成长度决定,小 batch 摊不平吞吐,9-traj 冒烟 llm 噪声 ±35%
+  不可用于性能对比)。
+- **WALK_POOL 3→12 + WALK_BATCH_WINDOW 0.3**(128 核只用了 3):dispatch
+  545→394s,全程 957→792s。
+- **残留差距**(dispatch 2.7 vs perf4 1.65s/traj):① GTE 密度 14 次/traj
+  (perf4 10.2)——retrieve_relations 排序调用变多;② GTE 与 vLLM TP-rank1
+  **共卡**(GPU-5872…)抢占,gte 内部时间随 vLLM 负载漂移(1710↔4244s)。
+  优化方向:GTE 调用去重/预取、独立 GPU 或 MPS。
+- **run 间方差**:0.729 vs 0.662 同代码,首个分叉在 step 0 模型自由文本
+  (temp=0.3 无固定 seed)——48×3 单轮指标噪声带 ±3-4pp,比较结论须多轮
+  或看机制计数;lane 数变化语义中性(perf4 801/801 replay 证)。
