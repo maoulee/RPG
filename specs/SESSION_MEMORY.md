@@ -7515,3 +7515,20 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   提速后才真正生效**(之前被 walk 的 CPU 需求顶死 4 核配额)。
 - 速度弧线:串行 ~60min → 轮模式调优 655-701s → 冒泡 670s → **冒泡+walk-perf
   378s**。分支 walk-perf 保留(未 merge 回 agent-toolcall,待用户裁决)。
+
+### 2026-09-07 walk-perf 审计 + 267×3 生产规模验证(commit 3a46bbb)
+- **审计修复**:邻接缓存的 id() 键在数组被 GC 后存在 id 复用碰撞风险(worker
+  case 缓存换出场景)——值改为强引用源数组(self-pin),存续期内 id 永不失效。
+  battery 7/7 hash 复验不变。其余边界已查:_LATIN_CHAR_OK 字符表天然有界;
+  worker GC 阈值放宽的环泄漏风险有界(run 结束进程退出);缓存上限 16 清空 ✓;
+  bubble 的异常/final-turn/_done_t 语义逐项核对 ✓。
+- **267×3 生产规模(WALK_POOL=3)**:**2080-2108s(35min),mean_f1 0.740-0.753**,
+  2.6s/traj 恒定;历史 perf3 时代 267×3 ~46min → **-25%**。
+- **6-lane 对照:2080 vs 2108s(-1.3%)——无增益**。walk wait 19811→13309s 降了
+  但总墙钟不动:**平均 231 请求在飞**(llm 重叠累计 480238s÷2080s),vLLM 已在
+  max_num_seqs=256 附近满载——**总墙钟决定项=llm 物理吞吐**,walk 侧再加
+  lane 无意义。48×3 的 GPU 未饱和(Running~100)是大批量被 walk 吞吐卡住的
+  中间形态;267×3 下 walk 与 llm 完全重叠后 per-traj 收敛到 2.6s。
+- **运维规则**:48×3 用 WALK_POOL=3;267×3 用 3-6 均可(6 略优 walk 排队但总墙
+  钟无差);BUBBLE_LLM_CONC=256(放开到服务器上限)。再要提速只剩 llm 物理
+  (GPU gen 吞吐/thinking budget——后者是行为参数,不动)。
