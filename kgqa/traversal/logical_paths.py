@@ -28,16 +28,18 @@ def _build_adj(h_ids, r_ids, t_ids, with_edge_idx=False, skip_rel_ids=None):
 
     Per-case MEMOIZED (walk-perf, 2026-09-07): every walk of the same case
     rebuilt the identical adjacency (dense cases: 7k+ edges, degree 900+).
-    The arrays live on ctx for the whole episode (and in the lane worker's
-    case cache), so (id, len) keyed caching is safe; callers never mutate
-    the returned adjacency (read-only adj.get iteration everywhere).
+    The value STRONGLY REFERENCES the source arrays (audit 2026-09-07): the
+    key uses id()s, which are only unique while the object lives — pinning
+    the arrays in the cache makes a stale-id collision impossible (a freed
+    array's id can never be reused while the entry exists). Callers never
+    mutate the returned adjacency (read-only adj.get iteration everywhere).
     """
     skip = skip_rel_ids or frozenset()
     key = (id(h_ids), id(r_ids), id(t_ids), len(h_ids),
            DIRECTED_TRAVERSAL, with_edge_idx, frozenset(skip) if skip else None)
-    adj = _ADJ_CACHE.get(key)
-    if adj is not None:
-        return adj
+    hit = _ADJ_CACHE.get(key)
+    if hit is not None:
+        return hit[0]
     adj = {}
     if with_edge_idx:
         for edge_idx, (h, r, t) in enumerate(zip(h_ids, r_ids, t_ids)):
@@ -55,7 +57,7 @@ def _build_adj(h_ids, r_ids, t_ids, with_edge_idx=False, skip_rel_ids=None):
                 adj.setdefault(t, []).append((h, r))
     if len(_ADJ_CACHE) > 16:
         _ADJ_CACHE.clear()
-    _ADJ_CACHE[key] = adj
+    _ADJ_CACHE[key] = (adj, (h_ids, r_ids, t_ids))
     return adj
 
 

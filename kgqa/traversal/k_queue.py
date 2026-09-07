@@ -97,7 +97,11 @@ def k_queue_traverse(anchor_idx, step_relations, h_ids, r_ids, t_ids, entity_lis
     _akey = (id(h_ids), id(r_ids), id(t_ids), len(h_ids),
              DIRECTED_TRAVERSAL,
              frozenset(noisy_rel_ids) if noisy_rel_ids else None)
-    adj = _KQ_ADJ_CACHE.get(_akey)
+    _hit = _KQ_ADJ_CACHE.get(_akey)
+    if _hit is not None:
+        adj = _hit[0]
+    else:
+        adj = None
     if adj is None:
         adj = {}
         for i in range(len(h_ids)):
@@ -109,7 +113,9 @@ def k_queue_traverse(anchor_idx, step_relations, h_ids, r_ids, t_ids, entity_lis
                 adj.setdefault(t, []).append((h, r))
         if len(_KQ_ADJ_CACHE) > 16:
             _KQ_ADJ_CACHE.clear()
-        _KQ_ADJ_CACHE[_akey] = adj
+        # pin the source arrays: id() keys stay valid while the entry lives
+        # (audit 2026-09-07 — stale-id collision impossible)
+        _KQ_ADJ_CACHE[_akey] = (adj, (h_ids, r_ids, t_ids))
 
     # Build rel_to_step mapping: each relation → set of step indices it belongs to
     rel_to_step = {}

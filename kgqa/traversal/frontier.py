@@ -653,7 +653,8 @@ def relation_prior_expand(anchor_idx, step_relations, h_ids, r_ids, t_ids, entit
     # and each call rebuilt the identical adjacency — dense cases pay 26ms+
     # per rebuild at degree 900+. Downstream is read-only (adj.get iteration).
     _rkey = (id(h_ids), id(r_ids), id(t_ids), len(h_ids), DIRECTED_TRAVERSAL)
-    adj = _RPE_ADJ_CACHE.get(_rkey)
+    _hit = _RPE_ADJ_CACHE.get(_rkey)
+    adj = _hit[0] if _hit is not None else None
     if adj is None:
         adj = {}
         for i in range(len(h_ids)):
@@ -669,7 +670,9 @@ def relation_prior_expand(anchor_idx, step_relations, h_ids, r_ids, t_ids, entit
                     adj[t] = ((h, r),)
         if len(_RPE_ADJ_CACHE) > 16:
             _RPE_ADJ_CACHE.clear()
-        _RPE_ADJ_CACHE[_rkey] = adj
+        # pin the source arrays: id() keys stay valid while the entry lives
+        # (audit 2026-09-07 — stale-id collision impossible)
+        _RPE_ADJ_CACHE[_rkey] = (adj, (h_ids, r_ids, t_ids))
     adj_empty = ()
 
     # -- Pre-compute CVT mask (avoids re.match per hop) --
