@@ -1805,7 +1805,10 @@ async def run_round_dispatch(cases_raws, session):
     run_seq_react_batch and every test; only the phase interleaving differs
     (the event loop does orchestration only, sync CPU no longer fragments
     into 500-coroutine interleave)."""
+    import time as _time_mod
+    _perf = _time_mod.perf_counter
     prepared = []
+    _t0 = _perf()
     for rc, raw, reasoning in cases_raws:
         if rc.done or rc.failed:
             continue
@@ -1813,11 +1816,13 @@ async def run_round_dispatch(cases_raws, session):
         if "ret" in prep:
             continue      # early-exit path: message side effects done in A
         prepared.append((rc, prep))
+    _tA = _perf()
     if not prepared:
         return
     bres = await asyncio.gather(
         *(rc._execute_tool(prep, session) for rc, prep in prepared),
         return_exceptions=True)
+    _tB = _perf()
     for (rc, prep), br in zip(prepared, bres):
         # _execute_tool already renders tool errors as result strings; an
         # exception here is harness-level — render it the same way so the
@@ -1828,4 +1833,9 @@ async def run_round_dispatch(cases_raws, session):
                   f"{type(br).__name__}: {br}", flush=True)
             br = json.dumps({"error": f"dispatch_{prep['tool']}: {br}"})
         rc._finalize(prep, br)
+    _tC = _perf()
+    from kgqa.core.utils import PHASE_TIMES
+    PHASE_TIMES["rd_A"] = PHASE_TIMES.get("rd_A", 0.0) + (_tA - _t0)
+    PHASE_TIMES["rd_B"] = PHASE_TIMES.get("rd_B", 0.0) + (_tB - _tA)
+    PHASE_TIMES["rd_C"] = PHASE_TIMES.get("rd_C", 0.0) + (_tC - _tB)
 

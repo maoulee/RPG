@@ -369,6 +369,8 @@ def main():
         # only when the 16-semaphore keeps them non-overlapping).
         from kgqa.core.utils import PHASE_TIMES as _PT
         print(f"  phase: llm={_PT['llm']:.0f}s dispatch={_PT['dispatch']:.0f}s "
+              f"| rd: A={_PT.get('rd_A', 0):.0f}s B={_PT.get('rd_B', 0):.0f}s "
+              f"C={_PT.get('rd_C', 0):.0f}s "
               f"| inside-dispatch: walk={_PT['walk']:.0f}s "
               f"(collect={_PT['walk_collect']:.0f}s wait={_PT['walk_wait']:.0f}s "
               f"exec={_PT['walk_exec']:.0f}s) "
