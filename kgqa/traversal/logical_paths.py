@@ -25,9 +25,20 @@ def _build_adj(h_ids, r_ids, t_ids, with_edge_idx=False, skip_rel_ids=None):
 
     When DIRECTED_TRAVERSAL is set, edges are directed (h -> t only). Otherwise
     undirected (both directions), preserving the original behavior.
+
+    Per-case MEMOIZED (walk-perf, 2026-09-07): every walk of the same case
+    rebuilt the identical adjacency (dense cases: 7k+ edges, degree 900+).
+    The arrays live on ctx for the whole episode (and in the lane worker's
+    case cache), so (id, len) keyed caching is safe; callers never mutate
+    the returned adjacency (read-only adj.get iteration everywhere).
     """
+    skip = skip_rel_ids or frozenset()
+    key = (id(h_ids), id(r_ids), id(t_ids), len(h_ids),
+           DIRECTED_TRAVERSAL, with_edge_idx, frozenset(skip) if skip else None)
+    adj = _ADJ_CACHE.get(key)
+    if adj is not None:
+        return adj
     adj = {}
-    skip = skip_rel_ids or set()
     if with_edge_idx:
         for edge_idx, (h, r, t) in enumerate(zip(h_ids, r_ids, t_ids)):
             if r in skip:
@@ -42,7 +53,13 @@ def _build_adj(h_ids, r_ids, t_ids, with_edge_idx=False, skip_rel_ids=None):
             adj.setdefault(h, []).append((t, r))
             if not DIRECTED_TRAVERSAL:
                 adj.setdefault(t, []).append((h, r))
+    if len(_ADJ_CACHE) > 16:
+        _ADJ_CACHE.clear()
+    _ADJ_CACHE[key] = adj
     return adj
+
+
+_ADJ_CACHE: dict = {}
 
 
 def _extract_candidate_names_from_paths(paths, ents, anchor_idx, breakpoint_indices, limit=20):

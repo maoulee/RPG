@@ -2204,6 +2204,17 @@ _WALK_LANES = None
 _SENT_BY_LANE = []
 
 
+def _walk_worker_init():
+    """Lane-worker GC policy (walk-perf, 2026-09-07): the per-case adjacency
+    memo (logical_paths/frontier/k_queue) parks large container graphs that
+    make gen-2 collections scan-happy — a dense-case walk showed 300ms GC
+    spikes between 4ms walks. Raise the gen-0 threshold so collections stay
+    rare (walk objects are mostly acyclic; the pool recycles the worker if
+    memory ever grows)."""
+    import gc
+    gc.set_threshold(2_000_000, 100, 100)
+
+
 def _get_walk_lanes(n: int):
     """n single-worker spawn executors + the matching per-lane sent-sets.
     Created once; a later n mismatch keeps the existing lanes (same contract
@@ -2213,7 +2224,8 @@ def _get_walk_lanes(n: int):
         import concurrent.futures as cf
         import multiprocessing as mp
         _spawn = mp.get_context("spawn")
-        _WALK_LANES = [cf.ProcessPoolExecutor(max_workers=1, mp_context=_spawn)
+        _WALK_LANES = [cf.ProcessPoolExecutor(max_workers=1, mp_context=_spawn,
+                                              initializer=_walk_worker_init)
                        for _ in range(n)]
         _SENT_BY_LANE = [set() for _ in range(n)]
     return _WALK_LANES

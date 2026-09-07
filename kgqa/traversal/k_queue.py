@@ -10,6 +10,8 @@ from typing import List
 
 from kgqa.traversal.logical_paths import DIRECTED_TRAVERSAL
 
+_KQ_ADJ_CACHE: dict = {}   # (ids, len, directed, noisy) -> adjacency (walk-perf)
+
 
 def _is_noisy_path_relation(rel_name):
     rel_name = rel_name or ""
@@ -90,14 +92,24 @@ def k_queue_traverse(anchor_idx, step_relations, h_ids, r_ids, t_ids, entity_lis
     # Build adjacency (directed if KGQA_DIRECTED_TRAVERSAL=1, else undirected).
     # Directed mode respects Freebase's named-direction relations (contains vs
     # containedby) instead of treating them as bidirectional.
-    adj = {}
-    for i in range(len(h_ids)):
-        h, r, t = h_ids[i], r_ids[i], t_ids[i]
-        if r in noisy_rel_ids:
-            continue
-        adj.setdefault(h, []).append((t, r))
-        if not DIRECTED_TRAVERSAL:
-            adj.setdefault(t, []).append((h, r))
+    # MEMOIZED per case (walk-perf, 2026-09-07): same-arrays rebuilds are pure
+    # waste — see logical_paths._build_adj; downstream is read-only iteration.
+    _akey = (id(h_ids), id(r_ids), id(t_ids), len(h_ids),
+             DIRECTED_TRAVERSAL,
+             frozenset(noisy_rel_ids) if noisy_rel_ids else None)
+    adj = _KQ_ADJ_CACHE.get(_akey)
+    if adj is None:
+        adj = {}
+        for i in range(len(h_ids)):
+            h, r, t = h_ids[i], r_ids[i], t_ids[i]
+            if r in noisy_rel_ids:
+                continue
+            adj.setdefault(h, []).append((t, r))
+            if not DIRECTED_TRAVERSAL:
+                adj.setdefault(t, []).append((h, r))
+        if len(_KQ_ADJ_CACHE) > 16:
+            _KQ_ADJ_CACHE.clear()
+        _KQ_ADJ_CACHE[_akey] = adj
 
     # Build rel_to_step mapping: each relation → set of step indices it belongs to
     rel_to_step = {}

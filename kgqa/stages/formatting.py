@@ -23,15 +23,27 @@ from kgqa.traversal.cvt import is_cvt_like, expand_through_cvt
 # keeps the multilingual-noise intent without the over-broad ASCII restriction.
 _LATIN_RANGES = ((0x0000, 0x024F), (0x1E00, 0x1EFF), (0x2C60, 0x2C7F))
 
+# per-CHARACTER memo (walk-perf, 2026-09-07): _is_latinish ran 5.3k times on
+# ONE sparse-case walk (58% of its evidence build) — each call re-deriving
+# unicodedata.category + range checks per character. Entity vocabularies draw
+# from a tiny character alphabet, so a char-level table collapses the cost to
+# a dict hit. Same inputs → same verdicts, byte-equivalent.
+_LATIN_CHAR_OK: Dict[str, bool] = {}
+
 
 def _is_latinish(name) -> bool:
     """True if name contains no non-Latin LETTER (allows Latin+diacritics, digits,
     punctuation, and symbols like U+2212). Drops CJK/Arabic/Cyrillic/etc. words."""
     for ch in str(name):
-        if not unicodedata.category(ch).startswith("L"):   # non-letter allowed
-            continue
-        cp = ord(ch)
-        if not any(lo <= cp <= hi for lo, hi in _LATIN_RANGES):
+        ok = _LATIN_CHAR_OK.get(ch)
+        if ok is None:
+            if not unicodedata.category(ch).startswith("L"):   # non-letter allowed
+                ok = True
+            else:
+                cp = ord(ch)
+                ok = any(lo <= cp <= hi for lo, hi in _LATIN_RANGES)
+            _LATIN_CHAR_OK[ch] = ok
+        if not ok:
             return False
     return True
 

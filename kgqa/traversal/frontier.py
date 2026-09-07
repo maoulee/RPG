@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from kgqa.traversal.cvt import is_cvt_like, expand_through_cvt, expand_node
 from kgqa.traversal.logical_paths import DIRECTED_TRAVERSAL
 
+_RPE_ADJ_CACHE: Dict[tuple, dict] = {}   # (ids, len, directed) -> tuple-adjacency (walk-perf)
+
 
 # ---------------------------------------------------------------------------
 # Causal tier scoring (shared by multiple expansion functions)
@@ -646,18 +648,28 @@ def relation_prior_expand(anchor_idx, step_relations, h_ids, r_ids, t_ids, entit
         return [], 0, 0
 
     # -- Build adjacency (directed if KGQA_DIRECTED_TRAVERSAL=1, else undirected) --
-    adj: Dict[int, tuple] = {}
-    for i in range(len(h_ids)):
-        h, r, t = h_ids[i], r_ids[i], t_ids[i]
-        if h in adj:
-            adj[h] = adj[h] + ((t, r),)
-        else:
-            adj[h] = ((t, r),)
-        if not DIRECTED_TRAVERSAL:
-            if t in adj:
-                adj[t] = adj[t] + ((h, r),)
+    # MEMOIZED per case (walk-perf, 2026-09-07): the single-step agent walk
+    # fires RPE on EVERY call (n_steps<=1 makes the fallback unconditional),
+    # and each call rebuilt the identical adjacency — dense cases pay 26ms+
+    # per rebuild at degree 900+. Downstream is read-only (adj.get iteration).
+    _rkey = (id(h_ids), id(r_ids), id(t_ids), len(h_ids), DIRECTED_TRAVERSAL)
+    adj = _RPE_ADJ_CACHE.get(_rkey)
+    if adj is None:
+        adj = {}
+        for i in range(len(h_ids)):
+            h, r, t = h_ids[i], r_ids[i], t_ids[i]
+            if h in adj:
+                adj[h] = adj[h] + ((t, r),)
             else:
-                adj[t] = ((h, r),)
+                adj[h] = ((t, r),)
+            if not DIRECTED_TRAVERSAL:
+                if t in adj:
+                    adj[t] = adj[t] + ((h, r),)
+                else:
+                    adj[t] = ((h, r),)
+        if len(_RPE_ADJ_CACHE) > 16:
+            _RPE_ADJ_CACHE.clear()
+        _RPE_ADJ_CACHE[_rkey] = adj
     adj_empty = ()
 
     # -- Pre-compute CVT mask (avoids re.match per hop) --
