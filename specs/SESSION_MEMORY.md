@@ -7763,3 +7763,15 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   桥+roster,模型走通)。5 个无路径=图上真断(4 跳内无可检索桥),由
   RETRIEVAL HINT 兜底。统计 trap:run trajectory 只存 gate 短标记
   ('+ join_paths'),完整消息在 messages(未存 run)——按标记统计。
+
+### 2026-09-08 join 信用机制(用户设计恢复)
+- **gate trajectory 记录增强**:从短标记改为完整 JOIN PATHS+RETRIEVAL
+  HINT 文本(审核+裁决都可读)。
+- **裁决 JOIN-CREDIT pass**(tmp/adjudication_v2_jf.py):解析 gate 记录的
+  path 边(仅 JOIN PATHS 段,按 hop 分割,序号剥离不动实体前导数字);
+  gate **之后**的 sg 调用若 center/walk 命中 path 节点 → REDUNDANT 升
+  EFFECTIVE(join桥执行);已有效标签保持(命中佐证)。
+- 生效条件:下次 rollout 的轨迹(含完整 paths)——joinfix run 的 gate
+  记录是旧短标记,pass 零触发(预期)。
+- dump 产物:tmp/teacher_audit_dump_joinfix.txt(15395 行,joinfix run
+  完整标注链;1171:s0 f1=1.00 的翻转已入档)。
