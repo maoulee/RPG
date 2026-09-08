@@ -7726,3 +7726,17 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   Villanueva`(gold 直接可见)。自指值过滤;按键值数排序。
 - gate 消息结构:UNCONSUMED 提醒 + JOIN PATHS(如有) + RETRIEVAL HINT。
   测试 34 passed。**行为改变:下次 rollout 验证**。
+
+### 2026-09-08 人工审核第九轮:dump 截断误导 + 时间线澄清
+- **用户审核 1171:s2 两个疑问的核验**:
+  1. "答案没在子图上出现为什么还能感知"——Jones **在** sg3 完整渲染行里
+     (servicemembers 392 字符行的行尾 m.0t5m05b [military_person=James
+     Earl Jones])——**dump 工具每行 200 字符截断把行尾藏了**(审核工具
+     缺陷,非渲染缺实体);offpool 拒绝是 walkperf run 旧行为(当时池=
+     license-filtered 候选,漫游关系属性值不在)——今早 walk_seen 宽集
+     修复后放行。
+  2. "候选块为什么还展示"——用户审的是 walkperf run(9/7),候选行移除
+     (9/8 上午)晚于它;noroster run 已无候选行。
+- **dump 修正**:输入切到 noroster run+对应标注链(adjudication/
+  prefix/teacher_subgraph _nr 系列);sg 渲染行宽 200→520(行尾 roster
+  不再被藏)。**教训:审核 dump 的行截断本身会制造"实体消失"的假象**。
