@@ -725,75 +725,105 @@ class SeqReactCase:
         return hint
 
 
-    def _search_join_paths(self, unconsumed, max_paths=3, max_hops=4):
-        """JOIN PATH SEARCH on the FULL CASE GRAPH (user audit 2026-09-08:
-        the old source parsed the RENDERED sg text for edges AND searched
-        only the already-walked graph — an entity that was never retrieved
-        has no node there, so the path could NEVER exist: the 1171
-        specimen's unconsumed-entities gate fired with zero join paths for
-        75th Ranger Regiment while the case graph holds the servicemembers
-        edge straight to James Earl Jones). Now: adjacency from the case
-        arrays (structure, not text — CVT attribute entities included as
-        real nodes); BFS from each unconsumed entity to the REACHED side
-        (everything the walks surfaced: candidate pool + binding values);
-        the path's relations name the retrievable bridges."""
+    async def _search_join_paths(self, unconsumed, session,
+                                 max_paths=3, max_hops=4, n_cands=8):
+        """JOIN PATH SEARCH on the full case graph, calibrated per user
+        ruling 2026-09-08 #2: (a) the path domain is RETRIEVABLE relations —
+        noisy/hub edges are excluded (the Band-of-Brothers->German
+        coincidence bridge cannot appear); (b) SHORTEST paths win; (c) the
+        final ordering is GTE relevance against the question."""
         try:
             from collections import defaultdict, deque
-            adj = defaultdict(set)
-            rel_of = defaultdict(set)
+            from kgqa.traversal.k_queue import _is_noisy_path_relation
+            deg = defaultdict(int)
             ents, rels = self.ctx.ents, self.ctx.rels
             for h, r, t in zip(self.ctx.h_ids, self.ctx.r_ids, self.ctx.t_ids):
                 hn = str(ents[h]) if 0 <= h < len(ents) else str(h)
                 tn = str(ents[t]) if 0 <= t < len(ents) else str(t)
-                if hn == tn:
+                if hn != tn:
+                    deg[hn] += 1
+                    deg[tn] += 1
+            # HUB CAP (user calibration: the path domain is RETRIEVABLE
+            # relations — coincidence bridges cross high-degree plumbing
+            # nodes like Band-of-Brothers->German Language; a node with
+            # degree > HUB_DEG is not a retrievable bridge)
+            HUB_DEG = 120
+            adj = defaultdict(set)
+            rel_of = defaultdict(set)
+            for h, r, t in zip(self.ctx.h_ids, self.ctx.r_ids, self.ctx.t_ids):
+                hn = str(ents[h]) if 0 <= h < len(ents) else str(h)
+                tn = str(ents[t]) if 0 <= t < len(ents) else str(t)
+                rn = (str(rels[r]) if 0 <= r < len(rels) else "?")
+                if (hn == tn or _is_noisy_path_relation(rn)
+                        or deg[hn] > HUB_DEG or deg[tn] > HUB_DEG):
                     continue
-                rn = (str(rels[r]).rsplit(".", 1)[-1]
-                      if 0 <= r < len(rels) else "?")
                 adj[hn].add(tn)
                 adj[tn].add(hn)
-                rel_of[frozenset((hn, tn))].add(rn)
+                rel_of[frozenset((hn, tn))].add(rn.rsplit(".", 1)[-1])
             if not adj:
                 return ""
             reached = {str(c) for c in (getattr(self.ctx, "all_candidates", None) or [])}
             for vals in (getattr(self.ctx, "fact_bindings", None) or {}).values():
                 reached.update(str(v) for v in (vals or []))
             reached -= {str(u).strip() for u in unconsumed}
-            results, seen_ends = [], set()
+            cands, seen_sig = [], set()
             for unc in unconsumed[:2]:
                 ucs = str(unc).strip()
                 if ucs not in adj:
                     continue
                 prev = {ucs: None}
                 q = deque([ucs])
-                tgt = None
-                while q and tgt is None:
-                    x = q.popleft()
-                    for y in adj[x]:
-                        if y in prev:
-                            continue
-                        prev[y] = x
-                        if y in reached:
-                            tgt = y
-                            break
-                        q.append(y)
-                if tgt is None:
+                hit_layer, depth = None, 0
+                while q and hit_layer is None and depth < max_hops:
+                    cur = list(q)
+                    q.clear()
+                    depth += 1
+                    nxt = []
+                    for x in cur:
+                        for y in adj[x]:
+                            if y in prev:
+                                continue
+                            prev[y] = x
+                            nxt.append(y)
+                            q.append(y)
+                    hits = [y for y in nxt if y in reached]
+                    if hits:
+                        hit_layer = hits
+                        break
+                if hit_layer is None:
                     continue
-                path = [tgt]
-                while prev[path[-1]] is not None:
-                    path.append(prev[path[-1]])
-                path.reverse()
-                end_key = (ucs, tgt)
-                if end_key in seen_ends or len(path) > max_hops + 1:
-                    continue
-                seen_ends.add(end_key)
-                hops = []
-                for a, b in zip(path, path[1:]):
-                    rs = "/".join(sorted(rel_of.get(frozenset((a, b)), ("?",)))[:2])
-                    hops.append(f"{a[:24]} --{rs}--> {b[:24]}")
-                results.append("  ".join(hops))
-                if len(results) >= max_paths:
-                    break
-            return "\n".join(f"  {i+1}. {p}" for i, p in enumerate(results))
+                for tgt in hit_layer:
+                    path = [tgt]
+                    while prev[path[-1]] is not None:
+                        path.append(prev[path[-1]])
+                    path.reverse()
+                    if len(path) > max_hops + 1:
+                        continue
+                    sig = frozenset(path)
+                    if sig in seen_sig:
+                        continue
+                    seen_sig.add(sig)
+                    hops = []
+                    for a, b in zip(path, path[1:]):
+                        rs = "/".join(sorted(rel_of.get(frozenset((a, b)), ("?",)))[:2])
+                        hops.append(f"{a[:24]} --{rs}--> {b[:24]}")
+                    cands.append("  ".join(hops))
+                    if len(cands) >= n_cands:
+                        break
+            if not cands:
+                return ""
+            try:
+                from kgqa.stages.stage2_entity import gte_retrieve
+                rows = await gte_retrieve(
+                    session, str(getattr(self.ctx, "question", "") or ""),
+                    cands, top_k=len(cands))
+                ordered = [r.get("candidate") for r in (rows or [])
+                           if r.get("candidate") in cands]
+                ordered += [c for c in cands if c not in ordered]
+                cands = ordered
+            except Exception:
+                pass                    # GTE unavailable → shortest-first as-is
+            return "\n".join(f"  {i+1}. {x}" for i, x in enumerate(cands[:max_paths]))
         except Exception:
             return ""
 
@@ -812,7 +842,8 @@ class SeqReactCase:
             if not unc:
                 return ""
             mid_attrs = defaultdict(list)      # mid -> [(short_rel, value)]
-            rel_keys = defaultdict(lambda: defaultdict(list))  # rel -> key -> vals
+            # unc -> rel -> attr_key -> vals (per-entity: labels must not mix)
+            rel_keys = {u: defaultdict(lambda: defaultdict(list)) for u in unc}
             for h, r, t in zip(self.ctx.h_ids, self.ctx.r_ids, self.ctx.t_ids):
                 hn = str(ents[h]) if 0 <= h < len(ents) else str(h)
                 tn = str(ents[t]) if 0 <= t < len(ents) else str(t)
@@ -829,35 +860,36 @@ class SeqReactCase:
                 rn = (str(rels[r]).rsplit(".", 1)[-1]
                       if 0 <= r < len(rels) else "?")
                 for a, b in ((hn, tn), (tn, hn)):
-                    if a not in unc:
+                    if a not in rel_keys:
                         continue
                     if b[:2] in ("m.", "g."):
                         for ak, av in mid_attrs.get(b, []):
                             if av == a:
                                 continue        # self-referential noise
-                            lst = rel_keys[rn][ak]
+                            lst = rel_keys[a][rn][ak]
                             if av not in lst:
                                 lst.append(av)
                     else:
-                        lst = rel_keys[rn][""]
+                        lst = rel_keys[a][rn][""]
                         if b not in lst:
                             lst.append(b)
             lines = []
-            # note: rel_keys pools edges across all unconsumed entities —
-            # single-unc (the norm) is what we format; multi-unc entities
-            # share the roster sections
-            for rn, kmap in sorted(rel_keys.items(),
-                                   key=lambda kv: -sum(len(v) for v in kv[1].values()))[:max_rels]:
-                parts = []
-                for ak, vals in sorted(kmap.items(), key=lambda kv: -len(kv[1])):
-                    if not vals:
-                        continue
-                    shown = " | ".join(v[:40] for v in vals[:max_vals])
-                    more = f" …(+{len(vals)-max_vals})" if len(vals) > max_vals else ""
-                    parts.append((ak + "=" if ak else "") + shown + more)
-                if parts:
-                    lines.append(f"'{list(unc)[0][:32]}' --{rn}--> " + " ; ".join(parts[:2]))
-            return "\n".join(f"  {i+1}. {x}" for i, x in enumerate(lines[:max_rels]))
+            for u in unc:
+                u_rels = rel_keys[u]
+                top = sorted(u_rels.items(),
+                             key=lambda kv: -sum(len(v) for v in kv[1].values()))[:max_rels]
+                for rn, kmap in top:
+                    parts = []
+                    for ak, vals in sorted(kmap.items(), key=lambda kv: -len(kv[1])):
+                        if not vals:
+                            continue
+                        shown = " | ".join(v[:40] for v in vals[:max_vals])
+                        more = (f" …(+{len(vals)-max_vals})"
+                                if len(vals) > max_vals else "")
+                        parts.append((ak + "=" if ak else "") + shown + more)
+                    if parts:
+                        lines.append(f"'{u[:32]}' --{rn}--> " + " ; ".join(parts[:2]))
+            return "\n".join(f"  {i+1}. {x}" for i, x in enumerate(lines[:max_rels * 2]))
         except Exception:
             return ""
 
@@ -867,29 +899,39 @@ class SeqReactCase:
         self.messages.append({"role": "user", "content": note})
         self.ctx.trajectory.append({"role": "tool", "content": note})
 
-    def _ma_gate_check(self, tool_name, parsed_args):
-        """MULTI-ANCHOR CONSUMPTION GATE + JOIN PATHS (2026-09-01/07).
-        SEQ_JOIN_GATE=0 disables (bisect fuse for the full-fix rollout)."""
-        if os.environ.get("SEQ_JOIN_GATE", "1") == "0":
-            return False
-        if (tool_name != "answer" or not (parsed_args.get("entities") or [])
+    def _ma_gate_would_fire(self, parsed_args):
+        """SYNC trigger test for the multi-anchor consumption gate (the
+        latch lives here so the deferred async run cannot double-fire)."""
+        if (not (parsed_args.get("entities") or [])
                 or getattr(self.ctx, "_ma_gate_fired", False)):
-            return False   # don't intercept
+            return False
         _pe = getattr(self.ctx, "plan_entities", None) or []
-        _cons = getattr(self.ctx, "consumed_anchors", None) or set()
+        _cons = {str(c).strip().lower()
+                 for c in (getattr(self.ctx, "consumed_anchors", None) or set())}
         _unc = [e for e in _pe if str(e).strip().lower() not in _cons]
         if len(_pe) < 2 or not _unc:
             return False
         self.ctx._ma_gate_fired = True
-        _jp = self._search_join_paths(_unc)
+        self.ctx._ma_gate_unc = _unc
+        return True
+
+    async def _ma_gate_check(self, tool_name, parsed_args, session):
+        """MULTI-ANCHOR CONSUMPTION GATE + JOIN PATHS (2026-09-01/07/08).
+        Async: the join search is GTE-ranked against the question (user
+        calibration 2026-09-08 #2 — retrievable-relation domain, shortest
+        first, GTE relevance ordering)."""
+        _unc = getattr(self.ctx, "_ma_gate_unc", None) or []
+        if not _unc:
+            return
+        _jp = await self._search_join_paths(_unc, session)
         _hint = ("UNCONSUMED ENTITIES (one-time check): declared "
             + " | ".join(f"'{e}'" for e in _unc[:3])
             + " never started any subgraph retrieval. If the answer needs "
             "their neighborhood, retrieve FROM them now. If constraints "
             "only, re-submit unchanged.")
         if _jp:
-            _hint += ("\n\nJOIN PATHS (answer may be a node ON these paths — bridges can be "
-                      "coincidental, judge relevance):\n" + _jp)
+            _hint += ("\n\nJOIN PATHS (shortest first, GTE-ranked against the "
+                      "question — judge relevance):\n" + _jp)
         _eh = self._unconsumed_edge_hint(_unc)
         if _eh:
             _hint += ("\n\nRETRIEVAL HINT (the unconsumed entity's own one-hop relations):\n" + _eh)
@@ -897,7 +939,6 @@ class SeqReactCase:
         self.ctx.trajectory.append({"role": "tool", "content":
             "unconsumed-entities gate: " + " | ".join(_unc[:3])
             + (" + join_paths" if _jp else "")})
-        return True   # intercepted
 
     def rescue_terminal_answer(self):
         """Terminal rescue (harness fix P4): a case that exhausted its rounds with NO
@@ -987,6 +1028,9 @@ class SeqReactCase:
         orchestration only (sync tax no longer interleaves as 500-coroutine
         fragments)."""
         prep = self._parse_prepare(raw_response, reasoning)
+        if "_gate_deferred" in prep:
+            await self._ma_gate_check(*prep["_gate_deferred"], session)
+            return "continue"
         if "ret" in prep:
             return prep["ret"]
         result_str = await self._execute_tool(prep, session)
@@ -1499,8 +1543,10 @@ class SeqReactCase:
         # "REJECTED: Conversation finished" until the round budget burns out
         # (24-zombie family in the 2026-09-07 full-fix run).
         if tool_name == "answer" and _ans_entities \
-                and self._ma_gate_check(tool_name, parsed_args):
-            return {"ret": "continue"}
+                and self._ma_gate_would_fire(parsed_args):
+            # deferred: the gate's join search is GTE-ranked (async) — the
+            # caller runs it BEFORE anything else; state never transitions
+            return {"ret": "continue", "_gate_deferred": (tool_name, parsed_args)}
 
         _ready, _missing = False, None
         if tool_name == "answer":
@@ -1882,6 +1928,9 @@ async def run_round_dispatch(cases_raws, session):
         if rc.done or rc.failed:
             continue
         prep = rc._parse_prepare(raw, reasoning)
+        if "_gate_deferred" in prep:
+            await rc._ma_gate_check(*prep["_gate_deferred"], session)
+            continue
         if "ret" in prep:
             continue      # early-exit path: message side effects done in A
         prepared.append((rc, prep))
