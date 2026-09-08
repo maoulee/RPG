@@ -7613,3 +7613,29 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
      就是属性值)。合法性域(fact_evidence/all_candidates/
      walk_seen_entities)不动。
    - dump 已重生成;测试 108 passed。
+
+### 2026-09-08 人工审核第四轮:脱轨=结构断链(用户裁定 #3)
+- **用户机制**:"在不连通的图上,模型先是正确使用某个关系,然后到某一步断链
+  了,这个是有害的;无用或冗余探索跟有害不一样"。
+- **实现**(替换 FIX 6 概率型脱轨 prefix-dP<-10pp——概率不再在连通图上
+  发明脱轨):对 gold-UNREACHABLE anchor 按调用序增量建 anchor 连通分量;
+  接触过分量的调用=正确使用关系;**第一个之后不接触分量的调用=断链点
+  HARMFUL(脱轨点)**;断链点前保持结构标签,之后按原通道(多为结构 gate 的
+  REDUNDANT)——无用探索永不为害。
+- **验证**:1171:s1 sg0(正确 dubbing 关系)从 HARMFUL(脱轨)→REDUNDANT(该
+  seed 后续恢复连通,sg2/sg3 判必要);1171:s2 sg2(75th Ranger 的
+  child/parent 断链)=脱轨点 ✓。5 个断链点(1171:s2 sg2 / 212 sg2 / 2152:s2
+  sg1 / 2784 sg3 / 452 sg1)形态均为"正确关系使用后转向断链"。
+- **分布**:HARMFUL(有害)=7(连通图上 LOO 深负的稀释型,保留);脱轨点=5;
+  概率型"脱轨"=0(已撤)。
+- **模式匹配对齐差异说明**(用户问"固定模式路径全图匹配早就做过,为什么
+  还是不成功"):materialize_selected_logical_patterns 确实是"拿固定模式在
+  全图找符合三元组"(第二次游走),但它是**形状匹配**——`Taylor --film-->
+  m.xxx --character--> Jacob Black` 匹配"演出模式"的展开形状是合法实例,
+  角色名成为路径 named 终点进 PatternEvidence.candidates。**模式匹配管
+  结构形状,不管终点答案类型语义**——历史上 V37h 的块组织把候选按路径
+  分组(角色名在上下文里不突兀),V38 平铺后语义缺口显性化。当前补法=
+  roster 层按 answer_type 匹配展开值;源头(materialize 实例收集)未动,
+  因 PatternEvidence.candidates 是 offpool/绑定验证等合法性域的输入。
+  待用户裁决:a) roster 层补(现状) b) 源头过滤(合法性域变窄,与 walk 宽集
+  裁决冲突) c) PatternEvidence 分域(candidates_typed,动 walk 层需重验等价)。
