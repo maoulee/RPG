@@ -7707,3 +7707,22 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   - 口径注意:HARMFUL 的 prefix pp 中位正(+0.108/+0.062)非矛盾——有害
     判定用 **LOO**(移除后全证据概率升的稀释型),prefix 边际可同时为正
     (早期加入时点)。两指标回答不同问题,校验时分开看。
+
+### 2026-09-08 人工审核第八轮:join 兜底机制重写(1171:s0 标本,commit 47d1911)
+- **用户审核发现**:s0 卡死于"R2 UNRESOLVED→satisfice 答错",gate 触发却
+  零 join 路径——"为什么没有兜底,两个实体间为什么没有路径"。
+- **根因(双重)**:旧 _search_join_paths ①解析**渲染文本**取边(括号属性
+  实体丢失,违反"结构层用实际变量"纪律)②只在**已检索 walk 图**上搜——
+  未检索实体(75th Ranger)在图里无节点,路径永不存在。而 case 全图上
+  75th--servicemembers-->m.0t5m05b--military_person-->James Earl Jones
+  **距离=2**。
+- **重写**:
+  ① 路径搜索改 **case 数组建邻接**(结构无文本),BFS unconsumed→reached
+  (候选池∪绑定值),桥标注"可能巧合"(US-Army→Band-of-Brothers→German
+  类桥真实但语义无关);
+  ② **_unconsumed_edge_hint(可行动兜底)**:未消费实体自身一跳出边+CVT
+  属性**按键聚合**——`'75th Ranger Regiment' --servicemembers-->
+  military_person=Cory Remsburg | James Earl Jones | Alejandro
+  Villanueva`(gold 直接可见)。自指值过滤;按键值数排序。
+- gate 消息结构:UNCONSUMED 提醒 + JOIN PATHS(如有) + RETRIEVAL HINT。
+  测试 34 passed。**行为改变:下次 rollout 验证**。
