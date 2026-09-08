@@ -3636,56 +3636,24 @@ def _sg_finalize(treq, bres, ctx) -> str:
         dropped = len(tree_lines) - _TREE_LINE_BUDGET
         tree_lines = tree_lines[:_TREE_LINE_BUDGET]
         tree_lines.append(f"  ... +{dropped} lines truncated (see candidates)")
-    # PATTERN-PATH ROSTER (user design alignment, 2026-09-08): the candidates
-    # line is RECONSTRUCTED FROM THE PATTERN PATHS — the same source the V38
-    # rows build from ("row entities are candidates"). A path contributes its
-    # endpoint; when the ENDPOINT (or the node before a named tail) is a CVT
-    # record, it EXPANDS, and the expanded attribute values join only when
-    # their key's type class matches the plan's answer_type. Replaces the
-    # flat walk-roster (role names flooded film questions) and the interim
-    # full-graph filter. fact_evidence/all_candidates (the legality domain)
-    # are unaffected — this is the DISPLAY roster only.
-    _atype = (getattr(ctx, "plan_answer_type", "") or "").strip().lower()
+    # ROSTER = THE RENDERED SUBGRAPH'S ENTITIES (user rulings 2026-09-08
+    # #4/#5): the candidates line is nothing but the DISPLAY of the walk's
+    # subgraph — fold what repeats, show what differences; its purpose is
+    # checking the model answers from KG evidence. Every NAMED endpoint of
+    # the (post-filter, path-consistency-disciplined) render is a roster
+    # entity — CVT attribute values included: a CVT's values are themselves
+    # subgraph entities (a role name is as much an entity as a film; an
+    # actor value under the dubbing pattern was 1171's gold). CVT mids are
+    # records, not entities, and stay out. No over-fold: rosters under 80
+    # entities are used as-is.
     _roster, _seen_r = [], set()
-
-    def _roster_add(_v):
-        if _v and _v not in _seen_r:
-            _seen_r.add(_v)
-            _roster.append(_v)
-
-    def _expand_attr_values(_attrs):
-        for _a in _attrs:
-            _k, _, _v = _a.partition("=")
-            if not _v:
-                continue
-            _cls = _ATTR_TYPE_CLASSES.get(_k.strip().lower(), "?")
-            # unknown keys keep their values (never hide a possible answer);
-            # known keys must match the plan's answer_type
-            if _atype and _cls != "?" and _atype[:4] not in _cls:
-                continue
-            _roster_add(_v.strip())
-
-    from kgqa.agent.seq_render_v38 import _parse_node as _pp_node
-    for pe in (bres.get("pe_list") or []):
-        if not isinstance(pe, dict):
+    for _tr in all_triples:
+        if len(_tr) != 3:
             continue
-        for p in pe.values():
-            _td = getattr(p, "tree_data", None)
-            _paths = _td.get("paths") if isinstance(_td, dict) else None
-            for _tp in _paths or []:
-                _nodes = _tp.get("nodes") or []
-                if len(_nodes) < 2:
-                    continue
-                _base, _attrs = _pp_node(_nodes[-1])
-                if is_cvt_like(_base):
-                    _expand_attr_values(_attrs)     # endpoint CVT → expand
-                else:
-                    _roster_add(_nodes[-1])         # named endpoint
-                # penultimate CVT with a named tail: expand it too
-                if len(_nodes) >= 3:
-                    _pb, _pa = _pp_node(_nodes[-2])
-                    if is_cvt_like(_pb):
-                        _expand_attr_values(_pa)
+        for _x in (str(_tr[0]), str(_tr[2])):
+            if not is_cvt_like(_x) and _x not in _seen_r:
+                _seen_r.add(_x)
+                _roster.append(_x)
     if _roster:
         candidates = _roster
 
@@ -3749,7 +3717,7 @@ def _sg_finalize(treq, bres, ctx) -> str:
         "fact_id": fid,
         "entities": [e for e, _ in centers] if not _v36 else "",
         "triples": "\n".join(tree_lines) if tree_lines else "(empty)",
-        "candidates": [c for c in candidates if not is_cvt_like(c)][:60],
+        "candidates": [c for c in candidates if not is_cvt_like(c)][:80],
         "n_candidates": len(candidates),
         "skipped_centers": skipped,
         "note": ((_nudge + " ") if _nudge else "") +
