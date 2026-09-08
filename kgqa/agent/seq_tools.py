@@ -3636,6 +3636,59 @@ def _sg_finalize(treq, bres, ctx) -> str:
         dropped = len(tree_lines) - _TREE_LINE_BUDGET
         tree_lines = tree_lines[:_TREE_LINE_BUDGET]
         tree_lines.append(f"  ... +{dropped} lines truncated (see candidates)")
+    # PATTERN-PATH ROSTER (user design alignment, 2026-09-08): the candidates
+    # line is RECONSTRUCTED FROM THE PATTERN PATHS — the same source the V38
+    # rows build from ("row entities are candidates"). A path contributes its
+    # endpoint; when the ENDPOINT (or the node before a named tail) is a CVT
+    # record, it EXPANDS, and the expanded attribute values join only when
+    # their key's type class matches the plan's answer_type. Replaces the
+    # flat walk-roster (role names flooded film questions) and the interim
+    # full-graph filter. fact_evidence/all_candidates (the legality domain)
+    # are unaffected — this is the DISPLAY roster only.
+    _atype = (getattr(ctx, "plan_answer_type", "") or "").strip().lower()
+    _roster, _seen_r = [], set()
+
+    def _roster_add(_v):
+        if _v and _v not in _seen_r:
+            _seen_r.add(_v)
+            _roster.append(_v)
+
+    def _expand_attr_values(_attrs):
+        for _a in _attrs:
+            _k, _, _v = _a.partition("=")
+            if not _v:
+                continue
+            _cls = _ATTR_TYPE_CLASSES.get(_k.strip().lower(), "?")
+            # unknown keys keep their values (never hide a possible answer);
+            # known keys must match the plan's answer_type
+            if _atype and _cls != "?" and _atype[:4] not in _cls:
+                continue
+            _roster_add(_v.strip())
+
+    from kgqa.agent.seq_render_v38 import _parse_node as _pp_node
+    for pe in (bres.get("pe_list") or []):
+        if not isinstance(pe, dict):
+            continue
+        for p in pe.values():
+            _td = getattr(p, "tree_data", None)
+            _paths = _td.get("paths") if isinstance(_td, dict) else None
+            for _tp in _paths or []:
+                _nodes = _tp.get("nodes") or []
+                if len(_nodes) < 2:
+                    continue
+                _base, _attrs = _pp_node(_nodes[-1])
+                if is_cvt_like(_base):
+                    _expand_attr_values(_attrs)     # endpoint CVT → expand
+                else:
+                    _roster_add(_nodes[-1])         # named endpoint
+                # penultimate CVT with a named tail: expand it too
+                if len(_nodes) >= 3:
+                    _pb, _pa = _pp_node(_nodes[-2])
+                    if is_cvt_like(_pb):
+                        _expand_attr_values(_pa)
+    if _roster:
+        candidates = _roster
+
     # CANDIDATE PROVENANCE (user ruling 2026-08-25, Devil Dog specimen): label
     # every candidate NOT visible in this render with the earlier subgraph
     # that showed it (or that it is a not-yet-rendered walk candidate) —
@@ -3692,50 +3745,6 @@ def _sg_finalize(treq, bres, ctx) -> str:
     # question KEEPS actor= values — 1171's gold is one; a film question
     # DROPS character= names — 25 specimen). Display-only: the legality
     # pool (walk_seen_entities / all_candidates) is untouched.
-    _atype = (getattr(ctx, "plan_answer_type", "") or "").strip().lower()
-    if _atype:
-        # rebuilt from the FULL case graph — same source the V38 renderer's
-        # inline [k=v] brackets use, so "attribute value" here means exactly
-        # what the brackets showed (the walk's pattern triples alone miss
-        # the values: they only live on CVT edges the render folds in)
-        # direct nodes from THIS walk's named<->named edges (a role node's
-        # own full-graph attribute edges — gender etc. — must not shield it:
-        # the Jacob Black specimen had one and slipped through); the attr-key
-        # map is rebuilt from the FULL graph (same source as the [k=v]
-        # brackets — pattern triples alone miss the folded values)
-        _direct_nodes = set()
-        for _tr in all_triples:
-            if len(_tr) == 3 and not is_cvt_like(str(_tr[0])) \
-                    and not is_cvt_like(str(_tr[2])):
-                _direct_nodes.update((str(_tr[0]), str(_tr[2])))
-        _attr_val_types = {}
-        for _h, _r, _t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
-            _hn = str(ctx.ents[_h]) if 0 <= _h < len(ctx.ents) else str(_h)
-            _tn = str(ctx.ents[_t]) if 0 <= _t < len(ctx.ents) else str(_t)
-            _hc, _tc = is_cvt_like(_hn), is_cvt_like(_tn)
-            if _hc and not _tc:
-                _k = str(ctx.rels[_r]).rsplit(".", 1)[-1].lower() \
-                    if 0 <= _r < len(ctx.rels) else "?"
-                _attr_val_types.setdefault(_tn, set()).add(
-                    _ATTR_TYPE_CLASSES.get(_k, "?"))
-            elif _tc and not _hc:
-                _k = str(ctx.rels[_r]).rsplit(".", 1)[-1].lower() \
-                    if 0 <= _r < len(ctx.rels) else "?"
-                _attr_val_types.setdefault(_hn, set()).add(
-                    _ATTR_TYPE_CLASSES.get(_k, "?"))
-
-        def _roster_keep(_c):
-            if _c in _direct_nodes:
-                return True
-            _tcs = _attr_val_types.get(_c)
-            if not _tcs:
-                return True          # not an attribute value at all
-            _known = {tc for tc in _tcs if tc != "?"}
-            if not _known:
-                return True          # purely unknown keys — never hide
-            return any(_atype[:4] in _tc2 for _tc2 in _known)
-
-        candidates = [c for c in candidates if _roster_keep(c)]
     return _json_result({
         "fact_id": fid,
         "entities": [e for e, _ in centers] if not _v36 else "",
