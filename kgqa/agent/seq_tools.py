@@ -3635,28 +3635,7 @@ def _sg_finalize(treq, bres, ctx) -> str:
     if len(tree_lines) > _TREE_LINE_BUDGET:
         dropped = len(tree_lines) - _TREE_LINE_BUDGET
         tree_lines = tree_lines[:_TREE_LINE_BUDGET]
-        tree_lines.append(f"  ... +{dropped} lines truncated (see candidates)")
-    # ROSTER = THE RENDERED SUBGRAPH'S ENTITIES (user rulings 2026-09-08
-    # #4/#5): the candidates line is nothing but the DISPLAY of the walk's
-    # subgraph — fold what repeats, show what differences; its purpose is
-    # checking the model answers from KG evidence. Every NAMED endpoint of
-    # the (post-filter, path-consistency-disciplined) render is a roster
-    # entity — CVT attribute values included: a CVT's values are themselves
-    # subgraph entities (a role name is as much an entity as a film; an
-    # actor value under the dubbing pattern was 1171's gold). CVT mids are
-    # records, not entities, and stay out. No over-fold: rosters under 80
-    # entities are used as-is.
-    _roster, _seen_r = [], set()
-    for _tr in all_triples:
-        if len(_tr) != 3:
-            continue
-        for _x in (str(_tr[0]), str(_tr[2])):
-            if not is_cvt_like(_x) and _x not in _seen_r:
-                _seen_r.add(_x)
-                _roster.append(_x)
-    if _roster:
-        candidates = _roster
-
+        tree_lines.append(f"  ... +{dropped} lines truncated")
     # CANDIDATE PROVENANCE (user ruling 2026-08-25, Devil Dog specimen): label
     # every candidate NOT visible in this render with the earlier subgraph
     # that showed it (or that it is a not-yet-rendered walk candidate) —
@@ -3717,8 +3696,7 @@ def _sg_finalize(treq, bres, ctx) -> str:
         "fact_id": fid,
         "entities": [e for e, _ in centers] if not _v36 else "",
         "triples": "\n".join(tree_lines) if tree_lines else "(empty)",
-        "candidates": [c for c in candidates if not is_cvt_like(c)][:80],
-        "n_candidates": len(candidates),
+
         "skipped_centers": skipped,
         "note": ((_nudge + " ") if _nudge else "") +
                 (("Multiple centers retrieved with one shared relation set — COMPARE them via "
