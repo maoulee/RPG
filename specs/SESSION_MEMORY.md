@@ -7639,3 +7639,25 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   因 PatternEvidence.candidates 是 offpool/绑定验证等合法性域的输入。
   待用户裁决:a) roster 层补(现状) b) 源头过滤(合法性域变窄,与 walk 宽集
   裁决冲突) c) PatternEvidence 分域(candidates_typed,动 walk 层需重验等价)。
+
+### 2026-09-08 人工审核第五轮:roster=子图实体 + teacher 结构资格(裁定 #4/#5)
+1. **roster 定案(用户:"CVT 的值本身也是子图的一部分,它就是实体")**:
+   candidates=渲染子图的全部 named 实体(CVT 属性值包含——角色名/actor 值都
+   是实体;CVT mid 是记录不进);全部类型/形状过滤尝试整体撤销;cap 60→80
+   ("少于80直接用")。验证:25 roster 32 实体(电影+角色全在);1171 含
+   Reiner Schöne/German Language。用途=检查模型是否跳出 KG 证据作答。
+2. **teacher 资格=结构口径(用户:"判定不是分数,而是实际真的有没有检索到
+   ……所有路径没连通但有一个连通→teacher;不是选最高的")**:
+   - seed_connected = (a) gold 出现在**提交关系**的 triple 上(非漫游边)
+     ∧ (b) anchor→gold 在该 seed 调用图上连通。
+   - find_teacher:其他 seed 中连通者(多个取最低 idx,不按 f1 排序);全不
+     连通→None。failing 同口径(f1 阈值弃用)。teacher_subgraph_wp 资格同步。
+   - **数据形态**:127/144 seeds 连通(f1≥0.8 口径只 93)——核心差距浮现:
+     ~34 个 seed **检索正确但答偏**(后段选择/过滤失败,非检索问题);反向
+     错位如 1171:s1(答对但 gold 经漫游边——检索不完全正确)。1379=唯一
+     连通 seed(s0)的最强 teacher 信号;1171=0/3(答对的 s1 检索不经提交
+     关系→无 teacher)。teacher 轨迹 93→127,fact 块 227→305,部分核心
+     44→67。
+   - 实现 trap:struct_vars 的 call.relations 是**管道分隔字符串**(非列表),
+     triples 的关系名是全名——split('|')+短名双形匹配。
+3. 裁决分布:teacher对齐 25/金标引入 18/脱轨点 4/有害 8(连通图 LOO 深负)。
