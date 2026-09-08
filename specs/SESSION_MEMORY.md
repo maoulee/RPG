@@ -7775,3 +7775,20 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   记录是旧短标记,pass 零触发(预期)。
 - dump 产物:tmp/teacher_audit_dump_joinfix.txt(15395 行,joinfix run
   完整标注链;1171:s0 f1=1.00 的翻转已入档)。
+
+### 2026-09-08 人工审核第十一轮:漫游候选补全(1797 标本)
+- **用户审核发现**:gold Pemberton 只以"candidates not shown above"(walk
+  漫游候选)出现;?fighter 展开域=显示实体(20 人,该图切片中恰好无人有
+  date 边)→ rr 候选池永远无 date_of_death(Pemberton 的 date 边是全图
+  唯一 date 源)→ 时间约束题死路。另:rr note 的"Do NOT pick attribute
+  relations (date/name/type/role)"仅是模型侧提示,真排除发生在池构建
+  (2-hop 可达域)——date 边不在 20 人邻域。
+- **修复**:sg 渲染时把 not-shown walk 候选记 ctx.walk_extra(restart
+  复位);?var 展开追加 ledger——漫游候选成为合法 center,其边进入关系池
+  与 walk。1797 全 20 绑定端到端验证:ledger 捕获 Pemberton,下一次 rr
+  候选含 date_of_death ✓。
+- **1379 约束微妙性(用户观察)**:sg2(Priest 日期检索)标 REDUNDANT(约束
+  低增益),但约束在问题语义上有效(gold 满足)——图里 **Liszt 本人的
+  Priest 日期不存在**(m.011x94bw 无 leader 属性且 1956-58 非 Liszt);
+  模型 UNRESOLVED→无矛盾保留→恰好答对。裁决问题待用户定:约束执行
+  尝试(即使 discriminator 数据缺失)是否应记有效而非低增益。
