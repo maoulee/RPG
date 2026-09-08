@@ -7740,3 +7740,16 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **dump 修正**:输入切到 noroster run+对应标注链(adjudication/
   prefix/teacher_subgraph _nr 系列);sg 渲染行宽 200→520(行尾 roster
   不再被藏)。**教训:审核 dump 的行截断本身会制造"实体消失"的假象**。
+
+### 2026-09-08 人工审核第十轮:join 搜索对齐原始设计(用户裁定 #2)
+- **用户校准**:"当时设置的是有限——模型在子图中检索的关系即路径包含
+  检索的关系有限;路径越短越优先;还有用 GTE 和问题对路径做个排序"。
+- **实施**:①可检索关系域=噪声前缀过滤+**hub 度 cap(>120)**——巧合桥
+  (Band-of-Brothers→German 类管道节点)不再出现,1171 标本的真桥
+  `75th--servicemembers-->m.0t5m05b--military_person-->James Earl Jones`
+  浮出;②BFS 分层=最短优先;③GTE 对 question 排序(gate 改 async 延迟执行
+  —_gate_deferred 经 _parse_prepare 交接,state 仍不在 gate 前转换)。
+- 顺带修:consumed_anchors 大小写不匹配(Vader 被重复计为未消费);edge
+  hint 按实体分组(多未消费实体时标签不再错位)。
+- gate 消息终形态:UNCONSUMED 提醒 + JOIN PATHS(语义桥)+ RETRIEVAL
+  HINT(roster 直见 gold)。测试 110 passed。行为改变待 rollout 验证。
