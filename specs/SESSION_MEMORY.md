@@ -7792,3 +7792,15 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   Priest 日期不存在**(m.011x94bw 无 leader 属性且 1956-58 非 Liszt);
   模型 UNRESOLVED→无矛盾保留→恰好答对。裁决问题待用户定:约束执行
   尝试(即使 discriminator 数据缺失)是否应记有效而非低增益。
+
+### 2026-09-08 CVT 属性 GTE top-K 过滤(用户设计)
+- **设计**:问题→属性键 GTE 排序(每 case 一次,缓存 on ctx);renderer 的
+  cvt_disp 只显示 top-K 键的属性(SEQ_CVT_ATTR_TOPK,默认 3,0=关闭)+
+  提交关系的**全部点分段**(inverse 方向覆盖:film.actor.dubbing_
+  performances 豁免 actor 键)。
+- **基线统计**:平均 96 个不同 CVT 属性键/case;随机 top-3 覆盖 5% gold
+  键,GTE top-3 覆盖 **50%**;top-5=60%,top-10=70%。
+- **验证**:1171(person 题)actor=Reiner Schöne 可见(组件豁免);25(movie
+  题)character 角色名正确抑制。**发现的独立问题**:25 的电影名(Twilight
+  等)对 1-hop walk 不可见——walk 只到 CVT mid 层,named 端点之前靠候选行
+  兜底(已移除)→ walk 层需修(CVT→named 端点的枚举/渲染)。
