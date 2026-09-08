@@ -7555,3 +7555,19 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - 产物(会丢,结论在本条):tmp/{struct_vars_walkperf,prob_walkperf,
   prefix_walkperf,adjudication_walkperf,teacher_subgraph_wp}.json。
   下游:OSPD teacher pool 按 fact 块收录规则(待用户审)。
+
+### 2026-09-08 人工审核第一轮:两个裁定错误修复(commit e81e371)
+用户读 tmp/teacher_audit_dump.txt 抓到两处(纯指标看不见):
+1. **1379:s0(teacher 路径)sg2 被标 REDUNDANT(非连接者)**——sg2 首次引入金标
+   (Priest 经 profession 边)。根因:L0 移除法下 gold 可从 sg3 的 later 复现
+   可达 → 非 necessary → 层内非连接者。修复(FIX 7):**first_gold 调用永远
+   不落 REDUNDANT**(用户旧裁决"有效-金标可见"独立类),17 个调用升
+   EFFECTIVE(金标引入)。残留灰区:sg3(Priest 的 leaders 语义链,pp=+0.111)
+   仍为非连接者——待用户审是否需要"gold 支撑链"保护。
+2. **1171:s2(f1=0.50)答 James Earl Jones 被环境拒**(offpool)——实体在 walk
+   漫游边(servicemembers)上出现但被 license filter 滤出显示池。用户裁定:
+   **答案合法性=walk 出现过的实体,显示候选池不绑定**(filter 只管显示防漂移,
+   不管答题门槛)。修复:_sg_finalize 在 filter 前记录 ctx.walk_seen_entities
+   (restart 复位),_do_answer 的 pool=all_candidates∪walk_seen_entities。
+   ⚠ 环境修复对**下一次 rollout** 生效;当前 run 的轨迹是旧行为下产生的。
+   测试 38 passed;dump 已重生成(标签更新,轨迹文本不变)。
