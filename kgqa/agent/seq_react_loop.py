@@ -748,6 +748,11 @@ class SeqReactCase:
             # nodes like Band-of-Brothers->German Language; a node with
             # degree > HUB_DEG is not a retrievable bridge)
             HUB_DEG = 120
+            # endpoints (the unconsumed starts + the target anchors) are
+            # exempt — a plan anchor is naturally high-degree (Darth Vader
+            # 172); the cap exists for INTERMEDIATE plumbing nodes only
+            _pe0 = [str(e).strip() for e in (getattr(self.ctx, "plan_entities", None) or [])]
+            _keep = {str(u).strip() for u in unconsumed} | set(_pe0)
             adj = defaultdict(set)
             rel_of = defaultdict(set)
             for h, r, t in zip(self.ctx.h_ids, self.ctx.r_ids, self.ctx.t_ids):
@@ -755,16 +760,23 @@ class SeqReactCase:
                 tn = str(ents[t]) if 0 <= t < len(ents) else str(t)
                 rn = (str(rels[r]) if 0 <= r < len(rels) else "?")
                 if (hn == tn or _is_noisy_path_relation(rn)
-                        or deg[hn] > HUB_DEG or deg[tn] > HUB_DEG):
+                        or (deg[hn] > HUB_DEG and hn not in _keep)
+                        or (deg[tn] > HUB_DEG and tn not in _keep)):
                     continue
                 adj[hn].add(tn)
                 adj[tn].add(hn)
                 rel_of[frozenset((hn, tn))].add(rn.rsplit(".", 1)[-1])
             if not adj:
                 return ""
-            reached = {str(c) for c in (getattr(self.ctx, "all_candidates", None) or [])}
-            for vals in (getattr(self.ctx, "fact_bindings", None) or {}).values():
-                reached.update(str(v) for v in (vals or []))
+            # user calibration 2026-09-08 #3: the join target is the OTHER
+            # PLAN ANCHORS (start-entity to start-entity closure — 75th
+            # Ranger Regiment ↔ Darth Vader), NOT the candidate pool: we
+            # bridge UNCLOSED retrieval graphs between different starting
+            # entities, not entity-to-answer
+            _pe = [str(e).strip() for e in (getattr(self.ctx, "plan_entities", None) or [])]
+            _cons = {str(c).strip().lower()
+                     for c in (getattr(self.ctx, "consumed_anchors", None) or set())}
+            reached = {e for e in _pe if e.lower() in _cons}
             reached -= {str(u).strip() for u in unconsumed}
             cands, seen_sig = [], set()
             for unc in unconsumed[:2]:
