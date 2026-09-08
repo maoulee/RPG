@@ -120,6 +120,31 @@ def render_v38_ack(treq, bres, ctx):
                     edges.add((key[i + 1], sh, key[i]))
                 else:
                     edges.add((key[i], sh, key[i + 1]))
+    # CVT PENETRATION EDGES from p.triples (user audit 2026-09-08: the walk
+    # ENUMERATES CVT→named edges — 54 in the 25 specimen — but tree_data
+    # paths are step-relation-constrained and only record anchor→CVT→anchor
+    # round-trips; the named endpoints (film names, rosters) never join the
+    # render. Add them from the walk's actual enumeration.)
+    for (cname, cidx), pe in zip(treq["centers"], bres["pe_list"]):
+        for pid, p in (pe.items() if isinstance(pe, dict) else []):
+            for tr in (getattr(p, "triples", None) or []):
+                if len(tr) != 3:
+                    continue
+                h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
+                if _cvt(h) and not _cvt(t):
+                    sh = r.rsplit(".", 1)[-1]
+                    d = hop_dir(r, h, t)
+                    if d == "r":
+                        edges.add((t, sh, h))
+                    else:
+                        edges.add((h, sh, t))
+                elif not _cvt(h) and _cvt(t):
+                    sh = r.rsplit(".", 1)[-1]
+                    d = hop_dir(r, h, t)
+                    if d == "r":
+                        edges.add((t, sh, h))
+                    else:
+                        edges.add((h, sh, t))
 
     # ── CVT attrs (graph-reconstructed, decoration-independent) ──
     # SELECTED-relation CVT edges are EXCLUDED from attrs: they render as
