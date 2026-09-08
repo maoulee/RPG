@@ -2093,7 +2093,16 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
     # pool so it re-answers from evidence. A second attempt is accepted (the
     # terminal answer is never blocked forever). candidate_hit (normalized
     # substring + fuzzy) lets legitimate name variants pass.
+    # LEGAL-ENTITY BASIS (user ruling 2026-09-08): the answer must be an
+    # entity that APPEARED in the walk — not necessarily one the DISPLAY
+    # showed. The license filter keeps out-of-license edges out of the
+    # render (anti-drift for the model's eyes), but any entity the walk
+    # enumerated is retrieved evidence and is a legal answer (1171:s2
+    # specimen: James Earl Jones arrived on a wandered servicemembers edge,
+    # filtered from the display yet the correct answer).
     pool = list(getattr(ctx, "all_candidates", []) or [])
+    pool += [e for e in (getattr(ctx, "walk_seen_entities", []) or [])
+             if e not in pool]
     if entities and pool and not getattr(ctx, "_answer_offpool_retried", False):
         offpool = [e for e in entities if not candidate_hit(pool, [e])]
         if offpool:

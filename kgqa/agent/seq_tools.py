@@ -3408,6 +3408,24 @@ def _sg_finalize(treq, bres, ctx) -> str:
             if not is_cvt_like(x) and x not in candidates:
                 candidates.append(x)
     if os.environ.get("SEQ_LICENSE_FILTER", "1") != "0":
+        # ANSWER-LEGALITY LEDGER (user ruling 2026-09-08): record every entity
+        # the walk enumerated BEFORE the display filter — the answer may be any
+        # entity that appeared in the walk, not only what the render showed
+        # (the filter is anti-drift for the model's eyes, not an answer gate).
+        _seen = getattr(ctx, "walk_seen_entities", None)
+        if _seen is None:
+            _seen = ctx.walk_seen_entities = []
+        _seen_n = {str(c) for c in _seen}
+        for _tr in all_triples:
+            if len(_tr) == 3:
+                for _x in (_tr[0], _tr[2]):
+                    if str(_x) not in _seen_n:
+                        _seen_n.add(str(_x))
+                        _seen.append(str(_x))
+        for _c in candidates:
+            if str(_c) not in _seen_n:
+                _seen_n.add(str(_c))
+                _seen.append(str(_c))
         all_triples, candidates, bres = _display_license_filter(
             treq, bres, centers, all_triples, candidates)
     if not all_triples:

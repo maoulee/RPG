@@ -986,7 +986,8 @@ class SeqReactCase:
             self.state = SeqAgentState()
             for f in ("var_bindings", "declared_facts", "fact_bindings",
                       "fact_vars", "var_joins", "closed_facts",
-                      "fact_evidence", "fact_evidence_seq"):
+                      "fact_evidence", "fact_evidence_seq",
+                      "walk_seen_entities"):
                 if hasattr(self.ctx, f):
                     setattr(self.ctx, f, {})
             if hasattr(self.ctx, "accumulated_triples"):
