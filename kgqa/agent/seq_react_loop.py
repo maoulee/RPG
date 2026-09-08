@@ -948,9 +948,14 @@ class SeqReactCase:
         if _eh:
             _hint += ("\n\nRETRIEVAL HINT (the unconsumed entity's own one-hop relations):\n" + _eh)
         self.messages.append({"role": "user", "content": _hint})
+        # trajectory carries the FULL paths/hint (user audit 2026-09-08:
+        # the short marker hid the bridges from credit adjudication and
+        # human review; join paths hitting a subgraph's core relations
+        # CREDIT that subgraph's behavior — the adjudicator reads them here)
         self.ctx.trajectory.append({"role": "tool", "content":
             "unconsumed-entities gate: " + " | ".join(_unc[:3])
-            + (" + join_paths" if _jp else "")})
+            + ((f"\nJOIN PATHS:\n{_jp}") if _jp else "")
+            + ((f"\nRETRIEVAL HINT:\n{_eh}") if _eh else "")})
 
     def rescue_terminal_answer(self):
         """Terminal rescue (harness fix P4): a case that exhausted its rounds with NO
