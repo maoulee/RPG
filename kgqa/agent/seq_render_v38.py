@@ -19,6 +19,7 @@ relation's own triples stay distinct (member vs member_of are different
 rows by construction).
 
 Gate: SEQ_RENDER_V38=1"""
+import os
 import re
 from collections import defaultdict
 
@@ -156,9 +157,31 @@ def render_v38_ack(treq, bres, ctx):
             else:
                 rec_in[(r, t)].add(h)
 
+    # CVT ATTR-KEY TOP-K (user design 2026-09-08): the question→key GTE
+    # ranking pre-computed in _sg_execute selects which attributes each CVT
+    # bracket shows — top-K keys only, the rest suppressed (avg 96 keys/
+    # case would flood every bracket; GTE top-3 covers 50% of gold keys vs
+    # random 5%). Fallback when no ranking: show all (cap 6, old behavior).
+    _krank = getattr(ctx, "_cvt_key_rank", None)
+    _kranked_keys = _krank[1] if _krank and _krank[1] else None
+    _K = int(os.environ.get("SEQ_CVT_ATTR_TOPK", "3") or 0)  # 0 = off
+    _submitted_components = set()
+    for _sr in (treq.get("rel_names") or []):
+        for _seg in str(_sr).split("."):
+            if _seg:
+                _submitted_components.add(_seg)
+
     def cvt_disp(mid, red):
         pairs = [a for a in cvt_graph.get(mid, ())
                  if "=" in a and a.split("=", 1)[1].strip().lower() not in red]
+        if _kranked_keys and _K > 0:
+            _topk = set(_kranked_keys[:_K])
+            # submitted-relation components always join the top-K — the model
+            # may submit the INVERSE direction (film.actor.dubbing_performances
+            # vs film.performance.actor: same CVT family, different key names),
+            # so exempt EVERY dotted component of every submitted relation
+            _topk |= _submitted_components
+            pairs = [a for a in pairs if a.split("=", 1)[0].strip() in _topk]
         at = "; ".join(pairs[:6])
         return f"{mid} [{at}]" if at else mid
 

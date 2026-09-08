@@ -3155,6 +3155,34 @@ async def _sg_execute(treq, ctx, session):
     """B段: entity-name correction (GTE) when a bad name was flagged — with
     candidates the turn ends with the correction result; otherwise (and when
     the correction found nothing) the packed walk runs (coordinator batches)."""
+    # CVT ATTR-KEY GTE RANKING (user design 2026-09-08): pre-compute the
+    # question→attribute-key relevance ONCE per case (cached on ctx), so the
+    # renderer can show only the top-K most question-relevant attributes per
+    # CVT instead of flooding every bracket. Avg 96 keys/case — random top-3
+    # covers 5% of gold keys; GTE top-3 covers 50%.
+    _rank = getattr(ctx, "_cvt_key_rank", None)
+    _qnow = str(getattr(ctx, "question", "") or "")
+    if _rank is None or _rank[0] != _qnow:
+        _keys = set()
+        for _h, _r, _t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+            _hn = str(ctx.ents[_h]) if 0 <= _h < len(ctx.ents) else str(_h)
+            _tn = str(ctx.ents[_t]) if 0 <= _t < len(ctx.ents) else str(_t)
+            if is_cvt_like(_hn) != is_cvt_like(_tn):
+                _keys.add(str(ctx.rels[_r]).rsplit(".", 1)[-1]
+                          if 0 <= _r < len(ctx.rels) else "?")
+        if _keys and _qnow:
+            try:
+                from kgqa.stages.stage2_entity import gte_retrieve
+                _kl = sorted(_keys)
+                _rows = await gte_retrieve(session, _qnow, _kl, top_k=len(_kl))
+                _ranked = [r.get("candidate") for r in (_rows or [])
+                           if r.get("candidate") in _keys]
+                _ranked += [k for k in _kl if k not in _ranked]
+                ctx._cvt_key_rank = (_qnow, _ranked)
+            except Exception:
+                ctx._cvt_key_rank = (_qnow, sorted(_keys))
+        else:
+            ctx._cvt_key_rank = (_qnow, [])
     if treq.get("corr") is not None:
         bad_name = treq["corr"]
         cands = await _entity_correction(bad_name, getattr(ctx, "question", ""), ctx, session)
