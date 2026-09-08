@@ -20,6 +20,21 @@ from typing import Any, Dict
 
 from kgqa.core.utils import normalize
 from kgqa.traversal.cvt import is_cvt_like
+# attribute-key → answer-type class (display roster alignment, 2026-09-08;
+# unknown keys map to "?" = keep — never hide a potential answer)
+_ATTR_TYPE_CLASSES = {
+    "character": "person", "actor": "person", "person": "person",
+    "military_person": "person", "leader": "person", "member": "person",
+    "office_holder": "person", "presenter": "person", "director": "person",
+    "portrayed_in_films": "person", "employee": "person", "winner": "person",
+    "founders": "person", "member": "person", "leader": "person",
+    "starring": "film", "members": "organization",
+    "film": "film", "movie": "film",
+    "language": "language",
+    "location": "location", "place": "location",
+    "organization": "organization", "employer": "organization",
+    "school": "organization",
+}
 from kgqa.agent.tools import (
     _gte_for_triple, _reach2_relids, _do_answer, _cvt_attr_summary,
     _constraint_attr_summary, _GTE_POOL_MIN,
@@ -3669,6 +3684,58 @@ def _sg_finalize(treq, bres, ctx) -> str:
     _v36 = (os.environ.get("SEQ_RENDER_V36", "") == "1"
             or os.environ.get("SEQ_RENDER_V37", "") == "1"
             or os.environ.get("SEQ_RENDER_V38", "") == "1")
+    # ANSWER-TYPE ALIGNMENT of the display roster (user audit 2026-09-08):
+    # CVT attribute VALUES (character role names in a film question) flooded
+    # the flat candidates line. A value appearing ONLY as a CVT attribute —
+    # never as a named direct-edge endpoint — is dropped unless its
+    # attribute key's type class matches the plan's answer_type (a person
+    # question KEEPS actor= values — 1171's gold is one; a film question
+    # DROPS character= names — 25 specimen). Display-only: the legality
+    # pool (walk_seen_entities / all_candidates) is untouched.
+    _atype = (getattr(ctx, "plan_answer_type", "") or "").strip().lower()
+    if _atype:
+        # rebuilt from the FULL case graph — same source the V38 renderer's
+        # inline [k=v] brackets use, so "attribute value" here means exactly
+        # what the brackets showed (the walk's pattern triples alone miss
+        # the values: they only live on CVT edges the render folds in)
+        # direct nodes from THIS walk's named<->named edges (a role node's
+        # own full-graph attribute edges — gender etc. — must not shield it:
+        # the Jacob Black specimen had one and slipped through); the attr-key
+        # map is rebuilt from the FULL graph (same source as the [k=v]
+        # brackets — pattern triples alone miss the folded values)
+        _direct_nodes = set()
+        for _tr in all_triples:
+            if len(_tr) == 3 and not is_cvt_like(str(_tr[0])) \
+                    and not is_cvt_like(str(_tr[2])):
+                _direct_nodes.update((str(_tr[0]), str(_tr[2])))
+        _attr_val_types = {}
+        for _h, _r, _t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+            _hn = str(ctx.ents[_h]) if 0 <= _h < len(ctx.ents) else str(_h)
+            _tn = str(ctx.ents[_t]) if 0 <= _t < len(ctx.ents) else str(_t)
+            _hc, _tc = is_cvt_like(_hn), is_cvt_like(_tn)
+            if _hc and not _tc:
+                _k = str(ctx.rels[_r]).rsplit(".", 1)[-1].lower() \
+                    if 0 <= _r < len(ctx.rels) else "?"
+                _attr_val_types.setdefault(_tn, set()).add(
+                    _ATTR_TYPE_CLASSES.get(_k, "?"))
+            elif _tc and not _hc:
+                _k = str(ctx.rels[_r]).rsplit(".", 1)[-1].lower() \
+                    if 0 <= _r < len(ctx.rels) else "?"
+                _attr_val_types.setdefault(_hn, set()).add(
+                    _ATTR_TYPE_CLASSES.get(_k, "?"))
+
+        def _roster_keep(_c):
+            if _c in _direct_nodes:
+                return True
+            _tcs = _attr_val_types.get(_c)
+            if not _tcs:
+                return True          # not an attribute value at all
+            _known = {tc for tc in _tcs if tc != "?"}
+            if not _known:
+                return True          # purely unknown keys — never hide
+            return any(_atype[:4] in _tc2 for _tc2 in _known)
+
+        candidates = [c for c in candidates if _roster_keep(c)]
     return _json_result({
         "fact_id": fid,
         "entities": [e for e, _ in centers] if not _v36 else "",
