@@ -1116,7 +1116,7 @@ class SeqReactCase:
             for f in ("var_bindings", "declared_facts", "fact_bindings",
                       "fact_vars", "var_joins", "closed_facts",
                       "fact_evidence", "fact_evidence_seq",
-                      "walk_seen_entities"):
+                      "walk_seen_entities", "walk_extra"):
                 if hasattr(self.ctx, f):
                     setattr(self.ctx, f, {})
             if hasattr(self.ctx, "accumulated_triples"):

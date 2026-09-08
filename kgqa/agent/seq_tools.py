@@ -328,6 +328,15 @@ def _expand_entities(entities, ctx):
                     f"checkpoint line `[<fact_id> ✓] {e} = [value1 | value2 | ...]`, "
                     f"then reference {e}.")
             out.extend(bound)
+            # WANDERED-CANDIDATE COMPLETION (user audit 2026-09-08, 1797
+            # specimen): the declared bindings are the DISPLAY entities; a
+            # walk candidate the display filter showed only as "not shown
+            # above" (gold Pemberton — its date_of_death edge is the sole
+            # date source in the graph) never joins the centers, so the
+            # relation pool and the walk can never reach it. Attach the
+            # accumulated not-shown candidates (a handful per sg call).
+            _wx = getattr(ctx, "walk_extra", None) or []
+            out.extend(x for x in _wx if x not in out)
         else:
             out.append(e)
     seen, dedup = set(), []
@@ -3645,10 +3654,24 @@ def _sg_finalize(treq, bres, ctx) -> str:
         _fe = {}; ctx.fact_evidence = _fe
     if os.environ.get("SEQ_RENDER_V35", "") != "1":
         _prov = _candidate_provenance(
-            [c for c in candidates if not is_cvt_like(c)][:60], tree_lines, _fe,
+            [c for c in candidates if not is_cvt_like(c)][:80], tree_lines, _fe,
             cur_fid=fid)
     else:
         _prov = ""
+    # WANDERED-CANDIDATE LEDGER (see _expand_entities): remember the walk
+    # candidates that have NO visible edge in this render — they stay legal
+    # answer entities and future ?var expansions carry them as centers
+    _blob = "\n".join(tree_lines)
+    _wx = getattr(ctx, "walk_extra", None)
+    if _wx is None:
+        _wx = ctx.walk_extra = []
+    _wxset = {str(x) for x in _wx}
+    for _c in candidates:
+        _cs = str(_c)
+        if (not is_cvt_like(_cs) and _cs not in _blob
+                and _cs not in _wxset):
+            _wxset.add(_cs)
+            _wx.append(_cs)
     if _prov:
         tree_lines.append(f"  {_prov}")
 
