@@ -7753,3 +7753,13 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   hint 按实体分组(多未消费实体时标签不再错位)。
 - gate 消息终形态:UNCONSUMED 提醒 + JOIN PATHS(语义桥)+ RETRIEVAL
   HINT(roster 直见 gold)。测试 110 passed。行为改变待 rollout 验证。
+
+### 2026-09-08 join 机制终验(rollout v38_joinfix)
+- **语义定案(用户裁定 #3)**:join 兜底=**两个起点实体间**的未闭合桥
+  (75th↔Vader),非实体→答案;hub cap 豁免路径端点(锚天然高度,Vader 172
+  被自己的 cap 滤掉过)。
+- **rollout 验证**(359s,0.664 带内):gate 16 轨迹,11 给出锚间路径,
+  **9 个 f1=1.00**;1171:s0 历史 0.00→1.00(gate 显示 75th→Jones→Vader
+  桥+roster,模型走通)。5 个无路径=图上真断(4 跳内无可检索桥),由
+  RETRIEVAL HINT 兜底。统计 trap:run trajectory 只存 gate 短标记
+  ('+ join_paths'),完整消息在 messages(未存 run)——按标记统计。
