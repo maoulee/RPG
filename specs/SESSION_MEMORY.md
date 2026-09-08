@@ -7804,3 +7804,14 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   题)character 角色名正确抑制。**发现的独立问题**:25 的电影名(Twilight
   等)对 1-hop walk 不可见——walk 只到 CVT mid 层,named 端点之前靠候选行
   兜底(已移除)→ walk 层需修(CVT→named 端点的枚举/渲染)。
+
+### 2026-09-08 CVT 穿透边渲染修复(用户审核:25 标本)
+- **根因**:walk 的 p.triples 有 54 条 CVT→named 边(m.xxx --film-->
+  Twilight 等),但 tree_data 路径是**步骤关系约束的**——只记录
+  anchor→CVT→anchor 往返,穿透到 named 端点的边不进路径。V38 renderer
+  只从 tree_data 取边→named 端点不可见(之前被候选行掩盖)。
+- **修复**:V38 renderer 的边集增加 p.triples 的全部 CVT↔named 边
+  (storage orientation via hop_dir)。25 标本现在渲染
+  `m.xxx [actor=...] --film--> Twilight` 全部 19 部电影可见。
+- 1171 不变(sel_cvt 已覆盖);top-K=3 同开(character 抑制/movie Q)。
+- 测试 65 passed。
