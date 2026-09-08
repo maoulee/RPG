@@ -7589,3 +7589,27 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
    walk_seen_entities 不动**(与 09-08 早上 offpool 裁决一致)。
 3. **裸 mid 无属性括号**定案为数据非渲染:m.012zk7ct/m.0131gszv 在 case 图里
    无 character 边(本人出演类 performance),渲染器忠实。
+
+### 2026-09-08 人工审核第三轮:机制重写(用户裁定"别打地鼠",commit 703ea44)
+1. **裁决 FIX 8 重写为结构 gate**(用户:"核心是起点和问题的连通性,这个跟
+   相关性无关……结构就不通直接 pass,然后 loo,概率过于微弱需要阈值"):
+   - 独立调用先过**结构连通**:(a)移除后 anchor→gold 断开(L0 必要)或
+     (b)其边在 anchor→gold **最短路径**上(BFS 层次见证 da[x]+1+dg[y]==dmin);
+     不连通 → 直接 REDUNDANT,**概率永不救结构**(Nelson Mandela 标本)。
+   - 连通后 LOO 需 ≥PP_INDEP=5pp(新阈值;弱正不是证据,原 PP_NOISE=2 只作
+     噪声带用)。
+   - 分布:独立增益 8→7,无增益 23→29,HARMFUL 13→7(不连通的支路连有害
+     资格都没有——结构先判吞掉了 6 个稀释型"有害");1470 三 seed 的
+     sg1/sg2 全部 pass ✓。
+   - 第一版 FIX 8(walk_nodes∩答案实体的词法相关性)系打地鼠,已删。
+2. **candidates roster 重写为模式路径重建**(用户:"先获取模式路径,基于
+   模式路径重建,路径最后或倒数第二实体是 CVT 则展开"):
+   - candidates 行改从 **pe_list 的 tree_data paths** 推导(与 V38 行构建
+   同源,"行内实体即候选"终于对 roster 也成立):路径终点 named→候选;
+   终点/倒数第二是 CVT 记录→展开属性对,**属性键类型类匹配 plan
+   answer_type 的值入候选**(未知键保留)。无 answer_type→全展开。
+   - 中间版(全图属性映射+direct shield 的类型过滤)系打地鼠,已删。
+   - 验证:25 film 题 roster=纯电影列表;1171 person 题保 actor 值(gold
+     就是属性值)。合法性域(fact_evidence/all_candidates/
+     walk_seen_entities)不动。
+   - dump 已重生成;测试 108 passed。
