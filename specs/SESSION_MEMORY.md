@@ -7571,3 +7571,21 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
    (restart 复位),_do_answer 的 pool=all_candidates∪walk_seen_entities。
    ⚠ 环境修复对**下一次 rollout** 生效;当前 run 的轨迹是旧行为下产生的。
    测试 38 passed;dump 已重生成(标签更新,轨迹文本不变)。
+
+### 2026-09-08 人工审核第二轮:FIX 8 + candidates 类型对齐(commit 08f1814)
+1. **FIX 8(裁决)**:独立增益调用必须答案相关——walk 不含 gold/答案实体 →
+   REDUNDANT 无论 LOO pp 多微正(Poland 标本 1470:s0 sg1:Nelson Mandela 检索
+   混入政体题却标 EFFECTIVE(独立增益))。4 调用降级;1470 三个 seed 全修正。
+2. **candidates 平铺行的属性值污染**(用户:"第一个候选实体部分我们当时移除了,
+   或者因为这个本身是子图的一部分")——旧 run 对比确认 V38 上线即如此(非回归;
+   移除记忆来自更早渲染版本)。修复(显示层):只作 CVT 属性值出现(非本次 walk
+   的 direct 节点)的实体,按属性键类型类 vs plan answer_type 过滤——film 题滤
+   character= 角色名(25 标本:角色全清、电影全留),person 题保 actor= 值
+   (1171 的 gold 就是属性值)。**实现要点**:属性映射从全图重建(与[k=v]括号
+   同源;walk triples 不含折叠值);direct 判定用本次 walk 的 named↔named 边
+   (角色节点全图自有 gender 等 direct 边会 Shield——Jacob Black 标本);
+   有已知类型键时按已知键判(未知键兜底仅在全未知时保留);
+   _ATTR_TYPE_CLASSES 键表 + 影视族键。**显示层 only——合法性池
+   walk_seen_entities 不动**(与 09-08 早上 offpool 裁决一致)。
+3. **裸 mid 无属性括号**定案为数据非渲染:m.012zk7ct/m.0131gszv 在 case 图里
+   无 character 边(本人出演类 performance),渲染器忠实。
