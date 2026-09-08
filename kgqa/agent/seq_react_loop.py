@@ -725,75 +725,139 @@ class SeqReactCase:
         return hint
 
 
-    def _search_join_paths(self, unconsumed, max_paths=3, max_hops=5):
-        """JOIN PATH SEARCH (user design 2026-09-07)."""
+    def _search_join_paths(self, unconsumed, max_paths=3, max_hops=4):
+        """JOIN PATH SEARCH on the FULL CASE GRAPH (user audit 2026-09-08:
+        the old source parsed the RENDERED sg text for edges AND searched
+        only the already-walked graph — an entity that was never retrieved
+        has no node there, so the path could NEVER exist: the 1171
+        specimen's unconsumed-entities gate fired with zero join paths for
+        75th Ranger Regiment while the case graph holds the servicemembers
+        edge straight to James Earl Jones). Now: adjacency from the case
+        arrays (structure, not text — CVT attribute entities included as
+        real nodes); BFS from each unconsumed entity to the REACHED side
+        (everything the walks surfaced: candidate pool + binding values);
+        the path's relations name the retrievable bridges."""
         try:
             from collections import defaultdict, deque
-            import re as _re
             adj = defaultdict(set)
-            for m in self.ctx.trajectory:
-                if m.get("role") != "tool" or m.get("name") != "retrieve_subgraph":
+            rel_of = defaultdict(set)
+            ents, rels = self.ctx.ents, self.ctx.rels
+            for h, r, t in zip(self.ctx.h_ids, self.ctx.r_ids, self.ctx.t_ids):
+                hn = str(ents[h]) if 0 <= h < len(ents) else str(h)
+                tn = str(ents[t]) if 0 <= t < len(ents) else str(t)
+                if hn == tn:
                     continue
-                for ln in str(m.get("content", "")).splitlines():
-                    s = ln.strip()
-                    if not s or s.startswith(("note:", "candidates:", "n_candidates:",
-                                              "entities:", "triples:", "fact_id:")):
-                        continue
-                    if "  (" in ln:
-                        ln = ln[:ln.index("  (")].rstrip()
-                        s = ln.strip()
-                    if "-->" not in s or s.startswith("▸"):
-                        continue
-                    mm = _re.match(r"^(.*?)\s*--([\w.]+)-->\s*(.*)$", s)
-                    if not mm:
-                        continue
-                    def _ent(x):
-                        x = x.strip()
-                        i = x.find("[")
-                        return x[:i].strip() if i > 0 else x
-                    for h in mm.group(1).split("|"):
-                        hn = _ent(h)
-                        if not hn:
-                            continue
-                        for t in mm.group(3).split("|"):
-                            tn = _ent(t)
-                            if tn and hn != tn:
-                                adj[hn].add(tn)
-                                adj[tn].add(hn)
+                rn = (str(rels[r]).rsplit(".", 1)[-1]
+                      if 0 <= r < len(rels) else "?")
+                adj[hn].add(tn)
+                adj[tn].add(hn)
+                rel_of[frozenset((hn, tn))].add(rn)
             if not adj:
                 return ""
-            results = []
-            consumed = set(getattr(self.ctx, "consumed_anchors", set()) or set())
+            reached = {str(c) for c in (getattr(self.ctx, "all_candidates", None) or [])}
+            for vals in (getattr(self.ctx, "fact_bindings", None) or {}).values():
+                reached.update(str(v) for v in (vals or []))
+            reached -= {str(u).strip() for u in unconsumed}
+            results, seen_ends = [], set()
             for unc in unconsumed[:2]:
                 ucs = str(unc).strip()
                 if ucs not in adj:
                     continue
-                for cs in list(consumed)[:3]:
-                    css = str(cs).strip()
-                    if css not in adj or css == ucs:
-                        continue
-                    prev = {css: None}
-                    q = deque([css])
-                    tgt = None
-                    while q:
-                        x = q.popleft()
-                        if x == ucs:
-                            tgt = x
+                prev = {ucs: None}
+                q = deque([ucs])
+                tgt = None
+                while q and tgt is None:
+                    x = q.popleft()
+                    for y in adj[x]:
+                        if y in prev:
+                            continue
+                        prev[y] = x
+                        if y in reached:
+                            tgt = y
                             break
-                        for y in adj[x]:
-                            if y not in prev:
-                                prev[y] = x
-                                q.append(y)
-                    if tgt:
-                        path = [tgt]
-                        while prev[path[-1]] is not None:
-                            path.append(prev[path[-1]])
-                        path.reverse()
-                        if len(path) <= max_hops + 1:
-                            results.append(" – ".join(p[:24] for p in path))
-                            if len(results) >= max_paths:
-                                break
+                        q.append(y)
+                if tgt is None:
+                    continue
+                path = [tgt]
+                while prev[path[-1]] is not None:
+                    path.append(prev[path[-1]])
+                path.reverse()
+                end_key = (ucs, tgt)
+                if end_key in seen_ends or len(path) > max_hops + 1:
+                    continue
+                seen_ends.add(end_key)
+                hops = []
+                for a, b in zip(path, path[1:]):
+                    rs = "/".join(sorted(rel_of.get(frozenset((a, b)), ("?",)))[:2])
+                    hops.append(f"{a[:24]} --{rs}--> {b[:24]}")
+                results.append("  ".join(hops))
+                if len(results) >= max_paths:
+                    break
             return "\n".join(f"  {i+1}. {p}" for i, p in enumerate(results))
+        except Exception:
+            return ""
+
+    def _unconsumed_edge_hint(self, unconsumed, max_rels=3, max_vals=6):
+        """RETRIEVAL HINT for unconsumed plan entities (user audit
+        2026-09-08: the join bridge may not exist as a named path, and even
+        when it does it can be a semantically irrelevant coincidence — the
+        ACTIONABLE fallback is the unconsumed entity's OWN one-hop
+        relations with their CVT attribute values AGGREGATED PER KEY: the
+        servicemembers edge's military_person roster lists every soldier
+        including the gold). Structure-only, from the case arrays."""
+        try:
+            from collections import defaultdict
+            ents, rels = self.ctx.ents, self.ctx.rels
+            unc = {str(u).strip() for u in unconsumed}
+            if not unc:
+                return ""
+            mid_attrs = defaultdict(list)      # mid -> [(short_rel, value)]
+            rel_keys = defaultdict(lambda: defaultdict(list))  # rel -> key -> vals
+            for h, r, t in zip(self.ctx.h_ids, self.ctx.r_ids, self.ctx.t_ids):
+                hn = str(ents[h]) if 0 <= h < len(ents) else str(h)
+                tn = str(ents[t]) if 0 <= t < len(ents) else str(t)
+                rn = (str(rels[r]).rsplit(".", 1)[-1]
+                      if 0 <= r < len(rels) else "?")
+                hc, tc = hn[:2] in ("m.", "g."), tn[:2] in ("m.", "g.")
+                if hc and not tc:
+                    mid_attrs[hn].append((rn, tn))
+                elif tc and not hc:
+                    mid_attrs[tn].append((rn, hn))
+            for h, r, t in zip(self.ctx.h_ids, self.ctx.r_ids, self.ctx.t_ids):
+                hn = str(ents[h]) if 0 <= h < len(ents) else str(h)
+                tn = str(ents[t]) if 0 <= t < len(ents) else str(t)
+                rn = (str(rels[r]).rsplit(".", 1)[-1]
+                      if 0 <= r < len(rels) else "?")
+                for a, b in ((hn, tn), (tn, hn)):
+                    if a not in unc:
+                        continue
+                    if b[:2] in ("m.", "g."):
+                        for ak, av in mid_attrs.get(b, []):
+                            if av == a:
+                                continue        # self-referential noise
+                            lst = rel_keys[rn][ak]
+                            if av not in lst:
+                                lst.append(av)
+                    else:
+                        lst = rel_keys[rn][""]
+                        if b not in lst:
+                            lst.append(b)
+            lines = []
+            # note: rel_keys pools edges across all unconsumed entities —
+            # single-unc (the norm) is what we format; multi-unc entities
+            # share the roster sections
+            for rn, kmap in sorted(rel_keys.items(),
+                                   key=lambda kv: -sum(len(v) for v in kv[1].values()))[:max_rels]:
+                parts = []
+                for ak, vals in sorted(kmap.items(), key=lambda kv: -len(kv[1])):
+                    if not vals:
+                        continue
+                    shown = " | ".join(v[:40] for v in vals[:max_vals])
+                    more = f" …(+{len(vals)-max_vals})" if len(vals) > max_vals else ""
+                    parts.append((ak + "=" if ak else "") + shown + more)
+                if parts:
+                    lines.append(f"'{list(unc)[0][:32]}' --{rn}--> " + " ; ".join(parts[:2]))
+            return "\n".join(f"  {i+1}. {x}" for i, x in enumerate(lines[:max_rels]))
         except Exception:
             return ""
 
@@ -824,7 +888,11 @@ class SeqReactCase:
             "their neighborhood, retrieve FROM them now. If constraints "
             "only, re-submit unchanged.")
         if _jp:
-            _hint += ("\n\nJOIN PATHS (answer may be a node ON these paths):\n" + _jp)
+            _hint += ("\n\nJOIN PATHS (answer may be a node ON these paths — bridges can be "
+                      "coincidental, judge relevance):\n" + _jp)
+        _eh = self._unconsumed_edge_hint(_unc)
+        if _eh:
+            _hint += ("\n\nRETRIEVAL HINT (the unconsumed entity's own one-hop relations):\n" + _eh)
         self.messages.append({"role": "user", "content": _hint})
         self.ctx.trajectory.append({"role": "tool", "content":
             "unconsumed-entities gate: " + " | ".join(_unc[:3])
