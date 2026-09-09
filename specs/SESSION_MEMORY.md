@@ -8042,6 +8042,31 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   [mids]` 尾集是 CVT 但无属性括号(片名在后续 starring/music 行)——模型
   "忠实于所见"答 mid。可选修:direct 行 mid 尾补 `[film=...]` 括号。
 
+### 2026-09-09 人工审核第十五轮:CVT 尾压缩 A/B + 实体优先(四轮 rollout)
+- **用户三项裁决**:①同意 CVT 压缩(GTE 关系向量×问题向量排属性);②A/B
+  属性内联 vs 独立块;③plan 工作流实体优先(实体越多定位越简单)。
+- **实现**:≥4 CVT 尾的 (h,r) 行整尾集折叠为单条摘要——按键的 GTE 秩取
+  top 键,键内列**不同值**(cap 8),单值跨全集折叠 `k=v (×n)`(重叠消除);
+  `SEQ_CVT_STYLE=inline|block` 门控(block=行内指针+尾部 event attributes
+  段);<4 尾保持逐 mid 括号。V21 §3 加 ENTITY-FIRST(枚举问题实体→
+  contract 之前,实体=锚,交集定位)。
+- **四轮结果**(48×3,f1/hit/rest43):
+  | run | f1 | rest43 | 形态 |
+  |---|---|---|---|
+  | cvtinline | 0.6836 | 0.7006 | 显示 bug:摘要丢失只显 __evt0(mid 洪消失本身+3pp) |
+  | cvtblock | 0.6707 | 0.6699 | 块版,rest43 与 gatefix 持平 |
+  | cvtinline3 | 0.6570 | 0.6589 | 摘要被 sel_bare 排除污染:character 领街误导 |
+  | **cvtinline4** | **0.6849** | 0.6900 | **摘要读 cvt_graph_all,族键(film:)领街——终版** |
+- **A/B 结论:inline 胜**(block rest43 持平 gatefix,inline 全面高)。
+- **两个过程 bug 教训**:①rows 初始化顺序(UnboundLocalError→整个 v38 渲染
+  崩→legacy 路径→0.4324,套件 141 绿但未覆盖 v38 路径——新增直测
+  tmp/test_cvt_compress_render.py 8 检查);②摘要键源继承括号排除规则
+  (1171)导致选中族键缺席——摘要需要族键,括号维持排除,两者分流
+  (cvt_graph vs cvt_graph_all)。
+- 压缩行 189 个/run,mid 答案 0;dump:tmp/teacher_audit_dump_cvtinline4.txt。
+- 终态弧线:joinfix 0.6640(带泄露)→ gatefix 0.6575/0.6701 →
+  **cvtinline4 0.6849/0.6900(诚实最优,hit 79.9%)**。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
