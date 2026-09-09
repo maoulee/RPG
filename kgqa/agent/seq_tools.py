@@ -3264,9 +3264,15 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     # then reveals the terminal edge. Matching the terminal edge alone walked
     # ZERO edges (sg 707 vs 2884 chars, attrfamily2): the bridge is what
     # makes a family walkable.
-    _has_attr = _has_attr_name
+    # UNIFIED EXPANSION (typedgroup audit 2026-09-09): every submitted
+    # relation — bare attribute, typed group, OR full name — goes through
+    # the same pool-match + bridge attachment. Bridges are a reachability
+    # property of (center, relation), not of the name form: the model
+    # copying a full terminal name from the display walked ZERO edges
+    # exactly like a bare family did before bridges existed (29/35
+    # mismatches in the typedgroup rollout were full-name submissions).
     _fam_echo = {}
-    if _has_attr and centers:
+    if centers and rel_names:
         from kgqa.agent.tools import _full_adj
         _adj = _full_adj(ctx)
         _n_ents = len(ctx.ents)
@@ -3293,60 +3299,76 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
         _fam0 = ""
         for r in rel_names:
             rs = str(r).strip()
-            if _is_family(rs):
+            if not rs:
+                continue
+            _fam = _is_family(rs)
+            if _fam:
                 _fam0 = _fam0 or rs
-                _typedq = "." in rs    # typed query: match last TWO components
-                _mk = (_ckey, rs)
-
-                def _fmatch(ri):
-                    return _typed(ri) == rs if _typedq else _last(ri) == rs
-
-                if _mk in _fmemo:
-                    _names, _bids = _fmemo[_mk]
-                else:
-                    # DIRECT part: matches from the center's 2-hop pool — a
-                    # pool relation is a legal PATH edge (hop-2 relations are
-                    # walk-selectable; CVT-transparent reach included).
-                    _names = sorted({ri for _cn, _ci in centers
-                                     for ri in _seq_pool_relids(ctx, {_ci})
-                                     if _fmatch(ri)})[:10]
-                    # BRIDGE part (adjacency): the center→carrier edge when
-                    # the carrier — the terminal edge's own CVT, or a holder
-                    # behind it — touches the family. Terminal pool matches
-                    # never touch the center (hop-1 death); the bridge is
-                    # what makes them walkable.
-                    _bids = set()
-                    for _cn, _ci in centers:
-                        if not (0 <= _ci < len(_adj)):
-                            continue
-                        _scanned = set()
-                        for _ri, _ni in _adj[_ci]:
-                            if (_ni in _scanned or not (0 <= _ni < _n_ents)
-                                    or len(_bids) >= 6):
-                                continue
-                            _scanned.add(_ni)
-                            _hit = any(_fmatch(_rj)
-                                       for _rj, _nj in _adj[_ni] if _nj != _ci)
-                            if not _hit and is_cvt_like(ctx.ents[_ni]):
-                                for _rj, _mj in _adj[_ni]:
-                                    if _mj == _ci or not (0 <= _mj < _n_ents):
-                                        continue
-                                    if any(_fmatch(_rk)
-                                           for _rk, _nk in _adj[_mj]):
-                                        _hit = True
-                                        break
-                            if _hit:
-                                _bids.add(_ri)
-                    _fmemo[_mk] = (_names, _bids)
-                _name_set = set(_names)
-                _dnames = [str(ctx.rels[i]) for i in _names]
-                _bridges = [str(ctx.rels[i]) for i in sorted(_bids)
-                            if i not in _name_set][:6]
-                _fam_echo[rs] = {"direct": _dnames, "bridge": _bridges}
-                _expanded.extend(_dnames)
-                _expanded.extend(_bridges)
+            _typedq = _fam and "." in rs   # typed query: match last TWO comps
+            _mk = (_ckey, rs)
+            if _mk in _fmemo:
+                _names, _bids = _fmemo[_mk]
             else:
-                _expanded.append(rs)
+                # MATCHED SET for this name, from the centers' 2-hop pool —
+                # a pool relation is a legal PATH edge (hop-2 relations are
+                # walk-selectable; CVT-transparent reach included). A FULL
+                # name that is not in the pool is genuinely unreachable:
+                # passthrough without bridges (the walk's RELATION_MISMATCH
+                # feedback is then correct).
+                _pool = set()
+                for _cn, _ci in centers:
+                    _pool |= _seq_pool_relids(ctx, {_ci})
+                if _fam:
+                    _names = sorted(ri for ri in _pool
+                                    if ((_typed(ri) == rs) if _typedq
+                                        else (_last(ri) == rs)))[:10]
+                else:
+                    _ri = ctx.rels.index(rs)
+                    _names = [_ri] if _ri in _pool else []
+                # BRIDGE part (adjacency): the center→carrier edge when the
+                # carrier — the terminal edge's own CVT, or a holder behind
+                # it — touches the matched set. Terminal pool matches never
+                # touch the center (hop-1 death); the bridge is what makes
+                # them walkable. Bridges are a reachability property of the
+                # (center, relation) pair, NOT of the name form — a FULL
+                # name copied verbatim from the display gets the same
+                # bridges as its typed/bare family (typedgroup rollout:
+                # 29/35 mismatches were full-name submissions bypassing
+                # this).
+                _mset = set(_names)
+                _bids = set()
+                for _cn, _ci in centers:
+                    if not (0 <= _ci < len(_adj)):
+                        continue
+                    _scanned = set()
+                    for _ri, _ni in _adj[_ci]:
+                        if (_ni in _scanned or not (0 <= _ni < _n_ents)
+                                or len(_bids) >= 6):
+                            continue
+                        _scanned.add(_ni)
+                        _hit = any(_rj in _mset
+                                   for _rj, _nj in _adj[_ni] if _nj != _ci)
+                        if not _hit and is_cvt_like(ctx.ents[_ni]):
+                            for _rj, _mj in _adj[_ni]:
+                                if _mj == _ci or not (0 <= _mj < _n_ents):
+                                    continue
+                                if any(_rk in _mset
+                                       for _rk, _nk in _adj[_mj]):
+                                    _hit = True
+                                    break
+                        if _hit:
+                            _bids.add(_ri)
+                _fmemo[_mk] = (_names, _bids)
+            _name_set = set(_names)
+            _dnames = [str(ctx.rels[i]) for i in _names]
+            _bridges = [str(ctx.rels[i]) for i in sorted(_bids)
+                        if i not in _name_set][:6]
+            if _fam or _bridges:
+                # echo every family expansion; for full names echo only when
+                # bridges were attached (the surprising, audit-worthy case)
+                _fam_echo[rs] = {"direct": _dnames or [rs], "bridge": _bridges}
+            _expanded.extend(_dnames if _dnames else [rs])
+            _expanded.extend(_bridges)
         rel_names = list(dict.fromkeys(_expanded))
         rel_idxs = [ctx.rels.index(r) for r in rel_names
                     if isinstance(r, str) and r in ctx.rels]
