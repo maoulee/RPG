@@ -304,9 +304,17 @@ def render_v38_ack(treq, bres, ctx):
                 continue
         for mid in mids:
             tails_of[(h, r)][mid] = cvt_disp(mid, {h.lower()})
-    # shape 2: singletons regroup many heads → same r + t
+    # shape 2: singletons regroup many heads → same r + t. Synthetic
+    # compressed entries (__evt*) must NOT enter the regroup — it keys by
+    # the TAIL NAME, which would print the raw key instead of the summary;
+    # they render directly as one row.
     single = [(h, r, t) for (h, r), ts in tails_of.items() for t in ts
-              if len(ts) == 1]
+              if len(ts) == 1 and not t.startswith("__evt")]
+    for (h, r), ts in tails_of.items():
+        if len(ts) == 1:
+            t = next(iter(ts))
+            if t.startswith("__evt"):
+                rows.append((r, f"{h} --{r}--> {ts[t]}"))
     multi = {(h, r): ts for (h, r), ts in tails_of.items() if len(ts) >= 2}
     heads_of = defaultdict(set)         # (r, t) -> {h}
     for h, r, t in single:
