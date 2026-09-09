@@ -7832,3 +7832,14 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   `actor ← film.dubbing_performance.actor, film.performance.actor`
   `character ← film.dubbing_performance.character, ...`
   全名保留在括号内供模型提交。待实施。
+
+### 2026-09-08 实体中心属性策略统计(用户验证:能否避免 film 膨胀)
+- **center-direct(1-hop+CVT) vs full-pool(2-hop+CVT)**:
+  产出关系数 mean=1.3 vs 1.8;max=**9** vs 14;**>10 的查询 = 0/163**。
+  film 属性:Ron Howard 9(多角色)、普通人 2-4;**完全消除膨胀**。
+- **gold 覆盖代价**:center-direct 53% vs full-pool 75%(22% 的 gold 在
+  2-hop 路径上)——由后续 fact 的 ?var 多实体展开自然覆盖。
+- **LLM 负担**:从"15 个混合域全名"降到"中位 1 个/属性组、max 9",
+  且按属性名分组(actor/character/voice_actor 天然可分)。
+- 方案定稿:retrieve_relations 改为属性分组展示 + center-direct 索引
+  + 2-hop 补充(仅 >10 时 GTE 精排)。待实施。
