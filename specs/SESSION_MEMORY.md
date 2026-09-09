@@ -7932,6 +7932,25 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - 待用户裁决:①族展开收窄(GTE 对问题排序取 top 而非邻接序);②答题侧
   约束(候选须满足全部开放事实才发);③回退 joinfix。
 
+### 2026-09-09 人工审核第十一轮:类型+属性句柄 + ZH 泄露清洗
+- **用户三发现**(attrbridge dump 审核):①分组只用末组件,类型语义丢失
+  (producer.film 与 director.film 都叫 film;division/facility/league/
+  location teams 混为一个)——from/to 语义靠类型组件;②ZH 中文标注
+  泄露答案(212 的中文枚举三个金标州);③子图边显示 --teams--> 无法
+  区分来源关系。
+- **ZH 泄露清洗**:tmp/zh_questions_48.json 共 5 条泄露(212/Trn-60/2784_
+  b642/452_f79f/452_343e,中文枚举或英文字面金标),全部改写为无枚举的
+  忠实重述,复扫零泄露。ZH 注入本身承重(+2.1pp,修 493 类 plan 歧义),
+  joinfix/attrfamily3/attrbridge 均带泄露跑——绝对值略虚高,对照内部一致。
+- **类型+属性句柄**(commit 318fa50):rr 分组键=末两组件(type.attribute),
+  属性 GTE 秩定组序;_sg_prepare 支持 typed 名精确匹配(一个语义族),
+  裸属性=全族(宽),全名直通;direct 恢复 2-hop 池语义(hop-2 关系是合法
+  路径边——桥接重构时曾误收窄),桥接保持邻接扫描;v38 边短名=type.
+  attribute(行可溯源),CVT 属性排除保持裸键对比。
+- 测试:tmp/test_bridge_smoke.py 12 检查全过(typed 精确/裸宽/全名直通/
+  桥接保留);套件 141 passed。
+- **rollout**: reports/v38_typedgroup_48x3.json(结果待出)。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
