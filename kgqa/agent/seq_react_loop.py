@@ -1058,7 +1058,16 @@ class SeqReactCase:
         2. the LAST assistant `ANSWER:` checklist line,
         3. the LAST checkpoint binding `[..✓] ?var = [..]` — a case that exhausted
            rounds mid-retrieval usually has the answer entity set in its final
-           checkpoint (the last fact of the plan is the answer-bearing one)."""
+           checkpoint (the last fact of the plan is the answer-bearing one).
+        MID STRIP (1923 specimen, 2026-09-09): event-node mids are NEVER
+        answer values (the answer tool rejects them, §7.5 strips them from
+        bindings) — but this recovery reads the RAW trajectory text, so a
+        REJECTED all-mid answer call (or a §7.5-stripped checkpoint line)
+        would re-leak the mids as the final answer, overriding both guards
+        (rescued=True with an f1=0.00 mid list). Strip mids from every
+        recovery source; an all-mid source falls through to the next."""
+        import re as _re
+
         def _split_val(val: str) -> list:
             val = val.strip().strip('`')
             if val.startswith("[") and val.endswith("]"):
@@ -1078,13 +1087,22 @@ class SeqReactCase:
                 tail = c[m.start():]
                 em = re.search(r'"?entities"?\s*[:=]\s*(\[.*?\]|\S.*?)\s*(?:\n|$)', tail)
                 if em:
-                    return _split_val(em.group(1))
+                    _v = [e for e in _split_val(em.group(1))
+                          if not _re.fullmatch(r"[mg]\.[0-9a-z_]{2,}", e.strip().lower())]
+                    if _v:
+                        return _v
             am = re.findall(r'^ANSWER:\s*(.+)$', c, re.MULTILINE)
             if am:
-                return _split_val(am[-1])
+                _v = [e for e in _split_val(am[-1])
+                      if not _re.fullmatch(r"[mg]\.[0-9a-z_]{2,}", e.strip().lower())]
+                if _v:
+                    return _v
             cm = list(_CKPT_RE.finditer(c))
             if cm:
-                return _split_val(cm[-1].group(2))
+                _v = [e for e in _split_val(cm[-1].group(2))
+                      if not _re.fullmatch(r"[mg]\.[0-9a-z_]{2,}", e.strip().lower())]
+                if _v:
+                    return _v
         return []
 
     async def process_turn(self, session, raw_response, reasoning) -> str:
