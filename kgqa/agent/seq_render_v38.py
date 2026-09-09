@@ -269,7 +269,9 @@ def render_v38_ack(treq, bres, ctx):
         parts = []
         for k, vs in kv[:3]:
             vs = sorted(vs)
-            if len(vs) == len(mids) and len(vs) == 1:
+            if len(vs) == 1:
+                # one distinct value across the whole tail set (overlap) —
+                # fold to k=v (×n) instead of echoing it per event
                 parts.append(f"{k}={next(iter(vs))} (×{len(mids)})")
             else:
                 shown = " | ".join(vs[:8])
@@ -308,6 +310,7 @@ def render_v38_ack(treq, bres, ctx):
     # compressed entries (__evt*) must NOT enter the regroup — it keys by
     # the TAIL NAME, which would print the raw key instead of the summary;
     # they render directly as one row.
+    rows = []
     single = [(h, r, t) for (h, r), ts in tails_of.items() for t in ts
               if len(ts) == 1 and not t.startswith("__evt")]
     for (h, r), ts in tails_of.items():
@@ -320,7 +323,6 @@ def render_v38_ack(treq, bres, ctx):
     for h, r, t in single:
         heads_of[(r, t)].add(h)
 
-    rows = []
     for (h, r) in sorted(multi, key=lambda k: (k[1], -len(multi[k]), k[0])):
         # join the DISPLAY values (CVT tails carry inline attrs) — joining
         # the dict keys printed bare mids and hid every measurement value
