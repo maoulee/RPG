@@ -7918,6 +7918,20 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   subgraph_kgqa 导入为历史遗留)。
 - **rollout**:reports/v38_attrbridge_48x3.json(桥接版,结果待出)。
 
+### 2026-09-09 attrbridge rollout 结果(桥接版)
+- **0.6165 / hit 78.5%**(attrfamily3 0.6033 → +1.3pp;joinfix 0.664 仍差
+  4.8pp;best-of-3 0.746 vs joinfix 0.808;配对 23胜/37负/84平)。
+- **机制验证(桥接完全生效)**:族名提交后 walk 空 **30 → 0**;RELATION_
+  MISMATCH 总数 **43 → 15**(低于 joinfix 的 18);relation_expansion 回显
+  280 条;sg 调用 420→382(重试减少)。缺失族名榜(countries_within/region/
+  time_zones/basin_countries)清零。
+- **剩余差距定位 = OVER-EMIT 翻倍**:attrbridge 32 / attrfamily3 33 vs
+  joinfix 16(PARTIAL 66/67 vs 79)。族名展开取回面宽(≤10 直连+≤6 桥接)
+  → 候选多 → 模型多答。桥接不是瓶颈了,精度是。
+- dump: tmp/teacher_audit_dump_attrbridge.txt(新 run,全量未折叠)。
+- 待用户裁决:①族展开收窄(GTE 对问题排序取 top 而非邻接序);②答题侧
+  约束(候选须满足全部开放事实才发);③回退 joinfix。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
