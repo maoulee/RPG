@@ -8067,6 +8067,28 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - 终态弧线:joinfix 0.6640(带泄露)→ gatefix 0.6575/0.6701 →
   **cvtinline4 0.6849/0.6900(诚实最优,hit 79.9%)**。
 
+### 2026-09-09 速度审计 + 环境恢复(用户:游走/GTE 优化是否被丢)
+- **代码层优化全部在位**(逐一验证):traversal 邻接 memo(5e029e6/3a46bbb
+  后零改动)、_is_latinish 字符 memo、lane GC 2M/100/100、walk 批协调器
+  (sticky lane+跨 sample memo+MISS reship)、GTE 批客户端。
+- **真丢的是调优运行环境**:历次 rollout 命令没带 GTE_CLIENT_BATCH_
+  WINDOW=0.08/FIRST=0.02(默认 1.0s)→ GTE collect 1967s/run。恢复后
+  **162s(-92%)**,dispatch 内 gte 2256→273s,p50 墙钟 1005→885s(-12%)。
+- **反例实验(勿再试)**:WALK_POOL=4+WALK_BATCH_WINDOW=0.3 → mean 墙钟
+  +18%(784→961s):4 核争用(exec +19%)+ 小窗口碎片化打包(burst 62→29)。
+  结论与 2026-09-07 一致:4 核 cgroup 下 3 lane + 默认 1.0s 窗口就是最优。
+- **慢的本体是工作量**(质量的代价):walk exec 364s(walk-perf 基线)→
+  1733-2165s(×4.8-6)——统一桥接/族展开使每 sg 调用关系集 1-3 条→5-16
+  条(slots 1998-2343,0.87-0.92s/slot);上下文 2.2× 使每轮 LLM 29→121s。
+  48×3 墙钟 378s(旧机制)→ ~18-20min(新机制,f1 0.664→0.685)。
+- **锁定基准 env**(后续 rollout 必带):
+  `WALK_POOL=3 GTE_CLIENT_BATCH_WINDOW=0.08 GTE_CLIENT_BATCH_FIRST=0.02`
+  + 原 SEQ_* 组;WALK_BATCH_WINDOW 不设(默认 1.0)。
+- 唯一进一步杠杆=收窄展开上限(direct 10→6/bridges 6→4)——行为改变,
+  需 A/B 验证质量是否保留,待用户裁决。
+- 三 run 对照:cvtinline4 0.6849/784s | perfenv(4lane+0.3w)0.6751/961s |
+  perffinal 0.6606/829s/p50 885s(rest43 0.68-0.69 带内,批窗口纯调度)。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
