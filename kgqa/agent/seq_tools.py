@@ -3048,12 +3048,18 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 "candidate_relations": [str(ctx.rels[i]) for i in cands[:15]
                                         if isinstance(i, int) and 0 <= i < len(ctx.rels)],
                 "grouped_relations": _grouped,
-                "note": ("Relations grouped by TARGET ATTRIBUTE (the semantic "
-                         "endpoint). Pick the attribute the question asks for, "
-                         "then choose from that group's relations. Submit FULL "
-                         "relation names from the group. Groups with many members "
-                         "are sub-ranked; '…' means more available — re-call with "
-                         "a more specific question to narrow. "
+                "note": ("Relations grouped by TARGET ATTRIBUTE. Pick the "
+                         "attribute group the question asks for, then submit "
+                         "2-3 fitting FULL relation names TOGETHER — the direct "
+                         "encoding, its INVERSE, and sibling schema variants "
+                         "from the same or adjacent groups (film.director.film "
+                         "and film.film.directed_by are the same fact from two "
+                         "ends; one wrong-but-compatible relation costs one "
+                         "block, a missed relation costs a whole repair round). "
+                         "Single-relation precision is NOT the goal. Do NOT pick "
+                         "attribute relations (date/name/type/role) — the system "
+                         "reveals those automatically inside CVTs. For any fact "
+                         "after the first, pass the entity variable (?var). "
                          + (_nudge + " " if _nudge else "")),
             })
     # FALLBACK: no attribute ranking (GTE failure) — flat list as before
