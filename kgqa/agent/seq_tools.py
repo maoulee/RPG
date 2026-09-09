@@ -3048,18 +3048,14 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 "candidate_relations": [str(ctx.rels[i]) for i in cands[:15]
                                         if isinstance(i, int) and 0 <= i < len(ctx.rels)],
                 "grouped_relations": _grouped,
-                "note": ("Relations grouped by TARGET ATTRIBUTE. Pick the "
-                         "attribute group the question asks for, then submit "
-                         "2-3 fitting FULL relation names TOGETHER — the direct "
-                         "encoding, its INVERSE, and sibling schema variants "
-                         "from the same or adjacent groups (film.director.film "
-                         "and film.film.directed_by are the same fact from two "
-                         "ends; one wrong-but-compatible relation costs one "
-                         "block, a missed relation costs a whole repair round). "
-                         "Single-relation precision is NOT the goal. Do NOT pick "
-                         "attribute relations (date/name/type/role) — the system "
-                         "reveals those automatically inside CVTs. For any fact "
-                         "after the first, pass the entity variable (?var). "
+                "note": ("Pick 1-2 TARGET ATTRIBUTES (group names below). "
+                         "Call retrieve_subgraph with the ATTRIBUTE NAME "
+                         "(e.g. relations: actor | character) — the system "
+                         "auto-expands it to ALL matching relations from this "
+                         "center. Or submit full relation names if you need "
+                         "precision. 1-2 attributes is the norm; picking more "
+                         "costs retrieval budget. For any fact after the first, "
+                         "pass the entity variable (?var). "
                          + (_nudge + " " if _nudge else "")),
             })
     # FALLBACK: no attribute ranking (GTE failure) — flat list as before
@@ -3184,6 +3180,28 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     if _err:
         return {"kind": "done", "result": _json_result({"error": _err})}
     _nudge = _variable_nudge(raw, ctx)
+    # ATTRIBUTE-FAMILY EXPANSION (user design 2026-09-08): a submitted
+    # name without dots (e.g. 'actor', 'film') is an ATTRIBUTE — expand it
+    # to ALL center-pool relations whose last component produces that
+    # attribute. The model picks WHAT it wants (semantic role), the system
+    # picks HOW to get it (all matching relations). Oracle simulation:
+    # pick-2 attributes covers 96% of gold paths with 3.1 avg relations.
+    _expanded_names = []
+    for r in rel_names:
+        rs = str(r).strip()
+        if "." not in rs and rs:
+            # attribute name — find all pool relations with this last component
+            _matched = [str(ctx.rels[i]) for i in range(len(ctx.rels))
+                        if str(ctx.rels[i]).rsplit(".", 1)[-1] == rs]
+            if _matched:
+                _expanded_names.extend(_matched[:10])  # cap per attribute
+            else:
+                _expanded_names.append(rs)  # keep as-is; will fail validation
+        else:
+            _expanded_names.append(rs)
+    if _expanded_names != rel_names:
+        rel_names = list(dict.fromkeys(_expanded_names))  # dedup, preserve order
+
     rel_idxs = [ctx.rels.index(r) for r in rel_names if isinstance(r, str) and r in ctx.rels]
     if not rel_idxs:
         return {"kind": "done", "result": _json_result({"error": "no valid relations provided. Pick from the candidate_relations "
