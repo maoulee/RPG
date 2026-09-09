@@ -726,7 +726,8 @@ class SeqReactCase:
 
 
     async def _search_join_paths(self, unconsumed, session,
-                                 max_paths=3, max_hops=4, n_cands=8):
+                                 max_paths=3, max_hops=4, n_cands=8,
+                                 targets=None):
         """JOIN PATH SEARCH on the full case graph, calibrated per user
         ruling 2026-09-08 #2: (a) the path domain is RETRIEVABLE relations —
         noisy/hub edges are excluded (the Band-of-Brothers->German
@@ -778,6 +779,11 @@ class SeqReactCase:
                      for c in (getattr(self.ctx, "consumed_anchors", None) or set())}
             reached = {e for e in _pe if e.lower() in _cons}
             reached -= {str(u).strip() for u in unconsumed}
+            if targets is not None:
+                # CONNECTIVITY MODE (2026-09-09): every anchor consumed —
+                # search anchor→anchor directly (user ruling: start-entity
+                # to start-entity closure) instead of unconsumed→consumed
+                reached = {str(t).strip() for t in targets}
             cands, seen_sig = [], set()
             for unc in unconsumed[:2]:
                 ucs = str(unc).strip()
@@ -911,6 +917,38 @@ class SeqReactCase:
         self.messages.append({"role": "user", "content": note})
         self.ctx.trajectory.append({"role": "tool", "content": note})
 
+    def _anchors_disconnected(self) -> bool:
+        """CONNECTIVITY ≠ CONSUMPTION (user audit 2026-09-09): a multi-center
+        retrieve_subgraph consumes EVERY center, so the consumption latch can
+        no longer detect the unclosed case — both sides consumed, yet no
+        walked path links them. BFS the ACCUMULATED walk graph between the
+        plan's anchor names; any anchor unreachable from the first → the
+        join gate still owes its one-time check."""
+        from collections import defaultdict, deque
+        from kgqa.core.utils import normalize as _nz
+        pe = [str(e).strip() for e in (getattr(self.ctx, "plan_entities", None) or [])]
+        at = getattr(self.ctx, "accumulated_triples", None) or set()
+        if len(pe) < 2:
+            return False
+        if not at:
+            return True          # nothing walked at all — every anchor stranded
+        adj = defaultdict(set)
+        for h, _r, t in at:
+            hn, tn = _nz(str(h)), _nz(str(t))
+            if hn and tn and hn != tn:
+                adj[hn].add(tn)
+                adj[tn].add(hn)
+        start = _nz(pe[0])
+        seen = {start}
+        q = deque([start])
+        while q:
+            cur = q.popleft()
+            for nxt in adj.get(cur, ()):
+                if nxt not in seen:
+                    seen.add(nxt)
+                    q.append(nxt)
+        return any(_nz(e) not in seen for e in pe[1:])
+
     def _ma_gate_would_fire(self, parsed_args):
         """SYNC trigger test for the multi-anchor consumption gate (the
         latch lives here so the deferred async run cannot double-fire)."""
@@ -921,7 +959,11 @@ class SeqReactCase:
         _cons = {str(c).strip().lower()
                  for c in (getattr(self.ctx, "consumed_anchors", None) or set())}
         _unc = [e for e in _pe if str(e).strip().lower() not in _cons]
-        if len(_pe) < 2 or not _unc:
+        if len(_pe) < 2:
+            return False
+        if not _unc and not self._anchors_disconnected():
+            # all consumed AND the accumulated walk graph already links the
+            # anchors — consumption closed AND connectivity closed
             return False
         self.ctx._ma_gate_fired = True
         self.ctx._ma_gate_unc = _unc
@@ -931,9 +973,30 @@ class SeqReactCase:
         """MULTI-ANCHOR CONSUMPTION GATE + JOIN PATHS (2026-09-01/07/08).
         Async: the join search is GTE-ranked against the question (user
         calibration 2026-09-08 #2 — retrievable-relation domain, shortest
-        first, GTE relevance ordering)."""
+        first, GTE relevance ordering).
+        CONNECTIVITY MODE (2026-09-09): when every anchor was consumed
+        (multi-center calls consume all centers) but the accumulated walk
+        graph never linked them, the gate still fires — anchor→anchor join
+        paths, no retrieval hint (the entities WERE retrieved from)."""
         _unc = getattr(self.ctx, "_ma_gate_unc", None) or []
+        _pe = [str(e).strip() for e in (getattr(self.ctx, "plan_entities", None) or [])]
         if not _unc:
+            _jp = (await self._search_join_paths(_pe[:1], session,
+                                                 targets=_pe[1:])
+                   if len(_pe) >= 2 else "")
+            _hint = ("CONNECTIVITY CHECK (one-time): every plan entity was "
+                "retrieved from, but no walked path links their subgraphs "
+                "yet. If the question needs the two sides CONNECTED (an "
+                "entity on one side reachable from the other), judge these "
+                "join paths and retrieve the bridge; if the sides answer "
+                "independently (their candidate sets intersect), answer now.")
+            if _jp:
+                _hint += ("\n\nJOIN PATHS (shortest first, GTE-ranked against the "
+                          "question — judge relevance):\n" + _jp)
+            self.messages.append({"role": "user", "content": _hint})
+            self.ctx.trajectory.append({"role": "tool", "content":
+                "connectivity gate (all anchors consumed, subgraphs unlinked)"
+                + ((f"\nJOIN PATHS:\n{_jp}") if _jp else "")})
             return
         _jp = await self._search_join_paths(_unc, session)
         _hint = ("UNCONSUMED ENTITIES (one-time check): declared "
