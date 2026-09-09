@@ -3180,28 +3180,6 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     if _err:
         return {"kind": "done", "result": _json_result({"error": _err})}
     _nudge = _variable_nudge(raw, ctx)
-    # ATTRIBUTE-FAMILY EXPANSION (user design 2026-09-08): a submitted
-    # name without dots (e.g. 'actor', 'film') is an ATTRIBUTE — expand it
-    # to ALL center-pool relations whose last component produces that
-    # attribute. The model picks WHAT it wants (semantic role), the system
-    # picks HOW to get it (all matching relations). Oracle simulation:
-    # pick-2 attributes covers 96% of gold paths with 3.1 avg relations.
-    _expanded_names = []
-    for r in rel_names:
-        rs = str(r).strip()
-        if "." not in rs and rs:
-            # attribute name — find all pool relations with this last component
-            _matched = [str(ctx.rels[i]) for i in range(len(ctx.rels))
-                        if str(ctx.rels[i]).rsplit(".", 1)[-1] == rs]
-            if _matched:
-                _expanded_names.extend(_matched[:10])  # cap per attribute
-            else:
-                _expanded_names.append(rs)  # keep as-is; will fail validation
-        else:
-            _expanded_names.append(rs)
-    if _expanded_names != rel_names:
-        rel_names = list(dict.fromkeys(_expanded_names))  # dedup, preserve order
-
     rel_idxs = [ctx.rels.index(r) for r in rel_names if isinstance(r, str) and r in ctx.rels]
     if not rel_idxs:
         return {"kind": "done", "result": _json_result({"error": "no valid relations provided. Pick from the candidate_relations "
@@ -3245,6 +3223,35 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     # CONSUMPTION TRACK (user ruling 2026-09-01): record every resolved
     # retrieval START (literal or ?var-expanded) — the answer-time gate
     # intercepts once when a declared plan entity never started anything.
+    # ATTRIBUTE-FAMILY EXPANSION (user design 2026-09-08): a submitted
+    # name without dots (e.g. 'actor', 'film') is an ATTRIBUTE — expand it
+    # to relations from the CENTERS' OWN POOL (2-hop + CVT) whose last
+    # component matches. MUST run after center resolution: expanding from
+    # the full graph picks unreachable relations and the walk dies as
+    # RELATION_MISMATCH (30 vs 18 in the first rollout).
+    _has_attr = any("." not in str(r).strip() and str(r).strip() for r in rel_names)
+    if _has_attr and centers:
+        _center_pool = set()
+        for _cn, _ci in centers:
+            _center_pool |= _seq_pool_relids(ctx, {_ci})
+        _expanded = []
+        for r in rel_names:
+            rs = str(r).strip()
+            if "." not in rs and rs:
+                _matched = [str(ctx.rels[i]) for i in _center_pool
+                            if str(ctx.rels[i]).rsplit(".", 1)[-1] == rs]
+                _expanded.extend(_matched[:10])
+            else:
+                _expanded.append(rs)
+        rel_names = list(dict.fromkeys(_expanded))
+        rel_idxs = [ctx.rels.index(r) for r in rel_names
+                    if isinstance(r, str) and r in ctx.rels]
+        if not rel_idxs:
+            return {"kind": "done", "result": _json_result({
+                "error": f"attribute '{rel_names[0]}' has no matching relations "
+                         f"in this center's reachable pool. Try a different "
+                         f"attribute or the full relation name."})}
+
     _cons = getattr(ctx, "consumed_anchors", None)
     if _cons is None:
         _cons = ctx.consumed_anchors = set()
