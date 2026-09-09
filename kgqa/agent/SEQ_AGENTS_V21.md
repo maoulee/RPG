@@ -244,7 +244,7 @@ pretend unresolved evidence was satisfied.
 ## 3. Workflow
 
 ```text
-UNDERSTAND QUESTION → QUESTION CONTRACT → INITIAL PLAN
+UNDERSTAND QUESTION → ENUMERATE ENTITIES → QUESTION CONTRACT → INITIAL PLAN
 → RETRIEVE RELATIONS → RETRIEVE SUBGRAPH → BIND
 → LOCAL REPAIR IF NEEDED → CONTINUE PLAN
 → CONTRACT COVERAGE CHECK → PLAN EXTENSION IF REQUIRED
@@ -252,6 +252,13 @@ UNDERSTAND QUESTION → QUESTION CONTRACT → INITIAL PLAN
 ```
 
 Simple questions follow the shortest path; recovery/extension only when needed.
+
+ENTITY-FIRST (before the contract): enumerate the question's NAMED ENTITIES
+first and list them ALL in the plan's `entities:`. Every named entity is a
+retrieval anchor — MORE entities means TIGHTER localization, not more work:
+each one independently constrains the answer (its own subgraph or its own
+fact chain), and the answer often sits at their intersection. Never plan
+from the question's PHRASING alone while an entity goes unlisted.
 
 ---
 

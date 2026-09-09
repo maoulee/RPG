@@ -221,11 +221,87 @@ def render_v38_ack(treq, bres, ctx):
         return f"{mid} [{at}]" if at else mid
 
     lines = []
+
+    # ── CVT-TAIL COMPRESSION (user approval 2026-09-09) ─────────────────────
+    # A row with MANY CVT tails (Miley --actor.film--> 18 bare mids) is noise:
+    # mids are never answers, and per-mid brackets repeat the overlapping
+    # values 18× (actor=Miley Cyrus in every record). For (h,r) rows with ≥4
+    # CVT tails, collapse the tail set to its GTE-ranked attribute content —
+    # per KEY: the DISTINCT values (question-ranked keys first, submitted
+    # components next); a key with ONE distinct value folds to `k=v (×n)`.
+    # A/B (user design 2026-09-09): SEQ_CVT_STYLE=inline puts the collapsed
+    # form IN the row; =block leaves a pointer in the row and appends an
+    # `event attributes` section after the relation sections.
+    _CVT_COMPRESS_MIN = 4
+
+    def _cvt_tail_keys(mids, red):
+        # per-key distinct values across the tail set (top-K filtered, same
+        # discipline as cvt_disp), keys ordered: GTE rank, then the rest
+        kv = defaultdict(set)
+        for mid in mids:
+            for a in cvt_graph.get(mid, ()):
+                if "=" not in a:
+                    continue
+                k, v = a.split("=", 1)
+                k, v = k.strip(), v.strip()
+                if not v or v.lower() in red or k in _NOISY_ATTR:
+                    continue
+                if len(v) >= 60:
+                    continue
+                kv[k].add(v)
+        if not kv:
+            return []
+        if _kranked_keys and _K > 0:
+            _topk = set(_kranked_keys[:_K]) | _submitted_components
+            kv = {k: vs for k, vs in kv.items() if k in _topk} or kv
+        order = {k: i for i, k in enumerate(_kranked_keys or [])}
+
+        def _kord(k):
+            # submitted components rank right after the GTE top keys
+            return (0, order.get(k, 99)) if k in order else (1, k)
+        return sorted(kv.items(), key=lambda kv_: _kord(kv_[0]))
+
+    def _cvt_tail_summary(h, r, mids):
+        red = {h.lower()}
+        kv = _cvt_tail_keys(mids, red)
+        if not kv:
+            return ""
+        parts = []
+        for k, vs in kv[:3]:
+            vs = sorted(vs)
+            if len(vs) == len(mids) and len(vs) == 1:
+                parts.append(f"{k}={next(iter(vs))} (×{len(mids)})")
+            else:
+                shown = " | ".join(vs[:8])
+                more = f" …(+{len(vs) - 8})" if len(vs) > 8 else ""
+                parts.append(f"{k}: {shown}{more}")
+        return f"{len(mids)} event records · " + " · ".join(parts)
+
+    _cvt_block = []               # block-mode deferred summaries
+    _style = os.environ.get("SEQ_CVT_STYLE", "inline").strip().lower()
+    n = 0                         # synthetic-entry counter for compressed rows
+
     # shape 1: same h + r → many tails (direct + records share the row space)
     tails_of = defaultdict(dict)        # (h, r) -> {t: display}
     for h, r, t in direct:
         tails_of[(h, r)][t] = t
     for (h, r), mids in rec_out.items():
+        _mset = sorted(m for m in mids if _cvt(m))
+        if len(_mset) >= _CVT_COMPRESS_MIN:
+            _sum = _cvt_tail_summary(h, r, _mset)
+            if _sum:
+                # the whole mid tail set becomes ONE entry (repeating the
+                # summary per mid would echo it 18×) — named direct tails
+                # in the same (h, r) row are untouched
+                for mid in mids:
+                    tails_of[(h, r)].pop(mid, None)
+                if _style == "block":
+                    _cvt_block.append((r, h, _sum))
+                    tails_of[(h, r)][f"__evt{n}"] = f"(↓ {len(mids)} event records)"
+                else:
+                    tails_of[(h, r)][f"__evt{n}"] = f"({_sum})"
+                n += 1
+                continue
         for mid in mids:
             tails_of[(h, r)][mid] = cvt_disp(mid, {h.lower()})
     # shape 2: singletons regroup many heads → same r + t
@@ -316,4 +392,10 @@ def render_v38_ack(treq, bres, ctx):
         L.append("▸ other walked relations:")
         for r in other:
             L.extend(f"    {row}" for row in by_rel[r])
+    if _cvt_block:
+        # BLOCK MODE (SEQ_CVT_STYLE=block): the compressed attribute content
+        # of large CVT-tail rows lives here, one line per (relation, head)
+        L.append("▸ event attributes (compressed from the ↓-marked rows):")
+        for r, h, s in _cvt_block:
+            L.append(f"    {h} --{r}--> {s}")
     return "\n".join(L)
