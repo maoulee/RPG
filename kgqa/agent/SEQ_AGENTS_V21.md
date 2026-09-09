@@ -33,6 +33,18 @@ entities: EntityX | EntityY
   ?variable) — NEVER `entities:`. retrieve_subgraph's `relations:` must be
   names from the last retrieve_relations output.
 
+* MULTI-ENTITY CENTERS: `center:` accepts several entities at once
+  (`center: EntityA | EntityB | ...`) — ONE shared relation set is applied
+  to every center and the results render together, so you can COMPARE
+  candidates side by side in one call (latest/largest/incumbent questions:
+  discriminator edges like dates or `--to--> (incumbent)` appear as their
+  own edges). Use this whenever a fact's HEAD holds several candidate
+  entities — never retrieve them one by one.
+* A ?variable center expands to ALL its declared bindings. Multi-binding
+  sets are processed TOGETHER: never narrow a multi-binding variable to one
+  representative entity, and never repair individual entities of the set
+  separately — re-call with the variable.
+
 * The plan's `answer_type` is a SEMANTIC ROLE HINT, not a hard constraint.
   It describes the role the question asks for; it is NEVER a reason to
   reject a graph-supported answer, extend the plan, retrieve another fact,
@@ -285,6 +297,13 @@ never generic concepts). Same-anchor sequential facts stay one subgraph;
 independent named constraints may become separate subgraphs binding the
 same answer variable. HEAD is the anchor or an earlier variable; TAIL is
 entity-valued.
+
+Multi-entity facts: when a fact's HEAD is a multi-binding ?var (a set of
+candidate entities), ONE retrieve_subgraph call with `center: ?var`
+retrieves every binding under the shared relation set — compare the
+candidates from that one subgraph's triples; only retrieve further when the
+shared evidence does not discriminate. Do NOT plan comparisons/set
+operations as facts, and do NOT iterate the set entity by entity.
 
 Do NOT plan comparisons/set-operations as facts ("compare dates → ?answer").
 

@@ -3037,10 +3037,13 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 if t in groups:
                     groups[t].append(r)
         lines = []
-        for attr in attr_ranked:    # attribute GTE rank orders the groups
-            for t, members in groups.items():
-                if not members or t.rsplit(".", 1)[-1] != attr:
-                    continue
+        # ORDERING (user ruling 2026-09-09): ① attributes by GTE rank;
+        # ② within an attribute, typed groups sorted by type+attribute key
+        # (deterministic — dict insertion order varied with GTE rel rank).
+        for attr in attr_ranked:    # attribute GTE rank orders the sections
+            for t in sorted(t for t in groups
+                            if groups[t] and t.rsplit(".", 1)[-1] == attr):
+                members = groups[t]
                 shown = members[:_ATTR_GROUP_THRESHOLD]
                 more = (f" …(+{len(members)-_ATTR_GROUP_THRESHOLD})"
                         if len(members) > _ATTR_GROUP_THRESHOLD else "")
@@ -3051,10 +3054,18 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 break
         if lines:
             _grouped = "\n".join(f"  {ln}" for ln in lines)
+            _apos = {a: i for i, a in enumerate(attr_ranked)}
+
+            def _order(rn: str):
+                t = _typed(rn)
+                return (_apos.get(t.rsplit(".", 1)[-1], 999), t)
+
+            _flat = sorted((str(ctx.rels[i]) for i in cands[:30]
+                            if isinstance(i, int) and 0 <= i < len(ctx.rels)),
+                           key=_order)[:15]
             return _json_result({
                 "entities": treq["entities"], "question": treq["question"],
-                "candidate_relations": [str(ctx.rels[i]) for i in cands[:15]
-                                        if isinstance(i, int) and 0 <= i < len(ctx.rels)],
+                "candidate_relations": _flat,
                 "grouped_relations": _grouped,
                 "note": ("Pick 1-2 TARGET GROUPS (typed names below). Submit "
                          "the TYPED NAME (e.g. relations: baseball_division.teams "
