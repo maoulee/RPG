@@ -3180,10 +3180,19 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     if _err:
         return {"kind": "done", "result": _json_result({"error": _err})}
     _nudge = _variable_nudge(raw, ctx)
-    rel_idxs = [ctx.rels.index(r) for r in rel_names if isinstance(r, str) and r in ctx.rels]
-    if not rel_idxs:
-        return {"kind": "done", "result": _json_result({"error": "no valid relations provided. Pick from the candidate_relations "
-                                      "returned by retrieve_relations."})}
+    # ATTRIBUTE-FAMILY pre-check: if any submitted name lacks dots, it's an
+    # attribute — skip the early validation (the full-name check would reject
+    # it here); the expansion after center resolution handles it
+    _has_attr_name = any("." not in str(r).strip() and str(r).strip()
+                         for r in rel_names)
+    if not _has_attr_name:
+        rel_idxs = [ctx.rels.index(r) for r in rel_names
+                    if isinstance(r, str) and r in ctx.rels]
+        if not rel_idxs:
+            return {"kind": "done", "result": _json_result({"error": "no valid relations provided. Pick from the candidate_relations "
+                                          "returned by retrieve_relations."})}
+    else:
+        rel_idxs = []  # will be populated after attribute expansion
 
     # resolve + boundary-check each center. value-like inputs require EXACT match (fuzzy
     # resolves unreliably: 'UTC-05:00' -> 'UTC−04:00'); skip entities not yet in the
