@@ -8011,6 +8011,20 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   未消费路径保留/单锚抑制/闩锁/空图触发);套件 141 passed。
 - **rollout**: reports/v38_gatefix_48x3.json(结果待出)。
 
+### 2026-09-09 gatefix rollout 结果(解耦后首验)
+- **f1 0.6575 / hit 78.5% / rest43 0.6701——首次诚实超过 joinfix 基线**
+  (0.6660),历轮最优:multientity 0.6499 < joinfix 0.6660 < gatefix 0.6701。
+- gate 形态:unconsumed-gate 12(不变),connectivity-gate 0——但审计证明
+  这是**正确抑制**而非失效:27 个多锚 case 中 13 个"全锚已消费+无 gate",
+  离线重建其证据图,5 个疑似未连通 case 全部 f1=1.00(交集型问题:两侧
+  通过**答案实体本身**在累积图连通,如 FDR 同时在 Roosevelt 与 WWII 子图)
+  ——`_anchors_disconnected` 判连通抑制正确。connectivity 模式武装的是
+  真失败形态(两侧从未合并仍作答),本 cohort 未出现。
+- 速度(bubble 日志实锤并行:"118 in flight"):gatefix wall_mean 905s,
+  与 multientity 持平——每轮延迟仍 ~120s,收窄手段待用户裁决。
+- 注意:离线重建渲染图时不能剥 m.xxx 节点(CVT 是连接器,剥掉会假报
+  未连通)。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
