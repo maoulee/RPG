@@ -7884,3 +7884,12 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   film.performance.actor);属性展开只有终点(film.performance.actor),
   缺 film.actor.film → walk 无法穿透。
 - 待用户裁决:回退 joinfix(0.664) 或修展开加桥接。
+
+### 2026-09-08 attrfamily3(早期验证 bug 修复后)
+- **0.603**,hit 78.5%——比 bug 版(0.462)恢复 +14.1pp。属性展开真正工作:
+  sg 结果 3128 chars(基线 2884),"no valid" 错误 2(之前大量),用属性轨迹
+  f1=0.606 > 不用=0.583(正向)。
+- 剩余 6.1pp 差距的两个源:①CVT 桥接缺口(属性展开缺 center→CVT 第一跳);
+  ②RELATION_MISMATCH 28 vs 18(属性匹配到池中关系但 walk 从 center 不可达)。
+- dump: tmp/teacher_audit_dump_attrfamily3.txt(18543 行,无 IG 标注的
+  raw 轨迹)。
