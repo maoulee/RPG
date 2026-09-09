@@ -7893,3 +7893,48 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   ②RELATION_MISMATCH 28 vs 18(属性匹配到池中关系但 walk 从 center 不可达)。
 - dump: tmp/teacher_audit_dump_attrfamily3.txt(18543 行,无 IG 标注的
   raw 轨迹)。
+
+## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
+
+### 当前分支与代码状态
+- **分支**: walk-perf(领先 agent-toolcall ~15 commits)
+- **最后一次完整 rollout**: attrfamily3(0.603)——属性族选择+CVT 穿透边+
+  属性分组 rr+无候选行+CVT attr top-K+join 兜底全开
+- **基线对照**: joinfix run(0.664) = 属性分组之前的一切修复(jump fix +
+  CVT 穿透 + wandered candidate + no-roster)
+- **测试**: 34-61 passed(各子集);无红色
+
+### 属性族实验完整弧线
+| run | f1 | 关键改动 |
+|-----|-----|---------|
+| joinfix(基线) | 0.664 | — |
+| attrgroup1 | 0.569 | 分组显示,旧 note 丢失 |
+| attrgroup2 | 0.587 | note 修复(+旧分类指令) |
+| attrfamily1 | 0.591 | 属性提交+全图展开(展开被早验证杀) |
+| attrfamily2 | 0.462 | pool 约束+早验证杀属性(核心 bug) |
+| **attrfamily3** | **0.603** | 早验证延后,展开真正工作 |
+
+### 待决事项(用户裁决)
+1. **属性族方案**:0.603 vs 基线 0.664——差距 6.1pp。源:①CVT 桥接缺口
+   (属性展开缺 center→CVT 第一跳)②RELATION_MISMATCH 28 vs 18。
+   选项:回退 joinfix / 修展开加桥接 / 接受现状
+2. **GTE 维度**:最优 256-384(top1 8%→15%),未实施到生产
+3. **约束执行尝试的裁决规则**(1379 微妙性)
+4. **OSPD teacher pool**:fact 块收录规则待定
+
+### 产物路径(会丢,重要结论在 SESSION_MEMORY)
+- reports/v38_attrfamily3_48x3.json(最新 run)
+- reports/v38_joinfix_48x3.json(基线 run)
+- tmp/teacher_audit_dump_attrfamily3.txt(最新 dump,18543 行)
+- tmp/struct_vars_joinfix.json(基线 IG 链)
+- tmp/*_jf.py 系列(joinfix IG 链脚本)
+- tmp/dim_test.json + /tmp/rel_embs.npy(维度扫描数据)
+
+### 服务器运维
+- vLLM :8000(Qwen3.5-9B, TP2, 0.82 util)
+- GTE :8003(Qwen3-Embedding-0.6B, GPU1 与 vLLM 共卡)
+- 4核 cgroup(128 核视图但 400000/100000 配额)
+- rollout 环境:WALK_POOL=3 WALK_BATCH_WINDOW=0.3
+  GTE_CLIENT_BATCH_WINDOW=0.08 GTE_CLIENT_BATCH_FIRST=0.02
+  BUBBLE_LLM_CONC=256(大批量) SEQ_ZH_QUESTION=tmp/zh_questions_48.json
+  SEQ_CVT_ATTR_TOPK=3(0=off) SEQ_JOIN_GATE=1(0=off)
