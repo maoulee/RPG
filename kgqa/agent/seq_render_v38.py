@@ -107,6 +107,15 @@ def render_v38_ack(treq, bres, ctx):
             if not any(k[0][i:] in node_seqs for i in range(1, len(k[0])))}
 
     # ── derive EDGES with true storage orientation ──
+    # EDGE DISPLAY SHORT NAME (user audit 2026-09-09): last TWO components
+    # (type.attribute). The bare attribute collapsed semantically different
+    # relations in one subgraph (division/facility/league/location all
+    # rendered '--teams-->') — the model could not tell which relation a row
+    # came from. Typed shorts disambiguate rows AND match the rr display's
+    # group keys.
+    def _short(rname: str) -> str:
+        return ".".join(rname.rsplit(".", 2)[-2:])
+
     edges = set()                       # (h_name, rel_short, t_name)
     for (key, _dirs), v in kept.items():
         for relsn in v["rels"]:
@@ -114,7 +123,7 @@ def render_v38_ack(treq, bres, ctx):
                 rname = relsn[i] if i < len(relsn) else None
                 if rname is None:
                     continue
-                sh = rname.rsplit(".", 1)[-1]
+                sh = _short(rname)
                 d = hop_dir(rname, key[i], key[i + 1])
                 if d == "r":
                     edges.add((key[i + 1], sh, key[i]))
@@ -132,14 +141,14 @@ def render_v38_ack(treq, bres, ctx):
                     continue
                 h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
                 if _cvt(h) and not _cvt(t):
-                    sh = r.rsplit(".", 1)[-1]
+                    sh = _short(r)
                     d = hop_dir(r, h, t)
                     if d == "r":
                         edges.add((t, sh, h))
                     else:
                         edges.add((h, sh, t))
                 elif not _cvt(h) and _cvt(t):
-                    sh = r.rsplit(".", 1)[-1]
+                    sh = _short(r)
                     d = hop_dir(r, h, t)
                     if d == "r":
                         edges.add((t, sh, h))
@@ -151,7 +160,8 @@ def render_v38_ack(treq, bres, ctx):
     # rows instead (1171 specimen: film.dubbing_performance.character folded
     # into attrs made the selected relation invisible while bridge edges
     # showed — "relations and walk results misaligned")
-    sel_shorts = {r.rsplit(".", 1)[-1] for r in sel_rels}
+    sel_shorts = {_short(r) for r in sel_rels}
+    sel_bare = {r.rsplit(".", 1)[-1] for r in sel_rels}
     cvt_graph = defaultdict(list)
     for h, rl, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
         hn = str(ents[h]) if 0 <= h < len(ents) else ""
@@ -161,7 +171,7 @@ def render_v38_ack(treq, bres, ctx):
              if 0 <= rl < len(rels) else "?")
         tv = str(ents[t]) if 0 <= t < len(ents) else str(t)
         if (not _cvt(tv) and len(tv) < 60 and k not in _NOISY_ATTR
-                and k not in sel_shorts):
+                and k not in sel_bare):
             cvt_graph[hn].append(f"{k}={tv}")
 
     # ── row building: the two legal compression shapes ──
@@ -295,7 +305,7 @@ def render_v38_ack(treq, bres, ctx):
         return txt + (f" …(+{len(ns) - 40})" if len(ns) > 40 else "")
 
     L = [f"entities: {' | '.join(center_names)}"]
-    sel_shorts = {r.rsplit(".", 1)[-1] for r in sel_rels}
+    sel_shorts = {_short(r) for r in sel_rels}
     for r in sorted(r for r in by_rel if r in sel_shorts):
         ros = roster(r)
         L.append(f"▸ --{r}-->  (retrieved"

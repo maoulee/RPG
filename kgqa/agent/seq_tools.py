@@ -3004,22 +3004,28 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 "WORKFLOW: retrieve_relations → retrieve_subgraph."})
     _nudge = treq["nudge"]
     cands = bres["cands"]
-    # ATTRIBUTE-GROUPED DISPLAY (user design 2026-09-08): relations grouped
-    # by their semantic endpoint (last component). The GTE attribute ranking
-    # orders the groups; within each group, relations are sub-ranked. Groups
-    # with >5 members are truncated to top-5 by GTE. This reduces the model's
-    # selection burden from "15 similar full names" to "pick the right
-    # attribute, then pick from 1-3 relations in that group".
+    # TYPE+ATTRIBUTE GROUPED DISPLAY (user audit 2026-09-09): grouping by
+    # the last component alone collapsed semantically different relations
+    # (film.producer.film and film.director.film both showed as 'film';
+    # division/facility/league/location all as 'teams') and the model could
+    # neither see nor express the from/to difference. Group key is now the
+    # TYPE+ATTRIBUTE (last TWO components — freebase domain.type.attribute),
+    # so each group is one semantic relation family. Ordering stays
+    # attribute-first: the GTE attribute ranking orders groups; within a
+    # group, relation GTE rank orders members.
     attr_ranked = bres.get("attr_ranked") or []
     rel_ranked = bres.get("rel_ranked") or []
     _ATTR_GROUP_THRESHOLD = 5
     if attr_ranked and rel_ranked:
         from collections import defaultdict as _dd
-        groups = _dd(list)          # attr -> [full rel names, GTE-ordered]
+
+        def _typed(r: str) -> str:
+            return ".".join(r.rsplit(".", 2)[-2:])
+
+        groups = _dd(list)          # typed key -> [full rel names, GTE-ordered]
         rel_set = set(rel_ranked)
         for r in rel_ranked:
-            last = r.rsplit(".", 1)[-1] if "." in r else r
-            groups[last].append(r)
+            groups[_typed(r)].append(r)
         # also include relations from the original cands that GTE didn't rank
         # (cands are indices — convert, fill the tail of each group)
         for i in cands[:30]:
@@ -3027,18 +3033,20 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 continue
             r = str(ctx.rels[i])
             if r not in rel_set and "." in r:
-                last = r.rsplit(".", 1)[-1]
-                if last in groups:
-                    groups[last].append(r)
+                t = _typed(r)
+                if t in groups:
+                    groups[t].append(r)
         lines = []
-        for attr in attr_ranked:
-            members = groups.get(attr, [])
-            if not members:
-                continue
-            shown = members[:_ATTR_GROUP_THRESHOLD]
-            more = (f" …(+{len(members)-_ATTR_GROUP_THRESHOLD})"
-                    if len(members) > _ATTR_GROUP_THRESHOLD else "")
-            lines.append(f"{attr} ← {', '.join(shown)}{more}")
+        for attr in attr_ranked:    # attribute GTE rank orders the groups
+            for t, members in groups.items():
+                if not members or t.rsplit(".", 1)[-1] != attr:
+                    continue
+                shown = members[:_ATTR_GROUP_THRESHOLD]
+                more = (f" …(+{len(members)-_ATTR_GROUP_THRESHOLD})"
+                        if len(members) > _ATTR_GROUP_THRESHOLD else "")
+                lines.append(f"{t} ← {', '.join(shown)}{more}")
+                if len(lines) >= 12:
+                    break
             if len(lines) >= 12:
                 break
         if lines:
@@ -3048,14 +3056,15 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 "candidate_relations": [str(ctx.rels[i]) for i in cands[:15]
                                         if isinstance(i, int) and 0 <= i < len(ctx.rels)],
                 "grouped_relations": _grouped,
-                "note": ("Pick 1-2 TARGET ATTRIBUTES (group names below). "
-                         "Call retrieve_subgraph with the ATTRIBUTE NAME "
-                         "(e.g. relations: actor | character) — the system "
-                         "auto-expands it to ALL matching relations from this "
-                         "center. Or submit full relation names if you need "
-                         "precision. 1-2 attributes is the norm; picking more "
-                         "costs retrieval budget. For any fact after the first, "
-                         "pass the entity variable (?var). "
+                "note": ("Pick 1-2 TARGET GROUPS (typed names below). Submit "
+                         "the TYPED NAME (e.g. relations: baseball_division.teams "
+                         "| producer.film) — it expands to exactly that group's "
+                         "relations. A BARE attribute (relations: teams) expands "
+                         "to ALL relations with that attribute across types — "
+                         "wider retrieval, use it only when the type is unclear. "
+                         "Full relation names are also accepted. 1-2 groups is "
+                         "the norm; more costs retrieval budget. For any fact "
+                         "after the first, pass the entity variable (?var). "
                          + (_nudge + " " if _nudge else "")),
             })
     # FALLBACK: no attribute ranking (GTE failure) — flat list as before
@@ -3183,8 +3192,14 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     # ATTRIBUTE-FAMILY pre-check: if any submitted name lacks dots, it's an
     # attribute — skip the early validation (the full-name check would reject
     # it here); the expansion after center resolution handles it
-    _has_attr_name = any("." not in str(r).strip() and str(r).strip()
-                         for r in rel_names)
+    _relset = {str(r) for r in ctx.rels}
+
+    def _is_family(rs: str) -> bool:
+        # family name = bare attribute ('actor') OR typed name that is not a
+        # full relation ('baseball_division.teams' — the rr display's group key)
+        return bool(rs) and ("." not in rs or rs not in _relset)
+
+    _has_attr_name = any(_is_family(str(r).strip()) for r in rel_names)
     if not _has_attr_name:
         rel_idxs = [ctx.rels.index(r) for r in rel_names
                     if isinstance(r, str) and r in ctx.rels]
@@ -3233,11 +3248,12 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     # retrieval START (literal or ?var-expanded) — the answer-time gate
     # intercepts once when a declared plan entity never started anything.
     # ATTRIBUTE-FAMILY EXPANSION (user design 2026-09-08): a submitted
-    # name without dots (e.g. 'actor', 'film') is an ATTRIBUTE — expand it
-    # to relations that can serve as a path edge from the centers. MUST run
-    # after center resolution: expanding from the full graph picks
-    # unreachable relations and the walk dies as RELATION_MISMATCH (30 vs
-    # 18 in the first rollout).
+    # family name — BARE attribute ('actor', 'film') or TYPED group name
+    # ('baseball_division.teams', the rr display's group key, user audit
+    # 2026-09-09) — expands to relations that can serve as a path edge from
+    # the centers. MUST run after center resolution: expanding from the full
+    # graph picks unreachable relations and the walk dies as
+    # RELATION_MISMATCH (30 vs 18 in the first rollout).
     # CVT BRIDGE (user ruling 2026-09-09, position rule): expansion is
     # POSITIONAL, not hop-based — a CVT as the last or second-to-last path
     # entity is expanded; the 2-hop budget governs relation SELECTION only,
@@ -3248,7 +3264,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     # then reveals the terminal edge. Matching the terminal edge alone walked
     # ZERO edges (sg 707 vs 2884 chars, attrfamily2): the bridge is what
     # makes a family walkable.
-    _has_attr = any("." not in str(r).strip() and str(r).strip() for r in rel_names)
+    _has_attr = _has_attr_name
     _fam_echo = {}
     if _has_attr and centers:
         from kgqa.agent.tools import _full_adj
@@ -3269,46 +3285,58 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                                    if 0 <= ri < len(ctx.rels) else "?")
             return lc
 
+        def _typed(ri):
+            rn = str(ctx.rels[ri]) if 0 <= ri < len(ctx.rels) else "?"
+            return ".".join(rn.rsplit(".", 2)[-2:])
+
         _expanded = []
         _fam0 = ""
         for r in rel_names:
             rs = str(r).strip()
-            if "." not in rs and rs:
+            if _is_family(rs):
                 _fam0 = _fam0 or rs
+                _typedq = "." in rs    # typed query: match last TWO components
                 _mk = (_ckey, rs)
+
+                def _fmatch(ri):
+                    return _typed(ri) == rs if _typedq else _last(ri) == rs
+
                 if _mk in _fmemo:
                     _names, _bids = _fmemo[_mk]
                 else:
-                    _names, _bids = [], set()
+                    # DIRECT part: matches from the center's 2-hop pool — a
+                    # pool relation is a legal PATH edge (hop-2 relations are
+                    # walk-selectable; CVT-transparent reach included).
+                    _names = sorted({ri for _cn, _ci in centers
+                                     for ri in _seq_pool_relids(ctx, {_ci})
+                                     if _fmatch(ri)})[:10]
+                    # BRIDGE part (adjacency): the center→carrier edge when
+                    # the carrier — the terminal edge's own CVT, or a holder
+                    # behind it — touches the family. Terminal pool matches
+                    # never touch the center (hop-1 death); the bridge is
+                    # what makes them walkable.
+                    _bids = set()
                     for _cn, _ci in centers:
                         if not (0 <= _ci < len(_adj)):
                             continue
                         _scanned = set()
                         for _ri, _ni in _adj[_ci]:
-                            if _last(_ri) == rs and _ri not in _names:
-                                _names.append(_ri)
                             if (_ni in _scanned or not (0 <= _ni < _n_ents)
                                     or len(_bids) >= 6):
                                 continue
                             _scanned.add(_ni)
-                            # carrier scan: does this neighbor — the terminal
-                            # edge's own CVT, or a holder behind it — touch the
-                            # family? If yes, the edge _ri bridges center→carrier.
-                            _hit = any(_last(_rj) == rs
+                            _hit = any(_fmatch(_rj)
                                        for _rj, _nj in _adj[_ni] if _nj != _ci)
                             if not _hit and is_cvt_like(ctx.ents[_ni]):
                                 for _rj, _mj in _adj[_ni]:
                                     if _mj == _ci or not (0 <= _mj < _n_ents):
                                         continue
-                                    if any(_last(_rk) == rs
+                                    if any(_fmatch(_rk)
                                            for _rk, _nk in _adj[_mj]):
                                         _hit = True
                                         break
                             if _hit:
                                 _bids.add(_ri)
-                        if len(_names) >= 10 and len(_bids) >= 6:
-                            break
-                    _names = _names[:10]
                     _fmemo[_mk] = (_names, _bids)
                 _name_set = set(_names)
                 _dnames = [str(ctx.rels[i]) for i in _names]
@@ -3949,8 +3977,9 @@ def _sg_finalize(treq, bres, ctx) -> str:
                   "'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. "
                   "Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound "
                   "entities whose ATTRIBUTES are the event's content. EXAMPLE: "
-                  "'m.0abc --character--> Denver | --actor--> Jon Favreau' means 'a performance "
-                  "event where the character Denver was played by Jon Favreau'. Event nodes are "
+                  "'m.0abc --performance.character--> Denver | --performance.actor--> "
+                  "Jon Favreau' means 'a performance event where the character Denver "
+                  "was played by Jon Favreau'. Event nodes are "
                   "NEVER answer candidates and NEVER variable bindings — answer and bind with "
                   "the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). "
                   "Discriminator attributes (dates, incumbent) appear as their own edges — read "
