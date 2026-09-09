@@ -7894,6 +7894,30 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - dump: tmp/teacher_audit_dump_attrfamily3.txt(18543 行,无 IG 标注的
   raw 轨迹)。
 
+### 2026-09-09 CVT 桥接修复(用户裁决:修展开加桥接)
+- **人工审计结论**(attrfamily3 dump 复核):①dump 折叠了工具结果,看不见
+  GTE 展示/模型选择;②CVT 选择展开大量未生效。
+- **用户位置规则(纠正判定框架)**:CVT 展开是**位置规则**——CVT 是路径最后
+  或倒数第二个实体 → 展开;与跳数无关。2 跳是**关系选择**的预算;有 CVT 时
+  可延长一条边(3 边窗)判定关系是否作为路径。
+- **根因**:族名匹配用 `_seq_pool_relids`(含 2-hop+CVT 透明跳),匹配到的
+  终点边(`film.performance.actor`)不触 center → walk 0 边 → RELATION_
+  MISMATCH。修法:`_sg_prepare` 族名展开改为邻接扫描——直连匹配(触 center,
+  cap 10)+ **桥接**(center→载体:邻居触族名,或 CVT 邻居的 behind 实体触
+  族名,cap 6)。终点边不进 rel_idxs(不触 center,walk 的既有穿透揭示它)。
+  ctx 记忆化:`_rel_last_memo`(rel→末组件)+`_fam_expand_memo`((centers,族)
+  →展开)。
+- **展开回显**:sg 结果新增 `relation_expansion`(族→{direct,bridge}),
+  RELATION_MISMATCH 错误路径同样带——模型可自审,轨迹可审计。
+- **顺手修**:族名零匹配时 `rel_names[0]` IndexError(旧代码潜伏 bug)。
+- **dump 可见性**:`scripts/dump_teacher_audit.py`(gitignored)——全 case
+  全量未折叠 dump(GTE 候选列表/分组/think/调用/三元组),标签嗅探。
+  旧 run 重dump:tmp/teacher_audit_dump_attrfamily3_full.txt(70400 行)。
+- 测试:tmp/test_bridge_smoke.py 合成图 7 检查全过;套件 141 passed
+  (test_cvt_passthrough 依赖丢失的 data pkl,test_skill_aggregation 的
+  subgraph_kgqa 导入为历史遗留)。
+- **rollout**:reports/v38_attrbridge_48x3.json(桥接版,结果待出)。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态

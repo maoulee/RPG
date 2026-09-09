@@ -3234,22 +3234,89 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     # intercepts once when a declared plan entity never started anything.
     # ATTRIBUTE-FAMILY EXPANSION (user design 2026-09-08): a submitted
     # name without dots (e.g. 'actor', 'film') is an ATTRIBUTE — expand it
-    # to relations from the CENTERS' OWN POOL (2-hop + CVT) whose last
-    # component matches. MUST run after center resolution: expanding from
-    # the full graph picks unreachable relations and the walk dies as
-    # RELATION_MISMATCH (30 vs 18 in the first rollout).
+    # to relations that can serve as a path edge from the centers. MUST run
+    # after center resolution: expanding from the full graph picks
+    # unreachable relations and the walk dies as RELATION_MISMATCH (30 vs
+    # 18 in the first rollout).
+    # CVT BRIDGE (user ruling 2026-09-09, position rule): expansion is
+    # POSITIONAL, not hop-based — a CVT as the last or second-to-last path
+    # entity is expanded; the 2-hop budget governs relation SELECTION only,
+    # and a CVT mid-path stretches the window by one edge. The family's
+    # terminal edge (film.performance.actor) or its behind-entity
+    # (people.person.religion) never touches the center, so the walk needs
+    # the BRIDGE (center→CVT) submitted alongside — the existing penetration
+    # then reveals the terminal edge. Matching the terminal edge alone walked
+    # ZERO edges (sg 707 vs 2884 chars, attrfamily2): the bridge is what
+    # makes a family walkable.
     _has_attr = any("." not in str(r).strip() and str(r).strip() for r in rel_names)
+    _fam_echo = {}
     if _has_attr and centers:
-        _center_pool = set()
-        for _cn, _ci in centers:
-            _center_pool |= _seq_pool_relids(ctx, {_ci})
+        from kgqa.agent.tools import _full_adj
+        _adj = _full_adj(ctx)
+        _n_ents = len(ctx.ents)
+        _lmemo = getattr(ctx, "_rel_last_memo", None)
+        if _lmemo is None:
+            _lmemo = ctx._rel_last_memo = {}
+        _fmemo = getattr(ctx, "_fam_expand_memo", None)
+        if _fmemo is None:
+            _fmemo = ctx._fam_expand_memo = {}
+        _ckey = tuple(sorted(_ci for _cn, _ci in centers))
+
+        def _last(ri):
+            lc = _lmemo.get(ri)
+            if lc is None:
+                lc = _lmemo[ri] = (str(ctx.rels[ri]).rsplit(".", 1)[-1]
+                                   if 0 <= ri < len(ctx.rels) else "?")
+            return lc
+
         _expanded = []
+        _fam0 = ""
         for r in rel_names:
             rs = str(r).strip()
             if "." not in rs and rs:
-                _matched = [str(ctx.rels[i]) for i in _center_pool
-                            if str(ctx.rels[i]).rsplit(".", 1)[-1] == rs]
-                _expanded.extend(_matched[:10])
+                _fam0 = _fam0 or rs
+                _mk = (_ckey, rs)
+                if _mk in _fmemo:
+                    _names, _bids = _fmemo[_mk]
+                else:
+                    _names, _bids = [], set()
+                    for _cn, _ci in centers:
+                        if not (0 <= _ci < len(_adj)):
+                            continue
+                        _scanned = set()
+                        for _ri, _ni in _adj[_ci]:
+                            if _last(_ri) == rs and _ri not in _names:
+                                _names.append(_ri)
+                            if (_ni in _scanned or not (0 <= _ni < _n_ents)
+                                    or len(_bids) >= 6):
+                                continue
+                            _scanned.add(_ni)
+                            # carrier scan: does this neighbor — the terminal
+                            # edge's own CVT, or a holder behind it — touch the
+                            # family? If yes, the edge _ri bridges center→carrier.
+                            _hit = any(_last(_rj) == rs
+                                       for _rj, _nj in _adj[_ni] if _nj != _ci)
+                            if not _hit and is_cvt_like(ctx.ents[_ni]):
+                                for _rj, _mj in _adj[_ni]:
+                                    if _mj == _ci or not (0 <= _mj < _n_ents):
+                                        continue
+                                    if any(_last(_rk) == rs
+                                           for _rk, _nk in _adj[_mj]):
+                                        _hit = True
+                                        break
+                            if _hit:
+                                _bids.add(_ri)
+                        if len(_names) >= 10 and len(_bids) >= 6:
+                            break
+                    _names = _names[:10]
+                    _fmemo[_mk] = (_names, _bids)
+                _name_set = set(_names)
+                _dnames = [str(ctx.rels[i]) for i in _names]
+                _bridges = [str(ctx.rels[i]) for i in sorted(_bids)
+                            if i not in _name_set][:6]
+                _fam_echo[rs] = {"direct": _dnames, "bridge": _bridges}
+                _expanded.extend(_dnames)
+                _expanded.extend(_bridges)
             else:
                 _expanded.append(rs)
         rel_names = list(dict.fromkeys(_expanded))
@@ -3257,7 +3324,8 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                     if isinstance(r, str) and r in ctx.rels]
         if not rel_idxs:
             return {"kind": "done", "result": _json_result({
-                "error": f"attribute '{rel_names[0]}' has no matching relations "
+                "error": f"attribute '{_fam0 or (rel_names[0] if rel_names else '?')}' "
+                         f"has no matching relations "
                          f"in this center's reachable pool. Try a different "
                          f"attribute or the full relation name."})}
 
@@ -3269,7 +3337,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             _cons.add(str(_cn).strip().lower())
     return {"kind": "sg", "corr": bad_name, "centers": centers, "skipped": skipped,
             "rel_idxs": rel_idxs, "rel_names": rel_names, "fid": fid,
-            "entities": entities, "nudge": _nudge,
+            "entities": entities, "nudge": _nudge, "attr_expansion": _fam_echo,
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
@@ -3603,15 +3671,18 @@ def _sg_finalize(treq, bres, ctx) -> str:
         all_triples, candidates, bres = _display_license_filter(
             treq, bres, centers, all_triples, candidates)
     if not all_triples:
-        return _json_result({"error": "the walk reached nothing for these relations. "
-                             "diagnosis: RELATION_MISMATCH — the fact is right but "
-                             "these relations do not instantiate it in this graph. "
-                             "Re-call retrieve_subgraph with OTHER candidate relations "
-                             "you were shown; if none fits, re-call retrieve_relations "
-                             "with a REWORDED question (same wording = same list). "
-                             "Or, if only the center was wrong, borrow a center from "
-                             "earlier evidence.",
-                             "entities": entities, "relations": rel_names})
+        _err = {"error": "the walk reached nothing for these relations. "
+                "diagnosis: RELATION_MISMATCH — the fact is right but "
+                "these relations do not instantiate it in this graph. "
+                "Re-call retrieve_subgraph with OTHER candidate relations "
+                "you were shown; if none fits, re-call retrieve_relations "
+                "with a REWORDED question (same wording = same list). "
+                "Or, if only the center was wrong, borrow a center from "
+                "earlier evidence.",
+                "entities": entities, "relations": rel_names}
+        if treq.get("attr_expansion"):
+            _err["relation_expansion"] = treq["attr_expansion"]
+        return _json_result(_err)
 
     # ensure ALL tree-visible entities (incl CVT-attr entities pe.triples may miss) are answerable
     _collect_cvt_neighbors_to_pool(ctx)
@@ -3865,7 +3936,7 @@ def _sg_finalize(treq, bres, ctx) -> str:
     # question KEEPS actor= values — 1171's gold is one; a film question
     # DROPS character= names — 25 specimen). Display-only: the legality
     # pool (walk_seen_entities / all_candidates) is untouched.
-    return _json_result({
+    _res = {
         "fact_id": fid,
         "entities": [e for e, _ in centers] if not _v36 else "",
         "triples": "\n".join(tree_lines) if tree_lines else "(empty)",
@@ -3886,7 +3957,15 @@ def _sg_finalize(treq, bres, ctx) -> str:
                   "them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence "
                   "its pattern paths justify — an edge may legitimately reappear across subgraphs "
                   "with its complete tail set. Pick the next center FROM these triples."),
-    })
+    }
+    if treq.get("attr_expansion"):
+        # FAMILY EXPANSION ECHO (user audit 2026-09-09): show what each
+        # submitted attribute was expanded to — direct matches (relations
+        # touching the center) plus CVT bridges (center→carrier) — so the
+        # model audits its own selection and the trajectory shows the
+        # expansion instead of hiding it.
+        _res["relation_expansion"] = treq["attr_expansion"]
+    return _json_result(_res)
 
 
 async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
