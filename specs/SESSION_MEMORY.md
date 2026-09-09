@@ -8025,6 +8025,23 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - 注意:离线重建渲染图时不能剥 m.xxx 节点(CVT 是连接器,剥掉会假报
   未连通)。
 
+### 2026-09-09 人工审核第十四轮:CVT 答案漏网根因 = 终端恢复推翻防线
+- **用户发现**(multientity run, WebQTest-1923 s0):答案 = 18 个 m.xxx,
+  f1=0.00。问:CVT 不能当答案,harness/提示语为什么没拦?
+- **审计结论**:提示语有(§0 never answer or bind),harness 有两道且**都
+  触发了**——①checkpoint §7.5 剥离+警告;②answer 工具全 mid 一次性拒绝
+  (tools.py:2077)。真凶是 **rescue_terminal_answer**:`_last_answer_
+  entities` 用正则读轨迹原文恢复答案,不做 mid 剥离——被拒绝的 mid 列表
+  原样捞回(rescued=True),两道防线被终端恢复推翻。
+- **修复**(commit "strip event-node mids from terminal answer recovery"):
+  恢复的三个来源(answer 调用/ANSWER: 行/checkpoint 行)全部剥 [mg]. id;
+  全 mid 来源落到下一来源(干净 checkpoint),全 mid case 恢复为空。
+- 冒烟:tmp/test_rescue_midstrip.py 4 检查全过;套件 141 passed。
+- 规模:0-2 例/run(joinfix 也有 2),全部 f1=0——老失败模式,非新回归。
+- **次要展示缺口(未修,待裁决)**:tier-1 direct 行 `Miley --actor.film-->
+  [mids]` 尾集是 CVT 但无属性括号(片名在后续 starring/music 行)——模型
+  "忠实于所见"答 mid。可选修:direct 行 mid 尾补 `[film=...]` 括号。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
