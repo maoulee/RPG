@@ -2927,7 +2927,13 @@ def _rr_prepare(args: Dict[str, Any], ctx) -> dict:
 async def _rr_execute(treq, ctx, session):
     """B段: the GTE correction (or the per-entity ranking awaits). Sequential
     per request — the candidate ORDER is per-entity rank order, unioned in
-    entity order (the collector batches across cases)."""
+    entity order (the collector batches across cases).
+
+    ATTRIBUTE-FIRST RANKING (user design 2026-09-08): one GTE call ranks
+    BOTH the attribute names AND the full relation names together. The
+    attribute ranking identifies the question's target semantic role; the
+    relation ranking provides secondary ordering within each attribute
+    group — no extra GTE call needed."""
     if treq["kind"] == "corr":
         cands = await _entity_correction(treq["entity"], treq["question"], ctx, session)
         return {"cands": cands}
@@ -2938,7 +2944,30 @@ async def _rr_execute(treq, ctx, session):
         for r in ranked:
             if r not in seen:
                 seen.add(r); cands.append(r)
-    return {"cands": cands}
+    # ATTRIBUTE-FIRST: derive attribute names from the ranked relations and
+    # rank them in the SAME GTE call (add as extra candidates — piggyback,
+    # no second round-trip). We use the /retrieve endpoint directly since
+    # _gte_for_triple works on indices, not names.
+    try:
+        from kgqa.stages.stage2_entity import gte_retrieve, GTE_INSTRUCT
+        # cands are relation INDICES — convert to full names first
+        pool_rel_names = [str(ctx.rels[i]) for i in cands
+                          if 0 <= i < len(ctx.rels)]
+        attr_names = sorted({r.rsplit(".", 1)[-1] for r in pool_rel_names
+                             if "." in r})
+        combined = attr_names + pool_rel_names[:15]
+        rows = await gte_retrieve(session, treq["question"], combined,
+                                  top_k=len(combined), instruct=GTE_INSTRUCT)
+        ranked_combined = [r.get("candidate") for r in (rows or [])
+                           if r.get("candidate") in combined]
+        attr_set = set(attr_names)
+        attr_ranked = [c for c in ranked_combined if c in attr_set]
+        rel_ranked = [c for c in ranked_combined if c not in attr_set]
+        attr_ranked += [a for a in attr_names if a not in set(attr_ranked)]
+        rel_ranked += [r for r in pool_rel_names[:15] if r not in set(rel_ranked)]
+        return {"cands": cands, "attr_ranked": attr_ranked, "rel_ranked": rel_ranked}
+    except Exception:
+        return {"cands": cands}
 
 
 def _rr_finalize(treq, bres, ctx) -> str:
@@ -2975,6 +3004,59 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 "WORKFLOW: retrieve_relations → retrieve_subgraph."})
     _nudge = treq["nudge"]
     cands = bres["cands"]
+    # ATTRIBUTE-GROUPED DISPLAY (user design 2026-09-08): relations grouped
+    # by their semantic endpoint (last component). The GTE attribute ranking
+    # orders the groups; within each group, relations are sub-ranked. Groups
+    # with >5 members are truncated to top-5 by GTE. This reduces the model's
+    # selection burden from "15 similar full names" to "pick the right
+    # attribute, then pick from 1-3 relations in that group".
+    attr_ranked = bres.get("attr_ranked") or []
+    rel_ranked = bres.get("rel_ranked") or []
+    _ATTR_GROUP_THRESHOLD = 5
+    if attr_ranked and rel_ranked:
+        from collections import defaultdict as _dd
+        groups = _dd(list)          # attr -> [full rel names, GTE-ordered]
+        rel_set = set(rel_ranked)
+        for r in rel_ranked:
+            last = r.rsplit(".", 1)[-1] if "." in r else r
+            groups[last].append(r)
+        # also include relations from the original cands that GTE didn't rank
+        # (cands are indices — convert, fill the tail of each group)
+        for i in cands[:30]:
+            if not isinstance(i, int) or not (0 <= i < len(ctx.rels)):
+                continue
+            r = str(ctx.rels[i])
+            if r not in rel_set and "." in r:
+                last = r.rsplit(".", 1)[-1]
+                if last in groups:
+                    groups[last].append(r)
+        lines = []
+        for attr in attr_ranked:
+            members = groups.get(attr, [])
+            if not members:
+                continue
+            shown = members[:_ATTR_GROUP_THRESHOLD]
+            more = (f" …(+{len(members)-_ATTR_GROUP_THRESHOLD})"
+                    if len(members) > _ATTR_GROUP_THRESHOLD else "")
+            lines.append(f"{attr} ← {', '.join(shown)}{more}")
+            if len(lines) >= 12:
+                break
+        if lines:
+            _grouped = "\n".join(f"  {ln}" for ln in lines)
+            return _json_result({
+                "entities": treq["entities"], "question": treq["question"],
+                "candidate_relations": [str(ctx.rels[i]) for i in cands[:15]
+                                        if isinstance(i, int) and 0 <= i < len(ctx.rels)],
+                "grouped_relations": _grouped,
+                "note": ("Relations grouped by TARGET ATTRIBUTE (the semantic "
+                         "endpoint). Pick the attribute the question asks for, "
+                         "then choose from that group's relations. Submit FULL "
+                         "relation names from the group. Groups with many members "
+                         "are sub-ranked; '…' means more available — re-call with "
+                         "a more specific question to narrow. "
+                         + (_nudge + " " if _nudge else "")),
+            })
+    # FALLBACK: no attribute ranking (GTE failure) — flat list as before
     # THREE-WAY RELATION CLASSIFICATION (user + Codex design, 2026-09-03):
     # selection = uncertainty management, not hard filtering. The model
     # classifies candidates Required (fact cannot be evidenced without one
