@@ -7991,6 +7991,26 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - dump: tmp/teacher_audit_dump_multientity.txt。
 - 待用户审计:过度收窄案例(判别规则微调 vs 接受现状)。
 
+### 2026-09-09 人工审核第十三轮:速度审计 + gate 环境耦合解耦
+- **速度审计(用户问:是否又串行?)**——不是串行:bubble 并行一直在跑
+  (总墙≈最慢 case 2076s,非串行求和)。真因是**每轮 LLM 延迟 4×**:
+  joinfix 29.2s/turn → unibridge 126.6s(multientity 120.9s),轮数不变
+  (8.4→7.9)。上下文膨胀:每 case 工具结果 14.5K→31.7K(2.2×),sg 结果
+  3.3K→9.6-9.9K(3×,统一桥接取回更宽 + typed 行更长),144 并发下 vLLM
+  prefill 排队放大。待用户裁决收窄手段(渲染行是承重证据,不可轻砍)。
+- **gate 环境耦合(用户发现:多实体下联通规则 0 触发)**:`_ma_gate_
+  would_fire` 用 consumption(plan_entities∖consumed_anchors 非空)做触发,
+  而 `_sg_prepare` 把多中心调用的**每个 center** 记入 consumed_anchors——
+  多实体工作流一启动全部锚"消费",gate 永不触发。消费≠连通。
+- **修复**(commit "decouple join gate from consumption"):触发加第二条件
+  ——答题时全部锚已消费但**累积游走图上锚点不连通**(accumulated_
+  triples 名字图 BFS,`_anchors_disconnected`);`_search_join_paths` 加
+  targets= 支持锚点→锚点闭合(用户裁定 #3 的起实体间闭合);全消费模式
+  消息改为连通框架("若两侧独立解答即可作答"),不再给 retrieval hint。
+- 冒烟:tmp/test_gate_decouple.py 6 检查全过(断连触发/连通抑制/经典
+  未消费路径保留/单锚抑制/闩锁/空图触发);套件 141 passed。
+- **rollout**: reports/v38_gatefix_48x3.json(结果待出)。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
