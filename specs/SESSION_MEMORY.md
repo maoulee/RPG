@@ -7873,3 +7873,14 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **验证**:1171 relations=['actor'] → James Earl Jones(gold)可见;
   25 relations=['film'] → 全部电影可见。
 - 待 rollout 验证质量。
+
+### 2026-09-08 属性族 rollout 三轮总结
+- attrgroup1: 0.569(分组显示,旧note丢失)→修复后 attrgroup2: 0.587
+- attrfamily1: 0.591(全图展开)→attrfamily2(pool约束): 0.462
+- **根因**:属性展开只抓 last-component 终点关系(CVT→person),漏掉
+  CVT 桥接(center→CVT)——walk 无法从 center 到达 CVT,sg 结果 707 chars
+  vs 基线 2884(4x 缩水)。用属性的轨迹 f1=0.431 vs 不用=0.636。
+- **机制缺陷**:模型提交全名时天然包含桥接+终点(film.actor.film |
+  film.performance.actor);属性展开只有终点(film.performance.actor),
+  缺 film.actor.film → walk 无法穿透。
+- 待用户裁决:回退 joinfix(0.664) 或修展开加桥接。
