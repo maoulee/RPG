@@ -7865,3 +7865,11 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **优势**:gold 覆盖从 80%→96%,数据量降 3-10 倍,模型从"15 全名挑
   2-10 个"降到"12 属性名挑 1-2 个"。
 - 待实施:_sg_prepare 属性名自动展开。
+
+### 2026-09-08 属性族选择实施(commit 待定)
+- **机制**:_sg_prepare 检测无点号的 relation 提交(如 'actor')→展开为
+  中心池中所有 last-component 匹配的关系(cap 10/属性)。rr note 引导
+  模型选 1-2 个属性名。
+- **验证**:1171 relations=['actor'] → James Earl Jones(gold)可见;
+  25 relations=['film'] → 全部电影可见。
+- 待 rollout 验证质量。
