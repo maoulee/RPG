@@ -7815,3 +7815,20 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   `m.xxx [actor=...] --film--> Twilight` 全部 19 部电影可见。
 - 1171 不变(sel_cvt 已覆盖);top-K=3 同开(character 抑制/movie Q)。
 - 测试 65 passed。
+
+### 2026-09-08 GTE 关系选择优化评估(用户设计迭代)
+- **用户否决**:域过滤和类型感知匹配(都需要额外 LLM 调用,不靠谱)。
+- **用户新方向**:优先选最终属性(attribute-first)——子问题→属性名(如
+  "actor")→找中心实体子图中产出该属性的关系→展示时不给模型看域前缀
+  只看属性名。
+- **评估数据**:
+  1. GTE 属性名 vs 全关系名:top-1 = 89% vs 8-15%(6-10x 提升);
+     actor vs character 作为独立词完全可区分(作为前缀共享的全名不可区分)。
+  2. 中心约束(2-hop+CVT)属性→关系映射:中位数 2 个(p75=4,p90=8),
+     仅 'film'(max 14)和 'country'(max 12)会膨胀——均在 15 候选内。
+  3. 属性名去重显示:15 全名→10 属性(1171 标本),跨域碰撞仅 1 个
+     (character from film+tv,语义相同)。
+- **方案**:retrieve_relations 改为按属性分组展示:
+  `actor ← film.dubbing_performance.actor, film.performance.actor`
+  `character ← film.dubbing_performance.character, ...`
+  全名保留在括号内供模型提交。待实施。
