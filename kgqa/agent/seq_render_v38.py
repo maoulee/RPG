@@ -163,6 +163,7 @@ def render_v38_ack(treq, bres, ctx):
     sel_shorts = {_short(r) for r in sel_rels}
     sel_bare = {r.rsplit(".", 1)[-1] for r in sel_rels}
     cvt_graph = defaultdict(list)
+    cvt_graph_all = defaultdict(list)   # same WITHOUT the sel_bare exclusion
     for h, rl, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
         hn = str(ents[h]) if 0 <= h < len(ents) else ""
         if not _cvt(hn):
@@ -170,9 +171,16 @@ def render_v38_ack(treq, bres, ctx):
         k = (str(rels[rl]).rsplit(".", 1)[-1]
              if 0 <= rl < len(rels) else "?")
         tv = str(ents[t]) if 0 <= t < len(ents) else str(t)
-        if (not _cvt(tv) and len(tv) < 60 and k not in _NOISY_ATTR
-                and k not in sel_bare):
-            cvt_graph[hn].append(f"{k}={tv}")
+        if not _cvt(tv) and len(tv) < 60 and k not in _NOISY_ATTR:
+            # COMPRESSION summary source: the SELECTED key (film=, for a
+            # film-family row) is exactly the content the compressed row
+            # must show — excluding it (the bracket rule) left the summary
+            # with secondary keys (character:) that mislead at that position
+            # (cvtinline3: 0.6570 with character-first summaries vs 0.6836
+            # with the summary hidden entirely)
+            cvt_graph_all[hn].append(f"{k}={tv}")
+            if k not in sel_bare:
+                cvt_graph[hn].append(f"{k}={tv}")
 
     # ── row building: the two legal compression shapes ──
     # direct entity↔entity rows
@@ -236,10 +244,12 @@ def render_v38_ack(treq, bres, ctx):
 
     def _cvt_tail_keys(mids, red):
         # per-key distinct values across the tail set (top-K filtered, same
-        # discipline as cvt_disp), keys ordered: GTE rank, then the rest
+        # discipline as cvt_disp), keys ordered: GTE rank, then the rest.
+        # Reads cvt_graph_all — the compression summary needs the SELECTED
+        # family's own key first (see cvt_graph_all build note).
         kv = defaultdict(set)
         for mid in mids:
-            for a in cvt_graph.get(mid, ()):
+            for a in cvt_graph_all.get(mid, ()):
                 if "=" not in a:
                     continue
                 k, v = a.split("=", 1)
