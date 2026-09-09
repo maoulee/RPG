@@ -7843,3 +7843,11 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   且按属性名分组(actor/character/voice_actor 天然可分)。
 - 方案定稿:retrieve_relations 改为属性分组展示 + center-direct 索引
   + 2-hop 补充(仅 >10 时 GTE 精排)。待实施。
+
+### 2026-09-08 属性分组关系候选(实施,用户设计)
+- **机制**:retrieve_relations 单次 GTE 调用同时排属性名+全关系名(无额外
+  调用);按属性分组渲染(grouped_relations 字段),组内子排序,>5 截断
+  top-5。candidate_relations(平铺)保留兼容。
+- **验证**:1171 voice_actor←game_performance 排#1;25 film←actor.film
+  精准分组。测试 65 passed。
+- 索引→名称 bug 已修(cands 是 int 索引)。
