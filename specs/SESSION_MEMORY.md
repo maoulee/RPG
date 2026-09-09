@@ -7951,6 +7951,26 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   桥接保留);套件 141 passed。
 - **rollout**: reports/v38_typedgroup_48x3.json(结果待出)。
 
+### 2026-09-09 typedgroup→unibridge 两轮 rollout(句柄统一收口)
+- **typedgroup 0.5901(hit 75%)回归**。分层:ZH 清洗 5 例 -10.75pp =
+  诚实化(attrbridge 在那 5 例靠泄露偷分);其余 43 例 -1.7pp = 真回归。
+  机制归因:**29/35 mismatch 是纯全名提交**(模型照抄分组列表成员名),
+  typed 句柄本身 84 次提交 0 mismatch。全名直通绕过桥接——attrfamily2/3
+  的病换了入口回来。
+- **统一桥接修复**(commit "unified bridge expansion"):桥接是 (center,
+  relation) 的可达性属性,与名字形式无关——bare/typed/全名统一走池匹配+
+  载体桥接;不在池的全名保持直通(walk 反馈本就正确);全名仅带桥时回显。
+- **unibridge 0.6361 / hit 79.9%(全场最高)**。诚实对照(43 无泄露例):
+  **unibridge 0.6668 ≈ joinfix 0.6660(追平基线)**,attrbridge 0.6215,
+  typedgroup 0.6045。机制:全名 mismatch 29→3,sg 调用 407→380,
+  EMPTY 1(此前 0 但带泄露)。泄露 5 例组掉到 0.3719 = 无泄露辅助的真实
+  水平,该组样本少(15)噪声大。
+- 模型提交偏好:全名 438 / typed 118 / bare 4——全名照抄是主导行为,
+  统一桥接正是为此设计;typed 精准(0 mismatch)保留为可选精度工具。
+- dump: tmp/teacher_audit_dump_unibridge.txt(含 relation_expansion 回显
+  +typed 分组 + 渲染 type.attribute 边短名)。
+- OVER-EMIT 31 仍高于 joinfix(裸族宽展开面),为下一步审计点。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
