@@ -8273,6 +8273,19 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   标注来源),信息不减只加形状。
 - dumps:tmp/teacher_audit_dump_{speed5,pathcons,directfirst}.txt。
 
+### 2026-09-10 speed5 失败分解(用户裁决:先修三元组层)
+- **58 失败/144 = 三元组层 19(gold 从未进 sg 证据)+ 编排层 39(gold 在,
+  模型选错)**。抽查验证 ABSENT 属实:452(Baltimore)/1379(Priest)全
+  工具面缺失;212(三州)/25(Nick&Jessica)仅 rr 候选列表出现、sg 渲染
+  从未到达(模型靠 rr 残余部分答对)。
+- **三元组层修复目标清单**(gold 全缺):452×2(Baltimore)、1379(Priest)、
+  21×2(Hailemariam)、25×2(Nick&Jessica)、2319×2(三语言)、2576
+  (Americas)、1731(Bass guitar/Vocals)、3084(Canada)、3744/1557(大学)、
+  212×2(三州,部分)。
+- 编排层 39 例的复查入口(dump 行号):567 s1=15460(Village of Giants
+  在证据但答 A Beautiful Mind)、2576 s1=5105(答 Western Europe)。
+- dump:tmp/teacher_audit_dump_speed5.txt。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
