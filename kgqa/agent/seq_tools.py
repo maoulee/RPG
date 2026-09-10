@@ -3553,23 +3553,11 @@ def _pattern_walk_evidence(ctx, treq):
     from kgqa.stages.formatting import PatternEvidence
     ix = get_pattern_index(ctx)
     seeds = [cn for cn, _ci in treq["centers"]]
-    # TERMINALS = DIRECT expansion results only (1797 specimen, 2026-09-10):
-    # rel_idxs mixes direct + BRIDGE relations — bridges exist to OPEN paths
-    # for the per-binding walk; treating them as pattern terminals put
-    # place_of_death/image noise at the top of the ranked list and crowded
-    # out the model's actual target relations. Bridges remain ordinary
-    # bridge relations here (non-terminal) — exactly their walk semantics.
-    _relset = set(str(r) for r in ctx.rels)
-    _term = set()
-    for _rs, _exp in (treq.get("attr_expansion") or {}).items():
-        _term.update(_exp.get("direct") or [])
-    for r in treq["rel_names"]:
-        rs = str(r).strip()
-        if "." in rs and rs in _relset:
-            _term.add(rs)          # full-name submission: its own terminal
-    _term_idxs = [ctx.rels.index(r) for r in _term if r in _relset]
-    if not _term_idxs:
-        _term_idxs = list(treq["rel_idxs"])
+    # TERMINALS (1797 postmortem, two iterations): v1 = full rel_idxs
+    # (direct+bridge, f1 0.6508); v2 = direct-only (0.6269 — recall loss
+    # when the model's pick is off). The measured quality hole was NOT the
+    # terminal set but the missing tier-1 rows (weaved below) — back to v1.
+    _term_idxs = list(treq["rel_idxs"])
     pats = pattern_walk(ix, seeds, _term_idxs)
     if not pats:
         return None
@@ -3588,6 +3576,32 @@ def _pattern_walk_evidence(ctx, treq):
                 candidates.append(a)
     if not triples:
         return None
+    # TIER-1 FEEDING (1797 postmortem, 2nd iteration): the v38 renderer
+    # builds rows ONLY from pe tree paths — the per-binding DIRECT
+    # (binding, terminal-rel) edges that _guarantee_center_direct_edges
+    # appends to all_triples never reach it, so discrimination facts lost
+    # the binding→value mapping entirely. Weave those edges in as paths
+    # (capped per binding): the model reads the pattern groups AND every
+    # binding's own terminal values.
+    _n2i = {}
+    for _j, _e in enumerate(ctx.ents):
+        _n2i.setdefault(str(_e), _j)
+    for _cn, _ci in treq["centers"]:
+        if not (0 <= _ci < len(ctx.ents)):
+            continue
+        _n_add = 0
+        for _ri in _term_idxs:
+            for _t2 in ix.fwd[_ri].get(_ci, ()):
+                paths.append({"nodes": [str(ctx.ents[_ci]),
+                                        str(ctx.ents[_t2])],
+                              "relations": [str(ctx.rels[_ri])]})
+                triples.append((str(ctx.ents[_ci]), str(ctx.rels[_ri]),
+                                str(ctx.ents[_t2])))
+                _n_add += 1
+                if _n_add >= 12:
+                    break
+            if _n_add >= 12:
+                break
     pe = {"pat%d" % k: PatternEvidence(
         label="pat%d" % k,
         readable=" → ".join(str(ctx.rels[r]).rsplit(".", 2)[-1]
