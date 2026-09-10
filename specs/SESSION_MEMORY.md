@@ -8089,6 +8089,26 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - 三 run 对照:cvtinline4 0.6849/784s | perfenv(4lane+0.3w)0.6751/961s |
   perffinal 0.6606/829s/p50 885s(rest43 0.68-0.69 带内,批窗口纯调度)。
 
+### 2026-09-10 游走成本模型验证(用户架构判断逐条核实)
+- **用户模型正确**:RPE(frontier.py relation_prior_expand)的桥跳可以走
+  任何非选中关系——遍历就是**全 3-hop 环境游走**,关系集只决定段终止;
+  **游走成本与关系集宽度无关**。桥接/族宽度不是成本源(提交均值 1.4 个
+  关系,direct 几乎全 1,echo 展开宽 1-7)。
+- **LLM 不慢**:纯 LLM 21.6s/turn(llm=24k s÷144÷7.7);墙钟每轮 121s 是
+  dispatch 排队——之前把墙钟/轮归因 LLM 是误判。
+- **slot 爆炸真凶** = ?var 展开的 **walk_extra 无界账本**(每次 sg 单调
+  追加不展示候选,晚期 ?var 调用游走 30-50 中心;343 请求→2343 slots,
+  71 次调用 6-15+ 中心)。
+- **修复**:walk_extra 近因 cap 6(SEQ_WALLEXTRA_CAP,绑定不设限——多实体
+  设计保留;1797 机制只需紧邻前次的游荡者)。slots 2343→1796,**质量
+  新高 f1 0.6930/rest43 0.6948**(噪声中心↓证据更紧),exec 基本不变
+  (2165→2152)——砍掉的是廉价叶子,贵在 hub。
+- **下一杠杆(用户设计,walk-algo 分支)**:exec 集中在 hub 绑定环境×
+  不同关系集重试的**整环境重游**(memo 只认精确 (center,relset) 对)。
+  方向=环境级复用:同中心一次环境展开缓存 + 每关系集段记账(RPE 段终止
+  逻辑后置)。等价验证用 walk-perf 的 pickle-sha256 battery。
+- dump:tmp/teacher_audit_dump_perffinal.txt。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
