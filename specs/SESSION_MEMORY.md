@@ -8251,6 +8251,28 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   五刀+环境恢复+walk_extra cap → **~570s 总墙 / 361s mean**。
   下一杠杆只剩 LLM 端(上下文瘦身,待用户逐项裁决)。
 
+### 2026-09-10 Belgium 证据爆炸审计(用户)— 两层修复均负,已门控关
+- **用户发现**:Belgium 提交 countries.continent|location.containedby 两
+  关系,证据却爆出 adjoins/战斗/部分包含等十余无关段。
+- **机制**:①选择层——behind-CVT 载体判定过松(Belgium 的 CVT 共同端点
+  全是携带 countries.continent 的大国)→ 桥接把无关关系塞进 rel_idxs,
+  渲染成 "(retrieved)";②证据层——RPE 桥段末跳(Luxembourg --containedby--)
+  与 sibling 展开行失去中心锚定形状(用户:应"以中心实体实例化抽象路径
+  重建",路径一致性)。
+- **A/B 判决(全部 vs speed5 0.6978)**:
+  | 修复 | f1 | 判定 |
+  |---|---|---|
+  | direct-first(中心直连即免桥) | 0.6541(-4.4pp) | 桥接游走的穿透喂判别证据 |
+  | +tier-1 锚定降级 | 0.6539 | CVT 穿透行被埋(修正后 0.6661) |
+  | 锚定修正版 | 0.6661(-3.2pp) | 环境行仍承重 |
+- **结论**:Belgium 爆炸在指标上是**净生产力**——与模式游走/patwalk 同一
+  教训:游走宽度(桥接+环境行)承重。两个修复均门控关(SEQ_DIRECT_FIRST /
+  SEQ_TIER_ANCHOR),**站立配置 = speed5(0.6978/79.9%/361s)**。
+- 保质量的替代方向(未试):**链形渲染**——多跳路径渲染为
+  `Belgium --adjoin→Luxembourg --containedby→ Europe` 单行(保留全部行,
+  标注来源),信息不减只加形状。
+- dumps:tmp/teacher_audit_dump_{speed5,pathcons,directfirst}.txt。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
