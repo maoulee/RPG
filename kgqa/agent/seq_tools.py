@@ -3553,7 +3553,24 @@ def _pattern_walk_evidence(ctx, treq):
     from kgqa.stages.formatting import PatternEvidence
     ix = get_pattern_index(ctx)
     seeds = [cn for cn, _ci in treq["centers"]]
-    pats = pattern_walk(ix, seeds, list(treq["rel_idxs"]))
+    # TERMINALS = DIRECT expansion results only (1797 specimen, 2026-09-10):
+    # rel_idxs mixes direct + BRIDGE relations — bridges exist to OPEN paths
+    # for the per-binding walk; treating them as pattern terminals put
+    # place_of_death/image noise at the top of the ranked list and crowded
+    # out the model's actual target relations. Bridges remain ordinary
+    # bridge relations here (non-terminal) — exactly their walk semantics.
+    _relset = set(str(r) for r in ctx.rels)
+    _term = set()
+    for _rs, _exp in (treq.get("attr_expansion") or {}).items():
+        _term.update(_exp.get("direct") or [])
+    for r in treq["rel_names"]:
+        rs = str(r).strip()
+        if "." in rs and rs in _relset:
+            _term.add(rs)          # full-name submission: its own terminal
+    _term_idxs = [ctx.rels.index(r) for r in _term if r in _relset]
+    if not _term_idxs:
+        _term_idxs = list(treq["rel_idxs"])
+    pats = pattern_walk(ix, seeds, _term_idxs)
     if not pats:
         return None
     triples, candidates, paths = [], [], []
@@ -3580,7 +3597,7 @@ def _pattern_walk_evidence(ctx, treq):
         tree_data={"paths": paths}) for k, p in enumerate(pats)}
     pe_list = [pe] + [{} for _ in treq["centers"][1:]]
     return {"pe_list": pe_list,
-            "pattern_display": rank_display(ctx, pats, treq["rel_idxs"])}
+            "pattern_display": rank_display(ctx, pats, _term_idxs)}
 
 
 def _select_patterns_for_render(pe_values, center_name, sel_names, top_n=5):

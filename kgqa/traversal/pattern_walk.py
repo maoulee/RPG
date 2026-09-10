@@ -71,7 +71,7 @@ def get_pattern_index(ctx):
 
 
 def pattern_walk(ix, seed_names, target_rel_idxs, max_hops=3, beam=60,
-                 topk_patterns=10, witness_k=6):
+                 topk_patterns=10, witness_k=12):
     """Set-state BFS from the binding set. Returns a ranked pattern list.
 
     Each pattern: {'rels': [(ridx, fwd), ...], 'answer': [names],
