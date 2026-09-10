@@ -3245,6 +3245,13 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     entities = _split_pipe_entities([str(e) for e in raw if e])
     rel_names = args.get("relations") or []
     fid = str(args.get("sg") or args.get("fact_id") or args.get("step") or "")
+    # single-?var call marker for the PATTERN-PATH walk (seq_tools B段):
+    # the expansion produced the binding set; _sg_execute may replace the
+    # per-binding walks with one set-state pattern walk
+    _var_name = ""
+    _raw0 = str(raw[0]).strip() if raw else ""
+    if _raw0.startswith("?") and len([e for e in raw if e]) == 1:
+        _var_name = _raw0
     if not entities:
         return {"kind": "done", "result": _json_result({"error": "no entities provided."})}
     # PATTERN-PREFIX CONTINUATION (user design 2026-09-10): a single-?var
@@ -3468,7 +3475,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     return {"kind": "sg", "corr": bad_name, "centers": centers, "skipped": skipped,
             "rel_idxs": rel_idxs, "rel_names": rel_names, "fid": fid,
             "entities": entities, "nudge": _nudge, "attr_expansion": _fam_echo,
-            "prefix": _prefix,
+            "prefix": _prefix, "var_name": _var_name,
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
@@ -3514,13 +3521,66 @@ async def _sg_execute(treq, ctx, session):
             # original flow's `if not centers` error (never reaches the walk)
             return {"no_centers": True}
     from kgqa.core.utils import phase_timer
+    # PATTERN-PATH WALK (user design 2026-09-10, A+ integration): a call
+    # whose centers are one ?var's binding set (≥4) walks ONCE at the
+    # relation level — set-state transitions, bridge = any non-target
+    # relation, terminal = the model's selected relations; witnesses are
+    # materialized for the top-K ranked patterns (先模式,再实例化). Empty
+    # pattern result falls back to the per-binding walks.
     _pf = treq.get("prefix")
     _steps = [(i, treq["rel_idxs"], treq["fid"], _pf) if _pf is not None
               else (i, treq["rel_idxs"], treq["fid"])
               for _, i in treq["centers"]]
+    if (os.environ.get("SEQ_PATTERN_WALK", "1") != "0"
+            and treq.get("var_name") and len(treq["centers"]) >= 4):
+        try:
+            _pw = _pattern_walk_evidence(ctx, treq)
+        except Exception:
+            _pw = None
+        if _pw is not None:
+            return _pw
     with phase_timer("walk"):
         pe_list = await _run_walk_packed(ctx, _steps)
     return {"pe_list": pe_list}
+
+
+def _pattern_walk_evidence(ctx, treq):
+    """Build PatternEvidence-compatible output for the pattern-path walk.
+    Returns the bres dict ({"pe_list", "pattern_display"}) or None when the
+    walk found no patterns (caller falls back to per-binding walks)."""
+    from kgqa.traversal.pattern_walk import (get_pattern_index,
+                                             pattern_walk, rank_display)
+    from kgqa.stages.formatting import PatternEvidence
+    ix = get_pattern_index(ctx)
+    seeds = [cn for cn, _ci in treq["centers"]]
+    pats = pattern_walk(ix, seeds, list(treq["rel_idxs"]))
+    if not pats:
+        return None
+    triples, candidates, paths = [], [], []
+    seen_c = set()
+    for k, p in enumerate(pats):
+        for ch in p["witnesses"]:
+            triples.extend(ch)
+            paths.append({
+                "nodes": [ch[0][0]] + [tr[2] for tr in ch],
+                "relations": [tr[1] for tr in ch],
+            })
+        for a in p["answer"]:
+            if a not in seen_c:
+                seen_c.add(a)
+                candidates.append(a)
+    if not triples:
+        return None
+    pe = {"pat%d" % k: PatternEvidence(
+        label="pat%d" % k,
+        readable=" → ".join(str(ctx.rels[r]).rsplit(".", 2)[-1]
+                            for r, _f in p["rels"]),
+        candidates=[a for a in p["answer"][:20]],
+        triples=[tr for p in pats for ch in p["witnesses"] for tr in ch],
+        tree_data={"paths": paths}) for k, p in enumerate(pats)}
+    pe_list = [pe] + [{} for _ in treq["centers"][1:]]
+    return {"pe_list": pe_list,
+            "pattern_display": rank_display(ctx, pats, treq["rel_idxs"])}
 
 
 def _select_patterns_for_render(pe_values, center_name, sel_names, top_n=5):
@@ -4112,6 +4172,11 @@ def _sg_finalize(treq, bres, ctx) -> str:
         # model audits its own selection and the trajectory shows the
         # expansion instead of hiding it.
         _res["relation_expansion"] = treq["attr_expansion"]
+    if bres.get("pattern_display"):
+        # PATTERN-PATH WALK echo (2026-09-10): the call ran as ONE set-state
+        # walk over the binding set; this is the ranked pattern list the
+        # witness chains below re-instantiate
+        _res["pattern_paths"] = bres["pattern_display"]
     return _json_result(_res)
 
 
