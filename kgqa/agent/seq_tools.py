@@ -3255,7 +3255,12 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     _prefix = None
     _raw0 = str(raw[0]).strip() if raw else ""
     if (_raw0.startswith("?") and len(entities) == 1
-            and os.environ.get("SEQ_PATTERN_PREFIX", "1") != "0"):
+            and os.environ.get("SEQ_PATTERN_PREFIX", "0") == "1"):
+        # OFF by default — A/B 2026-09-10: RPE's dominant cost is each
+        # binding's 3-hop NOVEL fringe (never in the prefix), so the mask
+        # saved only the hop-1 back-edges while cutting legitimate paths
+        # through shared territory: speed flat (exec 2408 vs 2152s), f1
+        # -2.4pp (0.6930 -> 0.6692). Kept behind the env for the record.
         _pst = getattr(ctx, "pattern_state", None) or {}
         _org = _pst.get(_raw0)
         if _org and _org.get("nodes"):
