@@ -8239,6 +8239,18 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - 教训:bisect 恢复用 `git checkout HEAD -- file` 会抹掉未提交工作区
   (第五刀曾因此丢失重做);跨进程对比 sha 需固定 PYTHONHASHSEED。
 
+### 2026-09-10 五刀终验 rollout(v38_speed5)——速度质量双收
+- **速度**:wall_mean 809→**361s(-55%)**,p50 372s,max 551s,总墙
+  ~9.5min(此前 ~19-20min);**walk exec 2152→331s(-85%)**,wait 5 万→
+  721s,dispatch 9.5k(此前 72-95k)。llm 成为主要相位(GPU 饱和,符合
+  设计——dispatch 不再阻塞,LLM 并发重叠充分)。
+- **质量**(内容等价,差异=采样带):**f1 0.6978(新高)/ hit 79.9% /
+  rest43 0.7100**(wallexcap 0.6930/77.1%/0.6948);OVER-EMIT 15。
+- dump: tmp/teacher_audit_dump_speed5.txt(144 case 全量)。
+- **速度弧线收官**:walk-perf 378s(旧机制)→ 质量弧线膨胀到 ~1200s →
+  五刀+环境恢复+walk_extra cap → **~570s 总墙 / 361s mean**。
+  下一杠杆只剩 LLM 端(上下文瘦身,待用户逐项裁决)。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
