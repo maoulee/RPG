@@ -8191,6 +8191,22 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   Codex 剪枝方案。
 - patwalk 系列 run:reports/v38_patwalk{,_2,_3,_s1}_48x3.json。
 
+### 2026-09-10 三问解答 + memo 升 case 级(用户提议落地)
+- **为何 10 万次**:`_expand_sibling_cvts` 按(模式×路径)跑,每条触 CVT 的
+  路径重新展开该 CVT 的整个 sibling 家族(同 (head,rel));路径数千 × 家族
+  数百 ≈ 10 万;去重(seen_set)在管线**末端**——工作先做 100 遍再丢 99 遍。
+- **评分是什么**:_add 的门=模式-路径纪律(r∈sel 或 cvt_attr 通道)+
+  schema 噪声拒绝 + **latinish(滤非拉丁实体名,CJK/垃圾)** + normalize
+  长度;_expand_endpoint_cvt 的 score=边的入场优先序(witness∈路径 >
+  非meta > 拉丁 > 短名)。latinish 单次无关紧要(字符 memo,~1µs),
+  200 万次量的成本;cProfile 里 27.7s 是调用开销放大,真实 ~0.8s。
+- **真实时间**(无 profile 失真,Ron Howard 标本):修前 4.48s → build
+  memo 1.58s(冷)/1.29s(热)→ case 级 memo 后第二次调用 1.26s。
+  残余 = 每调用 witness 排序(O(家族)×万级调用),字节等价约束下的地板。
+- **case 级 memo**(commit "promote … to CASE level"):打分边表与 (h,r,t)
+  静态结果按 pin 的数组键存 `_CASE_STATIC_MEMO`——同 case 后续 sg 调用
+  不再展开 CVT(用户:CVT 展开一次,展示按需调整)。sha 全程等价。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
