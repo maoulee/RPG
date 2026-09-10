@@ -8168,6 +8168,29 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   ④兜底:模式空 → 回退逐绑定现后端。
 - 交接文档:docs/codex_walk_optimization_handoff.md(给 Codex 的分析包)。
 
+### 2026-09-10 单中心游走慢的真相 + 模式游走三轮 A/B 终判
+- **用户质疑成立,profile 定罪**:hub 单中心(Ron Howard,度 877,4 关系)
+  单走 4.5s,**97% 在证据构建 build_pattern_evidence_triples**,游走本身
+  毫无罪——CVT 展开同边重复打分(_expand_endpoint_cvt 10 万次/走、_add
+  70 万、_is_latinish 200 万,唯一边仅几千)。cProfile 下 28.7s 是 5960
+  万调用的放大假象。
+- **三处静态 memo(结果逐字节等价)**:(h,r,t) 静态过滤结果、每 CVT 静态
+  打分边表(每调用只重算 witness 位)、sibling selected 判定。
+  **sha256 相同(b672b5445767),4.48s→2.39s(-47%)**,141 套件绿,已提交。
+- **模式游走三轮 A/B**(全部 vs wallexcap 0.6930):
+  | 版本 | f1 | slots | 判定 |
+  |---|---|---|---|
+  | v1 全终止集 | 0.6508 | 461 | 桥当终止→噪声霸榜 |
+  | v2 direct-only 终止 | 0.6269 | 458 | 召回损失更差 |
+  | v3 +tier-1 织入 | 0.6548 | 572 | +0.4pp 仍 -3.8pp |
+  速度地板真实(slots 1796→572,墙钟 -18%),失败模式同构
+  (PARTIAL 107/109)——聚焦证据的部分对答案成分更差,逐绑定环境对模型
+  判别是承重的。**默认关(SEQ_PATTERN_WALK=1 可开)**。
+- 速度弧线收口:结果等价层全部入袋(walk_extra cap / GTE 窗口 / 证据
+  memo),质量换速度的模式游走待新思路(逐绑定 witness 全覆盖?)或
+  Codex 剪枝方案。
+- patwalk 系列 run:reports/v38_patwalk{,_2,_3,_s1}_48x3.json。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
