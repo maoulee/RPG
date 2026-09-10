@@ -123,6 +123,12 @@ def render_v38_ack(treq, bres, ctx):
     # --containedby→ …) and sibling expansions are still WALKED evidence but
     # are environment rows: they demote to "other walked relations" instead
     # of posing as the asked relation's answers.
+    # GATED OFF by default (A/B: pathcons 0.6539 / pathcons2 0.6661 vs
+    # speed5 0.6978 — the demoted environment rows are load-bearing for the
+    # model's discrimination, same lesson as the pattern-walk verdict;
+    # chain-shaped rendering is the untried alternative). SEQ_TIER_ANCHOR=1
+    # enables.
+    _tier_anchor = os.environ.get("SEQ_TIER_ANCHOR", "0") == "1"
     _center_names = {str(c) for c in center_names}
 
     def _anchored_hops(key):
@@ -133,6 +139,8 @@ def render_v38_ack(treq, bres, ctx):
     anchored = set()                  # (h_name, t_name) on center-anchored paths
 
     def _anch_pair(a, b):
+        if not _tier_anchor:
+            return True
         return (a, b) in anchored or (b, a) in anchored
 
     edges = set()                       # (h_name, rel_short, t_name)
