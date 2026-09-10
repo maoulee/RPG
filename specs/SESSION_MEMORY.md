@@ -8223,6 +8223,22 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **四刀弧线(Ron Howard 标本,全字节等价)**:4.48s → 静态 memo 2.39s
   → case 级 1.26s → per-adder 家族去重 **1.03s(-77%)**。
 
+### 2026-09-10 第五刀(显示串 memo)+ 方法学发现(pickle-sha 顺序敏感)
+- **残余 1s 拆解**:profile 显示新热点=显示串构建——_cvt_attr_display
+  10.4 万次(每模式每路径重建同一 CVT 的属性列表)+ _node_display 12 万
+  次 + is_cvt_like 回升 126 万(纯调用量)。
+- **第五刀**:_cvt_attr_display → case 级 memo(纯 (cvt_idx, 数组) 函数,
+  limit 恒 20);_node_display → 每模式 memo(cvt_attrs 模式内固定)。
+  **Ron Howard 1.03 → 0.36s;五刀总弧 4.48 → 0.36s(-92%)**。
+- **方法学发现**:验证时 sha 在"同内容不同历史"下漂移——深挖证明:
+  游走层/compress/materialize 哈希稳定,pe 内容(triples/candidates/
+  tree_data)== 完全相等,**差异纯属 dict/set 插入序置换**(缓存冷热
+  改变累积顺序;pickle 保序而 == 不看序)。该置换类在 walk-perf 时代
+  就存在(基线复现)。**正确验收标准 = 内容相等 + 同态字节稳定**
+  (两者均过;141 套件绿)。pickle-sha 只在匹配状态下可作字节等价证据。
+- 教训:bisect 恢复用 `git checkout HEAD -- file` 会抹掉未提交工作区
+  (第五刀曾因此丢失重做);跨进程对比 sha 需固定 PYTHONHASHSEED。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
