@@ -8125,6 +8125,23 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **先测量再实现**:instrument 一遍"绑定游走的边有多少已在原点模式图里"
   (稀疏图重叠小收益小;hub 稠密图重叠大——而 exec 恰好集中在 hub)。
 
+### 2026-09-10 模式态前缀延展:实现+A/B 判决(负收益,默认关)
+- **实现**(commit "pattern-prefix continuation"):_sg_finalize 记 walk_seen
+  增量 per fid;checkpoint 绑 var → pattern_state(节点并集);单一 ?var 调
+  用携带前缀(协调器 slot 键含前缀,worker 建 cs.prefix_nodes);RPE 前缀
+  邻点只记目标边不展开。冒烟 4 语义全过(基线穿共享/mask 留新边疆/不入
+  前缀/目标边入前缀记录)。
+- **A/B 判决**(patprefix vs wallexcap):速度零增益(exec 2408 vs 2152s,
+  墙钟 804 vs 809s,slots 1867≈1796),**f1 -2.4pp(0.6930→0.6692)**,
+  sg 结果反而更大(8.5K vs 7.3K)。根因:RPE 大头成本=每绑定 3-hop
+  **新边疆**(hop2-3 不在前缀内),mask 只省 hop1 回头路;穿共享领地的
+  合法路径被截断损证据。**默认关**(SEQ_PATTERN_PREFIX=1 可开)。
+- **结论**:用户的方向(状态保持)在 RPE 3-hop 全环境模型下没有可收割
+  的重叠——省的(hop1 回边)不是贵的(hop2-3 新边疆)。剩余路径:①深改
+  beam/剪枝(行级);②C 层(igraph)替换 BFS。均属 walk-algo 分支工程。
+- 当前最优配置 = wallexcap:f1 0.6930 / hit 77.1% / rest43 0.6948,
+  wall_mean 809s。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
