@@ -116,8 +116,28 @@ def render_v38_ack(treq, bres, ctx):
     def _short(rname: str) -> str:
         return ".".join(rname.rsplit(".", 2)[-2:])
 
+    # PATH-CONSISTENT EVIDENCE (user ruling 2026-09-10, Belgium specimen):
+    # tier-1 admits only hops on CENTER-ANCHORED chains — the abstract
+    # pattern instantiated with the center (Belgium --containedby--> Europe).
+    # Terminal edges of RPE bridge segments (Belgium →adjoin-CVT→ Luxembourg
+    # --containedby→ …) and sibling expansions are still WALKED evidence but
+    # are environment rows: they demote to "other walked relations" instead
+    # of posing as the asked relation's answers.
+    _center_names = {str(c) for c in center_names}
+
+    def _anchored_hops(key):
+        if key and key[0] in _center_names:
+            return {(key[i], key[i + 1]) for i in range(len(key) - 1)}
+        return set()
+
+    anchored = set()                  # (h_name, t_name) on center-anchored paths
+
+    def _anch_pair(a, b):
+        return (a, b) in anchored or (b, a) in anchored
+
     edges = set()                       # (h_name, rel_short, t_name)
     for (key, _dirs), v in kept.items():
+        anchored |= _anchored_hops(key)
         for relsn in v["rels"]:
             for i in range(len(key) - 1):
                 rname = relsn[i] if i < len(relsn) else None
@@ -327,7 +347,7 @@ def render_v38_ack(treq, bres, ctx):
         if len(ts) == 1:
             t = next(iter(ts))
             if t.startswith("__evt"):
-                rows.append((r, f"{h} --{r}--> {ts[t]}"))
+                rows.append((r, f"{h} --{r}--> {ts[t]}", _anch_pair(h, t)))
     multi = {(h, r): ts for (h, r), ts in tails_of.items() if len(ts) >= 2}
     heads_of = defaultdict(set)         # (r, t) -> {h}
     for h, r, t in single:
@@ -358,16 +378,19 @@ def render_v38_ack(treq, bres, ctx):
             joined = (" | ".join(head_ds)
                       + f" (+{len(rest)}: {' | '.join(recs)}"
                       + ")")
-        rows.append((r, f"{h} --{r}--> {joined}"))
+        rows.append((r, f"{h} --{r}--> {joined}",
+                     any(_anch_pair(h, _t) for _t in multi[(h, r)])))
     for (r, t) in sorted(heads_of, key=lambda k: (k[0], -len(heads_of[k]), k[1])):
         hs = sorted(heads_of[(r, t)])
         disp = cvt_disp(t, {x.lower() for x in hs}) if _cvt(t) else t
-        rows.append((r, f"{' | '.join(hs)} --{r}--> {disp}"))
+        rows.append((r, f"{' | '.join(hs)} --{r}--> {disp}",
+                     any(_anch_pair(h, t) for h in hs)))
     # SELECTED CVT→entity rows: `m.xxx [attrs] --selected_rel--> entity` —
     # every relation the model asked for stays visible as a triple
     for (r, t) in sorted(sel_cvt):
         disps = [cvt_disp(m, {t.lower()}) for m in sorted(sel_cvt[(r, t)])]
-        rows.append((r, f"{' | '.join(disps)} --{r}--> {t}"))
+        rows.append((r, f"{' | '.join(disps)} --{r}--> {t}",
+                     any(_anch_pair(m, t) for m in sel_cvt[(r, t)])))
     # record reverse-shape rows (CVT→entity edges that stayed as records)
     seen_recs = {mid for mids in rec_out.values() for mid in mids}
     seen_recs |= {mid for mids in sel_cvt.values() for mid in mids}
@@ -376,16 +399,18 @@ def render_v38_ack(treq, bres, ctx):
         if not extra:
             continue
         for m in sorted(extra):
-            rows.append((r, f"{cvt_disp(m, {t.lower()})} --{r}--> {t}"))
+            rows.append((r, f"{cvt_disp(m, {t.lower()})} --{r}--> {t}",
+                         _anch_pair(m, t)))
 
-    # RELATION-SECTIONED DISPLAY (user design 2026-09-02): triples of the
-    # SELECTED relations centralize first — each section headed by the
-    # relation with its candidate-side roster (the fan-out side of its
-    # edges) — then other walked relations follow. Pure reorganization of
-    # the same rows; zero-loss unchanged.
+    # RELATION-SECTIONED DISPLAY (user design 2026-09-02) + PATH
+    # CONSISTENCY (user ruling 2026-09-10): tier-1 admits only rows on
+    # CENTER-ANCHORED chains (the abstract pattern instantiated with the
+    # center); environment rows — RPE bridge-segment terminals, sibling
+    # expansions — all demote to "other walked relations", never posing as
+    # the asked relation's answers.
     by_rel = defaultdict(list)
-    for r, row in rows:
-        by_rel[r].append(row)
+    for r, row, anch in rows:
+        by_rel[r].append((row, anch))
 
     def roster(r):
         tails, heads = set(), set()
@@ -403,15 +428,17 @@ def render_v38_ack(treq, bres, ctx):
     L = [f"entities: {' | '.join(center_names)}"]
     sel_shorts = {_short(r) for r in sel_rels}
     for r in sorted(r for r in by_rel if r in sel_shorts):
+        tier_rows = [row for row, anch in by_rel[r] if anch]
+        if not tier_rows:
+            continue         # selected but NO center-anchored instantiation
         ros = roster(r)
         L.append(f"▸ --{r}-->  (retrieved"
                  + (f" · candidates: {ros}" if ros else "") + ")")
-        L.extend(f"    {row}" for row in by_rel[r])
-    other = sorted(r for r in by_rel if r not in sel_shorts)
-    if other:
-        L.append("▸ other walked relations:")
-        for r in other:
-            L.extend(f"    {row}" for row in by_rel[r])
+        L.extend(f"    {row}" for row in tier_rows)
+    L.append("▸ other walked relations (environment — not center-anchored paths):")
+    for r in sorted(by_rel):
+        env_rows = [row for row, anch in by_rel[r] if not anch]
+        L.extend(f"    {row}" for row in env_rows)
     if _cvt_block:
         # BLOCK MODE (SEQ_CVT_STYLE=block): the compressed attribute content
         # of large CVT-tail rows lives here, one line per (relation, head)

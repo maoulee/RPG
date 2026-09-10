@@ -3422,29 +3422,48 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                 # bridges as its typed/bare family (typedgroup rollout:
                 # 29/35 mismatches were full-name submissions bypassing
                 # this).
+                # DIRECT-FIRST (user audit 2026-09-10, Belgium specimen):
+                # bridges exist to REACH a family the center cannot touch
+                # at hop 1. When a center ALREADY carries a matched
+                # relation on its own edges, bridges for this name are
+                # pure noise — the behind-CVT carrier test is loose (any
+                # co-endpoint touching the family fires), so a hub center
+                # surrounded by CVTs whose co-endpoints are big entities
+                # (Belgium: adjoin/combat/partial-containment CVTs whose
+                # co-endpoints all carry countries.continent) pulled a
+                # dozen irrelevant relations into rel_idxs and the render
+                # labeled them "(retrieved)" — evidence unrelated to the
+                # asked relations. Skip bridges whenever ANY center has a
+                # direct matched edge.
                 _mset = set(_names)
                 _bids = set()
-                for _cn, _ci in centers:
-                    if not (0 <= _ci < len(_adj)):
-                        continue
-                    _scanned = set()
-                    for _ri, _ni in _adj[_ci]:
-                        if (_ni in _scanned or not (0 <= _ni < _n_ents)
-                                or len(_bids) >= 6):
+                _center_direct = any(
+                    ri in _mset
+                    for _cn, _ci in centers
+                    if 0 <= _ci < len(_adj)
+                    for ri, _ni in _adj[_ci])
+                if not _center_direct:
+                    for _cn, _ci in centers:
+                        if not (0 <= _ci < len(_adj)):
                             continue
-                        _scanned.add(_ni)
-                        _hit = any(_rj in _mset
-                                   for _rj, _nj in _adj[_ni] if _nj != _ci)
-                        if not _hit and is_cvt_like(ctx.ents[_ni]):
-                            for _rj, _mj in _adj[_ni]:
-                                if _mj == _ci or not (0 <= _mj < _n_ents):
-                                    continue
-                                if any(_rk in _mset
-                                       for _rk, _nk in _adj[_mj]):
-                                    _hit = True
-                                    break
-                        if _hit:
-                            _bids.add(_ri)
+                        _scanned = set()
+                        for _ri, _ni in _adj[_ci]:
+                            if (_ni in _scanned or not (0 <= _ni < _n_ents)
+                                    or len(_bids) >= 6):
+                                continue
+                            _scanned.add(_ni)
+                            _hit = any(_rj in _mset
+                                       for _rj, _nj in _adj[_ni] if _nj != _ci)
+                            if not _hit and is_cvt_like(ctx.ents[_ni]):
+                                for _rj, _mj in _adj[_ni]:
+                                    if _mj == _ci or not (0 <= _mj < _n_ents):
+                                        continue
+                                    if any(_rk in _mset
+                                           for _rk, _nk in _adj[_mj]):
+                                        _hit = True
+                                        break
+                            if _hit:
+                                _bids.add(_ri)
                 _fmemo[_mk] = (_names, _bids)
             _name_set = set(_names)
             _dnames = [str(ctx.rels[i]) for i in _names]
