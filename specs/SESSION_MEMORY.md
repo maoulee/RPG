@@ -8207,6 +8207,22 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   静态结果按 pin 的数组键存 `_CASE_STATIC_MEMO`——同 case 后续 sg 调用
   不再展开 CVT(用户:CVT 展开一次,展示按需调整)。sha 全程等价。
 
+### 2026-09-10 witness 排序流程拆解(用户)+ 家族去重(第四刀)
+- **流程**:39 模式 × ≤24 support path → _expand_sibling_cvts 7221 次 →
+  每条路径对每个 CVT 节点重walk同 (head,rel) 家族(Ron:guest_roles 70/
+  award_nom 53/starring 45/film 29…)→ 每兄弟 _expand_endpoint_cvt
+  (兄弟度均值 6.2:witness 位 + tuple + sorted + add)。量=路径×家族×度
+  ≈ 130-200 万边级操作;单次排序 6.2 元素,贵在乘法。
+- **拆解洞察**:_add 接受条件全静态(schema/latinish/normalize/sel_ids),
+  witness 位只改序不改成员 → **同一 adder(模式)内,家族后续触碰的
+  add 全是 seen_set 空操作**——第一触摸序即结果。把 per-call 的
+  expanded_rels 提为 per-adder(_add._fam_done)→ 7221 次收缩为每模式
+  首触。**5 标本 sha 全等**;Ron 1.26→1.03s,次级 case -60-66%。
+- **失败教训**:先试了 build 级去重——sha 变了:_make_adder 是**每模式**
+  一个(pat_triples/pat_seen 独立),后续模式必须保留自己的首触。
+- **四刀弧线(Ron Howard 标本,全字节等价)**:4.48s → 静态 memo 2.39s
+  → case 级 1.26s → per-adder 家族去重 **1.03s(-77%)**。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
