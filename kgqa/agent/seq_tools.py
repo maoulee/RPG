@@ -3531,7 +3531,7 @@ async def _sg_execute(treq, ctx, session):
     _steps = [(i, treq["rel_idxs"], treq["fid"], _pf) if _pf is not None
               else (i, treq["rel_idxs"], treq["fid"])
               for _, i in treq["centers"]]
-    if (os.environ.get("SEQ_PATTERN_WALK", "1") != "0"
+    if (os.environ.get("SEQ_PATTERN_WALK", "0") == "1"
             and treq.get("var_name") and len(treq["centers"]) >= 4):
         try:
             _pw = _pattern_walk_evidence(ctx, treq)
