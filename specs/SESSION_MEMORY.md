@@ -8142,6 +8142,32 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - 当前最优配置 = wallexcap:f1 0.6930 / hit 77.1% / rest43 0.6948,
   wall_mean 809s。
 
+### 2026-09-10 模式层游走(集合态+关系转移)原型验证 — 判决:合适
+- **用户抽象**:三元组图 → 集合节点+关系转移的模式图;实体不作搜索节点,
+  藏在 pattern node 的 member bitmap 里;一次 O(E) 建关系索引
+  (rel→head/tail bitmap + 按关系邻接),之后所有 fact 查询 = bitmap 集合
+  交 + relation join;witness 只在最后按 top-K 模式延迟实例化。
+- **原型**(tmp/proto_pattern_walk.py):CaseIndex(O(E))+pattern_walk
+  (集合态 BFS,桥=任意非目标关系,终止=目标关系命中,RPE 段语义保留,
+  CVT 终点穿透)+_materialize(按模式反向重建实体链)。
+- **回放 harness**:wallexcap run 的 87 个真实多绑定 ?var 调用(≥4 绑定),
+  现后端(_walk_case_steps 逐绑定)vs 模式后端:
+  **109.0s → 6.3-8.9s,12-17× 提速**。
+- **"金标召回 178→27"是伪影**:抽到的判别型调用(2209 查决赛日期、567 查
+  候选电影 genre)gold=输入绑定本身;现后端把中心回显进候选被计为命中,
+  模式游走按设计只出模式答案(dates/genres——语义正确)。567 可见
+  rating→genre、produced_by→genre 等**反先验桥路径完整保留**。
+- **语义差(真实)**:模式后端只出选中关系的聚焦答案+witness;现后端附带
+  3-hop 全环境("other walked relations" 噪声——上下文 3× 膨胀的来源)。
+  聚焦化是速度+上下文双重收益,但模型能否消费新证据形态需 rollout A/B。
+- **生产集成设计(下一步,待裁决后实施)**:
+  ①触发:centers=单 var 绑定集(≥4)的 sg 调用 → 模式游走;
+  ②模式排序:support × GTE(问题,终止关系),top-K(8-12);
+  ③重实例化:每模式 K 条 witness 链 → 渲染"模式头+链行"证据视图
+  (用户:模式路径重新实例化为子图);
+  ④兜底:模式空 → 回退逐绑定现后端。
+- 交接文档:docs/codex_walk_optimization_handoff.md(给 Codex 的分析包)。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
