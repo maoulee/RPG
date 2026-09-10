@@ -3437,11 +3437,18 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                 # direct matched edge.
                 _mset = set(_names)
                 _bids = set()
-                _center_direct = any(
-                    ri in _mset
-                    for _cn, _ci in centers
-                    if 0 <= _ci < len(_adj)
-                    for ri, _ni in _adj[_ci])
+                # A/B verdict 2026-09-10: skipping bridges when the center
+                # carries the family directly cleans the render (Belgium's
+                # adjoin/combat sections) but costs -4.4pp — the bridged
+                # walks' penetrations feed discrimination evidence. Gated
+                # OFF by default; SEQ_DIRECT_FIRST=1 enables.
+                _center_direct = False
+                if os.environ.get("SEQ_DIRECT_FIRST", "0") == "1":
+                    _center_direct = any(
+                        ri in _mset
+                        for _cn, _ci in centers
+                        if 0 <= _ci < len(_adj)
+                        for ri, _ni in _adj[_ci])
                 if not _center_direct:
                     for _cn, _ci in centers:
                         if not (0 <= _ci < len(_adj)):
