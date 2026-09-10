@@ -30,6 +30,13 @@ _LATIN_RANGES = ((0x0000, 0x024F), (0x1E00, 0x1EFF), (0x2C60, 0x2C7F))
 # a dict hit. Same inputs → same verdicts, byte-equivalent.
 _LATIN_CHAR_OK: Dict[str, bool] = {}
 
+# case-level static memos for build_pattern_evidence_triples (2026-09-10):
+# per-CVT scored edge lists + (h,r,t) static filter results, keyed by the
+# pinned case arrays — the same hub's CVTs are expanded once per CASE, not
+# once per sg call. Entries pin (strong-ref) their source arrays so the
+# id() keys stay valid while the entry lives (walk-perf audit pattern).
+_CASE_STATIC_MEMO: Dict[tuple, dict] = {}
+
 
 def _is_latinish(name) -> bool:
     """True if name contains no non-Latin LETTER (allows Latin+diacritics, digits,
@@ -255,6 +262,25 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
 
     anchor_name = ents[anchor_idx] if 0 <= anchor_idx < len(ents) else ""
 
+    # CASE-LEVEL STATIC MEMOS (user proposal 2026-09-10: CVT entities expand
+    # ONCE per case; displays adjust on demand): the per-CVT scored edge
+    # lists and the (h,r,t) static filter results depend only on the case
+    # arrays — the SAME hub's CVTs were re-expanded on EVERY sg call of the
+    # case. Keyed by the pinned arrays (walk-perf _RPE_ADJ_CACHE pattern:
+    # values keep strong refs so id() keys cannot collide while live).
+    _ck = (id(ents), id(rels_list), len(ents))
+    _cm = _CASE_STATIC_MEMO.get(_ck)
+    if _cm is None:
+        if len(_CASE_STATIC_MEMO) > 8:
+            _CASE_STATIC_MEMO.clear()
+        _cm = _CASE_STATIC_MEMO[_ck] = {
+            "pin": (ents, rels_list),
+            "endpoint": {},       # cvt_idx -> static scored edge list
+            "add": {},            # (h,r,t) -> static tuple | None
+        }
+    _cvt_endpoint_memo = _cm["endpoint"]
+    _add_static_store = _cm["add"]
+
     # schema/meta relation CLASS filter (single choke point for ALL evidence
     # sources: support paths, CVT expansion, Option-B leaf enumeration). The
     # walk-level blacklist (k_queue) already blocks traversal, but Option-B's
@@ -282,11 +308,10 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
     # extensions like Denver--portrayed-->Film off any center path) are NOT
     # kept — the old pattern-first rendering never kept them either.
     _sel_ids = set(selected_rel_ids) if selected_rel_ids is not None else None
-    _cvt_endpoint_memo = {}         # cvt_idx -> static scored edge list
-    _sib_selected_memo = {}         # sibling cvt idx -> touches selected rel
+    _sib_selected_memo = {}         # build-local: depends on THIS call's _sel_ids
 
     def _make_adder(triples_list, seen_set):
-        _add_static_memo = {}       # (h,r,t) -> static tuple | None (rejected)
+        _add_static_memo = _add_static_store
 
         def _add(h_idx, r_idx, t_idx, cvt_attr=False, path_edge=False):
             # STATIC-FILTER MEMO (perf, 2026-09-10 profile: one hub-center
