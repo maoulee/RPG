@@ -282,30 +282,45 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
     # extensions like Denver--portrayed-->Film off any center path) are NOT
     # kept — the old pattern-first rendering never kept them either.
     _sel_ids = set(selected_rel_ids) if selected_rel_ids is not None else None
+    _cvt_endpoint_memo = {}         # cvt_idx -> static scored edge list
+    _sib_selected_memo = {}         # sibling cvt idx -> touches selected rel
 
     def _make_adder(triples_list, seen_set):
+        _add_static_memo = {}       # (h,r,t) -> static tuple | None (rejected)
+
         def _add(h_idx, r_idx, t_idx, cvt_attr=False, path_edge=False):
-            h_name = ents[h_idx] if 0 <= h_idx < len(ents) else "?"
-            t_name = ents[t_idx] if 0 <= t_idx < len(ents) else "?"
-            r_text = rel_to_text(rels_list[r_idx]) if 0 <= r_idx < len(rels_list) else "?"
-            if _is_schema_rel(r_text):
+            # STATIC-FILTER MEMO (perf, 2026-09-10 profile: one hub-center
+            # walk spent 97% of 28.7s in this builder — _add ran 700k times,
+            # _is_latinish 2M times, for a few thousand UNIQUE edges). The
+            # name/relation lookups + static rejections are deterministic per
+            # (h, r, t); cache them per build. Call order and outputs are
+            # unchanged — only the repeated lookups collapse.
+            _sk = (h_idx, r_idx, t_idx)
+            _sv = _add_static_memo.get(_sk, 0)
+            if _sv == 0:
+                h_name = ents[h_idx] if 0 <= h_idx < len(ents) else "?"
+                t_name = ents[t_idx] if 0 <= t_idx < len(ents) else "?"
+                r_text = rel_to_text(rels_list[r_idx]) if 0 <= r_idx < len(rels_list) else "?"
+                if _is_schema_rel(r_text):
+                    _sv = _add_static_memo[_sk] = None
+                elif (not _is_latinish(h_name) or not _is_latinish(t_name)
+                        or len(normalize(h_name)) < 2
+                        or len(normalize(t_name)) < 2):
+                    _sv = _add_static_memo[_sk] = None
+                else:
+                    _sv = _add_static_memo[_sk] = (h_name, t_name, r_text,
+                                                   (normalize(h_name),
+                                                    normalize(r_text),
+                                                    normalize(t_name)))
+            if _sv is None:
                 return
-            # cvt_attr: auto-revealed CVT role attribute; path_edge: an edge of a
-            # QUALIFIED support path (last-hop-selected). Mid-path relations may
-            # be unselected — rejecting them (the old behavior) severed the head
-            # from the evidence: the display showed tail-only edges with the
-            # CENTER absent from every triple (Gingrich audit, 2026-08-19).
             if (_sel_ids is not None and r_idx not in _sel_ids
                     and not cvt_attr and not path_edge):
                 return
-            if not _is_latinish(h_name) or not _is_latinish(t_name):
-                return
-            if len(normalize(h_name)) < 2 or len(normalize(t_name)) < 2:
-                return
-            sig = (normalize(h_name), normalize(r_text), normalize(t_name))
+            sig = _sv[3]
             if sig not in seen_set:
                 seen_set.add(sig)
-                triples_list.append((h_name, r_text, t_name))
+                triples_list.append((_sv[0], _sv[2], _sv[1]))
         return _add
 
     def _meta_rel_priority(rel_name):
@@ -336,23 +351,32 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
         return rel_name.startswith(noisy_prefixes) or short in noisy_shorts
 
     def _expand_endpoint_cvt(cvt_idx, add, witness_nodes):
-        scored = []
+        # STATIC SCORED-EDGE MEMO (perf 2026-09-10): 100k calls per hub walk
+        # re-scored the SAME CVT's edges (is_cvt_like/_meta_rel_priority/
+        # _is_latinish/normalize/rel_to_text per edge per call). The static
+        # score tail is deterministic per (cvt, edge); only the witness flag
+        # varies per call. Same order, same add() sequence — pure caching.
+        scored_static = _cvt_endpoint_memo.get(cvt_idx)
+        if scored_static is None:
+            scored_static = []
+            for h_idx, r_idx, t_idx in node_edges.get(cvt_idx, []):
+                other_idx = t_idx if h_idx == cvt_idx else h_idx
+                other_name = ents[other_idx] if 0 <= other_idx < len(ents) else ""
+                if not other_name or is_cvt_like(other_name):
+                    continue
+                rel_name = rels_list[r_idx] if 0 <= r_idx < len(rels_list) else ""
+                scored_static.append((
+                    (1 if _meta_rel_priority(rel_name) else 0,
+                     0 if _is_latinish(other_name) else 1,
+                     len(normalize(other_name)) < 2,
+                     rel_to_text(rel_name) if rel_name else "",
+                     other_name),
+                    h_idx, r_idx, t_idx, other_idx))
+            _cvt_endpoint_memo[cvt_idx] = scored_static
         witness_node_set = set(witness_nodes)
-        for h_idx, r_idx, t_idx in node_edges.get(cvt_idx, []):
-            other_idx = t_idx if h_idx == cvt_idx else h_idx
-            other_name = ents[other_idx] if 0 <= other_idx < len(ents) else ""
-            if not other_name or is_cvt_like(other_name):
-                continue
-            rel_name = rels_list[r_idx] if 0 <= r_idx < len(rels_list) else ""
-            score = (
-                0 if other_idx in witness_node_set else 1,
-                1 if _meta_rel_priority(rel_name) else 0,
-                0 if _is_latinish(other_name) else 1,
-                len(normalize(other_name)) < 2,
-                rel_to_text(rel_name) if rel_name else "",
-                other_name,
-            )
-            scored.append((score, h_idx, r_idx, t_idx))
+        scored = [((0 if other in witness_node_set else 1,) + tail,
+                   h_idx, r_idx, t_idx)
+                  for tail, h_idx, r_idx, t_idx, other in scored_static]
         for _, h_idx, r_idx, t_idx in sorted(scored):
             add(h_idx, r_idx, t_idx, cvt_attr=True)
 
@@ -390,9 +414,12 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
                     # like the path CVT it siblings). Only then may the —
                     # possibly unselected — parent edge enter evidence, via the
                     # cvt_attr channel (pattern-path discipline, user ruling).
-                    _sib_selected = _sel_ids is None or any(
-                        e[1] in _sel_ids for e in node_edges.get(edge_t, []))
-                    if _sib_selected:
+                    _selhit = _sib_selected_memo.get(edge_t)
+                    if _selhit is None:
+                        _selhit = _sel_ids is None or any(
+                            e[1] in _sel_ids for e in node_edges.get(edge_t, []))
+                        _sib_selected_memo[edge_t] = _selhit
+                    if _selhit:
                         # Add parent edge first so formatter recognizes sibling
                         add(prev_idx, rel_idx, edge_t, cvt_attr=True)
                         _expand_endpoint_cvt(edge_t, add, path_nodes)
