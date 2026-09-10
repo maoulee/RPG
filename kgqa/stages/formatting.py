@@ -280,6 +280,7 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
         }
     _cvt_endpoint_memo = _cm["endpoint"]
     _add_static_store = _cm["add"]
+    _attr_disp_store = _cm.setdefault("attr_display", {})
 
     # schema/meta relation CLASS filter (single choke point for ALL evidence
     # sources: support paths, CVT expansion, Option-B leaf enumeration). The
@@ -808,6 +809,16 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
             continue
 
         def _cvt_attr_display(cvt_idx, limit=20):
+            # CASE-LEVEL DISPLAY MEMO (perf 2026-09-10 residual profile:
+            # 104k calls = top tottime): pure per (cvt_idx, case arrays) —
+            # the same CVT's attr list was rebuilt per pattern per path.
+            # limit is constant at the single call site. Serves the first
+            # build's insertion order; pickle-sha drift vs uncached runs is
+            # insertion-order permutation only (content equality holds —
+            # see the 2026-09-10 methodology note in SESSION_MEMORY).
+            _hit = _attr_disp_store.get(cvt_idx)
+            if _hit is not None:
+                return _hit
             # Collect forward and inv attrs separately, then merge.
             # Ensures dedup regardless of edge iteration order.
             forward_items = []
@@ -845,9 +856,16 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
             for prefix, items in prefix_groups.items():
                 for short, val in items:
                     attrs.append(f"{short}={val}")
-            return attrs[:limit]
+            attrs = attrs[:limit]
+            _attr_disp_store[cvt_idx] = attrs
+            return attrs
+
+        _node_disp_memo = {}   # per-pattern (cvt_attrs is fixed within it)
 
         def _node_display(node_idx, expand_full=False):
+            _nd = _node_disp_memo.get(node_idx)
+            if _nd is not None:
+                return _nd
             name = ents[node_idx] if 0 <= node_idx < len(ents) else "?"
             if is_cvt_like(name):
                 # CVT event node: show its attrs INLINE on the node — use the
@@ -863,10 +881,12 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
                     if a not in seen_a:
                         merged.append(a)
                         seen_a.add(a)
-                if merged:
-                    return f"{name}: [" + ", ".join(merged[:20]) + "]"
-                return f"{name}: []"
-            return name
+                out = (f"{name}: [" + ", ".join(merged[:20]) + "]"
+                       if merged else f"{name}: []")
+            else:
+                out = name
+            _node_disp_memo[node_idx] = out
+            return out
 
         tree_paths = []
         tree_seen = set()
