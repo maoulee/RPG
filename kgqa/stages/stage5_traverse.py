@@ -200,7 +200,8 @@ async def stage_5_graph_traversal(cases: List[CaseState]):
             rpe_paths, rpe_depth, rpe_cov = relation_prior_expand(
                 cs.anchor_idx, [set(rs) for rs in cs.step_relations],
                 cs.h_ids, cs.r_ids, cs.t_ids, cs.ents,
-                explicit_targets=explicit_targets)
+                explicit_targets=explicit_targets,
+                prefix_nodes=getattr(cs, "prefix_nodes", None))
             if rpe_cov > max_cov:
                 paths, max_depth, max_cov = rpe_paths, rpe_depth, rpe_cov
             elif rpe_paths:

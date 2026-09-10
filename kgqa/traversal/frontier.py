@@ -620,7 +620,8 @@ def bidirectional_expand(anchor_idx, target_idx, step_relations, h_ids, r_ids, t
 # ---------------------------------------------------------------------------
 
 def relation_prior_expand(anchor_idx, step_relations, h_ids, r_ids, t_ids, entity_list,
-                          explicit_targets=None, max_hops=3, beam_width=80, per_branch_width=5):
+                          explicit_targets=None, max_hops=3, beam_width=80, per_branch_width=5,
+                          prefix_nodes=None):
     """Forward layer-by-layer relation-prior expansion.
 
     New behavior:
@@ -743,9 +744,15 @@ def relation_prior_expand(anchor_idx, step_relations, h_ids, r_ids, t_ids, entit
         - bridge hops may not use any selected layer relation
         - once a target relation is hit, the segment ends immediately
         - same-layer relations cannot chain within one segment
+        - PATTERN-PREFIX mask (user design 2026-09-10, 状态保持/不重复回去):
+          with prefix_nodes set (a continuation walk from a pattern tail), a
+          neighbor INSIDE the earlier walk's territory is never EXPANDED —
+          only a target-relation edge INTO it is recorded (connection
+          evidence); bridge hops into the prefix are skipped entirely.
         """
         if not target_rels:
             return []
+        pfx = set(prefix_nodes) if prefix_nodes else None
         active = list(start_paths)
         matched = []
         seen_matched = set()
@@ -772,9 +779,12 @@ def relation_prior_expand(anchor_idx, step_relations, h_ids, r_ids, t_ids, entit
 
                     is_target_rel = rel in target_rels
                     is_any_layer_rel = rel in all_layer_rels
+                    in_prefix = pfx is not None and neighbor in pfx
 
                     if not is_target_rel and is_any_layer_rel:
                         continue
+                    if in_prefix and not is_target_rel:
+                        continue          # back into walked territory — dead end
 
                     new_nodes = nodes + (neighbor,)
                     new_rels = rels + (rel,)

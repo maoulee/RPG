@@ -2276,11 +2276,18 @@ def _walk_case_steps(case_key, d, steps):
     Pure: identical inputs → identical output list (per-center dict[label ->
     PatternEvidence], {} when the walk reached nothing). Shared by the
     per-call lane task (_walk_call_spawn) and the round-level batch task
-    (_walk_batch_spawn)."""
+    (_walk_batch_spawn).
+    Step tuples are (center_idx, rel_idxs, fid) or, for a PATTERN-PREFIX
+    continuation (user design 2026-09-10), (center_idx, rel_idxs, fid,
+    prefix_names): the center is a tail of an earlier pattern and the
+    prefix = the earlier walk's node NAMES — RPE records target edges INTO
+    that territory but never expands through it (状态保持,不重复回去)."""
     sample, pilot_row, ents, rels, h_ids, r_ids, t_ids, rel_texts = d
     import asyncio as _aio
+    n2i = None
     cases = []
-    for center_idx, rel_idxs, fid in steps:
+    for step in steps:
+        center_idx, rel_idxs, fid = step[0], step[1], step[2]
         cs = CaseState(case_id=case_key[0], case_num=case_key[1],
                        sample=sample, pilot_row=pilot_row)
         cs.anchor_idx = center_idx
@@ -2291,13 +2298,23 @@ def _walk_case_steps(case_key, d, steps):
         cs.steps = [{"id": fid or "f"}]
         cs.breakpoints = {}
         cs.active = True
+        if len(step) > 3 and step[3]:
+            # names → idx set (once per call: the map is shared by all steps)
+            if n2i is None:
+                n2i = {}
+                for j, e in enumerate(ents):
+                    n2i.setdefault(str(e), j)
+            cs.prefix_nodes = frozenset(
+                n2i[nm] for nm in step[3]
+                if nm in n2i and n2i[nm] != center_idx)
         cases.append(cs)
     try:
         _aio.run(stage_5_graph_traversal(cases))
     except Exception:
         return [{} for _ in steps]
     out = []
-    for (center_idx, rel_idxs, fid), cs in zip(steps, cases):
+    for step, cs in zip(steps, cases):
+        center_idx, rel_idxs = step[0], step[1]
         paths = cs.paths or []
         patterns = (compress_paths(paths, ents, rels, center_idx, set())
                     if paths else (cs.logical_paths or []))
@@ -2350,11 +2367,13 @@ def _walk_batch_spawn(payload):
     return out
 
 
-async def _run_walk_one_step(ctx, center_idx: int, rel_idxs, fid: str):
+async def _run_walk_one_step(ctx, center_idx: int, rel_idxs, fid: str,
+                             prefix_names=None):
     """Inline (in-process) one-center walk: the WALK_POOL=0 path, and the exact
     per-center unit the packed worker (_walk_call_spawn) replicates off-process.
     Reuses the proven SAPS walk (stage_5_graph_traversal: multi-hop, K-path,
-    CVT-penetrating) scoped to ONE step from center_idx along rel_idxs. Mirrors
+    CVT-penetrating) scoped to ONE step from center_idx along rel_idxs
+    (prefix_names: pattern-prefix continuation, see _walk_case_steps). Mirrors
     _do_select's cs setup + walk + evidence build (tools.py:1280-1337), but for a
     single step whose anchor is the current center. Returns dict[label -> PatternEvidence]
     (each carries .triples + .candidates + .tree_data for the dense CVT-inline tree)."""
@@ -2368,6 +2387,13 @@ async def _run_walk_one_step(ctx, center_idx: int, rel_idxs, fid: str):
     cs.steps = [{"id": fid or "f"}]
     cs.breakpoints = {}
     cs.active = True
+    if prefix_names:
+        _n2i = {}
+        for j, e in enumerate(ctx.ents):
+            _n2i.setdefault(str(e), j)
+        cs.prefix_nodes = frozenset(
+            _n2i[nm] for nm in prefix_names
+            if nm in _n2i and _n2i[nm] != center_idx)
     try:
         await stage_5_graph_traversal([cs])
     except Exception:
@@ -2497,15 +2523,24 @@ async def _walk_flush_async(batch):
     _t_first = min(r["t0"] for r in reqs)
     try:
         # 1. unique execution slots per case, memo hits served for free.
-        # slot key = (center_idx, frozenset(rel_idxs)) — the walk consumes
-        # rel_idxs as a SET, so order never affects the result.
+        # slot key = (center_idx, frozenset(rel_idxs), prefix) — the walk
+        # consumes rel_idxs as a SET, so order never affects the result; the
+        # PATTERN-PREFIX set (continuation walks, user design 2026-09-10) is
+        # part of the identity: the same center+rels walked with a different
+        # prefix is a different result.
+        def _step_key(s):
+            i, rel_idxs = s[0], s[1]
+            _pf = s[3] if len(s) > 3 else None
+            return (i, frozenset(rel_idxs), _pf)
+
         case_slots, case_ctx = {}, {}
         for r in reqs:
             ck = r["case_key"]
             slots = case_slots.setdefault(ck, {})
             case_ctx.setdefault(ck, r["ctx"])
-            for i, rel_idxs, _fid in r["steps"]:
-                slots.setdefault((i, frozenset(rel_idxs)), (i, rel_idxs))
+            for s in r["steps"]:
+                slots.setdefault(_step_key(s), (s[0], s[1],
+                                                s[3] if len(s) > 3 else None))
         # memo-covered slots are NOT re-executed: drop them from the lane
         # payload, and resolve requests whose steps are ALL memo hits right
         # now (they must not wait out the lane tasks).
@@ -2524,11 +2559,9 @@ async def _walk_flush_async(batch):
         for r in reqs:
             ck = r["case_key"]
             mcase = _WALK_MEMO.get(ck) or {}
-            if all((i, frozenset(rel_idxs)) in mcase
-                   for i, rel_idxs, _fid in r["steps"]):
+            if all(_step_key(s) in mcase for s in r["steps"]):
                 if not r["fut"].done():
-                    r["fut"].set_result([mcase[(i, frozenset(rel_idxs))]
-                                         for i, rel_idxs, _fid in r["steps"]])
+                    r["fut"].set_result([mcase[_step_key(s)] for s in r["steps"]])
                 done_reqs.append(r)
         done_ids = {id(r) for r in done_reqs}
         reqs = [r for r in reqs if id(r) not in done_ids]
@@ -2578,7 +2611,7 @@ async def _walk_flush_async(batch):
                                 ctx.h_ids, ctx.r_ids, ctx.t_ids, ctx.rel_texts)
                     _SENT_BY_LANE[li].add(ck)
                 payload.append((ck, ctx_data,
-                                [(i, rel_idxs, "") for i, rel_idxs
+                                [(i, rel_idxs, "", pf) for i, rel_idxs, pf
                                  in pending[ck].values()]))
             lane_jobs.append((li, payload, loop.run_in_executor(
                 lanes[li], _walk_batch_spawn_timed, (payload, t_submit))))
@@ -2604,8 +2637,10 @@ async def _walk_flush_async(batch):
                 if entry == "MISS":
                     reship.setdefault(li, []).append(ck)
                 else:
-                    for (i, rel_idxs, _fid), pe in zip(steps, entry):
-                        slot_pe.setdefault((ck, i, frozenset(rel_idxs)), pe)
+                    for s, pe in zip(steps, entry):
+                        _pf = s[3] if len(s) > 3 else None
+                        slot_pe.setdefault(
+                            (ck, s[0], frozenset(s[1]), _pf), pe)
         if reship:
             # 4. worker cache evicted for these cases → reship WITH data on the
             # SAME lanes (sticky), one follow-up task per affected lane.
@@ -2617,7 +2652,7 @@ async def _walk_flush_async(batch):
                     payload.append((ck,
                                     (ctx.sample, ctx.pilot_row, ctx.ents, ctx.rels,
                                      ctx.h_ids, ctx.r_ids, ctx.t_ids, ctx.rel_texts),
-                                    [(i, rel_idxs, "") for i, rel_idxs
+                                    [(i, rel_idxs, "", pf) for i, rel_idxs, pf
                                      in pending[ck].values()]))
                 jobs2.append((payload, loop.run_in_executor(
                     lanes[li], _walk_batch_spawn_timed,
@@ -2633,26 +2668,29 @@ async def _walk_flush_async(batch):
                 for (ck, _d, steps), entry in zip(payload, entries):
                     if entry == "MISS":
                         continue
-                    for (i, rel_idxs, _fid), pe in zip(steps, entry):
-                        slot_pe.setdefault((ck, i, frozenset(rel_idxs)), pe)
+                    for s, pe in zip(steps, entry):
+                        _pf = s[3] if len(s) > 3 else None
+                        slot_pe.setdefault(
+                            (ck, s[0], frozenset(s[1]), _pf), pe)
         # 5. fill the cross-batch memo (evict whole oldest cases when bound).
-        for (ck, i, rels_fs), pe in slot_pe.items():
+        for (ck, i, rels_fs, _pf), pe in slot_pe.items():
             mcase = _WALK_MEMO.get(ck)
             if mcase is None:
                 if len(_WALK_MEMO) >= _WALK_MEMO_MAX_CASES:
                     _WALK_MEMO.pop(next(iter(_WALK_MEMO)))
                 mcase = _WALK_MEMO[ck] = {}
-            mcase[(i, rels_fs)] = pe
+            mcase[(i, rels_fs, _pf)] = pe
         # 6. resolve every request from memo + fresh slots.
         for r in reqs:
             ck = r["case_key"]
             mcase = _WALK_MEMO.get(ck) or {}
             out = []
-            for i, rel_idxs, _fid in r["steps"]:
-                k = (i, frozenset(rel_idxs))
+            for s in r["steps"]:
+                _pf = s[3] if len(s) > 3 else None
+                k = (s[0], frozenset(s[1]), _pf)
                 pe = mcase.get(k)
                 if pe is None:
-                    pe = slot_pe.get((ck, i, k[1]), {})
+                    pe = slot_pe.get((ck, s[0], k[1], _pf), {})
                 out.append(pe)
             if not r["fut"].done():
                 r["fut"].set_result(out)
@@ -2730,8 +2768,10 @@ async def _run_walk_packed(ctx, steps):
     otherwise: the legacy per-call affine-lane submit."""
     _pool_n = int(os.environ.get("WALK_POOL", "0") or 0)
     if _pool_n <= 0:
-        return [await _run_walk_one_step(ctx, i, rel_idxs, fid)
-                for i, rel_idxs, fid in steps]
+        return [await _run_walk_one_step(
+                    ctx, s[0], s[1], s[2],
+                    s[3] if len(s) > 3 else None)
+                for s in steps]
     case_key = (ctx.case_id or "seq", ctx.case_num or 0)
     if float(os.environ.get("WALK_BATCH_WINDOW", "0") or 0) > 0:
         return await _run_walk_coordinated(ctx, case_key, steps)
@@ -3207,6 +3247,19 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     fid = str(args.get("sg") or args.get("fact_id") or args.get("step") or "")
     if not entities:
         return {"kind": "done", "result": _json_result({"error": "no entities provided."})}
+    # PATTERN-PREFIX CONTINUATION (user design 2026-09-10): a single-?var
+    # call whose variable was declared from a prior single-center retrieval
+    # carries that walk's node set as the prefix — the bindings are the
+    # prior pattern's tails, so their walks mask the already-walked
+    # territory (状态保持,不重复回去) and spend the budget on the novel fringe.
+    _prefix = None
+    _raw0 = str(raw[0]).strip() if raw else ""
+    if (_raw0.startswith("?") and len(entities) == 1
+            and os.environ.get("SEQ_PATTERN_PREFIX", "1") != "0"):
+        _pst = getattr(ctx, "pattern_state", None) or {}
+        _org = _pst.get(_raw0)
+        if _org and _org.get("nodes"):
+            _prefix = _org["nodes"]
     entities, _err = _expand_entities(entities, ctx)
     if _err:
         return {"kind": "done", "result": _json_result({"error": _err})}
@@ -3410,6 +3463,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     return {"kind": "sg", "corr": bad_name, "centers": centers, "skipped": skipped,
             "rel_idxs": rel_idxs, "rel_names": rel_names, "fid": fid,
             "entities": entities, "nudge": _nudge, "attr_expansion": _fam_echo,
+            "prefix": _prefix,
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
@@ -3455,9 +3509,12 @@ async def _sg_execute(treq, ctx, session):
             # original flow's `if not centers` error (never reaches the walk)
             return {"no_centers": True}
     from kgqa.core.utils import phase_timer
+    _pf = treq.get("prefix")
+    _steps = [(i, treq["rel_idxs"], treq["fid"], _pf) if _pf is not None
+              else (i, treq["rel_idxs"], treq["fid"])
+              for _, i in treq["centers"]]
     with phase_timer("walk"):
-        pe_list = await _run_walk_packed(
-            ctx, [(i, treq["rel_idxs"], treq["fid"]) for _, i in treq["centers"]])
+        pe_list = await _run_walk_packed(ctx, _steps)
     return {"pe_list": pe_list}
 
 
@@ -3729,6 +3786,7 @@ def _sg_finalize(treq, bres, ctx) -> str:
         _seen = getattr(ctx, "walk_seen_entities", None)
         if _seen is None:
             _seen = ctx.walk_seen_entities = []
+        _seen_len0 = len(_seen)      # PATTERN-STATE provenance: this call's delta
         _seen_n = {str(c) for c in _seen}
         for _tr in all_triples:
             if len(_tr) == 3:
@@ -3740,6 +3798,17 @@ def _sg_finalize(treq, bres, ctx) -> str:
             if str(_c) not in _seen_n:
                 _seen_n.add(str(_c))
                 _seen.append(str(_c))
+        # PATTERN-STATE (user design 2026-09-10): remember THIS walk's node set
+        # (the ledger delta) per fact — when the model binds a ?var from this
+        # fact, later single-?var calls from that var continue with this
+        # territory as the prefix mask instead of re-walking it per binding.
+        _fp = getattr(ctx, "fid_pattern", None)
+        if _fp is None:
+            _fp = ctx.fid_pattern = {}
+        _fp[fid] = {
+            "nodes": frozenset(str(x) for x in _seen[_seen_len0:]),
+            "single_center": (centers[0][1] if len(centers) == 1 else None),
+        }
         all_triples, candidates, bres = _display_license_filter(
             treq, bres, centers, all_triples, candidates)
     if not all_triples:

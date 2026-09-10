@@ -203,6 +203,21 @@ def _update_var_bindings(ctx, content: str) -> None:
         if parts:
             vb[var] = parts
             _decl[_fid_key] = _cur_seq    # (re)lock at the current evidence seq
+            # PATTERN-STATE (user design 2026-09-10): a variable declared from
+            # this fact's subgraph carries THAT walk's node set — a later
+            # single-?var retrieval continues over it as a prefix mask (the
+            # bindings are the pattern's tails; their walks must not re-traverse
+            # the territory the declaring walk already covered).
+            _fpat = (getattr(ctx, "fid_pattern", None) or {}).get(_fid_key)
+            if _fpat and _fpat.get("nodes"):
+                _ps = getattr(ctx, "pattern_state", None)
+                if _ps is None:
+                    _ps = ctx.pattern_state = {}
+                _prev = _ps.get(var)
+                if _prev is None:
+                    _ps[var] = {"nodes": _fpat["nodes"]}
+                else:
+                    _ps[var] = {"nodes": _prev["nodes"] | _fpat["nodes"]}
             # PER-FID binding store (join support): vb is keyed by VARIABLE, so
             # a second subgraph declaring the same var overwrites the first —
             # the harness join below needs each fact's OWN values to intersect.
