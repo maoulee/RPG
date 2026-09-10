@@ -334,8 +334,19 @@ def _expand_entities(entities, ctx):
             # above" (gold Pemberton — its date_of_death edge is the sole
             # date source in the graph) never joins the centers, so the
             # relation pool and the walk can never reach it. Attach the
-            # accumulated not-shown candidates (a handful per sg call).
+            # accumulated not-shown candidates — RECENCY-CAPPED (walk cost
+            # audit 2026-09-10): the ledger grows monotonically every sg
+            # call, and each ?var expansion re-walks EVERY entry as a full
+            # environment traversal (RPE is relset-independent — user cost
+            # model: one walk + per-relation accounting). Late-turn ?var
+            # calls were walking 30-50 centers (slot count 2343/run, walk
+            # exec ×6). The mechanism only ever needed the RECENT wanderers
+            # (1797: Pemberton from the immediately prior sg); ancient ones
+            # were already reachable when they were fresh.
+            _wxcap = int(os.environ.get("SEQ_WALLEXTRA_CAP", "6") or 0)
             _wx = getattr(ctx, "walk_extra", None) or []
+            if _wxcap > 0 and len(_wx) > _wxcap:
+                _wx = _wx[-_wxcap:]
             out.extend(x for x in _wx if x not in out)
         else:
             out.append(e)
