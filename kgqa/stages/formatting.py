@@ -314,12 +314,6 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
         _add_static_memo = _add_static_store
 
         def _add(h_idx, r_idx, t_idx, cvt_attr=False, path_edge=False):
-            # STATIC-FILTER MEMO (perf, 2026-09-10 profile: one hub-center
-            # walk spent 97% of 28.7s in this builder — _add ran 700k times,
-            # _is_latinish 2M times, for a few thousand UNIQUE edges). The
-            # name/relation lookups + static rejections are deterministic per
-            # (h, r, t); cache them per build. Call order and outputs are
-            # unchanged — only the repeated lookups collapse.
             _sk = (h_idx, r_idx, t_idx)
             _sv = _add_static_memo.get(_sk, 0)
             if _sv == 0:
@@ -346,6 +340,10 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
             if sig not in seen_set:
                 seen_set.add(sig)
                 triples_list.append((_sv[0], _sv[2], _sv[1]))
+        # PER-ADDER (per-pattern) family dedup carrier: _expand_sibling_cvts
+        # reads it — acceptance is static, so within ONE adder a family's
+        # later touches append nothing (first-touch order is the result).
+        _add._fam_done = set()
         return _add
 
     def _meta_rel_priority(rel_name):
@@ -411,8 +409,16 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
 
         Key: must add the parent edge (head, rel, sibling_cvt) BEFORE expanding
         the sibling CVT's attributes, so the formatter sees it as pattern evidence.
+        PER-ADDER FAMILY DEDUP (2026-09-10, user decomposition):: _add's
+        acceptance is fully STATIC (schema/latinish/normalize/sel_ids — the
+        witness flag orders but never admits/rejects), so a family's
+        enterable-sig set is identical for every path; seen_set then makes
+        every later path's expansion a pure no-op check. The old per-CALL
+        expanded_rels set re-did the whole family walk per path (7221 calls
+        on the hub specimen); hoisting it to build scope skips the repeats
+        byte-identically (first-touch insertion order is preserved — exactly
+        what the old code produced, since later calls appended nothing).
         """
-        expanded_rels = set()
         for i, node_idx in enumerate(path_nodes):
             if i == 0:
                 continue
@@ -424,9 +430,12 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
             if rel_idx is None:
                 continue
             sig = (prev_idx, rel_idx)
-            if sig in expanded_rels:
+            _fam_done = getattr(add, "_fam_done", None)
+            if _fam_done is None:
+                _fam_done = add._fam_done = set()
+            if sig in _fam_done:
                 continue
-            expanded_rels.add(sig)
+            _fam_done.add(sig)
             for edge_h, edge_r, edge_t in node_edges.get(prev_idx, []):
                 if edge_h != prev_idx or edge_r != rel_idx:
                     continue
