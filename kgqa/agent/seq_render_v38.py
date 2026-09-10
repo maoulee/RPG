@@ -147,8 +147,29 @@ def render_v38_ack(treq, bres, ctx):
                 d = hop_dir(rname, key[i], key[i + 1])
                 if d == "r":
                     edges.add((key[i + 1], sh, key[i]))
+                    anchored.add((key[i + 1], key[i]))
                 else:
                     edges.add((key[i], sh, key[i + 1]))
+                    anchored.add((key[i], key[i + 1]))
+    # CVT PENETRATION + CENTER-PARENTED SIBLINGS are part of the center's
+    # pattern instantiation (pathcons rollout: demoting them cost -4.4pp —
+    # film names behind performance CVTs left tier-1). A penetration pair
+    # (cvt, named) is anchored when the CVT sits on ANY walked path or is
+    # reached directly from a center; a sibling row is anchored when its
+    # head/parent is a center or a path node.
+    _path_nodes = {n for (key, _d), _v in kept.items() for n in key}
+    for (cname, cidx), pe in zip(treq["centers"], bres["pe_list"]):
+        for pid, p in (pe.items() if isinstance(pe, dict) else []):
+            for tr in (getattr(p, "triples", None) or []):
+                if len(tr) != 3:
+                    continue
+                h, _r, t = str(tr[0]), str(tr[1]), str(tr[2])
+                # tier-1 is gated by the SELECTED relations anyway, so
+                # anchoring every CVT-headed walk triple cannot re-admit
+                # unselected environment sections — it only keeps the
+                # selected relations' CVT-mediated instantiations visible
+                if _cvt(h) or h in _center_names:
+                    anchored.add((h, t))
     # CVT PENETRATION EDGES from p.triples (user audit 2026-09-08: the walk
     # ENUMERATES CVT→named edges — 54 in the 25 specimen — but tree_data
     # paths are step-relation-constrained and only record anchor→CVT→anchor
