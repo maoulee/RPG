@@ -3563,11 +3563,19 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
 
 
 def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3):
-    """BFS from ci to the first edge riding a family relation, ≤2 named
-    hops (CVT nodes free). Returns tuple(frozenset, ...) of per-hop
-    relation sets — the multi-step step_relations form — or None."""
+    """ALL-paths BFS from ci to family-terminated edges, ≤3 named hops
+    (CVT nodes free). Returns tuple(frozenset, ...) of per-hop PARALLEL
+    relation sets — the multi-step step_relations form — or None.
+
+    PARALLEL-HOP MERGE (user ruling 2026-09-11, realign2 postmortem): a hop
+    h→t can ride MANY relations (r1a, r1b, …) — the single-rel-per-hop
+    derivation left one narrow path (mismatch 76); the engine's forward
+    validation then accepted only entities touching that ONE relation.
+    Every shortest path's per-hop relations merge into the same hop set, so
+    the walk sees the full parallel breadth at each hop, exactly what the
+    bridge system fed RPE (≤6 bridges in one rel_idxs set)."""
     from kgqa.traversal.cvt import is_cvt_like as _icl
-    from collections import deque
+    from collections import deque, defaultdict
     n = len(ctx.ents)
     adj = {}
 
@@ -3581,34 +3589,58 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3):
             adj[u] = out
         return out
 
-    prev = {ci: None}
-    hop_cost = {ci: 0}
-    q = deque([ci])
-    hit = None
-    while q and hit is None:
-        u = q.popleft()
-        for r, v in _neigh(u):
-            if v == ci or v in prev:
-                continue
-            cvt = _icl(str(ctx.ents[v])) if 0 <= v < n else False
-            cost = hop_cost[u] + (0 if cvt else 1)
-            if cost > max_named:
-                continue
-            prev[v] = (u, r)
-            hop_cost[v] = cost
-            if r in fam_idxs:
-                hit = v
-                break
-            q.append(v)
-    if hit is None:
+    # BFS layers: collect ALL nodes at each named-hop depth with the
+    # relations that reached them (multi-rel per node). We stop expanding a
+    # node once it lies PAST a family terminal (family edge ends the
+    # pattern — deeper hops belong to the next pattern, not this one).
+    layer = {ci: set()}               # node -> set of (rel, prev_node) at this depth
+    hops = []                          # [ {node: set(rels that reach it from prev layer)} ]
+    hit_rels = set()                   # family rels hit at some layer (terminal hop)
+    hit_nodes = set()
+    frontier = {ci: [(None, None)]}    # node -> [(rel, prev_node), ...]
+    seen = {ci}
+    for _depth in range(max_named):
+        nxt = defaultdict(list)        # node -> [(rel, prev_node), ...]
+        for u in frontier:
+            if u in hit_nodes:
+                continue               # past a terminal — pattern already complete
+            for r, v in _neigh(u):
+                if v == ci or v in seen:
+                    # allow re-visit from a DIFFERENT prev at same depth
+                    if v in seen and v not in frontier:
+                        continue
+                _cvt = _icl(str(ctx.ents[v])) if 0 <= v < n else False
+                if _cvt:
+                    nxt[v].append((r, u))
+                    if r in fam_idxs:
+                        hit_rels.add(r)
+                        hit_nodes.add(v)
+                else:
+                    if r in fam_idxs:
+                        hit_rels.add(r)
+                        hit_nodes.add(v)
+                    nxt[v].append((r, u))
+        if not nxt:
+            break
+        for v in nxt:
+            seen.add(v)
+        hops.append({v: {r for r, _ in rl} for v, rl in nxt.items()})
+        frontier = dict(nxt)
+        if hit_nodes & set(frontier):
+            break                       # terminals reached at this depth
+    if not hit_rels:
         return None
+    # build hop sets: merge the relations at each depth, keeping the
+    # terminal hop as the family set
     seq = []
-    node = hit
-    while prev[node] is not None:
-        u, r = prev[node]
-        seq.append(frozenset([r]))
-        node = u
-    return tuple(reversed(seq))
+    for depth, hop_map in enumerate(hops):
+        all_rels = set()
+        for v, rels in hop_map.items():
+            all_rels |= rels
+        if depth == len(hops) - 1:
+            all_rels |= hit_rels        # ensure the family terminates
+        seq.append(frozenset(all_rels))
+    return tuple(seq)
 
 
 async def _sg_execute(treq, ctx, session):
