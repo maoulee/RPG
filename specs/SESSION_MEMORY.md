@@ -8300,6 +8300,19 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   CVT/实体属性展示保底含约束键(比照 submitted-components 豁免机制);
   ②roster/beam 截断审计(25 标本)。
 
+### 2026-09-11 前缀 bug 修正:三元组层 19→8(工具错误,非管线)
+- **工具 bug**:presence 检查只认 `triples:` 开头,而带 fact_id 的 sg 结果
+  以 `fact_id: sgN` 开头→大量假 ABSENT。2576 结案:金标 Americas 直接在
+  tier-1(`Falkland Islands --containedby--> Americas | …`),模型答 UK
+  =读错成员,**模型能力**。
+- **修正后真 ABSENT 仅 8 例**:21 s2(Hailemariam)、3744 s0(Wisconsin)、
+  1379 s2(Priest)、452 s0(Baltimore)、25 s2(Nick&Jessica)、567×3
+  (The Journey——同一 case 三采样全缺,最像真环境缺口)。58 失败重新
+  分为 **8 三元组层 + 50 编排/模型层**。
+- 25 s1 的金标在 pe 但被 CVT 压缩每键 8 值 cap 截断(已证);s2 同 case
+  另一形态。教训:**审计工具自身要先验证**(452 s2 曾因同名前缀漏检
+  被误判)。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
