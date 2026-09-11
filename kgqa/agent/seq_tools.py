@@ -3542,15 +3542,20 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             for _cn, _ci in centers:
                 if not (0 <= _ci < len(ctx.ents)):
                     continue
-                # direct support: any family relation incident on ci
-                # (head OR tail — the walk expands both directions)
-                _direct_here = any(
-                    ((_ix.head_mask.get(r, 0) >> _ci) & 1)
-                    or ((_ix.tail_mask.get(r, 0) >> _ci) & 1)
-                    for r in _fam)
-                if _direct_here:
-                    continue
-                _seq = _derive_multistep_seq(_ix, ctx, _ci, _fam)
+                # PER-RELATION direct check (Missouri River specimen
+                # 2026-09-11: one co-submitted relation with direct support
+                # masked the OTHER relation's lack — coterminous_with had MR
+                # edges, contains didn't; the center-level check skipped
+                # derivation entirely, leaving contains un-walkable). Only
+                # relations WITHOUT direct support go to pattern derivation.
+                _undirected = set()
+                for r in _fam:
+                    if not (((_ix.head_mask.get(r, 0) >> _ci) & 1)
+                            or ((_ix.tail_mask.get(r, 0) >> _ci) & 1)):
+                        _undirected.add(r)
+                if not _undirected:
+                    continue               # every relation has direct support
+                _seq = _derive_multistep_seq(_ix, ctx, _ci, _undirected)
                 if _seq:
                     _multistep[_ci] = _seq
         except Exception:
