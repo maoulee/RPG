@@ -8346,6 +8346,19 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - 待办:25_892ff 最佳路径;567 判别器深度(全电影 release_date 保底?);
   452/25 的约束键(tvrage_id 类)plan 缺口课题。
 
+### 2026-09-11 Ron Howard 颁奖爆炸案(用户:为何两关系重建一堆子图)
+- **机制**:提交 director.film|producer.film → 桥扫描逐邻居检查 → 颁奖
+  CVT 的共同端点(Brian Grazer 等)携带 film.producer.film → behind-CVT
+  命中 → award_winner/award_nominations 作为桥进 rel_idxs(≤6/名)→
+  tier-1 渲染成 "(retrieved)"。Belgium 同根,这次踩好莱坞社交图
+  (共同提名人是制片人几乎恒真)。
+- **第三次判决链**:direct-first(免桥)-4.4pp;tier-1 锚定降级 -3.2pp;
+  **纯标注"(bridge context)"hit 82.6→79.2(-3.4pp)**——连降低注意力
+  的标签都损失命中。**结论坐实:behind-CVT 桥洪是付账的噪声**,
+  三种抑制方式全部负收益,标注已门控关(SEQ_BRIDGE_LABEL)。
+- 站立配置 = topk5(f1 0.6802/hit 82.6%/316s);bridgelabel run 留档
+  reports/v38_bridgelabel_48x3.json。
+
 ### 2026-09-11 CVT 键 top-K 3→5 + 机制对照表(用户:各影响什么)
 - **验证**:GTE 对 "released first" 排 initial_release_date #3、
   release_date #4——top-3 刚好卡在判别键外面,提到 5 纳入。
