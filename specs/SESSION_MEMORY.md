@@ -126,6 +126,28 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 静态 gold 路径审计(用户裁决:不重跑,直接查路径)+推导 CVT 穿透修复
+- **方法**:48 cohort case 逐个:建图→定位 gold 实体→BFS(无向)最短路(起点=轨迹里
+  实际提交过的 center+锚点)→用 realign4 48×3 轨迹的**实际 (center,关系) 配对**判定:
+  末跳关系是否被提交、前缀是否在 2 跳推导范围内(直接调 `_derive_multistep_seq` 验证)。
+  秒级,无 LLM/GPU。
+- **修复前**:direct 60 / rank_miss 17 / deriv2_none 3 / terminal_miss 30 / **needs_3hop 0**。
+- **根因 2(推导 CVT 穿透 bug,已修)**:穿透只查**同关系前向** `ix.fwd[r].get(cvt)`——
+  performance CVT 的 actor 边在反向表、film 边在前向表,同关系前向=空 → performance 类
+  模式 support 算 0、从不进枚举(17 rank_miss+3 none 的统一根因)。原代码还有隐性雷:
+  `for r3, n3 in <int列表>` 双元解包,CVT 恰有同关系前向边时 TypeError 被 except 静默吞
+  (整个推导失效)。修复=CVT 一跳邻居贡献其**全部命名邻居**(任意关系,双向,单层,
+  memo 化;与 `_seq_pool_relids` 的 CVT 透明跳同语义)。
+- **修复后**:direct 60(54.5%)/ **deriv2_ok 20(18.2%)**/ rank_miss 0 / none 0 /
+  terminal_miss 30(27.3%)。**引擎侧可达(给定实际提交)=80/110=72.7%**;
+  残余 30 全是模型侧(从未提交正确末跳关系——关系选择家族,引擎不可修)。
+- **判决链终版**:①"引擎多步到达不足 mm=48-76"=license 缝隙(已修);②"2 跳刚性
+  需 3 跳枚举"=**被反驳**(needs_3hop=0);③排序缺口=support 低估计(CVT 穿透修复
+  连带解决,rank_miss 17→0);④残余失败=模型关系选择 27.3%(与失败分解的模型/
+  编排层家族一致)。
+- 回归:144 测试全绿;站立配置字节级不变;BT0+MM 标本输出不变(3672/1865)。
+- 留档:tmp/goldpath_audit.py(审计脚本,可重跑)、tmp/check_ledge.py(穿透 bug 标本)。
+
 ### 2026-09-12 路径级准入已实施(用户裁决:准入单位=路径,非边)
 - **裁决**:过滤器是旧架构(实体游走→事后归纳)的产物;模式时代先跑完模式再过滤;
   模型提交的是**末尾关系**,评估对象是**路径**——"最后一跳是提交关系"即合法,

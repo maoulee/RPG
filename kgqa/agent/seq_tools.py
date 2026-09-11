@@ -3583,18 +3583,38 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3, topk=3):
     n = len(ctx.ents)
     # local adjacency (center's 1-hop only, with CVT transparency)
     hop1 = defaultdict(set)          # rel_idx -> {named entity idxs reached}
+    # CVT transparency: a CVT 1-hop neighbor contributes ALL its named
+    # neighbors (any relation, both directions — a performance CVT's actor
+    # edge points BACK to the person while its film edge points forward,
+    # so a same-relation-forward-only pass-through sees nothing; The-Ledge
+    # specimen: film.actor.film edges live in rev, gold pattern support
+    # counted 0, never enumerated). One level only, named nodes only.
+    _behind_memo = {}
+
+    def _behind(cvt_idx):
+        out = _behind_memo.get(cvt_idx)
+        if out is None:
+            out = set()
+            for r2 in range(len(ctx.rels)):
+                for x in ix.fwd[r2].get(cvt_idx, ()):
+                    if 0 <= x < n and not _icl(str(ctx.ents[x])):
+                        out.add(x)
+                for x in ix.rev[r2].get(cvt_idx, ()):
+                    if 0 <= x < n and not _icl(str(ctx.ents[x])):
+                        out.add(x)
+            _behind_memo[cvt_idx] = out
+        return out
+
     for r in range(len(ctx.rels)):
         for t2 in ix.fwd[r].get(ci, ()):
-            if _icl(str(ctx.ents[t2])) if 0 <= t2 < n else False:
-                for r3, n3 in ix.fwd[r].get(t2, ()):  # pass through CVT
-                    hop1[r].add(n3)
-            else:
+            if 0 <= t2 < n and _icl(str(ctx.ents[t2])):
+                hop1[r].update(x for x in _behind(t2) if x != ci)
+            elif 0 <= t2 < n:
                 hop1[r].add(t2)
         for h2 in ix.rev[r].get(ci, ()):
-            if _icl(str(ctx.ents[h2])) if 0 <= h2 < n else False:
-                for r3, n3 in ix.rev[r].get(h2, ()):
-                    hop1[r].add(n3)
-            else:
+            if 0 <= h2 < n and _icl(str(ctx.ents[h2])):
+                hop1[r].update(x for x in _behind(h2) if x != ci)
+            elif 0 <= h2 < n:
                 hop1[r].add(h2)
     if not hop1:
         return None

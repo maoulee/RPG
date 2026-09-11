@@ -69,5 +69,10 @@ RELATION_MISMATCH。上述判决链中引擎多步的负结论需以修复后配
 转为证据(候选含 Eastern Time Zone);站立四调用输出 diff 为空;
 144 测试全绿。
 
-**遗留**:多步枚举仍只覆盖 2 跳模式(3 跳未枚举);排序为跳数内
-support 优先(长度优先天然满足,GTE 二次排序未接——C 段无 IO)。
+**遗留**:排序 support 优先(GTE 二次排序未接,C 段无 IO)。
+2026-09-12 静态 gold 路径审计(实际提交配对,BFS 最短路)终版数字:
+direct 54.5% + deriv2_ok 18.2% = **引擎侧可达 72.7%**;terminal_miss 27.3%
+(模型从未提交正确末跳——模型侧);**needs_3hop=0**("2 跳刚性"被反驳,
+3 跳枚举在本 cohort 无必要)。推导 CVT 穿透修复(同关系前向→全部命名邻居,
+双向)把 17 rank_miss+3 none 全部转为 deriv2_ok——support 低估正是排序
+失败根因。详见 SESSION_MEMORY 同日条目。
