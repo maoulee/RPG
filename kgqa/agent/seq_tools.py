@@ -2294,8 +2294,16 @@ def _walk_case_steps(case_key, d, steps):
         cs.anchor_name = ents[center_idx] if 0 <= center_idx < len(ents) else ""
         cs.h_ids, cs.r_ids, cs.t_ids = h_ids, r_ids, t_ids
         cs.ents, cs.rels, cs.rel_texts = ents, rels, rel_texts
-        cs.step_relations = [set(rel_idxs)]
-        cs.steps = [{"id": fid or "f"}]
+        if isinstance(rel_idxs, tuple):
+            # MULTI-STEP derived pattern (realignment spec pillar 2+3):
+            # rel_idxs is a tuple of per-hop frozensets — the engine walks
+            # the sequence with forward validation (chain_expand lookahead);
+            # RPE falls back only on weak coverage (n_steps > 1).
+            cs.step_relations = [set(x) for x in rel_idxs]
+            cs.steps = [{"id": (fid or "f") + f"#s{k}"} for k in range(len(rel_idxs))]
+        else:
+            cs.step_relations = [set(rel_idxs)]
+            cs.steps = [{"id": fid or "f"}]
         cs.breakpoints = {}
         cs.active = True
         if len(step) > 3 and step[3]:
@@ -2315,6 +2323,8 @@ def _walk_case_steps(case_key, d, steps):
     out = []
     for step, cs in zip(steps, cases):
         center_idx, rel_idxs = step[0], step[1]
+        _sel_ids = (set().union(*rel_idxs)
+                    if isinstance(rel_idxs, tuple) else set(rel_idxs))
         paths = cs.paths or []
         patterns = (compress_paths(paths, ents, rels, center_idx, set())
                     if paths else (cs.logical_paths or []))
@@ -2326,7 +2336,7 @@ def _walk_case_steps(case_key, d, steps):
             continue
         out.append(build_pattern_evidence_triples(
             valid, ents, rels, h_ids, r_ids, t_ids, center_idx,
-            max_grouped_lines=120, selected_rel_ids=set(rel_idxs)))
+            max_grouped_lines=120, selected_rel_ids=_sel_ids))
     return out
 
 
@@ -2383,8 +2393,12 @@ async def _run_walk_one_step(ctx, center_idx: int, rel_idxs, fid: str,
     cs.anchor_name = ctx.ents[center_idx] if 0 <= center_idx < len(ctx.ents) else ""
     cs.h_ids, cs.r_ids, cs.t_ids = ctx.h_ids, ctx.r_ids, ctx.t_ids
     cs.ents, cs.rels, cs.rel_texts = ctx.ents, ctx.rels, ctx.rel_texts
-    cs.step_relations = [set(rel_idxs)]            # ONE step
-    cs.steps = [{"id": fid or "f"}]
+    if isinstance(rel_idxs, tuple):
+        cs.step_relations = [set(x) for x in rel_idxs]
+        cs.steps = [{"id": (fid or "f") + f"#s{k}"} for k in range(len(rel_idxs))]
+    else:
+        cs.step_relations = [set(rel_idxs)]        # ONE step
+        cs.steps = [{"id": fid or "f"}]
     cs.breakpoints = {}
     cs.active = True
     if prefix_names:
@@ -2531,7 +2545,10 @@ async def _walk_flush_async(batch):
         def _step_key(s):
             i, rel_idxs = s[0], s[1]
             _pf = s[3] if len(s) > 3 else None
-            return (i, frozenset(rel_idxs), _pf)
+            # MULTI-STEP sequences (tuple of per-hop frozensets) key by the
+            # ordered sequence itself — hop ORDER is the pattern's identity
+            return (i, rel_idxs if isinstance(rel_idxs, tuple)
+                    else frozenset(rel_idxs), _pf)
 
         case_slots, case_ctx = {}, {}
         for r in reqs:
@@ -3492,7 +3509,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             # them for audit. Prior A/Bs (direct-first -4.4pp etc.) removed
             # bridges ENTIRELY; this keeps their traversal while stripping
             # terminal status — a configuration not measured before.
-            if os.environ.get("SEQ_BRIDGE_TERMINAL", "1") == "1":
+            if os.environ.get("SEQ_BRIDGE_TERMINAL", "0") == "1":
                 _expanded.extend(_bridges)
         rel_names = list(dict.fromkeys(_expanded))
         rel_idxs = [ctx.rels.index(r) for r in rel_names
@@ -3510,11 +3527,88 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     for _cn, _ci in centers:
         if _cn:
             _cons.add(str(_cn).strip().lower())
+    # MULTI-STEP PATTERN DERIVATION (realignment spec pillar 1+2+3): for
+    # centers WITHOUT direct 1-hop family support, derive the relation
+    # SEQUENCE center→…→family-terminal (BFS ≤2 named hops, CVT-free) —
+    # submitted to the walk as multi-step step_relations so the engine's
+    # forward validation enforces path consistency and reach stops needing
+    # bridges-as-termini.
+    _multistep = {}
+    if _has_attr_name and os.environ.get("SEQ_MULTISTEP", "1") == "1":
+        try:
+            from kgqa.traversal.pattern_walk import get_pattern_index
+            _ix = get_pattern_index(ctx)
+            _fam = set(rel_idxs)
+            for _cn, _ci in centers:
+                if not (0 <= _ci < len(ctx.ents)):
+                    continue
+                # direct support: any family relation incident on ci
+                # (head OR tail — the walk expands both directions)
+                _direct_here = any(
+                    ((_ix.head_mask.get(r, 0) >> _ci) & 1)
+                    or ((_ix.tail_mask.get(r, 0) >> _ci) & 1)
+                    for r in _fam)
+                if _direct_here:
+                    continue
+                _seq = _derive_multistep_seq(_ix, ctx, _ci, _fam)
+                if _seq:
+                    _multistep[_ci] = _seq
+        except Exception:
+            _multistep = {}
     return {"kind": "sg", "corr": bad_name, "centers": centers, "skipped": skipped,
             "rel_idxs": rel_idxs, "rel_names": rel_names, "fid": fid,
             "entities": entities, "nudge": _nudge, "attr_expansion": _fam_echo,
-            "prefix": _prefix, "var_name": _var_name,
+            "prefix": _prefix, "var_name": _var_name, "multistep": _multistep,
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
+
+
+def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=2):
+    """BFS from ci to the first edge riding a family relation, ≤2 named
+    hops (CVT nodes free). Returns tuple(frozenset, ...) of per-hop
+    relation sets — the multi-step step_relations form — or None."""
+    from kgqa.traversal.cvt import is_cvt_like as _icl
+    from collections import deque
+    n = len(ctx.ents)
+    adj = {}
+
+    def _neigh(u):
+        out = adj.get(u)
+        if out is None:
+            out = []
+            for r in range(len(ctx.rels)):
+                out.extend((r, t2) for t2 in ix.fwd[r].get(u, ()))
+                out.extend((r, h2) for h2 in ix.rev[r].get(u, ()))
+            adj[u] = out
+        return out
+
+    prev = {ci: None}
+    hop_cost = {ci: 0}
+    q = deque([ci])
+    hit = None
+    while q and hit is None:
+        u = q.popleft()
+        for r, v in _neigh(u):
+            if v == ci or v in prev:
+                continue
+            cvt = _icl(str(ctx.ents[v])) if 0 <= v < n else False
+            cost = hop_cost[u] + (0 if cvt else 1)
+            if cost > max_named:
+                continue
+            prev[v] = (u, r)
+            hop_cost[v] = cost
+            if r in fam_idxs:
+                hit = v
+                break
+            q.append(v)
+    if hit is None:
+        return None
+    seq = []
+    node = hit
+    while prev[node] is not None:
+        u, r = prev[node]
+        seq.append(frozenset([r]))
+        node = u
+    return tuple(reversed(seq))
 
 
 async def _sg_execute(treq, ctx, session):
@@ -3577,6 +3671,23 @@ async def _sg_execute(treq, ctx, session):
             _pw = None
         if _pw is not None:
             return _pw
+    # MULTI-STEP PATTERN WALK (realignment spec 2026-09-11, pillar 1+2+3):
+    # when the submitted family has NO direct 1-hop support on a center
+    # (the case bridges were computed for), derive the relation SEQUENCE
+    # center→…→family-terminal from the pattern index (≤2 named hops,
+    # CVT-transparent) and submit it as MULTI-STEP step_relations — the
+    # engine's forward validation (chain_expand lookahead) enforces the
+    # path-consistency pillar natively, RPE falls back only on weak
+    # coverage (n_steps>1), and reach no longer needs bridges-as-termini.
+    _mseq = treq.get("multistep")     # {center_idx: [relset1, relset2, ...]}
+    if _mseq and os.environ.get("SEQ_MULTISTEP", "1") == "1":
+        _steps = []
+        for _cn, _ci in treq["centers"]:
+            _seq = _mseq.get(_ci)
+            if _seq:
+                _steps.append((_ci, _seq, treq["fid"]))
+            else:
+                _steps.append((_ci, treq["rel_idxs"], treq["fid"]))
     with phase_timer("walk"):
         pe_list = await _run_walk_packed(ctx, _steps)
     return {"pe_list": pe_list}
@@ -3897,8 +4008,9 @@ def _sg_finalize(treq, bres, ctx) -> str:
     for _exp in (treq.get("attr_expansion") or {}).values():
         for _dn in (_exp.get("direct") or []):
             _sub_terms.add(".".join(str(_dn).rsplit(".", 2)[-2:]))
-    _has_bridges = any(_exp.get("bridge") for _exp in
-                       (treq.get("attr_expansion") or {}).values())
+    _has_bridges = (os.environ.get("SEQ_SUBTERM", "0") == "1"
+                    and any(_exp.get("bridge") for _exp in
+                            (treq.get("attr_expansion") or {}).values()))
 
     def _pe_filter(p):
         """Keep only tree paths whose LAST relation is a submitted terminal

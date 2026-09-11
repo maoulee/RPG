@@ -274,6 +274,11 @@ def render_v38_ack(treq, bres, ctx):
             # so exempt EVERY dotted component of every submitted relation
             _topk |= _submitted_components
             pairs = [a for a in pairs if a.split("=", 1)[0].strip() in _topk]
+            # TARGET-HIT KEYS FIRST (realignment pillar 4b, user 2026-09-11):
+            # when a CVT's extended relation MATCHES the target, show that
+            # relation's value before anything else — not merely admitted.
+            pairs.sort(key=lambda a: a.split("=", 1)[0].strip()
+                       not in _submitted_components)
         at = "; ".join(pairs[:6])
         return f"{mid} [{at}]" if at else mid
 
