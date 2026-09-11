@@ -482,8 +482,14 @@ def render_v38_ack(treq, bres, ctx):
         if not tier_rows:
             continue         # selected but NO center-anchored instantiation
         ros = roster(r)
+        # GATED OFF (A/B 2026-09-11: hit 82.6% -> 79.2% — even a label
+        # discouraging attention on bridge sections costs answer hits; the
+        # third verdict that the behind-CVT bridge flood is productive
+        # noise). SEQ_BRIDGE_LABEL=1 enables.
+        _bl = (r in _bridge_shorts
+               and os.environ.get("SEQ_BRIDGE_LABEL", "0") == "1")
         tag = ("bridge context — reached via your selected family's carriers"
-               if r in _bridge_shorts else "retrieved")
+               if _bl else "retrieved")
         L.append(f"▸ --{r}-->  ({tag}"
                  + (f" · candidates: {ros}" if ros else "") + ")")
         L.extend(f"    {row}" for row in tier_rows)
