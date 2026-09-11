@@ -256,7 +256,7 @@ def render_v38_ack(treq, bres, ctx):
     # random 5%). Fallback when no ranking: show all (cap 6, old behavior).
     _krank = getattr(ctx, "_cvt_key_rank", None)
     _kranked_keys = _krank[1] if _krank and _krank[1] else None
-    _K = int(os.environ.get("SEQ_CVT_ATTR_TOPK", "3") or 0)  # 0 = off
+    _K = int(os.environ.get("SEQ_CVT_ATTR_TOPK", "5") or 0)  # 0 = off; 3->5 (user 2026-09-11): GTE ranks discriminator keys (initial_release_date #3 for date questions) just outside top-3
     _submitted_components = set()
     for _sr in (treq.get("rel_names") or []):
         for _seg in str(_sr).split("."):
