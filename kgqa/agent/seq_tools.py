@@ -3509,7 +3509,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             # them for audit. Prior A/Bs (direct-first -4.4pp etc.) removed
             # bridges ENTIRELY; this keeps their traversal while stripping
             # terminal status — a configuration not measured before.
-            if os.environ.get("SEQ_BRIDGE_TERMINAL", "0") == "1":
+            if os.environ.get("SEQ_BRIDGE_TERMINAL", "1") == "1":
                 _expanded.extend(_bridges)
         rel_names = list(dict.fromkeys(_expanded))
         rel_idxs = [ctx.rels.index(r) for r in rel_names
@@ -3534,7 +3534,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     # forward validation enforces path consistency and reach stops needing
     # bridges-as-termini.
     _multistep = {}
-    if centers and os.environ.get("SEQ_MULTISTEP", "1") == "1":
+    if centers and os.environ.get("SEQ_MULTISTEP", "0") == "1":
         try:
             from kgqa.traversal.pattern_walk import get_pattern_index
             _ix = get_pattern_index(ctx)
@@ -3680,7 +3680,7 @@ async def _sg_execute(treq, ctx, session):
     # path-consistency pillar natively, RPE falls back only on weak
     # coverage (n_steps>1), and reach no longer needs bridges-as-termini.
     _mseq = treq.get("multistep")     # {center_idx: [relset1, relset2, ...]}
-    if _mseq and os.environ.get("SEQ_MULTISTEP", "1") == "1":
+    if _mseq and os.environ.get("SEQ_MULTISTEP", "0") == "1":
         _steps = []
         for _cn, _ci in treq["centers"]:
             _seq = _mseq.get(_ci)
