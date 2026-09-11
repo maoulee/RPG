@@ -3534,7 +3534,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     # forward validation enforces path consistency and reach stops needing
     # bridges-as-termini.
     _multistep = {}
-    if _has_attr_name and os.environ.get("SEQ_MULTISTEP", "1") == "1":
+    if centers and os.environ.get("SEQ_MULTISTEP", "1") == "1":
         try:
             from kgqa.traversal.pattern_walk import get_pattern_index
             _ix = get_pattern_index(ctx)
@@ -3562,7 +3562,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
-def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=2):
+def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3):
     """BFS from ci to the first edge riding a family relation, ≤2 named
     hops (CVT nodes free). Returns tuple(frozenset, ...) of per-hop
     relation sets — the multi-step step_relations form — or None."""
