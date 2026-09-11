@@ -3900,13 +3900,34 @@ def _display_license_filter(treq, bres, centers, all_triples, candidates):
     Transparency: CVT endpoints always pass (two-hop + CVT-extension scope);
     common.topic.*/user.* plumbing and same-name identity mirrors
     (representations_in_fiction / based_on between name-mirrored nodes) pass
-    (1379:s1: person facts hang on the topic-mirror node)."""
+    (1379:s1: person facts hang on the topic-mirror node).
+
+    PATH-LEVEL ADMISSION (user ruling 2026-09-12, pattern-walk era): the
+    edge-level rule below belongs to the OLD architecture (walk entities,
+    induce patterns afterwards) — it evaluates every hop against the
+    submitted names, so an engine-DERIVED pattern's mid hop (行政辖属→属地
+    before the submitted time_zones terminal) reads as drift and the whole
+    2-hop path is dropped, both hops, even though the walk succeeded (the
+    realign5 UK/ETZ specimens: walk fine, evidence zeroed, misreported as
+    RELATION_MISMATCH). Under the pattern-first architecture the unit of
+    admission is the PATH: a path is legal iff its LAST hop is a submitted
+    relation; mid hops are the pattern's own segments and license their
+    nodes by path membership. Filtering still runs AFTER the walk completes
+    (walk full, then filter). Active only for calls that carried derived
+    patterns (treq.multistep) — plain calls keep the legacy rule, so the
+    standing config's behavior is unchanged."""
     from kgqa.core.utils import normalize as _nz
     subs = {str(r) for r in (treq.get("rel_names") or [])}
+    subs_typed = {".".join(r.rsplit(".", 2)[-2:]) for r in subs}
     center_names = [str(e) for e, _i in centers]
 
     def _cvt(x):
         return is_cvt_like(str(x))
+
+    def _head(s):
+        s = str(s)
+        h = s.split(":", 1)[0].strip()
+        return h if h != s else s
 
     def _mirror(a, b):
         a, b = str(a), str(b)
@@ -3922,24 +3943,63 @@ def _display_license_filter(treq, bres, centers, all_triples, candidates):
 
     edges = [(str(tr[0]), str(tr[1]), str(tr[2])) for tr in all_triples
              if len(tr) == 3]
-    lic = set(center_names)
-    frontier = list(center_names)
-    while frontier:
-        x = frontier.pop()
-        for h, r, t in edges:
-            for a, b in ((h, t), (t, h)):
-                if a == x and b not in lic:
-                    if (r in subs or _cvt(a) or _cvt(b)
-                            or _transparent(r, a, b)):
-                        lic.add(b)
-                        frontier.append(b)
-    kept_triples = [tr for tr in all_triples
-                    if len(tr) == 3
-                    and (str(tr[1]) in subs or _cvt(tr[0]) or _cvt(tr[2]))
-                    and (str(tr[0]) in lic or str(tr[2]) in lic)]
-    kept_candidates = [c for c in candidates if str(c) in lic]
+    path_mode = bool(treq.get("multistep"))
+    _path_admitted = None
+    if path_mode:
+        # license = nodes of paths whose LAST hop is a submitted relation
+        # (full or typed-name match; CVT endpoints stay transparent)
+        def _path_admitted(tp):
+            rels = tp.get("relations") or []
+            nodes = tp.get("nodes") or []
+            if not rels or not nodes:
+                return False
+            last = str(rels[-1])
+            last_typed = ".".join(last.rsplit(".", 2)[-2:])
+            return (last in subs or last_typed in subs_typed
+                    or _cvt(nodes[-1]) or _cvt(nodes[0]))
+
+        lic = set(center_names)
+        for pe in (bres.get("pe_list") or []):
+            if not isinstance(pe, dict):
+                continue
+            for p in pe.values():
+                for tp in ((getattr(p, "tree_data", None) or {}).get("paths")
+                           or []):
+                    if _path_admitted(tp):
+                        for n in (tp.get("nodes") or []):
+                            lic.add(str(n))
+                            lic.add(_head(n))
+        kept_triples = [tr for tr in all_triples
+                        if len(tr) == 3
+                        and (str(tr[0]) in lic or str(tr[2]) in lic)]
+        kept_candidates = [c for c in candidates if str(c) in lic]
+    else:
+        lic = set(center_names)
+        frontier = list(center_names)
+        while frontier:
+            x = frontier.pop()
+            for h, r, t in edges:
+                for a, b in ((h, t), (t, h)):
+                    if a == x and b not in lic:
+                        if (r in subs or _cvt(a) or _cvt(b)
+                                or _transparent(r, a, b)):
+                            lic.add(b)
+                            frontier.append(b)
+        kept_triples = [tr for tr in all_triples
+                        if len(tr) == 3
+                        and (str(tr[1]) in subs or _cvt(tr[0]) or _cvt(tr[2]))
+                        and (str(tr[0]) in lic or str(tr[2]) in lic)]
+        kept_candidates = [c for c in candidates if str(c) in lic]
     # filtered pe_list copy for the renderers (V38 reads pe_list directly)
     import copy as _copy
+
+    def _node_ok(n):
+        s = str(n)
+        if s in lic or _cvt(s):
+            return True
+        head = _head(s)
+        return head != s and (head in lic or _cvt(head))
+
     bres2 = dict(bres)
     pe2 = []
     for pe in (bres.get("pe_list") or []):
@@ -3953,7 +4013,8 @@ def _display_license_filter(treq, bres, centers, all_triples, candidates):
         for lbl, p in pe.items():
             tris = [tr for tr in (getattr(p, "triples", None) or [])
                     if len(tr) == 3
-                    and (str(tr[1]) in subs or _cvt(tr[0]) or _cvt(tr[2]))
+                    and (path_mode or str(tr[1]) in subs
+                         or _cvt(tr[0]) or _cvt(tr[2]))
                     and (str(tr[0]) in lic or str(tr[2]) in lic)]
             cands = [c for c in (getattr(p, "candidates", None) or [])
                      if str(c) in lic]
@@ -3972,14 +4033,9 @@ def _display_license_filter(treq, bres, centers, all_triples, candidates):
             # dispatch — 48 crashes / 14 cases, 2026-09-07 audit).
             td = getattr(p, "tree_data", None)
             if isinstance(td, dict):
-                def _node_ok(n):
-                    s = str(n)
-                    if s in lic or _cvt(s):
-                        return True
-                    head = s.split(":", 1)[0].strip()
-                    return head != s and (head in lic or _cvt(head))
                 td["paths"] = [tp for tp in (td.get("paths") or [])
-                               if all(_node_ok(n) for n in (tp.get("nodes") or []))]
+                               if (_path_admitted(tp) if path_mode else
+                                   all(_node_ok(n) for n in (tp.get("nodes") or [])))]
     bres2["pe_list"] = pe2
     return kept_triples, kept_candidates, bres2
 

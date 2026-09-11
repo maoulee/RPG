@@ -126,6 +126,24 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 路径级准入已实施(用户裁决:准入单位=路径,非边)
+- **裁决**:过滤器是旧架构(实体游走→事后归纳)的产物;模式时代先跑完模式再过滤;
+  模型提交的是**末尾关系**,评估对象是**路径**——"最后一跳是提交关系"即合法,
+  不逐跳对照。过滤在游走完成后进行,看最终路径。
+- **实施**(`_display_license_filter` path_mode,treq.multistep 非空时激活):
+  末跳 ∈ 提交关系(全名/typed)或端点 CVT → 路径合法,路径节点整体入 lic;
+  渲染路径列表用同一末跳判据(修掉了首版"节点在 lic 即渲染"漏过坏路径的缺口,
+  单测抓出)。普通调用走旧规则。
+- **验证三层**:①单测 3 条(末跳准入/旧规则钉住/render 形态头剥离),套件 144 全绿;
+  ②离线:BT0+MM 标本 sg2 报错→3672 字符证据(候选含 Eastern Time Zone)、
+  sg4→1865;站立配置(MM=0+BT1)四调用输出 diff 为空(字节级不变);
+  ③线上 5case(MM=1+BT0):sg2 类调用全 empty=0,FLUSH-EMPTY 1/全程(真不可达)。
+- **fix5c 5case 质量注记**:mean_f1 0.356 不可与 realign5 0.622 直接比——重建队列
+  slot3 是难题(Tolkien/GMT,GT King Edward's)而非原 Belgium(易题)。Falkland
+  证据流出后模型答 North America|South America vs GT Americas=模型层终端粒度
+  失败,非环境。**realign 判决重审需全量 48×3(待用户裁决,~25min GPU)**。
+- 遗留:多步枚举仍 2 跳;排序 support 优先(GTE 二次排序未接,C 段无 IO)。
+
 ---
 (以下为历史记录,按时间倒序)
 > working memory across sessions — how to run things, where artifacts live,
