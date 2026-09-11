@@ -3562,85 +3562,57 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
-def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3):
-    """ALL-paths BFS from ci to family-terminated edges, ≤3 named hops
-    (CVT nodes free). Returns tuple(frozenset, ...) of per-hop PARALLEL
-    relation sets — the multi-step step_relations form — or None.
+def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3, topk=3):
+    """PATTERN-LEVEL enumeration (user design 2026-09-11, corrected): distinct
+    relation-sequences (r1, …, rk→family) from ci — pure relation pairs, not
+    entity BFS. One hop = the pattern set; GTE/support ranks within the same
+    hop count; top-K patterns survive. Each pattern = multi-step
+    step_relations for the engine's forward validation.
 
-    PARALLEL-HOP MERGE (user ruling 2026-09-11, realign2 postmortem): a hop
-    h→t can ride MANY relations (r1a, r1b, …) — the single-rel-per-hop
-    derivation left one narrow path (mismatch 76); the engine's forward
-    validation then accepted only entities touching that ONE relation.
-    Every shortest path's per-hop relations merge into the same hop set, so
-    the walk sees the full parallel breadth at each hop, exactly what the
-    bridge system fed RPE (≤6 bridges in one rel_idxs set)."""
+    Cost: relation-set operations, milliseconds — no entity-path enumeration
+    (the entity-BFS version exploded exponentially on wide hop sets).
+    Returns {pattern_key: tuple(frozenset, ...)} — multiple patterns, the
+    caller submits each as a separate step."""
     from kgqa.traversal.cvt import is_cvt_like as _icl
-    from collections import deque, defaultdict
+    from collections import defaultdict
     n = len(ctx.ents)
-    adj = {}
-
-    def _neigh(u):
-        out = adj.get(u)
-        if out is None:
-            out = []
-            for r in range(len(ctx.rels)):
-                out.extend((r, t2) for t2 in ix.fwd[r].get(u, ()))
-                out.extend((r, h2) for h2 in ix.rev[r].get(u, ()))
-            adj[u] = out
-        return out
-
-    # BFS layers: collect ALL nodes at each named-hop depth with the
-    # relations that reached them (multi-rel per node). We stop expanding a
-    # node once it lies PAST a family terminal (family edge ends the
-    # pattern — deeper hops belong to the next pattern, not this one).
-    layer = {ci: set()}               # node -> set of (rel, prev_node) at this depth
-    hops = []                          # [ {node: set(rels that reach it from prev layer)} ]
-    hit_rels = set()                   # family rels hit at some layer (terminal hop)
-    hit_nodes = set()
-    frontier = {ci: [(None, None)]}    # node -> [(rel, prev_node), ...]
-    seen = {ci}
-    for _depth in range(max_named):
-        nxt = defaultdict(list)        # node -> [(rel, prev_node), ...]
-        for u in frontier:
-            if u in hit_nodes:
-                continue               # past a terminal — pattern already complete
-            for r, v in _neigh(u):
-                if v == ci or v in seen:
-                    # allow re-visit from a DIFFERENT prev at same depth
-                    if v in seen and v not in frontier:
-                        continue
-                _cvt = _icl(str(ctx.ents[v])) if 0 <= v < n else False
-                if _cvt:
-                    nxt[v].append((r, u))
-                    if r in fam_idxs:
-                        hit_rels.add(r)
-                        hit_nodes.add(v)
-                else:
-                    if r in fam_idxs:
-                        hit_rels.add(r)
-                        hit_nodes.add(v)
-                    nxt[v].append((r, u))
-        if not nxt:
-            break
-        for v in nxt:
-            seen.add(v)
-        hops.append({v: {r for r, _ in rl} for v, rl in nxt.items()})
-        frontier = dict(nxt)
-        if hit_nodes & set(frontier):
-            break                       # terminals reached at this depth
-    if not hit_rels:
+    # local adjacency (center's 1-hop only, with CVT transparency)
+    hop1 = defaultdict(set)          # rel_idx -> {named entity idxs reached}
+    for r in range(len(ctx.rels)):
+        for t2 in ix.fwd[r].get(ci, ()):
+            if _icl(str(ctx.ents[t2])) if 0 <= t2 < n else False:
+                for r3, n3 in ix.fwd[r].get(t2, ()):  # pass through CVT
+                    hop1[r].add(n3)
+            else:
+                hop1[r].add(t2)
+        for h2 in ix.rev[r].get(ci, ()):
+            if _icl(str(ctx.ents[h2])) if 0 <= h2 < n else False:
+                for r3, n3 in ix.rev[r].get(h2, ()):
+                    hop1[r].add(n3)
+            else:
+                hop1[r].add(h2)
+    if not hop1:
         return None
-    # build hop sets: merge the relations at each depth, keeping the
-    # terminal hop as the family set
-    seq = []
-    for depth, hop_map in enumerate(hops):
-        all_rels = set()
-        for v, rels in hop_map.items():
-            all_rels |= rels
-        if depth == len(hops) - 1:
-            all_rels |= hit_rels        # ensure the family terminates
-        seq.append(frozenset(all_rels))
-    return tuple(seq)
+    # enumerate distinct 2-hop patterns: (r1, r_family) where r_family rides
+    # on some entity reached via r1
+    patterns = defaultdict(set)      # (r1_idx, fam_idx) -> support count
+    for r1, reach in hop1.items():
+        for node in reach:
+            if not (0 <= node < n) or node == ci:
+                continue
+            for r2 in range(len(ctx.rels)):
+                if r2 not in fam_idxs:
+                    continue
+                if node in ix.fwd[r2] or node in ix.rev[r2]:
+                    patterns[(r1, r2)].add(node)
+    if not patterns:
+        return None
+    # rank: support desc, take top-K (each = one (r1, family) pattern)
+    ranked = sorted(patterns.items(), key=lambda kv: -len(kv[1]))[:topk]
+    out = {}
+    for (r1, r2), support in ranked:
+        out[(r1, r2)] = (frozenset([r1]), frozenset([r2]))
+    return out
 
 
 async def _sg_execute(treq, ctx, session):
@@ -3711,17 +3683,37 @@ async def _sg_execute(treq, ctx, session):
     # engine's forward validation (chain_expand lookahead) enforces the
     # path-consistency pillar natively, RPE falls back only on weak
     # coverage (n_steps>1), and reach no longer needs bridges-as-termini.
-    _mseq = treq.get("multistep")     # {center_idx: [relset1, relset2, ...]}
+    _mseq = treq.get("multistep")     # {center_idx: {pat_key: (fs1, fs2)}}
     if _mseq and os.environ.get("SEQ_MULTISTEP", "0") == "1":
-        _steps = []
+        # PATTERN-LEVEL MULTI-STEP (user design corrected 2026-09-11):
+        # each center's top-K patterns become separate multi-step steps;
+        # their pe results merge at finalize (same center, same fid).
+        _ms_steps, _ms_map = [], {}
         for _cn, _ci in treq["centers"]:
-            _seq = _mseq.get(_ci)
-            if _seq:
-                _steps.append((_ci, _seq, treq["fid"]))
+            _pats = _mseq.get(_ci) or {}
+            if _pats:
+                for _pk, _seq in _pats.items():
+                    _ms_steps.append((_ci, _seq, treq["fid"]))
+                _ms_map[_ci] = len(_pats)
             else:
-                _steps.append((_ci, treq["rel_idxs"], treq["fid"]))
+                _ms_steps.append((_ci, treq["rel_idxs"], treq["fid"]))
+                _ms_map[_ci] = 1
+        if _ms_steps:
+            _steps = _ms_steps
     with phase_timer("walk"):
         pe_list = await _run_walk_packed(ctx, _steps)
+    # merge multi-pattern pe back per-center (concatenate pattern dicts)
+    if _mseq and _ms_map:
+        _merged, _idx = [], 0
+        for _cn, _ci in treq["centers"]:
+            _n = _ms_map.get(_ci, 1)
+            _combined = {}
+            for _pe in pe_list[_idx:_idx + _n]:
+                if isinstance(_pe, dict):
+                    _combined.update(_pe)
+            _merged.append(_combined if _combined else {})
+            _idx += _n
+        pe_list = _merged
     return {"pe_list": pe_list}
 
 
