@@ -8327,6 +8327,25 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **修复待裁决**:压缩摘要的提交族键 cap 8→40(或 100,对齐旧叶子
   纪律);次要键维持 8。判别器属性(plan 缺口)另案。
 
+### 2026-09-11 族键 cap 40 修复落地 + 阶段漏斗(用户:阶段决定推理可见)
+- **修复**(SEQ_CVT_VALCAP=40):压缩摘要中键∈提交族末组件 → 值 cap 40
+  (叶子纪律),次键维持 8。valcap40 run:**f1 0.6923(带内)/hit 81.2%
+  (+1.3pp)/wall 334s**。567_11fd The Journey **可见性恢复**✓,但仍答
+  Splash——判别器深度(release_date 只对部分电影在渲染)。
+  25_892ff 仍不可见(另一形态,待最佳路径)。
+- **阶段漏斗**(推理侧可见内容的全部决定点):
+  | 阶段 | 决定点(参数@代码) |
+  |---|---|
+  | S0 图 | build_context:expand_cvt_leaves(CVT 叶展开) |
+  | S1 rr 候选 | 池=_seq_pool_relids(2-hop+CVT 透明);attr_ranked+rel_ranked 合排;candidate_relations **top-15**;grouped **≤12 组/组内 ≤5** (seq_tools:3009,3102) |
+  | S2 提交展开 | direct **≤10** + bridges **≤6/名**;echo 回显 |
+  | S3 游走 | 主 logical_paths(beam 80/hop2);RPE 兜底(max_hops 3, beam 80, **per_branch 5**);support paths **≤24/模式**(formatting:492);模式保留 **top-5**(seq_tools:3870) |
+  | S4 证据 | build_pattern_evidence_triples **max_grouped_lines=120**;sibling per-adder 首触;CVT attr 全量(显示层再滤) |
+  | S5 渲染 v38 | tier-1 选中段 + roster **≤40**;CVT 压缩(≥4 尾):键 **top-K=3**(GTE)+提交组件豁免,**族键值 cap 40**(本次修复),次键 8;行预算 **200**;license filter |
+  | S6 消息 | note 固定文本+relation_expansion+pattern_paths(关) |
+- 待办:25_892ff 最佳路径;567 判别器深度(全电影 release_date 保底?);
+  452/25 的约束键(tvrage_id 类)plan 缺口课题。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
