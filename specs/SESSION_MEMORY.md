@@ -8359,6 +8359,21 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - 站立配置 = topk5(f1 0.6802/hit 82.6%/316s);bridgelabel run 留档
   reports/v38_bridgelabel_48x3.json。
 
+### 2026-09-11 第四次桥实验:遍历-only(用户设计:路径以提交关系结尾)
+- **设计**(用户):模式层检索以提交关系为**最后一条**的纯关系路径;
+  实体重建;award 类不应符合路径纪律 → 桥只应可遍历、不应为终止。
+- **实现**:桥不进 rel_idxs(RPE 中段跳本就允许任意非目标关系,
+  遍历无需成员资格;进集合=获得终止地位=award 段合法)。
+  SEQ_BRIDGE_TERMINAL 门控。
+- **判决(最差配置)**:f1 0.6798 但 **mismatch 39(vs 1)、hit 76.4%
+  (-6.2pp)**——RPE 中段桥跳不能自给找到载体路径;**桥的终止地位
+  正是 unibridge 修 mismatch 的机制本体**。默认已翻回终止桥。
+- **四配置完整判决链**:终止桥(站立,mismatch 1)/ 免桥 -4.4pp /
+  降级 -3.2pp / 标注 -3.4pp hit / **遍历-only mismatch 39, -6.2pp hit**。
+  结论:RPE 的到达能力依赖松终止;award 洪是其测得代价。用户纪律的
+  完全体 = 模式层游走(SEQ_PATTERN_WALK,曾 -3.8pp)——根本张力在
+  RPE 的到达模型本身,留作 walk-algo 分支课题。
+
 ### 2026-09-11 CVT 键 top-K 3→5 + 机制对照表(用户:各影响什么)
 - **验证**:GTE 对 "released first" 排 initial_release_date #3、
   release_date #4——top-3 刚好卡在判别键外面,提到 5 纳入。
