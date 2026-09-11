@@ -8385,6 +8385,17 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   需要非枚举型算法(集合态/关系代数),这正是 pattern_walk 模块的
   bitmap 方向——但它自己的证据密度不够(-3.8pp)。**下一步是合并
   两者的强项:bitmap 集合态的搜索 + RPE 级的证据枚举**。
+
+### 2026-09-11 realign4:模式层枚举(用户修正)——5case 快验通过
+- **用户修正**:实体 BFS 是错误实现——模式层=纯关系序列枚举(去重
+  (r1,family) 对,support 排序,top-K),一跳命中只有一种,两跳不该
+  超百;毫秒级,无实体路径爆炸。
+- **实现**:`_derive_multistep_seq` 重写为关系层:1-hop 邻接(含 CVT
+  透明)→ 枚举 (r1, family) 对→ support 排序 top-3 → 每模式=独立
+  multi-step step → pe 按 center 合并。
+- **5case 快验**(realign4_s5): **f1 0.6889 vs speed5 同 case 0.6678,
+  mismatch 仅 2,墙钟 53s/case**,1923 提升 0.89→1.00。无爆炸。
+- 门控:SEQ_MULTISTEP=1(快验参数);待全量 48×3 验证后定默认。
 - **机制**:提交 director.film|producer.film → 桥扫描逐邻居检查 → 颁奖
   CVT 的共同端点(Brian Grazer 等)携带 film.producer.film → behind-CVT
   命中 → award_winner/award_nominations 作为桥进 rel_idxs(≤6/名)→
