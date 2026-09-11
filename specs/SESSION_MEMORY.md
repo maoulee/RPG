@@ -1,6 +1,99 @@
 # Session Memory — subgraph (KGQA agent)
 
 > **Purpose**: This file survives container resets. It is the operational
+
+## 2026-09-11 SESSION HANDOFF(压缩前完整状态)
+
+### 当前分支与代码状态
+- **分支**: walk-perf(领先 agent-toolcall ~40 commits)
+- **站立配置 = topk5**: f1 0.6802 / hit 82.6% / 墙钟 316s / sg p90 12.7K
+  - 全部等价速度五刀在产(证据构建 memo×5, 共 -92% hub walks)
+  - walk_extra cap 6 / GTE 批窗口 0.08 / CVT 键 top-K 5 / 族键值 cap 40
+  - CVT 命中键置顶(支柱 4b)
+  - RPE 单步松终止 + 桥终止(SEQ_BRIDGE_TERMINAL=1)
+  - 141 套件全绿
+- **速度弧线收官**: walk-perf 378s → 质量弧线 ~1200s → 五刀+环境恢复 →
+  **~570s 总墙 / 316s mean**(LLM 成为主要相位,GPU 饱和)
+
+### 游走设计对齐实验弧线(八次,全部负收益/门控关)
+| # | 配置 | f1 | mismatch | 教训 |
+|---|---|---|---|---|
+| 1 | 免桥 direct-first | -4.4pp | — | 桥穿透喂证据 |
+| 2 | tier-1 锚定降级 | -3.2pp | — | 环境行承重 |
+| 3 | 纯标注 bridge label | hit -3.4 | — | 连标签损注意力 |
+| 4 | 遍历-only 桥 | — | 39 | 中段跳不能自给 |
+| 5 | 提交终止准入 | hit -5.5 | — | 松终止证据系统性生产 |
+| 6 | 引擎多步(单关系/跳) | 0.668 | 48 | 独木桥 |
+| 7 | 并行跳(实体 BFS) | 计算爆 | — | 实体级=指数 |
+| 8 | 模式层枚举(纯关系) | 0.650 | 72 | 集成缝隙 |
+- **统一结论**: RPE 单步松终止是当前唯一测得可行的到达模型
+- **用户设计(正确但引擎承载不了)**: specs/walk_realignment_spec.md
+  四支柱 = 路径纪律/模式路径/一致性/CVT双设计; 引擎全有但 agent 未用
+
+### Missouri River 标本(最深集成诊断)
+- 模式枚举**(r1, family) 对**正确: 145 条三元组离线验证通过
+- 集成 bug 1(已修): center 级 direct 检查被共提交的直连关系掩蔽
+  → per-RELATION 检查(commit 141313b)
+- 集成 bug 2(未修): 引擎多步路径的 beam/覆盖仍遗漏部分模式实例
+- **设计方向 A(未试)**: 模式做引导但用 RPE 单步执行——rel_idxs 限定
+  为 {r1, family},保留 RPE 灵活性
+
+### 游走对齐实验代码留存(门控关)
+- `SEQ_MULTISTEP=1`: 模式层枚举+多步提交(可开)
+- `SEQ_BRIDGE_TERMINAL=0`: 桥退役(可开)
+- `SEQ_DIRECT_FIRST=1`: 中心直连免桥(可开)
+- `SEQ_TIER_ANCHOR=1`: 路径一致性 tier-1(可开)
+- `SEQ_BRIDGE_LABEL=1`: 桥段标注(可开)
+- `SEQ_PATTERN_WALK=1`: 集合态模式游走(可开)
+
+### 2026-09-10~11 完整实验时间线(按时间序)
+1. 五刀速度优化(全部字节等价, 共 -92%): 静态memo→case级→家族去重→显示串memo
+2. 游走成本模型验证: RPE=全环境游走(宽度无关), LLM 21.6s/轮正常
+3. walk_extra 近因 cap(+0.8pp f1, -23% slots)
+4. CVT 尾压缩 A/B(inline 胜)+族键 cap 40(hit +1.3pp)
+5. CVT 键 top-K 3→5(hit +2.7pp, GTE 排判别键入列)
+6. 桥标注(负,hit -3.4pp)
+7. 遍历-only 桥(最差, mm 39)
+8. 遍历-only 恢复+门控
+9. 提交终止准入(负, hit -5.5pp)
+10. 模式层枚举三轮(5case→全量→per-relation)
+11. 游走设计对齐 spec 写入
+12. Missouri River 深度集成诊断
+
+### 失败分解(修正后)
+- speed5 58 失败 = 8 三元组层 + 50 编排/模型层
+- 三元组层 8 例: 5 环境压缩 cap(已修 cap 40) + 3 模型选择
+- 环境修复已入产: 族键 cap 40 + CVT top-K 5
+
+### 方法学教训(重要)
+- pickle-sha 对含 set/dict 的结构过敏(插入序置换≠内容变化);
+  正确验收 = 内容相等 + 同态字节稳定
+- 审计工具自身先验证(presence 检查两个 bug: fact_id 前缀漏检 +
+  normalize vs raw 假阴性)
+- bisect 恢复用 `git checkout HEAD -- file` 会抹掉未提交工作区
+- 跨进程 sha 对比固定 PYTHONHASHSEED
+- 5case 快验可能偏采样(简单模式),全量才见真覆盖
+
+### 待裁决(优先级排)
+1. **游走完全体**: 方向 A(模式引导+RPE 执行)或 walk-algo 分支
+   (bitmap 搜索+RPE 证据枚举合并)
+2. **LLM 端上下文瘦身**: note/回显的重复提示面(墙钟 316→更低)
+3. **OSPD teacher pool**: 原 任务
+4. **分支合并**: walk-perf → agent-toolcall
+
+### 运维
+- vLLM :8000(Qwen3.5-9B, TP2)
+- GTE :8003(Qwen3-Embedding-0.6B, GPU1 与 vLLM 共卡)
+- 标准env: `SPLIT=test_v4 N_CASES=48 N_SAMPLES=3 TEMP=0.3
+  CASE_FILTER=tmp/v21_cohort.txt CASE_BATCH=1000 INFLOW_TARGET=500
+  LLM_MODE=http SEQ_PROMPT=V21 WALK_POOL=3
+  GTE_CLIENT_BATCH_WINDOW=0.08 GTE_CLIENT_BATCH_FIRST=0.02
+  SEQ_RENDER_V38=1 SEQ_LICENSE_FILTER=1 SEQ_GHOST_EDGES=1
+  SEQ_ZH_QUESTION=tmp/zh_questions_48.json SEQ_CVT_STYLE=inline`
+- dumps: tmp/teacher_audit_dump_{speed5,valcap40,topk5,realign4}.txt
+
+---
+(以下为历史记录,按时间倒序)
 > working memory across sessions — how to run things, where artifacts live,
 > what's in progress, and traps we've hit. The chat log inside the container
 > gets wiped on provider reset; **this file is git-tracked and will not**.
