@@ -3882,6 +3882,56 @@ def _sg_finalize(treq, bres, ctx) -> str:
     _TOP_PATTERNS = 5   # keep only the top-N patterns (ordered by the walk: path length +
                         # relation hit) per center — excess patterns are noise; the walk already
                         # prunes partial-pattern paths (full-pattern only), this caps the count.
+    # SUBMITTED-TERMINAL EVIDENCE DISCIPLINE (user design 2026-09-11,
+    # Ron-Howard awards specimen): the walk keeps loose bridge targets for
+    # REACH (traversal-only measured mismatch 39 vs 1 — the loose terminal
+    # IS the mismatch fix), but the EVIDENCE admits only paths TERMINATED
+    # by the model's SUBMITTED relations: bridge carrier edges may appear
+    # mid-path, yet segments ENDING at a bridge relation (every award edge
+    # in the 3-hop environment) are not answer paths — they are what blew
+    # tens of triples into hundreds on hub centers and, over turns, the
+    # context. Filter AFTER _accumulate (legality pool keeps the full walk
+    # enumeration — the answer gate is unchanged), BEFORE pattern
+    # collection for render.
+    _sub_terms = set()
+    for _exp in (treq.get("attr_expansion") or {}).values():
+        for _dn in (_exp.get("direct") or []):
+            _sub_terms.add(".".join(str(_dn).rsplit(".", 2)[-2:]))
+    _has_bridges = any(_exp.get("bridge") for _exp in
+                       (treq.get("attr_expansion") or {}).values())
+
+    def _pe_filter(p):
+        """Keep only tree paths whose LAST relation is a submitted terminal
+        (+ their CVT-penetration edges). Returns a filtered PatternEvidence
+        copy, or the original when nothing to filter (no bridges, or the
+        filter keeps everything)."""
+        if not _has_bridges or not _sub_terms:
+            return p
+        from kgqa.stages.formatting import PatternEvidence as _PE
+        paths = (p.tree_data or {}).get("paths") or []
+        keep_p = [tp for tp in paths
+                  if tp.get("relations")
+                  and ".".join(str(tp["relations"][-1]).rsplit(".", 2)[-2:])
+                  in _sub_terms]
+        if len(keep_p) == len(paths):
+            return p
+        keep_nodes = {str(_pn.split(":", 1)[0].strip())
+                      for tp in keep_p
+                      for _pn in (tp.get("nodes") or [])}
+        keep_tr = []
+        for tr in (p.triples or []):
+            if len(tr) != 3:
+                continue
+            h, _r, t = str(tr[0]), str(tr[1]), str(tr[2])
+            if h in keep_nodes or t in keep_nodes:
+                keep_tr.append(tr)
+        keep_c = [c for c in (p.candidates or []) if str(c) in keep_nodes]
+        if not keep_p and not keep_tr:
+            return None
+        return _PE(label=p.label, readable=p.readable,
+                   candidates=keep_c, triples=keep_tr,
+                   tree_data={"paths": keep_p})
+
     for (e, i), pe in zip(centers, bres["pe_list"]):
         if not pe:
             continue
@@ -3890,12 +3940,15 @@ def _sg_finalize(treq, bres, ctx) -> str:
         # when its walk produced many higher-ranked detour patterns.
         for p in _select_patterns_for_render(pe.values(), e, rel_names,
                                              _TOP_PATTERNS):
-            collected.append((e, p))
-            _accumulate(ctx, i, p)
-            for tr in (p.triples or []):
+            _accumulate(ctx, i, p)      # legality pool: FULL walk output
+            pf = _pe_filter(p)
+            if pf is None:
+                continue
+            collected.append((e, pf))
+            for tr in (pf.triples or []):
                 if len(tr) == 3:
                     all_triples.append(tr)
-            for c in (p.candidates or []):
+            for c in (pf.candidates or []):
                 if not is_cvt_like(c) and c not in candidates:
                     candidates.append(c)
     # NOTE: leaf-set full enumeration now lives in the evidence builder
@@ -3906,7 +3959,18 @@ def _sg_finalize(treq, bres, ctx) -> str:
     # renderer's tier-1 rows synthesize from the centers' OWN selected-relation
     # edges — those edges must be in all_triples whatever the walk's support
     # caps did to their patterns (inverse 1-hop families were silently capped).
-    for tr in _guarantee_center_direct_edges(ctx, centers, treq["rel_idxs"],
+    # Under the submitted-terminal discipline the guarantee is scoped to the
+    # SUBMITTED relations (full rel_idxs would re-admit bridge edges).
+    if _has_bridges and _sub_terms:
+        _guar_rels = set()
+        for _exp in (treq.get("attr_expansion") or {}).values():
+            for _dn in (_exp.get("direct") or []):
+                if _dn in ctx.rels:
+                    _guar_rels.add(ctx.rels.index(_dn))
+        _guar_idxs = sorted(_guar_rels) or treq["rel_idxs"]
+    else:
+        _guar_idxs = treq["rel_idxs"]
+    for tr in _guarantee_center_direct_edges(ctx, centers, _guar_idxs,
                                              all_triples):
         all_triples.append(tr)
         for x in (tr[0], tr[2]):
