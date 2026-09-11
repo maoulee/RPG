@@ -8286,6 +8286,20 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   在证据但答 A Beautiful Mind)、2576 s1=5105(答 Western Europe)。
 - dump:tmp/teacher_audit_dump_speed5.txt。
 
+### 2026-09-11 三元组层再分类(用户裁决:环境错配 vs 模型能力)
+- **裁决标准**:关系选对但游走/渲染没出答案=环境 bug;关系选错或展示
+  充分下推理错=模型能力,非环境。
+- **深验结果(10 样本)**:
+  | 类 | 案例 | 证据 |
+  |---|---|---|
+  | 模型能力(移出) | 452 s0/s2、1379 s2、21 s1/s2、212 s0、2319 | 452:Brooklyn(出生)与 Baltimore(居住,[location=Baltimore] 括号在)都在渲染,模型选错"home"语义;2319 金标连接边=documents/keys 噪声,图本身薄 |
+  | 环境-判别器属性缺失 | 25 家族(tvrage_id)、452(located ID 在城市实体第二跳,不在 CVT) | 答案可达但判别键被 CVT top-K 滤掉/需要第二跳 |
+  | 环境-截断(嫌疑) | 25 s1/s2 | gold 走 film.starring 家族,模型提交了 film 族但未出渲染——roster 40-cap/beam 截断待查 |
+  | 待定 | 2576 s1(Americas 2-hop) | 未深验 |
+- **环境修复方向(下一步)**:①判别器属性保障——问题含约束数字/id 时,
+  CVT/实体属性展示保底含约束键(比照 submitted-components 豁免机制);
+  ②roster/beam 截断审计(25 标本)。
+
 ## 2026-09-08 SESSION HANDOFF(压缩前完整状态)
 
 ### 当前分支与代码状态
