@@ -3492,7 +3492,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             # them for audit. Prior A/Bs (direct-first -4.4pp etc.) removed
             # bridges ENTIRELY; this keeps their traversal while stripping
             # terminal status — a configuration not measured before.
-            if os.environ.get("SEQ_BRIDGE_TERMINAL", "0") == "1":
+            if os.environ.get("SEQ_BRIDGE_TERMINAL", "1") == "1":
                 _expanded.extend(_bridges)
         rel_names = list(dict.fromkeys(_expanded))
         rel_idxs = [ctx.rels.index(r) for r in rel_names
