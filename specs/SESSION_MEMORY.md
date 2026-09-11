@@ -8372,6 +8372,19 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   遍历-only mm39 / 提交终止 -5.5hit / 引擎多步 mm76——全部指向同一
   结论:**RPE 单步松终止是当前唯一测得可行的到达模型**;设计完全体
   需要算法级重构(walk-algo 分支),不是参数或管线重排。
+
+### 2026-09-11 realign3:并行跳合并——计算不可行(rollout 终止)
+- **实施**(用户:r1 可多种,每跳全并行入集):BFS 收集各深度全部
+  关系,按层合并为 frozenset——前向验证接受任一关系。
+- **判决**:rollout **t=1764s 仅 36/144**,walk worker 饱和(GPU 52%
+  但 spawn 进程空闲=queue 堵)。宽跳集(可能数百关系/层)× 多步前向
+  验证的路径枚举 = 指数爆炸。已终止,代码门后留存。
+- **架构边界确认**:path-enumeration 游走(chain_expand/k_queue)无法
+  扩展到并行跳多步——RPE 的 beam-limited 单步之所以可行,正是因为
+  beam 剪枝在指数曲线上截断。设计完全体(模式层 + 并行跳 + 一致性)
+  需要非枚举型算法(集合态/关系代数),这正是 pattern_walk 模块的
+  bitmap 方向——但它自己的证据密度不够(-3.8pp)。**下一步是合并
+  两者的强项:bitmap 集合态的搜索 + RPE 级的证据枚举**。
 - **机制**:提交 director.film|producer.film → 桥扫描逐邻居检查 → 颁奖
   CVT 的共同端点(Brian Grazer 等)携带 film.producer.film → behind-CVT
   命中 → award_winner/award_nominations 作为桥进 rel_idxs(≤6/名)→
