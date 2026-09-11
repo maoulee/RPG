@@ -126,6 +126,30 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 mmfix 全量 48×3(修后多步配置)+分层审计:证据层合格,缺口在答案层
+- **run**:reports/v38_mmfix_48x3.json(SEQ_MULTISTEP=1+BT0+路径准入+CVT穿透修复);
+  墙钟 243s/case×3(站立 316s);**mismatch 调用 32(realign4)→2**——缝隙修复确证。
+- **分层审计**(tmp/evidence_layer_audit.py,可换 RUN_JSON 重跑):330 gold×sample,
+  按"实际提交配对 BFS 判右关系→gold 是否出现在该调用返回文本→是否在
+  evidence_entities→答案对错"分层:
+  | 配置 | 右关系gold可见 | 渲染丢失 | 游走丢失 | wrong_relation | hit |
+  |---|---|---|---|---|---|
+  | topk5 站立 | 96.7% | 2.0% | 1.3% | 54.8% | 82.6% |
+  | realign4 修前 | 96.2% | 3.3% | 0.5% | 44.8% | 76.4% |
+  | mmfix 修后 | 94.4% | 4.3% | 1.2% | 51.2% | 72.9% |
+- **gold 可见率(任意工具结果含 gold)**:topk5 95.1% / realign4 88.9% / **mmfix 93.8%**
+  ——修复后证据层几乎追平站立;mismatch 洪水消失。
+- **判决:缺口已移到答案层**。mmfix 可见→答对转化率 77.7% vs topk5 86.9%(-9pp)。
+  标本 1bf29d73(GMT/Belgium,修后 -1.0):证据完整含 Europe,模型答 Belgium(回显
+  中心)——纯答案层。"渲染丢失"两标本(e2c80dcd Sharon Mae ×3、7b0ad6b5 Barbados)
+  复核为分析器配对伪影/模型时序错误(Caribbean 未经 sg1 直接当 center),非引擎漏。
+- **含义**:多步纪律把 gold 送到了眼前(与宽松体制几乎同水平),但该渲染形态下
+  模型最终选择变差——多步证据样式(无桥终止段/候选名单更长)对答案选择的代价,
+  属模型/编排层课题,不是游走或过滤层。站立=topk5 仍是质量最优配置。
+- per-case delta(mmfix−topk5):最差 1bf29d73 -1.0 / fe70cad9 -0.64 / da555ded -0.47;
+  最好 eb59f791 +0.67 / 772d0e75 +0.38(Village of the Giants 族修复)。
+
+---
 ### 2026-09-12 静态 gold 路径审计(用户裁决:不重跑,直接查路径)+推导 CVT 穿透修复
 - **方法**:48 cohort case 逐个:建图→定位 gold 实体→BFS(无向)最短路(起点=轨迹里
   实际提交过的 center+锚点)→用 realign4 48×3 轨迹的**实际 (center,关系) 配对**判定:
