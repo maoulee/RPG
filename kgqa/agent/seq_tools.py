@@ -3481,7 +3481,19 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                 # bridges were attached (the surprising, audit-worthy case)
                 _fam_echo[rs] = {"direct": _dnames or [rs], "bridge": _bridges}
             _expanded.extend(_dnames if _dnames else [rs])
-            _expanded.extend(_bridges)
+            # BRIDGES = TRAVERSAL-ONLY (user design 2026-09-11, Ron-Howard
+            # awards specimen): a relation path must END with the SUBMITTED
+            # relation — bridge carrier edges are mid-segment hops, never
+            # segment termini. RPE's bridge hops already permit ANY non-
+            # target relation mid-path, so bridges need no rel_idxs entry
+            # for traversal; putting them there made every award edge in
+            # the 3-hop environment a legal TERMINATING segment (award
+            # sections rendered as "(retrieved)"). The echo still records
+            # them for audit. Prior A/Bs (direct-first -4.4pp etc.) removed
+            # bridges ENTIRELY; this keeps their traversal while stripping
+            # terminal status — a configuration not measured before.
+            if os.environ.get("SEQ_BRIDGE_TERMINAL", "0") == "1":
+                _expanded.extend(_bridges)
         rel_names = list(dict.fromkeys(_expanded))
         rel_idxs = [ctx.rels.index(r) for r in rel_names
                     if isinstance(r, str) and r in ctx.rels]
