@@ -25,7 +25,7 @@
 | 5 | 提交终止准入 | hit -5.5 | — | 松终止证据系统性生产 |
 | 6 | 引擎多步(单关系/跳) | 0.668 | 48 | 独木桥 |
 | 7 | 并行跳(实体 BFS) | 计算爆 | — | 实体级=指数 |
-| 8 | 模式层枚举(纯关系) | 0.650 | 72 | 集成缝隙 |
+| 8 | 模式层枚举(纯关系) | 0.650 | 72 | **判决被污染**:license×BT0 缝隙滤空证据,非到达不足(2026-09-11 取证) |
 - **统一结论**: RPE 单步松终止是当前唯一测得可行的到达模型
 - **用户设计(正确但引擎承载不了)**: specs/walk_realignment_spec.md
   四支柱 = 路径纪律/模式路径/一致性/CVT双设计; 引擎全有但 agent 未用
@@ -34,7 +34,9 @@
 - 模式枚举**(r1, family) 对**正确: 145 条三元组离线验证通过
 - 集成 bug 1(已修): center 级 direct 检查被共提交的直连关系掩蔽
   → per-RELATION 检查(commit 141313b)
-- 集成 bug 2(未修): 引擎多步路径的 beam/覆盖仍遗漏部分模式实例
+- 集成 bug 2(**已定性,见 2026-09-11 realign5 取证**):"引擎多步覆盖遗漏"实为
+  license filter × SEQ_BRIDGE_TERMINAL=0 准入缝隙——到达成功、证据被滤空;
+  realign4 全量 mm=72 判决受污染需重审
 - **设计方向 A(未试)**: 模式做引导但用 RPE 单步执行——rel_idxs 限定
   为 {r1, family},保留 RPE 灵活性
 
@@ -91,6 +93,38 @@
   SEQ_RENDER_V38=1 SEQ_LICENSE_FILTER=1 SEQ_GHOST_EDGES=1
   SEQ_ZH_QUESTION=tmp/zh_questions_48.json SEQ_CVT_STYLE=inline`
 - dumps: tmp/teacher_audit_dump_{speed5,valcap40,topk5,realign4}.txt
+
+### 2026-09-11 realign5 取证完结:MM 空结果是 license filter × SEQ_BRIDGE_TERMINAL=0 的缝隙,非数据/非引擎
+- **用户问题**:realign5 的 6 次 MM 调用(UK--time_zones、ETZ--locations_in_this_time_zone)
+  "walk reached nothing"——数据问题还是游走引擎问题?
+- **判决:两者都不是,是证据准入层(显示 license filter)**。完整证据链:
+  1. 数据在:2576 图 1331 实体里 `Americas --time_zones--> Eastern Time Zone`、
+     `Falkland Islands --containedby--> South America/Americas`(GT Americas 就在 sg1 证据里)、
+     UK→时区 2-hop 模式 `UK --administrative_children--> 属地 --time_zones--> tz` 三条真实存在。
+  2. 推导在:per-relation 检查正确触发,`_derive_multistep_seq` 毫秒级给出 3/2 个 (r1,family) 模式,
+     与线上错误回显的 attr_expansion 逐字节一致。
+  3. 游走在:inline 与协调器(修好守卫后)两条路径对同 step 分别产出 137-222 / 89-49 条三元组。
+  4. **缝隙**:realign 实验族 wrapper 带 `SEQ_BRIDGE_TERMINAL=0`(支柱 1 配置)——桥被计算并回显
+     但**不进 rel_names/rel_idxs**。`_display_license_filter`(seq_tools:3896)的 subs 只含提交名,
+     lic 集合只能沿提交关系/CVT 端点扩张;MM 模式的 hop-1 边(administrative_children)不在 subs
+     → 中间节点永不入 lic → 终点边(X--time_zones-->tz)节点测试也挂 → **kept_triples 全灭**
+     → "reached nothing",且误诊为 RELATION_MISMATCH。
+  5. **闭环复现**:`SEQ_MULTISTEP=1 + SEQ_BRIDGE_TERMINAL=0` 离线 dispatch 重放,sg1✓/sg2 精确
+     复现线上逐字错误(含 relations 回显只有 2 个提交名)/sg4 同错/sg3✓——四调用成败形态与线上一致。
+     反事实:同 5case 重跑(BT 默认 1)sg2 `MM={841:3} empty=0` 证据正常(rel_idxs 回显 9 个名含桥)。
+- **指纹**(以后判断历史 run 是否 BT0):错误回显 `relations:` 只有提交名(无桥)=BT0;
+  有桥名 = BT1。realign5_s5.log 的 walk 相位正常(collect 16s≈realign4 的 16.5s),lane 无故障。
+- **波及面**:**realign4 全量 48×3 的 mm=72"覆盖不足"判决被此缝隙污染**——到达其实成功,
+  是准入层杀死;八次实验弧线中 realign3/4/5(BT0 族)的负结论需重审。站立配置(topk5,
+  BT1+MM 关)不受影响。
+- 修复方向(未实施,待裁决):MM 触发时把推导模式的 hop-1 关系并入 license 的 subs/lic
+  扩张(引擎推导边≠模型漂移),或 MM pe 走 CVT 同款透明通道。
+- **方法学陷阱(重要)**:自写 rollout wrapper 必须 `if __name__=="__main__"` 守卫——
+  WALK_POOL spawn worker 会重导入 __main__,无守卫 = worker 递归重跑整个 rollout
+  (spawn 风暴:wait=3000s+、假"复现"、输出翻倍)。本次两轮"复现"均此伪影,第三次守卫后消失。
+- 留档:tmp/replay_tz_2576.py(数据审计+推导重放)、tmp/replay_dispatch_2576{,_bt0}.py
+  (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
+  tmp/realign5_instr3.json(反事实重跑)。
 
 ---
 (以下为历史记录,按时间倒序)
