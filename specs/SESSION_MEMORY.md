@@ -8396,6 +8396,10 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **5case 快验**(realign4_s5): **f1 0.6889 vs speed5 同 case 0.6678,
   mismatch 仅 2,墙钟 53s/case**,1923 提升 0.89→1.00。无爆炸。
 - 门控:SEQ_MULTISTEP=1(快验参数);待全量 48×3 验证后定默认。
+- **全量 48×3 判决**(realign4):f1 0.6499 / **mismatch 72**——5case
+  快验的 5 案恰好是简单模式结构,全量暴露覆盖不足:枚举只找 2-hop
+  (r1, family) 对,而 RPE 松终止允许任意 3-hop 桥接终止。**第八次
+  实验确认同一结论**。门控关,站立恢复 topk5。
 - **机制**:提交 director.film|producer.film → 桥扫描逐邻居检查 → 颁奖
   CVT 的共同端点(Brian Grazer 等)携带 film.producer.film → behind-CVT
   命中 → award_winner/award_nominations 作为桥进 rel_idxs(≤6/名)→
