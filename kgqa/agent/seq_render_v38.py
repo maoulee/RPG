@@ -325,6 +325,16 @@ def render_v38_ack(treq, bres, ctx):
         kv = _cvt_tail_keys(mids, red)
         if not kv:
             return ""
+        # FAMILY-KEY CAP (user ruling 2026-09-11, 567/25 specimens): the key
+        # matching the SUBMITTED relation family (film: for a film question)
+        # is the answer surface — the old flat 8-value cap cut it exactly
+        # like the pre-compression mid floods did (The Journey, sorted at T,
+        # invisible in 3/3 samples). Family keys get the leaf discipline
+        # (SEQ_CVT_VALCAP, default 40 = roster parity); secondary keys
+        # stay at 8.
+        _sub_last = {str(x).rsplit(".", 1)[-1]
+                     for x in (sel_rels or ()) if x}
+        _vcap_fam = int(os.environ.get("SEQ_CVT_VALCAP", "40") or 40)
         parts = []
         for k, vs in kv[:3]:
             vs = sorted(vs)
@@ -333,8 +343,9 @@ def render_v38_ack(treq, bres, ctx):
                 # fold to k=v (×n) instead of echoing it per event
                 parts.append(f"{k}={next(iter(vs))} (×{len(mids)})")
             else:
-                shown = " | ".join(vs[:8])
-                more = f" …(+{len(vs) - 8})" if len(vs) > 8 else ""
+                cap = _vcap_fam if k in _sub_last else 8
+                shown = " | ".join(vs[:cap])
+                more = f" …(+{len(vs) - cap})" if len(vs) > cap else ""
                 parts.append(f"{k}: {shown}{more}")
         return f"{len(mids)} event records · " + " · ".join(parts)
 
