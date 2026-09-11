@@ -8347,6 +8347,31 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   452/25 的约束键(tvrage_id 类)plan 缺口课题。
 
 ### 2026-09-11 Ron Howard 颁奖爆炸案(用户:为何两关系重建一堆子图)
+
+### 2026-09-11 游走设计对齐实验(specs/walk_realignment_spec.md)——两轮,判决:门控关
+- **诊断(用户,正确)**:agent 路径强制 n_steps=1 → 引擎的前向验证
+  (chain_expand lookahead)/顺序检查/_check_order 全部闲置;到达只能靠
+  "桥当终止"。四支柱(路径纪律/模式路径/一致性/CVT 双设计)引擎全在,
+  agent 未用——这是五次桥实验负收益的共同根源。
+- **实施**:①无直连支持的 center 推导多步序列(BFS ≤3 命名跳,CVT
+  透明,结尾=家族)→ 多步 step_relations(前向验证原生生效);②桥退役
+  (SEQ_BRIDGE_TERMINAL=0);③CVT 命中键置顶(支柱 4b,保留在产)。
+- **两轮 A/B 判决(门控关,SEQ_MULTISTEP=0/SEQ_BRIDGE_TERMINAL=1)**:
+  | run | f1 | mismatch | 问题 |
+  |---|---|---|---|
+  | realign(仅族名门控) | 0.6683 | 48 | 全名提交无多步无桥 |
+  | realign2(全提交+3跳) | **0.6349** | **76** | 更差——序列步行到达不足 |
+  引擎原生多步+前向验证在本 cohort 上**到达能力显著弱于** RPE 松终止
+  单步(f1 -4.6pp vs speed5)。上下文收益真实(sg_p90 4.5K vs 12.7K,
+  -65%)但质量代价不可接受。
+- **留下的资产**:specs/walk_realignment_spec.md(设计北极星+判决链);
+  CVT 命中键置顶(支柱 4b)在产;多步推导/序列 step 管线代码留存门后,
+  供 walk-algo 分支深改(问题=多步序列的到达覆盖,可能是每跳单关系
+  太窄/需要并行多序列)。
+- **六次收紧/重排实验完整弧线**:免桥 -4.4 / 降级 -3.2 / 标注 -3.4 /
+  遍历-only mm39 / 提交终止 -5.5hit / 引擎多步 mm76——全部指向同一
+  结论:**RPE 单步松终止是当前唯一测得可行的到达模型**;设计完全体
+  需要算法级重构(walk-algo 分支),不是参数或管线重排。
 - **机制**:提交 director.film|producer.film → 桥扫描逐邻居检查 → 颁奖
   CVT 的共同端点(Brian Grazer 等)携带 film.producer.film → behind-CVT
   命中 → award_winner/award_nominations 作为桥进 rel_idxs(≤6/名)→
