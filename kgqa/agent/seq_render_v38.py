@@ -467,12 +467,24 @@ def render_v38_ack(treq, bres, ctx):
 
     L = [f"entities: {' | '.join(center_names)}"]
     sel_shorts = {_short(r) for r in sel_rels}
+    # BRIDGE SECTION LABELING (user audit 2026-09-11, Ron-Howard awards
+    # specimen): relations that entered rel_idxs as BRIDGES (behind-CVT
+    # carrier hits — co-endpoints of a CVT carrying the family, e.g. an
+    # award CVT whose co-nominee is a producer) render their tier-1 section
+    # as bridge CONTEXT, not as the asked relation. Rows unchanged (A/B
+    # history: removing/demoting them cost -4.4/-3.2pp — they carry
+    # discrimination evidence); only the label tells the model these
+    # sections were not its selection.
+    _bridge_shorts = {_short(b) for _exp in (treq.get("attr_expansion") or {}).values()
+                      for b in (_exp.get("bridge") or [])}
     for r in sorted(r for r in by_rel if r in sel_shorts):
         tier_rows = [row for row, anch in by_rel[r] if anch]
         if not tier_rows:
             continue         # selected but NO center-anchored instantiation
         ros = roster(r)
-        L.append(f"▸ --{r}-->  (retrieved"
+        tag = ("bridge context — reached via your selected family's carriers"
+               if r in _bridge_shorts else "retrieved")
+        L.append(f"▸ --{r}-->  ({tag}"
                  + (f" · candidates: {ros}" if ros else "") + ")")
         L.extend(f"    {row}" for row in tier_rows)
     L.append("▸ other walked relations (environment — not center-anchored paths):")
