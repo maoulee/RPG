@@ -151,6 +151,11 @@
   1/3,gold 可见仍答错,答案层)。
 - run: reports/v38_cvtfix_48x3.json + dump tmp/teacher_audit_dump_cvtfix.txt +
   索引 tmp/cvtfix_index.txt。
+- **设计对齐裁决(用户,当日)**:top-K 本义是 **per-CVT** 属性排序(该 CVT 自己
+  的键,通常 2-5 个)——不存在 case 级 143 键词表排序;"96 键/case"是跨 CVT
+  聚合假象(实测 97% CVT ≤5 键,74% ≤2)。never-blank 回退=临时止血(afead4c,
+  +3.5pp hit),per-CVT 重实现后应移除。spec 已更新(walk_realignment_spec
+  支柱 4 + 对齐裁决节),重实现方向待用户批准。
 
 ### 2026-09-12 链式完整路径渲染(用户人工审计三裁决,已实施)
 - **用户审计**(Ron-Howard 标本 567_df97,mmfix dump)三问题→三裁决:
