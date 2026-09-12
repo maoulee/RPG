@@ -129,6 +129,22 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 语义选取确定性重渲染判决(用户方法论:不重跑,重放调用)+门控bug修复
+- **用户方法论**:rollout 有方差,同态重放真实调用(轨迹里的 center+rels)双配置
+  重渲染,直接对比核心路径去留——零 LLM、零方差。
+- **门控 bug(已修)**:SEQ_PAT_SEMANTIC 门把 _ms_map 初始化关进门内,门关时所有
+  MM 调用 UnboundLocalError 崩(只污染了审计,未污染任何 run——semantic2 在门加
+  之前跑的)。修复=外门 MULTISTEP、内门 SEMANTIC、打包块在外门内。
+- **确定性判决(132 调用,0 错误)**:gold 可见 support 65(49.2%) vs semantic
+  **66(50.0%)**——语义裁剪**不砍核心路径**(各丢 1-2 例互相抵消)。specifics:
+  support 空段丢 cpi_inflation_rate(d25753d2)直连;semantic 在 Petruccelli
+  crew-job 换了段组合。
+- **结论**:①裁剪必须(用户:否则上下文爆炸);②语义裁剪安全(确定性同态);
+  ③rollout 分差(81.2 vs 78.5/79.2)=方差+下游组成,非核心路径去留。
+  SEQ_PAT_SEMANTIC 默认值待用户裁决(support=单轮最高分;semantic=设计符合+
+  确定性平手)。
+- 审计脚本:tmp/rerender_config_audit.py(可复跑);tmp/semantic_pattern_eval.py。
+
 ### 2026-09-12 pattern3/4 分解判决:压缩无罪,渲染层收窄有罪;f1 首超站立
 - **用户质疑成立**:pattern3(73.6%)的 -8.3pp 不是头合并的锅。分解:
   | run | 模式选取 | 头合并 | hit | f1 |

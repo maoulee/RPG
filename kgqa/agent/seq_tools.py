@@ -3516,7 +3516,9 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                 # walk also lost to the arrondissement fan-out. Direct
                 # evidence still renders — _sg_execute keeps the plain step
                 # alongside the pattern steps for centers with direct edges.
-                _seq = _derive_multistep_seq(_ix, ctx, _ci, _fam)
+                _sem = os.environ.get("SEQ_PAT_SEMANTIC", "0") == "1"
+                _seq = _derive_multistep_seq(
+                    _ix, ctx, _ci, _fam, topk=0 if _sem else 3)
                 if _seq:
                     _multistep[_ci] = _seq
         except Exception:
@@ -3596,8 +3598,14 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3, topk=3):
                     patterns[(r1, r2)].add(node)
     if not patterns:
         return None
-    # rank: support desc, take top-K (each = one (r1, family) pattern)
-    ranked = sorted(patterns.items(), key=lambda kv: -len(kv[1]))[:topk]
+    # LENGTH-COARSE-RANKED FULL ENUMERATION (user ruling 2026-09-12): the
+    # derivation layer returns ALL 2-hop patterns ordered by (hops implicit,
+    # support desc) — semantic top-3 selection happens in the B phase where
+    # GTE is available (render must never re-cut; the old support-topk here
+    # pre-empted the semantic pick and cost the discriminator patterns,
+    # e2c80dcd specimen: date_of_death lost to a support ranking)
+    ranked = sorted(patterns.items(),
+                    key=lambda kv: (-len(kv[1]), kv[0]))[:max(topk, 0) or None]
     out = {}
     for (r1, r2), support in ranked:
         out[(r1, r2)] = (frozenset([r1]), frozenset([r2]))
@@ -3674,38 +3682,78 @@ async def _sg_execute(treq, ctx, session):
     # coverage (n_steps>1), and reach no longer needs bridges-as-termini.
     _mseq = treq.get("multistep")     # {center_idx: {pat_key: (fs1, fs2)}}
     if _mseq and os.environ.get("SEQ_MULTISTEP", "0") == "1":
-        # PATTERN-LEVEL MULTI-STEP (user design corrected 2026-09-11):
+      if os.environ.get("SEQ_PAT_SEMANTIC", "0") == "1":
+        # SEMANTIC PATTERN SELECTION (user ruling 2026-09-12): the derivation
+        # layer enumerates ALL 2-hop patterns; HERE (B phase, GTE available)
+        # they are ranked semantically against the question and each center
+        # keeps top-3 MULTI-HOP patterns total (the 1-hop direct rides the
+        # plain step). GATED OFF after two 48x3 A/Bs: offline it retains
+        # gold patterns better (6/6 vs 5/6 top-3) but end-to-end it costs
+        # -2.0pp hit / -4.4pp f1 vs the support-topk (semantic 78.5/0.641
+        # with section filter, 79.2/0.657 without vs pattern4 81.2/0.701) —
+        # high-fan-out patterns carry discrimination context beyond the
+        # gold. SEQ_PAT_SEMANTIC=1 enables.
+        try:
+            from kgqa.stages.stage2_entity import gte_retrieve
+            _q = str(getattr(ctx, "question", "") or "")
+            _cands, _cmap = [], {}
+            for _ci, _pats in _mseq.items():
+                for (r1, r2) in _pats:
+                    _s = f"{ctx.rels[r1]} -> {ctx.rels[r2]}"
+                    if _s not in _cmap:
+                        _cmap[_s] = (_ci, (r1, r2))
+                        _cands.append(_s)
+            _rank = {}
+            if _cands and _q and session is not None:
+                _rows = await gte_retrieve(session, _q, _cands,
+                                           top_k=len(_cands))
+                _rank = {r.get("candidate"): i
+                         for i, r in enumerate(_rows or [])
+                         if r.get("candidate") in _cmap}
+            _sel = {}
+            _per_center = {}
+            for _s in sorted(_cands, key=lambda s: (_rank.get(s, 999), s)):
+                _ci, _pk = _cmap[_s]
+                n = _per_center.get(_ci, 0)
+                if n >= 3:
+                    continue
+                _per_center[_ci] = n + 1
+                _sel.setdefault(_ci, {})[_pk] = _mseq[_ci][_pk]
+            treq["multistep"] = _mseq = _sel
+        except Exception:
+            pass
+      # PATTERN-LEVEL MULTI-STEP (user design corrected 2026-09-11):
         # each center's top-K patterns become separate multi-step steps;
         # their pe results merge at finalize (same center, same fid).
-        _ms_steps, _ms_map = [], {}
-        from kgqa.traversal.pattern_walk import get_pattern_index as _gpi
-        _ix2 = _gpi(ctx)
-        # direct family edges per center (the 1-hop pattern — shortest, so it
-        # keeps its plain walk step ALONGSIDE the derived 2-hop patterns;
-        # Belgium specimen: the CET/CEST direct row and the
-        # containedby→time_zones chain both render, length-first ordered)
-        _direct_fam = set()
-        for _exp in (treq.get("attr_expansion") or {}).values():
-            for _dn in (_exp.get("direct") or []):
-                if _dn in ctx.rels:
-                    _direct_fam.add(ctx.rels.index(_dn))
-        for _cn, _ci in treq["centers"]:
-            _pats = _mseq.get(_ci) or {}
-            if _pats:
-                for _pk, _seq in _pats.items():
-                    _ms_steps.append((_ci, _seq, treq["fid"]))
-                _ms_map[_ci] = len(_pats)
-                if (0 <= _ci < len(ctx.ents)) and any(
-                        (((_ix2.head_mask.get(r, 0) >> _ci) & 1)
-                         or ((_ix2.tail_mask.get(r, 0) >> _ci) & 1))
-                        for r in _direct_fam):
-                    _ms_steps.append((_ci, treq["rel_idxs"], treq["fid"]))
-                    _ms_map[_ci] += 1
-            else:
-                _ms_steps.append((_ci, treq["rel_idxs"], treq["fid"]))
-                _ms_map[_ci] = 1
-        if _ms_steps:
-            _steps = _ms_steps
+      _ms_steps, _ms_map = [], {}
+      from kgqa.traversal.pattern_walk import get_pattern_index as _gpi
+      _ix2 = _gpi(ctx)
+      # direct family edges per center (the 1-hop pattern — shortest, so it
+      # keeps its plain walk step ALONGSIDE the derived 2-hop patterns;
+      # Belgium specimen: the CET/CEST direct row and the
+      # containedby→time_zones chain both render, length-first ordered)
+      _direct_fam = set()
+      for _exp in (treq.get("attr_expansion") or {}).values():
+          for _dn in (_exp.get("direct") or []):
+              if _dn in ctx.rels:
+                  _direct_fam.add(ctx.rels.index(_dn))
+      for _cn, _ci in treq["centers"]:
+          _pats = _mseq.get(_ci) or {}
+          if _pats:
+              for _pk, _seq in _pats.items():
+                  _ms_steps.append((_ci, _seq, treq["fid"]))
+              _ms_map[_ci] = len(_pats)
+              if (0 <= _ci < len(ctx.ents)) and any(
+                      (((_ix2.head_mask.get(r, 0) >> _ci) & 1)
+                       or ((_ix2.tail_mask.get(r, 0) >> _ci) & 1))
+                      for r in _direct_fam):
+                  _ms_steps.append((_ci, treq["rel_idxs"], treq["fid"]))
+                  _ms_map[_ci] += 1
+          else:
+              _ms_steps.append((_ci, treq["rel_idxs"], treq["fid"]))
+              _ms_map[_ci] = 1
+      if _ms_steps:
+          _steps = _ms_steps
     with phase_timer("walk"):
         pe_list = await _run_walk_packed(ctx, _steps)
     # merge multi-pattern pe back per-center (concatenate pattern dicts)
