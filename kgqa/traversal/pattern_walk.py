@@ -147,9 +147,9 @@ def pattern_walk(ix, seed_names, target_rel_idxs, max_hops=3, beam=60,
             break
     if not patterns:
         return []
-    # A+ ranking: terminal GROUP order (caller supplies via group_rank),
-    # then length asc, support desc
-    patterns.sort(key=lambda p: (len(p["rels"]), -p["support"]))
+    # Ranking (user ruling 2026-09-12): terminal-HIT first, then length asc,
+    # then name — support/fan-out is not a design criterion anywhere
+    patterns.sort(key=lambda p: (len(p["rels"]), p["rels"]))
     for p in patterns[:topk_patterns]:
         p["witnesses"] = [
             ch for ch in (_materialize(ix, seed_names, p["rels"], a, name2idx)
@@ -197,7 +197,7 @@ def rank_display(ctx, patterns, rel_idxs):
     pos = {r: i for i, r in enumerate(rel_idxs)}
 
     def tkey(p):
-        return (pos.get(p["rels"][-1][0], 999), len(p["rels"]), -p["support"])
+        return (pos.get(p["rels"][-1][0], 999), len(p["rels"]), p["rels"])
 
     lines = []
     for p in sorted(patterns, key=tkey):

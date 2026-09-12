@@ -129,6 +129,20 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 两层渲染落地(用户三裁决)+F4 修复
+- **裁决**:①排序=命中(提交终结)→长度→语义,support 从不在设计(pattern_walk.py
+  同步修复);②**核心原则:重建后的三元组=子图核心内容**——全图为基础,模式游走的
+  逻辑路径重建为三元组,去重/合并评估都在三元组上,除 plan 解析外一切基于实际
+  游走变量;③渲染分两层,互不干扰,行层只接受三元组。
+- **实施**:kgqa/agent/seq_triples.py(三元组层:collect_pattern_triples——kept/edges
+  /穿透边/直连合并→模式分组+排序+跨模式去重+per-CVT 准入→store);
+  kgqa/agent/seq_rows.py(行层:render_rows——只吃 store,头/尾合并、前缀压缩、
+  属性值列、capped 环境段、固定 note)。render_v38_ack 多步分支改为
+  render_rows(collect_pattern_triples(...));_render_pattern_sections 删除。
+- **行为差(有意)**:跨模式三元组去重(基线中同边在多段重复渲染,现全局一次);
+  属性值列形态保持。原子三元组级对齐验证无内容丢失;5 标本渲染正常;143 全绿。
+- 遗留渲染器(站立配置)未动。F5(遗留行序扇出)仍待裁决。
+
 ### 2026-09-12 渲染/游走层重建+子智能体审计+阻断项修复
 - **CVT 逻辑跳定案(用户)**:实例化/展示期规则——路径最后或倒数第二实体为 CVT
   时延展一跳;模式路径本身固定,不存在验证;模式跳数只数命名实体跳。
