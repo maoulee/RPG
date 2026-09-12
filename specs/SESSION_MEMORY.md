@@ -129,6 +129,28 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 derive-always(用户 Belgium/GMT 标本裁决:top-K 模式路径,非 top-1)
+- **用户问题**:Belgium+time_zones 第一轮只有 1 跳直连(topk 变 top1),2 跳
+  `Belgium --containedby--> Europe --time_zones--> GMT` 为何没命中?
+- **两层根因**:①"有直连就跳过推导"的旧规则把 top-K 模式评估折叠成 top-1;
+  ②兜底 RPE 的 beam 在 containedby 的 40+ 行政区扇出里丢了 3 个正向尾巴
+  (Europe/Eurasia/WE)。另发现:同关系往返对(time_zones→time_zones,support 17)
+  挤占 top-3。
+- **修复**(均 MM 门内):①推导无条件运行(fam=matched 关系,BT1 下桥不进推导域);
+  ②有直连的中心 pattern 步之外**保留直连步**(1 跳+2 跳并列,长度优先);
+  ③多尾终点行也转链式(修 Europe→4 时区合并行吞中间跳);④同终点边取最短链;
+  ⑤推导排除 r1==r2 往返对。
+- **线上验证**:同 case 第一轮即渲染 `Belgium --official_language--> German
+  --region--> Europe --time_zones--> Greenwich Mean Time Zone`+直连行+GMT 名册。
+  **残留引擎缝隙(精确定位)**:组合路径 [Belgium,Europe,GMT][containedby,
+  time_zones] 引擎有生成,但在证据裁决层被每模式 support≤24 上限的行政区碎片
+  挤掉——渲染的链来自直连步 RPE 的 3 跳;2 跳链需证据层短路径优先(下项)。
+- **48×3**(deriveall):hit 75.0/unitri 77.1(带内 -2.1)/f1 0.615(+0.004)/
+  **OVER-EMIT 26→16(答多问题修复)**/WRONG 33→36。GMT case 0/3=模型答 Belgium
+  (回显中心,答案层;证据含 Europe+GMT 完整路径)。
+- 143 测试全绿。run: reports/v38_deriveall_48x3.json +
+  dump tmp/teacher_audit_dump_deriveall.txt。
+
 ### 2026-09-12 统一三元组 CVT 展示(用户批准的 spec 对齐实施)
 - **实施**(seq_render_v38):
   1. **cvt_disp 去括号**:CVT 属性不再内联 `[k=v;...]`,裸 mid 进行;

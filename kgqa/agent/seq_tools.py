@@ -3494,24 +3494,29 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
         try:
             from kgqa.traversal.pattern_walk import get_pattern_index
             _ix = get_pattern_index(ctx)
-            _fam = set(rel_idxs)
+            # derivation FAMILY = the MATCHED relations only (bridges expanded
+            # into rel_idxs under BT1 must not become pattern terminals)
+            _matched = set()
+            for _exp in (_fam_echo or {}).values():
+                for _dn in (_exp.get("direct") or []):
+                    if _dn in ctx.rels:
+                        _matched.add(ctx.rels.index(_dn))
+            _fam = _matched or set(rel_idxs)
             for _cn, _ci in centers:
                 if not (0 <= _ci < len(ctx.ents)):
                     continue
-                # PER-RELATION direct check (Missouri River specimen
-                # 2026-09-11: one co-submitted relation with direct support
-                # masked the OTHER relation's lack — coterminous_with had MR
-                # edges, contains didn't; the center-level check skipped
-                # derivation entirely, leaving contains un-walkable). Only
-                # relations WITHOUT direct support go to pattern derivation.
-                _undirected = set()
-                for r in _fam:
-                    if not (((_ix.head_mask.get(r, 0) >> _ci) & 1)
-                            or ((_ix.tail_mask.get(r, 0) >> _ci) & 1)):
-                        _undirected.add(r)
-                if not _undirected:
-                    continue               # every relation has direct support
-                _seq = _derive_multistep_seq(_ix, ctx, _ci, _undirected)
+                # DERIVE ALWAYS (user audit 2026-09-12, Belgium/GMT specimen):
+                # the design evaluates the top-K PATTERN PATHS ending in the
+                # submitted relation — 1-hop direct AND 2-hop (containedby→
+                # time_zones) both in the list, shortest first. The old rule
+                # ("direct support ⇒ skip derivation") collapsed top-K to
+                # top-1: Belgium kept only its direct CET/CEST row while the
+                # answer sat on the 2-hop pattern (Belgium --containedby-->
+                # Europe --time_zones--> GMT), which the beam-limited fallback
+                # walk also lost to the arrondissement fan-out. Direct
+                # evidence still renders — _sg_execute keeps the plain step
+                # alongside the pattern steps for centers with direct edges.
+                _seq = _derive_multistep_seq(_ix, ctx, _ci, _fam)
                 if _seq:
                     _multistep[_ci] = _seq
         except Exception:
@@ -3582,8 +3587,11 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3, topk=3):
             if not (0 <= node < n) or node == ci:
                 continue
             for r2 in range(len(ctx.rels)):
-                if r2 not in fam_idxs:
-                    continue
+                if r2 not in fam_idxs or r2 == r1:
+                    continue    # same-rel out-and-back is a trivial loop, not
+                                # a pattern (it crowded real 2-hop patterns
+                                # out of top-K: time_zones→time_zones support
+                                # 17 beat containedby→time_zones support 3)
                 if node in ix.fwd[r2] or node in ix.rev[r2]:
                     patterns[(r1, r2)].add(node)
     if not patterns:
@@ -3670,12 +3678,29 @@ async def _sg_execute(treq, ctx, session):
         # each center's top-K patterns become separate multi-step steps;
         # their pe results merge at finalize (same center, same fid).
         _ms_steps, _ms_map = [], {}
+        from kgqa.traversal.pattern_walk import get_pattern_index as _gpi
+        _ix2 = _gpi(ctx)
+        # direct family edges per center (the 1-hop pattern — shortest, so it
+        # keeps its plain walk step ALONGSIDE the derived 2-hop patterns;
+        # Belgium specimen: the CET/CEST direct row and the
+        # containedby→time_zones chain both render, length-first ordered)
+        _direct_fam = set()
+        for _exp in (treq.get("attr_expansion") or {}).values():
+            for _dn in (_exp.get("direct") or []):
+                if _dn in ctx.rels:
+                    _direct_fam.add(ctx.rels.index(_dn))
         for _cn, _ci in treq["centers"]:
             _pats = _mseq.get(_ci) or {}
             if _pats:
                 for _pk, _seq in _pats.items():
                     _ms_steps.append((_ci, _seq, treq["fid"]))
                 _ms_map[_ci] = len(_pats)
+                if (0 <= _ci < len(ctx.ents)) and any(
+                        (((_ix2.head_mask.get(r, 0) >> _ci) & 1)
+                         or ((_ix2.tail_mask.get(r, 0) >> _ci) & 1))
+                        for r in _direct_fam):
+                    _ms_steps.append((_ci, treq["rel_idxs"], treq["fid"]))
+                    _ms_map[_ci] += 1
             else:
                 _ms_steps.append((_ci, treq["rel_idxs"], treq["fid"]))
                 _ms_map[_ci] = 1

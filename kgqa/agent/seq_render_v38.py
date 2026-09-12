@@ -190,8 +190,10 @@ def render_v38_ack(treq, bres, ctx):
             sh = _short(relsn[-1])
             d = hop_dir(relsn[-1], key[-2], key[-1])
             te = (key[-1], sh, key[-2]) if d == "r" else (key[-2], sh, key[-1])
-            if te in _center_1hop or te in chains:
+            if te in _center_1hop:
                 continue
+            if te in chains and chains[te][0] <= len(relsn):
+                continue               # a shorter path already claimed it
             parts = [key[0]]
             for i in range(len(key) - 1):
                 s2 = _short(relsn[i])
@@ -513,6 +515,20 @@ def render_v38_ack(treq, bres, ctx):
         heads_of[(r, t)].add(h)
 
     for (h, r) in sorted(multi, key=lambda k: (k[1], -len(multi[k]), k[0])):
+        # MULTI-TAIL CHAIN CONVERSION (Belgium/GMT specimen 2026-09-12): a
+        # merged row like `Europe --time_zones--> GMT|Moscow|Azores|...` hides
+        # the center→Europe mid hop when every tail is a multi-hop terminal —
+        # render those tails as per-tail FULL-PATH chains instead, keep the
+        # non-chain remainder merged.
+        _chained = sorted(t for t in multi[(h, r)]
+                          if (h, r, t) in chains)[:_MAX_CHAINS_PER_REL]
+        for t in _chained:
+            _hops, _ctext = chains.pop((h, r, t))
+            rows.append((r, _ctext, True, _hops))
+        _rest = {t: d for t, d in multi[(h, r)].items()
+                 if t not in _chained}
+        if not _rest:
+            continue
         # join the DISPLAY values (CVT tails carry inline attrs) — joining
         # the dict keys printed bare mids and hid every measurement value
         # (co2/population specimens: 100+ bare mids, values unreachable).
@@ -521,7 +537,7 @@ def render_v38_ack(treq, bres, ctx):
         # — long tails keep the first records verbatim, the remainder fold
         # to their full attr pairs grouped per record (`;` within, `|`
         # between). No caps on names.
-        disp_list = [d for _t, d in sorted(multi[(h, r)].items())]
+        disp_list = [d for _t, d in sorted(_rest.items())]
         joined = " | ".join(disp_list)
         if len(joined) > 1200:
             head_ds, used = [], 0
@@ -538,7 +554,7 @@ def render_v38_ack(treq, bres, ctx):
                       + f" (+{len(rest)}: {' | '.join(recs)}"
                       + ")")
         rows.append((r, f"{h} --{r}--> {joined}",
-                     any(_anch_pair(h, _t) for _t in multi[(h, r)]), 1))
+                     any(_anch_pair(h, _t) for _t in _rest), 1))
     for (r, t) in sorted(heads_of, key=lambda k: (k[0], -len(heads_of[k]), k[1])):
         hs = sorted(heads_of[(r, t)])
         if len(hs) == 1 and (hs[0], r, t) in chains:
