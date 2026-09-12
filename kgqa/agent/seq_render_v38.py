@@ -476,15 +476,20 @@ def render_v38_ack(treq, bres, ctx):
 
         L = [f"entities: {' | '.join(center_names)}"]
         _ms_emitted = set()                 # CVT mids whose attrs rendered
-        # FULL instantiation sets with priority ORDERING (rooted-first via
-        # _pkey) — narrowing to center-rooted-only + top-3/relation measured
-        # 73.6% vs 81.9% (pattern3 A/B 2026-09-12): the wandered instantiations
-        # carry load-bearing discrimination context, the same lesson as the
-        # bridge-suppression family. Selection = pattern2's (≤6 + 2 env).
-        _sel_pats = sorted(groups, key=_pkey)
+        # SECTION MEMBERSHIP (user ruling 2026-09-12): only the SEMANTICALLY
+        # SELECTED 2-hop patterns (treq.multistep, picked by GTE in the B
+        # phase) and the 1-hop SUBMITTED-direct patterns render as sections —
+        # the RPE loose walk's extra patterns (57-section floods) go to the
+        # environment edge block below, capped. Rendering orders but never
+        # re-cuts the derivation layer's selection.
+        # SEMANTIC WALK SELECTION ONLY (A/B 2026-09-12: section-membership
+        # filtering cost -2.7pp hit vs pattern4 — the loose-walk pattern
+        # sections carry discrimination context beyond gold patterns; the
+        # GTE top-3 decides WHICH patterns the derivation WALKS, the render
+        # stays open (orders, never cuts)
         _env_cap = 2
         _shown = []
-        for rt in _sel_pats:
+        for rt in sorted(groups, key=_pkey):
             if _short_r(rt[-1]) not in _sub_sh:
                 if _env_cap <= 0:
                     continue
@@ -534,7 +539,9 @@ def render_v38_ack(treq, bres, ctx):
                         vals = " | ".join(vs[:8]) + (f" …(+{len(vs)-8})"
                                                      if len(vs) > 8 else "")
                         L.append(f"    {mid} --{k}--> {vals}")
-        # walked edges NOT on any rendered pattern → environment triples
+        # walked edges NOT rendered above → environment triples (edge-based:
+        # a discriminator edge touching a pattern node must still show —
+        # e2c80dcd lost date_of_death to the old node-based exclusion)
         _edges = set()
         for (key, _dirs), v in kept.items():
             for relsn in v["rels"]:
@@ -542,10 +549,21 @@ def render_v38_ack(treq, bres, ctx):
                     d = hop_dir(relsn[i], key[i], key[i + 1])
                     _edges.add((key[i + 1], _short_r(relsn[i]), key[i]) if d == "r"
                                else (key[i], _short_r(relsn[i]), key[i + 1]))
+        for _h, _r, _t in list(edges):
+            _edges.add((_h, _r, _t))
+        _shown_edges = set()
+        for ln in L:
+            if " --" in ln and "--> " in ln:
+                try:
+                    _h, rest = ln.split(" --", 1)
+                    _r, _t = rest.split("--> ", 1)
+                    _shown_edges.add((_h.strip(), _r.strip(),
+                                      _t.split(" …")[0].strip()))
+                except ValueError:
+                    pass
         env_edges = []
-        _pat_nodes = {n for rt, ks in groups.items() for k in ks for n in k}
         for h, r, t in sorted(_edges):
-            if h in _pat_nodes or t in _pat_nodes:
+            if (h, r, t) in _shown_edges:
                 continue
             env_edges.append(f"{h} --{r}--> {t}")
         if env_edges:
