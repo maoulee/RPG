@@ -93,6 +93,9 @@
   SEQ_RENDER_V38=1 SEQ_LICENSE_FILTER=1 SEQ_GHOST_EDGES=1
   SEQ_ZH_QUESTION=tmp/zh_questions_48.json SEQ_CVT_STYLE=inline`
 - dumps: tmp/teacher_audit_dump_{speed5,valcap40,topk5,realign4}.txt
+  + mmfix 对照:tmp/teacher_audit_dump_{mmfix,topk5}.txt(2026-09-12 修后多步 vs 站立)
+  + 导航索引:tmp/mmfix_vs_topk5_index.txt(逐 case delta,hit/goldvis 标注;回归 12 例
+    几乎全部 vis 3/3——gold 可见仍答错,细读轨迹用)
 
 ### 2026-09-11 realign5 取证完结:MM 空结果是 license filter × SEQ_BRIDGE_TERMINAL=0 的缝隙,非数据/非引擎
 - **用户问题**:realign5 的 6 次 MM 调用(UK--time_zones、ETZ--locations_in_this_time_zone)
