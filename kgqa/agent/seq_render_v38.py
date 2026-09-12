@@ -476,16 +476,22 @@ def render_v38_ack(treq, bres, ctx):
 
         L = [f"entities: {' | '.join(center_names)}"]
         _ms_emitted = set()                 # CVT mids whose attrs rendered
-        _ordered = sorted(groups, key=_pkey)
-        _n_env = sum(1 for rt in _ordered
-                     if _short_r(rt[-1]) not in _sub_sh)
+        # FULL instantiation sets with priority ORDERING (rooted-first via
+        # _pkey) — narrowing to center-rooted-only + top-3/relation measured
+        # 73.6% vs 81.9% (pattern3 A/B 2026-09-12): the wandered instantiations
+        # carry load-bearing discrimination context, the same lesson as the
+        # bridge-suppression family. Selection = pattern2's (≤6 + 2 env).
+        _sel_pats = sorted(groups, key=_pkey)
         _env_cap = 2
-        for rt in _ordered:
+        _shown = []
+        for rt in _sel_pats:
             if _short_r(rt[-1]) not in _sub_sh:
                 if _env_cap <= 0:
                     continue
                 _env_cap -= 1
-            insts = list({k for k in groups[rt]})
+            _shown.append(rt)
+        for rt in _shown[:6]:
+            insts = sorted({k for k in groups[rt]})
             L.append(f"▸ pattern {' ⭢ '.join(_short_r(r) for r in rt)}"
                      f"  ({len(insts)} instantiations)")
             for i, r in enumerate(rt):
@@ -501,11 +507,27 @@ def render_v38_ack(treq, bres, ctx):
                         if _cvt(x) and x not in _ms_emitted:
                             _ms_emitted.add(x)
                             mids_here.append((x, {a.lower(), b.lower()}))
+                # PREFIX COMPRESSION (user ruling 2026-09-12): many heads
+                # sharing one tail merge head-side — 20 rows of
+                # `Arrondissement of X --containedby--> Belgium` become one
+                # `A | B | C … --containedby--> Belgium` row
+                _heads_of_t = defaultdict(set)
+                for h, ts in tails_of_h.items():
+                    if len(ts) == 1:
+                        _heads_of_t[next(iter(ts))].add(h)
+                _multi = {t for t, hs in _heads_of_t.items() if len(hs) >= 3}
                 for h in sorted(tails_of_h):
                     ts = sorted(tails_of_h[h])
+                    if len(ts) == 1 and next(iter(ts)) in _multi:
+                        continue      # rendered in the head-merged row
                     shown = " | ".join(ts[:40])
                     more = f" …(+{len(ts) - 40})" if len(ts) > 40 else ""
                     L.append(f"    {h} --{sh}--> {shown}{more}")
+                for t in sorted(_multi):
+                    hs = sorted(_heads_of_t[t])
+                    shown = " | ".join(hs[:12])
+                    more = f" …(+{len(hs) - 12})" if len(hs) > 12 else ""
+                    L.append(f"    {shown}{more} --{sh}--> {t}")
                 # the CVT domain of mids ON this pattern's hop (pillar 4a/4b)
                 for mid, red in mids_here:
                     for k, vs in _mid_attr_pairs(mid, red):
