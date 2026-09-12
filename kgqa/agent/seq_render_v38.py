@@ -159,6 +159,46 @@ def render_v38_ack(treq, bres, ctx):
                 else:
                     edges.add((key[i], sh, key[i + 1]))
                     anchored.add((key[i], key[i + 1]))
+
+    # FULL-PATH CHAINS (user audit 2026-09-12, Ron-Howard specimen): a
+    # multi-hop witness rendered as its bare TERMINAL edge shows a head the
+    # model never anchored ("Glenn Gordon Caron --director.film--> Clean and
+    # Sober" with no visible link to Ron Howard) — the mid/bridge hop must
+    # render too: the evidence atom is the PATH, not the terminal edge.
+    # Terminal edges that ALSO exist as a center's own 1-hop edge keep their
+    # mergeable flat row; chain-only terminals render as
+    # `center <--rel-- mid --rel--> terminal` (storage direction per hop).
+    _center_1hop = set()
+    for (key, _dirs), v in kept.items():
+        if len(key) == 2 and key[0] in _center_names:
+            for relsn in v["rels"]:
+                sh = _short(relsn[0])
+                d = hop_dir(relsn[0], key[0], key[1])
+                _center_1hop.add((key[1], sh, key[0]) if d == "r"
+                                 else (key[0], sh, key[1]))
+    _MAX_CHAIN_HOPS = 3
+    _MAX_CHAINS_PER_REL = 8
+    chains = {}                         # terminal edge -> (hops, chain text)
+    for (key, _dirs), v in kept.items():
+        if len(key) < 3 or len(key) - 1 > _MAX_CHAIN_HOPS:
+            continue
+        if key[0] not in _center_names:
+            continue
+        for relsn in v["rels"]:
+            if len(relsn) != len(key) - 1:
+                continue
+            sh = _short(relsn[-1])
+            d = hop_dir(relsn[-1], key[-2], key[-1])
+            te = (key[-1], sh, key[-2]) if d == "r" else (key[-2], sh, key[-1])
+            if te in _center_1hop or te in chains:
+                continue
+            parts = [key[0]]
+            for i in range(len(key) - 1):
+                s2 = _short(relsn[i])
+                dd = hop_dir(relsn[i], key[i], key[i + 1])
+                parts.append(f"<--{s2}--" if dd == "r" else f"--{s2}-->")
+                parts.append(key[i + 1])
+            chains[te] = (len(key) - 1, " ".join(parts))
     # CVT PENETRATION + CENTER-PARENTED SIBLINGS are part of the center's
     # pattern instantiation (pathcons rollout: demoting them cost -4.4pp —
     # film names behind performance CVTs left tier-1). A penetration pair
@@ -392,7 +432,7 @@ def render_v38_ack(treq, bres, ctx):
         if len(ts) == 1:
             t = next(iter(ts))
             if t.startswith("__evt"):
-                rows.append((r, f"{h} --{r}--> {ts[t]}", _anch_pair(h, t)))
+                rows.append((r, f"{h} --{r}--> {ts[t]}", _anch_pair(h, t), 1))
     multi = {(h, r): ts for (h, r), ts in tails_of.items() if len(ts) >= 2}
     heads_of = defaultdict(set)         # (r, t) -> {h}
     for h, r, t in single:
@@ -424,18 +464,25 @@ def render_v38_ack(treq, bres, ctx):
                       + f" (+{len(rest)}: {' | '.join(recs)}"
                       + ")")
         rows.append((r, f"{h} --{r}--> {joined}",
-                     any(_anch_pair(h, _t) for _t in multi[(h, r)])))
+                     any(_anch_pair(h, _t) for _t in multi[(h, r)]), 1))
     for (r, t) in sorted(heads_of, key=lambda k: (k[0], -len(heads_of[k]), k[1])):
         hs = sorted(heads_of[(r, t)])
+        if len(hs) == 1 and (hs[0], r, t) in chains:
+            # FULL-PATH CHAIN (user audit 2026-09-12): this terminal edge
+            # only exists as a multi-hop witness — render the whole path
+            # with its bridge hop instead of a center-less flat edge.
+            _hops, _ctext = chains.pop((hs[0], r, t))
+            rows.append((r, _ctext, True, _hops))
+            continue
         disp = cvt_disp(t, {x.lower() for x in hs}) if _cvt(t) else t
         rows.append((r, f"{' | '.join(hs)} --{r}--> {disp}",
-                     any(_anch_pair(h, t) for h in hs)))
+                     any(_anch_pair(h, t) for h in hs), 1))
     # SELECTED CVT→entity rows: `m.xxx [attrs] --selected_rel--> entity` —
     # every relation the model asked for stays visible as a triple
     for (r, t) in sorted(sel_cvt):
         disps = [cvt_disp(m, {t.lower()}) for m in sorted(sel_cvt[(r, t)])]
         rows.append((r, f"{' | '.join(disps)} --{r}--> {t}",
-                     any(_anch_pair(m, t) for m in sel_cvt[(r, t)])))
+                     any(_anch_pair(m, t) for m in sel_cvt[(r, t)]), 1))
     # record reverse-shape rows (CVT→entity edges that stayed as records)
     seen_recs = {mid for mids in rec_out.values() for mid in mids}
     seen_recs |= {mid for mids in sel_cvt.values() for mid in mids}
@@ -445,7 +492,7 @@ def render_v38_ack(treq, bres, ctx):
             continue
         for m in sorted(extra):
             rows.append((r, f"{cvt_disp(m, {t.lower()})} --{r}--> {t}",
-                         _anch_pair(m, t)))
+                         _anch_pair(m, t), 1))
 
     # RELATION-SECTIONED DISPLAY (user design 2026-09-02) + PATH
     # CONSISTENCY (user ruling 2026-09-10): tier-1 admits only rows on
@@ -453,9 +500,20 @@ def render_v38_ack(treq, bres, ctx):
     # center); environment rows — RPE bridge-segment terminals, sibling
     # expansions — all demote to "other walked relations", never posing as
     # the asked relation's answers.
+    # Leftover FULL-PATH CHAINS whose terminal edge never became a singleton
+    # flat row (merged into multi-tail rows or dropped by row shapes) still
+    # render — capped per relation to bound context growth.
+    _chain_left = defaultdict(list)
+    for (h, r, t), (_hops, _ctext) in chains.items():
+        _chain_left[r].append((_hops, _ctext))
+    for r in _chain_left:
+        _chain_left[r] = sorted(_chain_left[r])[:_MAX_CHAINS_PER_REL]
+        for _hops, _ctext in _chain_left[r]:
+            rows.append((r, _ctext, True, _hops))
+
     by_rel = defaultdict(list)
-    for r, row, anch in rows:
-        by_rel[r].append((row, anch))
+    for r, row, anch, hops in rows:
+        by_rel[r].append((row, anch, hops))
 
     def roster(r):
         tails, heads = set(), set()
@@ -472,6 +530,19 @@ def render_v38_ack(treq, bres, ctx):
 
     L = [f"entities: {' | '.join(center_names)}"]
     sel_shorts = {_short(r) for r in sel_rels}
+    # LENGTH-FIRST SECTION ORDER (user ruling 2026-09-12): sections whose
+    # evidence is 1-hop from the center come first, then bridged/pattern
+    # sections by their minimum path length — submission order only
+    # tie-breaks. Within a section rows sort by hop count (short paths
+    # first), preserving the build order for equal lengths. The tie-break
+    # uses the MODEL's own submission order (attr_expansion keys); bridge
+    # relations expanded into rel_idxs sort after every submitted name.
+    _sub_order = {}
+    for _i, _rn in enumerate((treq.get("attr_expansion") or {}).keys()):
+        _sub_order.setdefault(_short(str(_rn)), _i)
+    for _i, _rn in enumerate(treq.get("rel_names") or []):
+        _sub_order.setdefault(_short(str(_rn)), 50 + _i)
+    _min_hops = {r: min(h for _row, _a, h in v) for r, v in by_rel.items()}
     # BRIDGE SECTION LABELING (user audit 2026-09-11, Ron-Howard awards
     # specimen): relations that entered rel_idxs as BRIDGES (behind-CVT
     # carrier hits — co-endpoints of a CVT carrying the family, e.g. an
@@ -482,8 +553,14 @@ def render_v38_ack(treq, bres, ctx):
     # sections were not its selection.
     _bridge_shorts = {_short(b) for _exp in (treq.get("attr_expansion") or {}).values()
                       for b in (_exp.get("bridge") or [])}
-    for r in sorted(r for r in by_rel if r in sel_shorts):
-        tier_rows = [row for row, anch in by_rel[r] if anch]
+    _row_seq = {}
+    for r in by_rel:
+        _row_seq[r] = {row: i for i, (row, _a, _h) in enumerate(by_rel[r])}
+    for r in sorted((r for r in by_rel if r in sel_shorts),
+                    key=lambda r: (_min_hops[r], _sub_order.get(r, 99), r)):
+        tier = sorted(((row, h) for row, anch, h in by_rel[r] if anch),
+                      key=lambda rh: (rh[1], _row_seq[r].get(rh[0], 0)))
+        tier_rows = [row for row, _h in tier]
         if not tier_rows:
             continue         # selected but NO center-anchored instantiation
         ros = roster(r)
@@ -500,7 +577,7 @@ def render_v38_ack(treq, bres, ctx):
         L.extend(f"    {row}" for row in tier_rows)
     L.append("▸ other walked relations (environment — not center-anchored paths):")
     for r in sorted(by_rel):
-        env_rows = [row for row, anch in by_rel[r] if not anch]
+        env_rows = [row for row, anch, _h in by_rel[r] if not anch]
         L.extend(f"    {row}" for row in env_rows)
     if _cvt_block:
         # BLOCK MODE (SEQ_CVT_STYLE=block): the compressed attribute content

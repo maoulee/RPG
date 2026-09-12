@@ -1091,8 +1091,10 @@ def _candidate_provenance(candidates, display_lines, fact_evidence,
                           if cn in names)
         if srcs:
             missing.append((str(c), f"earlier subgraph: {', '.join(srcs[:2])}"))
-        else:
-            missing.append((str(c), "walk candidates — no visible edge this case"))
+        # NO-EDGE entries are dropped (user ruling 2026-09-12): a bare
+        # entity name with no visible edge anywhere carries no information —
+        # the subgraph's atom is the triple. The answer-legality pool is
+        # unchanged (display-only cut).
     if not missing:
         return ""
     groups, gorder = {}, []

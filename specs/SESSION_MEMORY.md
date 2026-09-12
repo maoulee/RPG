@@ -129,6 +129,28 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 链式完整路径渲染(用户人工审计三裁决,已实施)
+- **用户审计**(Ron-Howard 标本 567_df97,mmfix dump)三问题→三裁决:
+  1. **桥跳不可见**:多跳见证只渲染末跳边,头实体凭空出现
+     (`Glenn Gordon Caron --director.film--> Clean and Sober` 与中心无关联)——
+     证据原子应是**完整路径**,桥/中间跳必须渲染;
+  2. **排序**:带桥路径/模式路径按**长度优先**排序(短者先);
+  3. **无边实体**:候选列表里只有实体名没有边的行没有价值,删。
+- **实施**(seq_render_v38):kept 路径→chains 映射(≤3 跳,每关系 ≤8 条,中心起锚,
+  末跳边同时是中心 1 跳边的保留合并平行);singleton 终点行替换为链式文本
+  `Ron Howard --producer.film--> Clean and Sober <--director.film-- Glenn Gordon Caron`;
+  段序=(段内最小跳数, 模型提交序[attr_expansion 键序,桥排后], 字典序),段内行按跳数;
+  `_candidate_provenance` 删无边类(答案合法性池不受影响,显示层)。
+- **验证**:标本重放——直连 28 部在前,链式行桥跳全显,提交段先于桥段,裸实体行消失;
+  144 测试全绿(provenance 测试按新行为更新);2576 标本无回归。
+- **48×3 重测**(chainrender,同 mmfix 配置+新渲染):hit 72.9% / f1 0.598
+  (mmfix 0.593——噪声带内持平);证据层漏失略降(render 4.3→3.4%,walk 1.2→0.7%);
+  wrong_relation 51.2→55.2%(带内)。**质量结论待人工轨迹审计**——渲染结构修复
+  的价值需读轨迹判断,非单轮指标。
+- 留档:tmp/teacher_audit_dump_chainrender.txt + tmp/chainrender_index.txt
+  (三方对照 topk5/mmfix/chainrender);标本脚本 tmp/replay_rh.py。
+
+---
 ### 2026-09-12 mmfix 全量 48×3(修后多步配置)+分层审计:证据层合格,缺口在答案层
 - **run**:reports/v38_mmfix_48x3.json(SEQ_MULTISTEP=1+BT0+路径准入+CVT穿透修复);
   墙钟 243s/case×3(站立 316s);**mismatch 调用 32(realign4)→2**——缝隙修复确证。

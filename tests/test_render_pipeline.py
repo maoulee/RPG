@@ -350,9 +350,11 @@ def test_candidate_provenance_groups():
     out = _candidate_provenance(["Devil Dog"], lines, fe, cur_fid="sg2")
     assert "Devil Dog" in out and "earlier subgraph: sg1" in out
     assert "not a disconnection" in out
-    # a walk candidate never rendered anywhere → honest walk-candidate group
+    # a walk candidate never rendered anywhere → DROPPED (user ruling
+    # 2026-09-12: bare entity names with no visible edge carry no
+    # information — the subgraph's atom is the triple)
     out2 = _candidate_provenance(["Mystery X"], lines, fe, cur_fid="sg1")
-    assert "Mystery X" in out2 and "walk candidates" in out2
+    assert out2 == ""
 
 
 # ── Debussy specimen (user audit of perfpack_r267g3, 2026-08-25): selected-
