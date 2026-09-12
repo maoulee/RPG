@@ -129,6 +129,29 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 CVT 括号消失取证+永不空括号回退(用户审计 1392 标本)
+- **现象**:Eleanor/New-School case,`m.0k0m3wk --education.student--> Eleanor` 渲染为
+  裸 mid,无 `[institution=The New School]` 括号——模型被迫绑定事件节点(触发 §7.5
+  警告),答案键不可见。**非链式渲染改动的回归**——topk5 dump(一切改动前)已裸。
+- **机制**:cvt_disp 的属性键 top-K 闸(GTE 序 top-5 ∪ 提交组件)。本 case 143 键,
+  `institution` 排 GTE **#7** → 唯一携带答案的属性对被滤空 → 括号空 → 返回裸 mid。
+  第二跳判别键同理:CVT 键名 `number`(3565) ≠ GTE #1 的
+  `number_of_postgraduates`(字符串不同)→ 同样滤空。top-K 闸(09-08 引入,净 +2.7pp
+  hit,防的是键洪泛)顺带把"答案键排在 6+ 位/键名字面不匹配"的 case 括号清零,
+  违反行契约("事件节点不是答案,属性才是世界")。
+- **修复**(seq_render_v38 cvt_disp):**永不空括号回退**——过滤后 pair 为空且
+  原始 pair 非空时,按 GTE 序回退显示该 CVT 自身前 3 键。闸只防洪泛,不清空。
+- **标本验证**:`m.03j_v30 [institution=Allenswood Academy] | m.0k0m3wk
+  [institution=The New School] --education.student--> Eleanor Roosevelt`——答案在
+  首次检索即可见;144 测试全绿。
+- **48×3 判决**:hit 110/144=**76.4%** / f1 **0.644**(chainrender 72.9%/0.598,
+  +3.5pp/+4.6pp;topk5 82.6%/0.680)。WRONG 型 39→34。亮点:bb7d9156(located ID)
+  0.00→1.00、772d0e75 +0.38、1c0686c5(Liszt) 0→0.33——判别键(number=3565 类)
+  可见性恢复的直接收益。残留回归:bc8c9e1a/9deb3d9d/1bf29d73 仍 -0.67(hit 3|3|3→
+  1/3,gold 可见仍答错,答案层)。
+- run: reports/v38_cvtfix_48x3.json + dump tmp/teacher_audit_dump_cvtfix.txt +
+  索引 tmp/cvtfix_index.txt。
+
 ### 2026-09-12 链式完整路径渲染(用户人工审计三裁决,已实施)
 - **用户审计**(Ron-Howard 标本 567_df97,mmfix dump)三问题→三裁决:
   1. **桥跳不可见**:多跳见证只渲染末跳边,头实体凭空出现

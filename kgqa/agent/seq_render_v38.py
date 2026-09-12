@@ -304,8 +304,9 @@ def render_v38_ack(treq, bres, ctx):
                 _submitted_components.add(_seg)
 
     def cvt_disp(mid, red):
-        pairs = [a for a in cvt_graph.get(mid, ())
-                 if "=" in a and a.split("=", 1)[1].strip().lower() not in red]
+        raw_pairs = [a for a in cvt_graph.get(mid, ())
+                     if "=" in a and a.split("=", 1)[1].strip().lower() not in red]
+        pairs = raw_pairs
         if _kranked_keys and _K > 0:
             _topk = set(_kranked_keys[:_K])
             # submitted-relation components always join the top-K — the model
@@ -313,7 +314,20 @@ def render_v38_ack(treq, bres, ctx):
             # vs film.performance.actor: same CVT family, different key names),
             # so exempt EVERY dotted component of every submitted relation
             _topk |= _submitted_components
-            pairs = [a for a in pairs if a.split("=", 1)[0].strip() in _topk]
+            pairs = [a for a in raw_pairs if a.split("=", 1)[0].strip() in _topk]
+            if not pairs and raw_pairs:
+                # NEVER-BLANK CVT (user audit 2026-09-12, Eleanor/New-School
+                # specimen): the top-K gate exists to stop KEY flooding, not
+                # to blank brackets — 'institution' sat at GTE rank 7 (K=5)
+                # and the answer-carrying pair vanished, leaving a bare
+                # m.xxx that names nothing (the row contract: event nodes
+                # are never answers, their ATTRIBUTES are the world — an
+                # empty bracket breaks it). Fall back to this CVT's own keys
+                # in GTE-rank order, top 3.
+                _ord = {k: i for i, k in enumerate(_kranked_keys)}
+                pairs = sorted(
+                    raw_pairs,
+                    key=lambda a: _ord.get(a.split("=", 1)[0].strip(), 999))[:3]
             # TARGET-HIT KEYS FIRST (realignment pillar 4b, user 2026-09-11):
             # when a CVT's extended relation MATCHES the target, show that
             # relation's value before anything else — not merely admitted.
