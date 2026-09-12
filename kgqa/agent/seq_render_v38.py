@@ -160,49 +160,6 @@ def render_v38_ack(treq, bres, ctx):
                     edges.add((key[i], sh, key[i + 1]))
                     anchored.add((key[i], key[i + 1]))
 
-    # FULL-PATH CHAINS (user audit 2026-09-12, Ron-Howard specimen): a
-    # multi-hop witness rendered as its bare TERMINAL edge shows a head the
-    # model never anchored ("Glenn Gordon Caron --director.film--> Clean and
-    # Sober" with no visible link to Ron Howard) — the mid/bridge hop must
-    # render too: the evidence atom is the PATH, not the terminal edge.
-    # Terminal edges that ALSO exist as a center's own 1-hop edge keep their
-    # mergeable flat row; chain-only terminals render as
-    # `center <--rel-- mid --rel--> terminal` (storage direction per hop).
-    _center_1hop = set()
-    for (key, _dirs), v in kept.items():
-        if len(key) == 2 and key[0] in _center_names:
-            for relsn in v["rels"]:
-                sh = _short(relsn[0])
-                d = hop_dir(relsn[0], key[0], key[1])
-                _center_1hop.add((key[1], sh, key[0]) if d == "r"
-                                 else (key[0], sh, key[1]))
-    _MAX_CHAIN_HOPS = 3
-    _MAX_CHAINS_PER_REL = 8
-    chains = {}                         # terminal edge -> (hops, parts list)
-    _pending_chains = []                # (section r, hops, parts) — merged
-                                         # by shared prefix before rendering
-    for (key, _dirs), v in kept.items():
-        if len(key) < 3 or len(key) - 1 > _MAX_CHAIN_HOPS:
-            continue
-        if key[0] not in _center_names:
-            continue
-        for relsn in v["rels"]:
-            if len(relsn) != len(key) - 1:
-                continue
-            sh = _short(relsn[-1])
-            d = hop_dir(relsn[-1], key[-2], key[-1])
-            te = (key[-1], sh, key[-2]) if d == "r" else (key[-2], sh, key[-1])
-            if te in _center_1hop:
-                continue
-            if te in chains and chains[te][0] <= len(relsn):
-                continue               # a shorter path already claimed it
-            parts = [key[0]]
-            for i in range(len(key) - 1):
-                s2 = _short(relsn[i])
-                dd = hop_dir(relsn[i], key[i], key[i + 1])
-                parts.append(f"<--{s2}--" if dd == "r" else f"--{s2}-->")
-                parts.append(key[i + 1])
-            chains[te] = (len(key) - 1, parts)
     # CVT PENETRATION + CENTER-PARENTED SIBLINGS are part of the center's
     # pattern instantiation (pathcons rollout: demoting them cost -4.4pp —
     # film names behind performance CVTs left tier-1). A penetration pair
@@ -517,20 +474,6 @@ def render_v38_ack(treq, bres, ctx):
         heads_of[(r, t)].add(h)
 
     for (h, r) in sorted(multi, key=lambda k: (k[1], -len(multi[k]), k[0])):
-        # MULTI-TAIL CHAIN CONVERSION (Belgium/GMT specimen 2026-09-12): a
-        # merged row like `Europe --time_zones--> GMT|Moscow|Azores|...` hides
-        # the center→Europe mid hop when every tail is a multi-hop terminal —
-        # render those tails as per-tail FULL-PATH chains instead, keep the
-        # non-chain remainder merged.
-        _chained = sorted(t for t in multi[(h, r)]
-                          if (h, r, t) in chains)[:_MAX_CHAINS_PER_REL]
-        for t in _chained:
-            _hops, _parts = chains.pop((h, r, t))
-            _pending_chains.append((r, _hops, _parts))
-        _rest = {t: d for t, d in multi[(h, r)].items()
-                 if t not in _chained}
-        if not _rest:
-            continue
         # join the DISPLAY values (CVT tails carry inline attrs) — joining
         # the dict keys printed bare mids and hid every measurement value
         # (co2/population specimens: 100+ bare mids, values unreachable).
@@ -539,7 +482,7 @@ def render_v38_ack(treq, bres, ctx):
         # — long tails keep the first records verbatim, the remainder fold
         # to their full attr pairs grouped per record (`;` within, `|`
         # between). No caps on names.
-        disp_list = [d for _t, d in sorted(_rest.items())]
+        disp_list = [d for _t, d in sorted(multi[(h, r)].items())]
         joined = " | ".join(disp_list)
         if len(joined) > 1200:
             head_ds, used = [], 0
@@ -556,16 +499,9 @@ def render_v38_ack(treq, bres, ctx):
                       + f" (+{len(rest)}: {' | '.join(recs)}"
                       + ")")
         rows.append((r, f"{h} --{r}--> {joined}",
-                     any(_anch_pair(h, _t) for _t in _rest), 1))
+                     any(_anch_pair(h, _t) for _t in multi[(h, r)]), 1))
     for (r, t) in sorted(heads_of, key=lambda k: (k[0], -len(heads_of[k]), k[1])):
         hs = sorted(heads_of[(r, t)])
-        if len(hs) == 1 and (hs[0], r, t) in chains:
-            # FULL-PATH CHAIN (user audit 2026-09-12): this terminal edge
-            # only exists as a multi-hop witness — render the whole path
-            # with its bridge hop instead of a center-less flat edge.
-            _hops, _parts = chains.pop((hs[0], r, t))
-            _pending_chains.append((r, _hops, _parts))
-            continue
         disp = cvt_disp(t, {x.lower() for x in hs}) if _cvt(t) else t
         rows.append((r, f"{' | '.join(hs)} --{r}--> {disp}",
                      any(_anch_pair(h, t) for h in hs), 1))
@@ -598,34 +534,6 @@ def render_v38_ack(treq, bres, ctx):
     # Leftover FULL-PATH CHAINS whose terminal edge never became a singleton
     # flat row (merged into multi-tail rows or dropped by row shapes) still
     # render — capped per relation to bound context growth.
-    for (h, r, t), (_hops, _parts) in chains.items():
-        _pending_chains.append((r, _hops, _parts))
-    # CHAIN COMPRESSION (user ruling 2026-09-12, Delacroix specimen): chains
-    # sharing the SAME PREFIX (identical nodes/relations up to the last hop)
-    # merge their final-hop endpoints into one value list — triple-form
-    # head/tail compression applied to chains:
-    #   `Eugène Delacroix --influenced--> Arnold Böcklin --influenced-->
-    #    Edvard Munch | Max Ernst`
-    if os.environ.get("SEQ_CHAIN_COMPRESS", "0") == "1":
-        _by_prefix = {}
-        for r, hops, parts in _pending_chains:
-            _k = (r, hops, tuple(parts[:-1]))
-            if _k not in _by_prefix:
-                _by_prefix[_k] = [parts[-1]]
-            elif parts[-1] not in _by_prefix[_k]:
-                _by_prefix[_k].append(parts[-1])
-        for (r, hops, prefix), finals in sorted(
-                _by_prefix.items(), key=lambda kv: (kv[0][1], kv[0][0], kv[0][2])):
-            rows.append((r, " ".join(prefix) + " " + " | ".join(sorted(finals)),
-                         True, hops))
-    else:
-        # GATED OFF (48x3 chaincomp: hit 75.0 -> 70.8, WRONG 36 -> 42 — a
-        # merged tail list reads as the asked relation's ANSWER roster even
-        # though these are 2-hop-through-mid witnesses; uncompressed chains
-        # keep the path semantics legible). SEQ_CHAIN_COMPRESS=1 enables.
-        for r, hops, parts in _pending_chains:
-            rows.append((r, " ".join(parts), True, hops))
-
     by_rel = defaultdict(list)
     for r, row, anch, hops in rows:
         by_rel[r].append((row, anch, hops))

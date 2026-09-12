@@ -129,6 +129,19 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 链拆解回三元组(用户终裁:统一三元组,链不渲染)
+- **裁决**:链式行整体移除——多跳见证的**每条边**作为独立三元组进入常规行管线,
+  由既有的头/尾合并自然去重压缩(Delacroix 标本:5 条 Böcklin 链自然汇成一行
+  `Arnold Böcklin --influenced--> Davies | Munch | Ernst | …`;`Delacroix→Böcklin`
+  并入直连行)。压缩即标准三元组行合并,非链内合并(链内合并已测负,门控关)。
+- Belgium 标本:`Europe --location.time_zones--> GMT | Moscow | Azores | WE`
+  三元组行在提交段可见;143 全绿。
+- **48×3 判决(triple,多步族最佳)**:hit **114/144=79.2%**(deriveall 75.0,
+  +4.2pp)/ f1 **0.668**(+5.3pp)/ WRONG 36→**30**——链式行形态本身在损质量,
+  拆解回三元组即恢复。距站立 topk5(82.6%/0.680)差 3.4pp/1.2pp,接近合拢。
+  arc: unitri 77.1/0.611 → chaincomp 70.8/0.583(负,门控关) → **triple 79.2/0.668**。
+- run: reports/v38_triple_48x3.json + dump tmp/teacher_audit_dump_triple.txt。
+
 ### 2026-09-12 链压缩 A/B:负收益,门控关(SEQ_CHAIN_COMPRESS)
 - **用户裁决**:同前缀链(同中间节点+同来路)末跳终点应合并值列(Delacroix 标本
   5 条 Böcklin 链)。实施为按 (段,跳数,前缀) 分组合并终点。
