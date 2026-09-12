@@ -483,7 +483,7 @@ def render_v38_ack(treq, bres, ctx):
     for h, r, t in single:
         heads_of[(r, t)].add(h)
 
-    for (h, r) in sorted(multi, key=lambda k: (k[1], -len(multi[k]), k[0])):
+    for (h, r) in sorted(multi, key=lambda k: (k[1], k[0])):
         # join the DISPLAY values (CVT tails carry inline attrs) — joining
         # the dict keys printed bare mids and hid every measurement value
         # (co2/population specimens: 100+ bare mids, values unreachable).
@@ -510,7 +510,7 @@ def render_v38_ack(treq, bres, ctx):
                       + ")")
         rows.append((r, f"{h} --{r}--> {joined}",
                      any(_anch_pair(h, _t) for _t in multi[(h, r)]), 1))
-    for (r, t) in sorted(heads_of, key=lambda k: (k[0], -len(heads_of[k]), k[1])):
+    for (r, t) in sorted(heads_of, key=lambda k: (k[0], k[1])):
         hs = sorted(heads_of[(r, t)])
         disp = cvt_disp(t, {x.lower() for x in hs}) if _cvt(t) else t
         rows.append((r, f"{' | '.join(hs)} --{r}--> {disp}",

@@ -129,6 +129,23 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 F5 统一+路径完整性审计(断链归因到层)
+- **F5**:遗留渲染器行序去掉扇出键(multi/heads_of 改 (rel,name));排序准则全线
+  统一=命中→长度→语义(名字)。143 全绿。
+- **路径完整性审计**(tmp/path_integrity_audit.py):以 gold 最短路为基准,逐跳检查
+  "边是否在工具结果里",断点归因——WALK_BREAK(原始游走输出里就没有)vs
+  RENDER_BREAK(游走有、渲染丢)。判决(161 gold-path,真实调用确定性重放):
+  | 分类 | n | % |
+  |---|---|---|
+  | 模型末跳未提交 | 82 | 50.9% |
+  | **WALK_BREAK** | 44 | **27.3%** |
+  | 全路径渲染 | 28 | 17.4% |
+  | **RENDER_BREAK** | 7 | **4.3%** |
+  **渲染层基本不断链(4.3%);断链主因=游走枚举缺口(27.3%,如 Brad Stevens→
+  championships 的第二跳边不在原始 pe)+模型关系选择(50.9%)。**
+- 标本:cd0c724a(film.starring CVT 边渲染丢)、ec2c1dfa(education.student CVT)
+  为渲染侧两例;91218362(champion 第二跳)为游走侧家族。
+
 ### 2026-09-12 两层渲染落地(用户三裁决)+F4 修复
 - **裁决**:①排序=命中(提交终结)→长度→语义,support 从不在设计(pattern_walk.py
   同步修复);②**核心原则:重建后的三元组=子图核心内容**——全图为基础,模式游走的
