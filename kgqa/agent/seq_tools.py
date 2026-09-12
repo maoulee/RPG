@@ -3516,7 +3516,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                 # walk also lost to the arrondissement fan-out. Direct
                 # evidence still renders — _sg_execute keeps the plain step
                 # alongside the pattern steps for centers with direct edges.
-                _sem = os.environ.get("SEQ_PAT_SEMANTIC", "0") == "1"
+                _sem = os.environ.get("SEQ_PAT_SEMANTIC", "1") == "1"
                 _seq = _derive_multistep_seq(
                     _ix, ctx, _ci, _fam, topk=0 if _sem else 3)
                 if _seq:
@@ -3682,7 +3682,7 @@ async def _sg_execute(treq, ctx, session):
     # coverage (n_steps>1), and reach no longer needs bridges-as-termini.
     _mseq = treq.get("multistep")     # {center_idx: {pat_key: (fs1, fs2)}}
     if _mseq and os.environ.get("SEQ_MULTISTEP", "0") == "1":
-      if os.environ.get("SEQ_PAT_SEMANTIC", "0") == "1":
+      if os.environ.get("SEQ_PAT_SEMANTIC", "1") == "1":
         # SEMANTIC PATTERN SELECTION (user ruling 2026-09-12): the derivation
         # layer enumerates ALL 2-hop patterns; HERE (B phase, GTE available)
         # they are ranked semantically against the question and each center
@@ -3692,7 +3692,10 @@ async def _sg_execute(treq, ctx, session):
         # -2.0pp hit / -4.4pp f1 vs the support-topk (semantic 78.5/0.641
         # with section filter, 79.2/0.657 without vs pattern4 81.2/0.701) —
         # high-fan-out patterns carry discrimination context beyond the
-        # gold. SEQ_PAT_SEMANTIC=1 enables.
+        # gold. DEFAULT ON after the 3-run mean verdict (2026-09-12):
+        # semantic 78.7±1.4 hit / 65.1±2.0 f1 vs support 77.3±3.1 / 64.6±2.7
+        # — better mean AND half the variance; pattern4's 81.2 was the top
+        # of support's variance band. SEQ_PAT_SEMANTIC=0 restores support.
         try:
             from kgqa.stages.stage2_entity import gte_retrieve
             _q = str(getattr(ctx, "question", "") or "")
