@@ -431,6 +431,106 @@ def render_v38_ack(treq, bres, ctx):
     _style = os.environ.get("SEQ_CVT_STYLE", "inline").strip().lower()
     n = 0                         # synthetic-entry counter for compressed rows
 
+    # ── PATTERN-SECTIONED DISPLAY (user ruling 2026-09-12, final form) ──────
+    # Sections are PATTERN PATHS, not submitted relations: the relations are
+    # the pattern's hops; an entity renders because it satisfies BOTH the
+    # incoming and the outgoing hop relation of an instantiation (path
+    # consistency); a mid hop's triples live INSIDE their pattern's section —
+    # never orphaned in an unrendered relation section (Belgium specimen:
+    # `Belgium --containedby--> Europe` vanished because containedby was
+    # never submitted); CVT mids on a path render with their attributes.
+    if treq.get("multistep"):
+        def _short_r(rname):
+            return ".".join(str(rname).rsplit(".", 2)[-2:])
+
+        groups = defaultdict(list)          # rels tuple -> [nodes tuple]
+        for (key, _dirs), v in kept.items():
+            for relsn in v["rels"]:
+                groups[tuple(str(r) for r in relsn)].append(key)
+        # the SUBMITTED relation's direct edges (CVT penetration edges ride
+        # p.triples, not kept paths — without this the selected 1-hop pattern
+        # lost its rows to the environment block) join their 1-hop pattern
+        _full_of_short = {}
+        for _rn in (treq.get("rel_names") or []):
+            _full_of_short.setdefault(_short_r(_rn), str(_rn))
+        for _h, _r, _t in list(edges):
+            _fr = _full_of_short.get(_r)
+            if _fr is not None:
+                groups.setdefault((_fr,), []).append((_h, _t))
+
+        # submitted TERMINAL priority uses the model's OWN submission order
+        # (attr_expansion keys) — bridges expanded into rel_names sort after;
+        # CENTER-ANCHORED instantiations outrank wandered ones (an env junk
+        # 1-hop pattern with 71 instantiations crowded the submitted patterns
+        # and cost -7.7pp hit on the first pattern-sectioned 48x3)
+        _sub_sh = {_short_r(k): i for i, k in
+                   enumerate((treq.get("attr_expansion") or {}).keys())}
+        _cn = {str(c) for c in center_names}
+
+        def _pkey(rt):
+            insts = {k for k in groups[rt]}
+            anchored = any(k[0] in _cn for k in insts)
+            return (0 if _short_r(rt[-1]) in _sub_sh else 1,
+                    0 if anchored else 1,
+                    len(rt), -len(insts), rt)
+
+        L = [f"entities: {' | '.join(center_names)}"]
+        _ms_emitted = set()                 # CVT mids whose attrs rendered
+        _ordered = sorted(groups, key=_pkey)
+        _n_env = sum(1 for rt in _ordered
+                     if _short_r(rt[-1]) not in _sub_sh)
+        _env_cap = 2
+        for rt in _ordered:
+            if _short_r(rt[-1]) not in _sub_sh:
+                if _env_cap <= 0:
+                    continue
+                _env_cap -= 1
+            insts = list({k for k in groups[rt]})
+            L.append(f"▸ pattern {' ⭢ '.join(_short_r(r) for r in rt)}"
+                     f"  ({len(insts)} instantiations)")
+            for i, r in enumerate(rt):
+                sh = _short_r(r)
+                tails_of_h = defaultdict(set)
+                mids_here = []
+                for key in insts:
+                    a, b = key[i], key[i + 1]
+                    d = hop_dir(r, a, b)
+                    h, t = (b, a) if d == "r" else (a, b)
+                    tails_of_h[h].add(t)
+                    for x in (h, t):
+                        if _cvt(x) and x not in _ms_emitted:
+                            _ms_emitted.add(x)
+                            mids_here.append((x, {a.lower(), b.lower()}))
+                for h in sorted(tails_of_h):
+                    ts = sorted(tails_of_h[h])
+                    shown = " | ".join(ts[:40])
+                    more = f" …(+{len(ts) - 40})" if len(ts) > 40 else ""
+                    L.append(f"    {h} --{sh}--> {shown}{more}")
+                # the CVT domain of mids ON this pattern's hop (pillar 4a/4b)
+                for mid, red in mids_here:
+                    for k, vs in _mid_attr_pairs(mid, red):
+                        vals = " | ".join(vs[:8]) + (f" …(+{len(vs)-8})"
+                                                     if len(vs) > 8 else "")
+                        L.append(f"    {mid} --{k}--> {vals}")
+        # walked edges NOT on any rendered pattern → environment triples
+        _edges = set()
+        for (key, _dirs), v in kept.items():
+            for relsn in v["rels"]:
+                for i in range(len(key) - 1):
+                    d = hop_dir(relsn[i], key[i], key[i + 1])
+                    _edges.add((key[i + 1], _short_r(relsn[i]), key[i]) if d == "r"
+                               else (key[i], _short_r(relsn[i]), key[i + 1]))
+        env_edges = []
+        _pat_nodes = {n for rt, ks in groups.items() for k in ks for n in k}
+        for h, r, t in sorted(_edges):
+            if h in _pat_nodes or t in _pat_nodes:
+                continue
+            env_edges.append(f"{h} --{r}--> {t}")
+        if env_edges:
+            L.append("▸ other walked relations (environment):")
+            L.extend(f"    {e}" for e in env_edges[:24])
+        return "\n".join(L)
+
     # shape 1: same h + r → many tails (direct + records share the row space)
     tails_of = defaultdict(dict)        # (h, r) -> {t: display}
     for h, r, t in direct:
@@ -603,9 +703,23 @@ def render_v38_ack(treq, bres, ctx):
         for _ar in _emit_attr_rows(r):
             L.append(f"    {_ar}")
     L.append("▸ other walked relations (environment — not center-anchored paths):")
+    # MID-HOP VISIBILITY (user audit 2026-09-12, Belgium specimen — logical
+    # chain break): a 2-hop witness decomposed into triples leaves its mid
+    # edge in a section whose relation was never submitted; with
+    # tier-anchoring off every row is "anchored", so the old anch=False-only
+    # environment section rendered NOTHING and the mid hop vanished entirely
+    # — the terminal `Europe --time_zones--> GMT` showed with no visible
+    # Europe↔Belgium connection. Non-selected sections now render here
+    # (their full row set, capped per section): the connective tissue of
+    # multi-hop witnesses stays visible as triples.
+    _ENV_ROWS_PER_REL = 6
     for r in sorted(by_rel):
-        env_rows = [row for row, anch, _h in by_rel[r] if not anch]
-        L.extend(f"    {row}" for row in env_rows)
+        if r in sel_shorts:
+            env_rows = [row for row, anch, _h in by_rel[r] if not anch]
+        else:
+            env_rows = [row for row, _a, _h in by_rel[r]]
+        for row in env_rows[:_ENV_ROWS_PER_REL]:
+            L.append(f"    {row}")
     if _cvt_block:
         # BLOCK MODE (SEQ_CVT_STYLE=block): the compressed attribute content
         # of large CVT-tail rows lives here, one line per (relation, head)

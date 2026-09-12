@@ -129,6 +129,24 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 模式路径分段展示(用户终裁:段=模式,非提交关系;多步族新高 81.9%)
+- **裁决**:三元组重建基于模式路径——关系是模式路径上的关系,实体须同时满足前一跳
+  与后一跳;中间跳三元组在自己模式的段内(不再孤儿);CVT 渲染。不再按提交关系分段。
+- **实施**(render_v38 pattern 分支,treq.multistep 时激活):kept 路径按关系序列分组,
+  每组一段 `▸ pattern r1 ⭢ r2 (n instantiations)`,逐跳三元组(头侧合并尾列 ≤40);
+  提交关系的 CVT 穿透边(p.triples 通道,不在 kept)并入对应一跳模式组;
+  CVT mid 属性行随段渲染(4a/4b);非模式边进环境段(≤24)。
+- **首轮负**(pattern 71.5%):环境垃圾 1 跳模式(written_work.subjects 71 实例)挤占
+  6 段配额。**调序后**(pattern2):提交终结优先→中心锚定优先→跳数→支持度,环境
+  模式限 2 段。
+- **48×3 判决(pattern2,多步族新高)**:hit **118/144=81.9%**(triple 79.2,距站立
+  topk5 82.6% 仅 0.7pp)/ f1 0.664(差 1.6pp)。arc: unitri 77.1 → triple 79.2 →
+  **pattern2 81.9**。
+- 标本:Eleanor `▸ pattern education.student` 带头 + `--institution--> The New School`;
+  Belgium 直连模式→2 跳模式(language→region→time_zones)全跳可见。
+- 143 全绿。run: reports/v38_pattern2_48x3.json + dump _pattern2(注:上一条 mihop
+  run 已作废被覆盖,链拆解条目的 dump _triple 仍是 triple 轮)。
+
 ### 2026-09-12 链拆解回三元组(用户终裁:统一三元组,链不渲染)
 - **裁决**:链式行整体移除——多跳见证的**每条边**作为独立三元组进入常规行管线,
   由既有的头/尾合并自然去重压缩(Delacroix 标本:5 条 Böcklin 链自然汇成一行
