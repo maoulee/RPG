@@ -129,6 +129,15 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 链压缩 A/B:负收益,门控关(SEQ_CHAIN_COMPRESS)
+- **用户裁决**:同前缀链(同中间节点+同来路)末跳终点应合并值列(Delacroix 标本
+  5 条 Böcklin 链)。实施为按 (段,跳数,前缀) 分组合并终点。
+- **48×3 判决(负)**:hit 75.0→**70.8**/f1 0.615→0.583/WRONG 36→**42**——合并后的
+  终点值列被模型读成所问关系的**直接答案名单**(2 跳见证失去路径语义)。
+  与桥抑制家族同一教训:压缩呈现改变答案分布。已门控默认关,恢复逐链展示
+  (deriveall 行为);SEQ_CHAIN_COMPRESS=1 可开。
+- 143 全绿。run: reports/v38_chaincomp_48x3.json + dump _chaincomp。
+
 ### 2026-09-12 derive-always(用户 Belgium/GMT 标本裁决:top-K 模式路径,非 top-1)
 - **用户问题**:Belgium+time_zones 第一轮只有 1 跳直连(topk 变 top1),2 跳
   `Belgium --containedby--> Europe --time_zones--> GMT` 为何没命中?

@@ -178,7 +178,9 @@ def render_v38_ack(treq, bres, ctx):
                                  else (key[0], sh, key[1]))
     _MAX_CHAIN_HOPS = 3
     _MAX_CHAINS_PER_REL = 8
-    chains = {}                         # terminal edge -> (hops, chain text)
+    chains = {}                         # terminal edge -> (hops, parts list)
+    _pending_chains = []                # (section r, hops, parts) — merged
+                                         # by shared prefix before rendering
     for (key, _dirs), v in kept.items():
         if len(key) < 3 or len(key) - 1 > _MAX_CHAIN_HOPS:
             continue
@@ -200,7 +202,7 @@ def render_v38_ack(treq, bres, ctx):
                 dd = hop_dir(relsn[i], key[i], key[i + 1])
                 parts.append(f"<--{s2}--" if dd == "r" else f"--{s2}-->")
                 parts.append(key[i + 1])
-            chains[te] = (len(key) - 1, " ".join(parts))
+            chains[te] = (len(key) - 1, parts)
     # CVT PENETRATION + CENTER-PARENTED SIBLINGS are part of the center's
     # pattern instantiation (pathcons rollout: demoting them cost -4.4pp —
     # film names behind performance CVTs left tier-1). A penetration pair
@@ -523,8 +525,8 @@ def render_v38_ack(treq, bres, ctx):
         _chained = sorted(t for t in multi[(h, r)]
                           if (h, r, t) in chains)[:_MAX_CHAINS_PER_REL]
         for t in _chained:
-            _hops, _ctext = chains.pop((h, r, t))
-            rows.append((r, _ctext, True, _hops))
+            _hops, _parts = chains.pop((h, r, t))
+            _pending_chains.append((r, _hops, _parts))
         _rest = {t: d for t, d in multi[(h, r)].items()
                  if t not in _chained}
         if not _rest:
@@ -561,8 +563,8 @@ def render_v38_ack(treq, bres, ctx):
             # FULL-PATH CHAIN (user audit 2026-09-12): this terminal edge
             # only exists as a multi-hop witness — render the whole path
             # with its bridge hop instead of a center-less flat edge.
-            _hops, _ctext = chains.pop((hs[0], r, t))
-            rows.append((r, _ctext, True, _hops))
+            _hops, _parts = chains.pop((hs[0], r, t))
+            _pending_chains.append((r, _hops, _parts))
             continue
         disp = cvt_disp(t, {x.lower() for x in hs}) if _cvt(t) else t
         rows.append((r, f"{' | '.join(hs)} --{r}--> {disp}",
@@ -596,13 +598,33 @@ def render_v38_ack(treq, bres, ctx):
     # Leftover FULL-PATH CHAINS whose terminal edge never became a singleton
     # flat row (merged into multi-tail rows or dropped by row shapes) still
     # render — capped per relation to bound context growth.
-    _chain_left = defaultdict(list)
-    for (h, r, t), (_hops, _ctext) in chains.items():
-        _chain_left[r].append((_hops, _ctext))
-    for r in _chain_left:
-        _chain_left[r] = sorted(_chain_left[r])[:_MAX_CHAINS_PER_REL]
-        for _hops, _ctext in _chain_left[r]:
-            rows.append((r, _ctext, True, _hops))
+    for (h, r, t), (_hops, _parts) in chains.items():
+        _pending_chains.append((r, _hops, _parts))
+    # CHAIN COMPRESSION (user ruling 2026-09-12, Delacroix specimen): chains
+    # sharing the SAME PREFIX (identical nodes/relations up to the last hop)
+    # merge their final-hop endpoints into one value list — triple-form
+    # head/tail compression applied to chains:
+    #   `Eugène Delacroix --influenced--> Arnold Böcklin --influenced-->
+    #    Edvard Munch | Max Ernst`
+    if os.environ.get("SEQ_CHAIN_COMPRESS", "0") == "1":
+        _by_prefix = {}
+        for r, hops, parts in _pending_chains:
+            _k = (r, hops, tuple(parts[:-1]))
+            if _k not in _by_prefix:
+                _by_prefix[_k] = [parts[-1]]
+            elif parts[-1] not in _by_prefix[_k]:
+                _by_prefix[_k].append(parts[-1])
+        for (r, hops, prefix), finals in sorted(
+                _by_prefix.items(), key=lambda kv: (kv[0][1], kv[0][0], kv[0][2])):
+            rows.append((r, " ".join(prefix) + " " + " | ".join(sorted(finals)),
+                         True, hops))
+    else:
+        # GATED OFF (48x3 chaincomp: hit 75.0 -> 70.8, WRONG 36 -> 42 — a
+        # merged tail list reads as the asked relation's ANSWER roster even
+        # though these are 2-hop-through-mid witnesses; uncompressed chains
+        # keep the path semantics legible). SEQ_CHAIN_COMPRESS=1 enables.
+        for r, hops, parts in _pending_chains:
+            rows.append((r, " ".join(parts), True, hops))
 
     by_rel = defaultdict(list)
     for r, row, anch, hops in rows:
