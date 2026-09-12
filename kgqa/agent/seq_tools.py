@@ -3530,7 +3530,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
-def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3, topk=3):
+def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
     """PATTERN-LEVEL enumeration (user design 2026-09-11, corrected): distinct
     relation-sequences (r1, …, rk→family) from ci — pure relation pairs, not
     entity BFS. One hop = the pattern set; GTE/support ranks within the same
@@ -3582,8 +3582,10 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3, topk=3):
     if not hop1:
         return None
     # enumerate distinct 2-hop patterns: (r1, r_family) where r_family rides
-    # on some entity reached via r1
-    patterns = defaultdict(set)      # (r1_idx, fam_idx) -> support count
+    # on some entity reached via r1. A SET of pattern keys — fan-out counts
+    # are not tracked (audit F8: the counting outlived the ranking it fed;
+    # support must not influence anything)
+    patterns = set()
     for r1, reach in hop1.items():
         for node in reach:
             if not (0 <= node < n) or node == ci:
@@ -3595,7 +3597,7 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3, topk=3):
                                 # out of top-K: time_zones→time_zones support
                                 # 17 beat containedby→time_zones support 3)
                 if node in ix.fwd[r2] or node in ix.rev[r2]:
-                    patterns[(r1, r2)].add(node)
+                    patterns.add((r1, r2))
     if not patterns:
         return None
     # LENGTH-COARSE-RANKED FULL ENUMERATION (user ruling 2026-09-12): the
@@ -3607,11 +3609,8 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3, topk=3):
     # ORDERING: name-deterministic — support was never in the user design
     # (length first, semantics second, both applied downstream); fan-out
     # counts must not influence selection
-    ranked = sorted(patterns.items(), key=lambda kv: kv[0])[:max(topk, 0) or None]
-    out = {}
-    for (r1, r2), support in ranked:
-        out[(r1, r2)] = (frozenset([r1]), frozenset([r2]))
-    return out
+    ranked = sorted(patterns)[:max(topk, 0) or None]
+    return {(r1, r2): (frozenset([r1]), frozenset([r2])) for r1, r2 in ranked}
 
 
 async def _sg_execute(treq, ctx, session):
@@ -3683,6 +3682,9 @@ async def _sg_execute(treq, ctx, session):
     # path-consistency pillar natively, RPE falls back only on weak
     # coverage (n_steps>1), and reach no longer needs bridges-as-termini.
     _mseq = treq.get("multistep")     # {center_idx: {pat_key: (fs1, fs2)}}
+    _ms_map = {}                      # bound OUTSIDE the gate (audit F1: an
+                                      # env flip between phases left it unbound
+                                      # and crashed the merge below)
     if _mseq and os.environ.get("SEQ_MULTISTEP", "0") == "1":
       if os.environ.get("SEQ_PAT_SEMANTIC", "1") == "1":
         # SEMANTIC PATTERN SELECTION (user ruling 2026-09-12): the derivation
@@ -3705,32 +3707,33 @@ async def _sg_execute(treq, ctx, session):
             for _ci, _pats in _mseq.items():
                 for (r1, r2) in _pats:
                     _s = f"{ctx.rels[r1]} -> {ctx.rels[r2]}"
-                    if _s not in _cmap:
-                        _cmap[_s] = (_ci, (r1, r2))
+                    _k = (_ci, _s)     # per-center (audit F14: a shared
+                                        # pattern string deduped centers away)
+                    if _k not in _cmap:
+                        _cmap[_k] = (r1, r2)
                         _cands.append(_s)
             _rank = {}
             if _cands and _q and session is not None:
-                _rows = await gte_retrieve(session, _q, _cands,
-                                           top_k=len(_cands))
+                _rows = await gte_retrieve(session, _q, sorted(set(_cands)),
+                                           top_k=len(set(_cands)))
                 _rank = {r.get("candidate"): i
-                         for i, r in enumerate(_rows or [])
-                         if r.get("candidate") in _cmap}
+                         for i, r in enumerate(_rows or [])}
             _sel = {}
             _per_center = {}
-            for _s in sorted(_cands, key=lambda s: (_rank.get(s, 999), s)):
-                _ci, _pk = _cmap[_s]
+            for (_ci, _s) in sorted(_cmap, key=lambda k: (_rank.get(k[1], 999),
+                                                          k[1], k[0])):
                 n = _per_center.get(_ci, 0)
                 if n >= 3:
                     continue
                 _per_center[_ci] = n + 1
-                _sel.setdefault(_ci, {})[_pk] = _mseq[_ci][_pk]
+                _sel.setdefault(_ci, {})[_cmap[(_ci, _s)]] = _mseq[_ci][_cmap[(_ci, _s)]]
             treq["multistep"] = _mseq = _sel
         except Exception:
             pass
       # PATTERN-LEVEL MULTI-STEP (user design corrected 2026-09-11):
         # each center's top-K patterns become separate multi-step steps;
         # their pe results merge at finalize (same center, same fid).
-      _ms_steps, _ms_map = [], {}
+      _ms_steps = []
       from kgqa.traversal.pattern_walk import get_pattern_index as _gpi
       _ix2 = _gpi(ctx)
       # direct family edges per center (the 1-hop pattern — shortest, so it

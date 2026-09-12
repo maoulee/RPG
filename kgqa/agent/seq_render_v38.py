@@ -47,9 +47,8 @@ def _parse_node(s):
     return s, []
 
 
-def _render_pattern_sections(treq, bres, ctx, kept, edges, sel_rels,
-                             center_names, hop_dir, cvt_graph, _kranked_keys,
-                             _K, _submitted_components, _mid_attr_pairs):
+def _render_pattern_sections(treq, ctx, kept, edges, center_names, hop_dir,
+                             _mid_attr_pairs):
     """MULTISTEP RENDER — pattern-path sections (consolidated user rulings
     2026-09-12). Sections are PATTERN PATHS ordered submitted-terminal →
     center-rooted → hop count → name (no fan-out criterion anywhere); every
@@ -90,11 +89,15 @@ def _render_pattern_sections(treq, bres, ctx, kept, edges, sel_rels,
     # and cost -7.7pp hit on the first pattern-sectioned 48x3)
     _sub_sh = {_short_r(k): i for i, k in
                enumerate((treq.get("attr_expansion") or {}).keys())}
+    for _i, _rn in enumerate(treq.get("rel_names") or []):
+        _sub_sh.setdefault(_short_r(str(_rn)), 50 + _i)   # audit F3:
+        # full-name submissions without an echo left _sub_sh empty and
+        # degraded every section into the env lottery
     _cn = {str(c) for c in center_names}
 
     def _pkey(rt):
         insts = {k for k in groups[rt]}
-        anchored = any(k[0] in _cn for k in insts)
+        anchored = any(k[0] in _cn or k[-1] in _cn for k in insts)
         # support (-len) removed per user ruling 2026-09-12: never in the
         # design — length first, semantics (B phase) second
         return (0 if _short_r(rt[-1]) in _sub_sh else 1,
@@ -102,6 +105,7 @@ def _render_pattern_sections(treq, bres, ctx, kept, edges, sel_rels,
                 len(rt), rt)
 
     L = [f"entities: {' | '.join(center_names)}"]
+    _shown_edges = set()                # (h, short, t) emitted above
     _ms_emitted = set()                 # CVT mids whose attrs rendered
     # SECTION MEMBERSHIP (user ruling 2026-09-12): only the SEMANTICALLY
     # SELECTED 2-hop patterns (treq.multistep, picked by GTE in the B
@@ -135,6 +139,9 @@ def _render_pattern_sections(treq, bres, ctx, kept, edges, sel_rels,
                 d = hop_dir(r, a, b)
                 h, t = (b, a) if d == "r" else (a, b)
                 tails_of_h[h].add(t)
+                _shown_edges.add((h, sh, t))   # audit F2: emission-time
+                # accounting — string re-parsing merged rows never matched
+                # and the env block double-rendered them
                 for x in (h, t):
                     if _cvt(x) and x not in _ms_emitted:
                         _ms_emitted.add(x)
@@ -178,16 +185,6 @@ def _render_pattern_sections(treq, bres, ctx, kept, edges, sel_rels,
                            else (key[i], _short_r(relsn[i]), key[i + 1]))
     for _h, _r, _t in list(edges):
         _edges.add((_h, _r, _t))
-    _shown_edges = set()
-    for ln in L:
-        if " --" in ln and "--> " in ln:
-            try:
-                _h, rest = ln.split(" --", 1)
-                _r, _t = rest.split("--> ", 1)
-                _shown_edges.add((_h.strip(), _r.strip(),
-                                  _t.split(" …")[0].strip()))
-            except ValueError:
-                pass
     env_edges = []
     for h, r, t in sorted(_edges):
         if (h, r, t) in _shown_edges:
@@ -586,9 +583,7 @@ def render_v38_ack(treq, bres, ctx):
 
     if treq.get("multistep"):
         return _render_pattern_sections(
-            treq, bres, ctx, kept, edges, sel_rels, center_names, hop_dir,
-            cvt_graph, _kranked_keys, _K, _submitted_components,
-            _mid_attr_pairs)
+            treq, ctx, kept, edges, center_names, hop_dir, _mid_attr_pairs)
 
     # shape 1: same h + r → many tails (direct + records share the row space)
     tails_of = defaultdict(dict)        # (h, r) -> {t: display}
