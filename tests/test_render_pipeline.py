@@ -13,7 +13,7 @@ import sys
 sys.path.insert(0, "/zhaoshu/subgraph")
 
 from kgqa.agent.seq_tools import (  # noqa: E402
-    _candidate_provenance, _group_facts_by_rel, _render_records,
+    _group_facts_by_rel, _render_records,
     _select_uncovered, render_evidence_sections)
 from kgqa.core.utils import normalize as nz  # noqa: E402
 
@@ -337,24 +337,6 @@ def test_cross_call_full_display():
                      tuple(l for l in lines if "already shown" not in l)))
     assert outs[0] == outs[1]
     assert "already shown in a prior subgraph" not in "\n".join(outs[0][2])
-
-
-def test_candidate_provenance_groups():
-    lines = ["  Hello, Larry --regular_cast--> m.0bngb3y "
-             "[actor=Kim Richards; character=Ruthie Alder]"]
-    fe = {"sg1": {nz(KR), nz(SHOW1), nz("Devil Dog")}, "sg2": {nz(KR)}}
-    # every candidate visible → no annotation
-    assert _candidate_provenance(
-        [KR, SHOW1], lines, fe, cur_fid="sg2") == ""
-    # Devil Dog not in this render but shown by sg1 → labeled with source
-    out = _candidate_provenance(["Devil Dog"], lines, fe, cur_fid="sg2")
-    assert "Devil Dog" in out and "earlier subgraph: sg1" in out
-    assert "not a disconnection" in out
-    # a walk candidate never rendered anywhere → DROPPED (user ruling
-    # 2026-09-12: bare entity names with no visible edge carry no
-    # information — the subgraph's atom is the triple)
-    out2 = _candidate_provenance(["Mystery X"], lines, fe, cur_fid="sg1")
-    assert out2 == ""
 
 
 # ── Debussy specimen (user audit of perfpack_r267g3, 2026-08-25): selected-

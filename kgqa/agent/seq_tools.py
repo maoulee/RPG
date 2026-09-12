@@ -1065,52 +1065,6 @@ def _group_facts_by_rel(lines):
     return out
 
 
-def _candidate_provenance(candidates, display_lines, fact_evidence,
-                          cur_fid="", cap=10):
-    """CANDIDATE SOURCING (user ruling 2026-08-25, Devil Dog specimen):
-    every candidate must be traceable — either visible in THIS render or
-    explicitly labeled with where it WAS shown. A candidate absent from the
-    current display is still connected evidence (it surfaced in an earlier
-    subgraph's render); silence lets the model read absence as
-    "not connected" and drop gold answers.
-    Returns an annotation line ('' when every candidate is shown here)."""
-    from kgqa.core.utils import normalize as _nz
-    disp = _nz(" \n ".join(display_lines or []))
-    if not disp:
-        return ""
-    missing = []
-    for c in candidates or []:
-        cn = _nz(str(c))
-        if not cn or cn in disp:
-            continue
-        srcs = sorted(fk for fk, names in (fact_evidence or {}).items()
-                      if cn in names and fk != cur_fid)
-        if not srcs:
-            # an earlier retrieval of THIS same subgraph also counts
-            srcs = sorted(fk for fk, names in (fact_evidence or {}).items()
-                          if cn in names)
-        if srcs:
-            missing.append((str(c), f"earlier subgraph: {', '.join(srcs[:2])}"))
-        # NO-EDGE entries are dropped (user ruling 2026-09-12): a bare
-        # entity name with no visible edge anywhere carries no information —
-        # the subgraph's atom is the triple. The answer-legality pool is
-        # unchanged (display-only cut).
-    if not missing:
-        return ""
-    groups, gorder = {}, []
-    for name, src in missing[:cap]:
-        if src not in groups:
-            groups[src] = []
-            gorder.append(src)
-        groups[src].append(name)
-    parts = [f"{' | '.join(names)} ({src})" for src, names in
-             ((src, groups[src]) for src in gorder)]
-    more = f" …(+{len(missing) - cap})" if len(missing) > cap else ""
-    return ("candidates not shown above: " + " | ".join(parts) + more
-            + " — these ARE connected evidence from earlier retrievals; "
-              "absence from THIS render is not a disconnection.")
-
-
 def render_evidence_sections(paths, centers, var_label, all_triples, selected_rels,
                              per_rel=3, total_cap=12, lines_per_shape=30):
     """UNIFIED EVIDENCE RENDERER (user ruling 2026-08-25: audit the mechanism,
@@ -4424,19 +4378,14 @@ def _sg_finalize(treq, bres, ctx) -> str:
         dropped = len(tree_lines) - _TREE_LINE_BUDGET
         tree_lines = tree_lines[:_TREE_LINE_BUDGET]
         tree_lines.append(f"  ... +{dropped} lines truncated")
-    # CANDIDATE PROVENANCE (user ruling 2026-08-25, Devil Dog specimen): label
-    # every candidate NOT visible in this render with the earlier subgraph
-    # that showed it (or that it is a not-yet-rendered walk candidate) —
-    # absence from this render must never read as "not connected".
+    # CANDIDATE PROVENANCE REMOVED (user ruling 2026-09-12, asked repeatedly):
+    # the "candidates not shown above" annotation listed bare entity names —
+    # valid information renders as TRIPLES (the subgraph's atom), anything
+    # without a visible edge is removed. The answer-legality pool and the
+    # wandered-candidate ledger below are unchanged.
     _fe = getattr(ctx, "fact_evidence", None)
     if _fe is None:
         _fe = {}; ctx.fact_evidence = _fe
-    if os.environ.get("SEQ_RENDER_V35", "") != "1":
-        _prov = _candidate_provenance(
-            [c for c in candidates if not is_cvt_like(c)][:80], tree_lines, _fe,
-            cur_fid=fid)
-    else:
-        _prov = ""
     # WANDERED-CANDIDATE LEDGER (see _expand_entities): remember the walk
     # candidates that have NO visible edge in this render — they stay legal
     # answer entities and future ?var expansions carry them as centers
@@ -4451,8 +4400,6 @@ def _sg_finalize(treq, bres, ctx) -> str:
                 and _cs not in _wxset):
             _wxset.add(_cs)
             _wx.append(_cs)
-    if _prov:
-        tree_lines.append(f"  {_prov}")
 
     # The merged triples above ARE the evidence view — discriminator attrs (dates,
     # incumbent) live on their own edges ('Robert --to--> 1968', 'Ted --to-->

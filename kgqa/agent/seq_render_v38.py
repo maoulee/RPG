@@ -304,37 +304,95 @@ def render_v38_ack(treq, bres, ctx):
                 _submitted_components.add(_seg)
 
     def cvt_disp(mid, red):
-        raw_pairs = [a for a in cvt_graph.get(mid, ())
-                     if "=" in a and a.split("=", 1)[1].strip().lower() not in red]
-        pairs = raw_pairs
-        if _kranked_keys and _K > 0:
-            _topk = set(_kranked_keys[:_K])
-            # submitted-relation components always join the top-K — the model
-            # may submit the INVERSE direction (film.actor.dubbing_performances
-            # vs film.performance.actor: same CVT family, different key names),
-            # so exempt EVERY dotted component of every submitted relation
-            _topk |= _submitted_components
-            pairs = [a for a in raw_pairs if a.split("=", 1)[0].strip() in _topk]
-            if not pairs and raw_pairs:
-                # NEVER-BLANK CVT (user audit 2026-09-12, Eleanor/New-School
-                # specimen): the top-K gate exists to stop KEY flooding, not
-                # to blank brackets — 'institution' sat at GTE rank 7 (K=5)
-                # and the answer-carrying pair vanished, leaving a bare
-                # m.xxx that names nothing (the row contract: event nodes
-                # are never answers, their ATTRIBUTES are the world — an
-                # empty bracket breaks it). Fall back to this CVT's own keys
-                # in GTE-rank order, top 3.
-                _ord = {k: i for i, k in enumerate(_kranked_keys)}
-                pairs = sorted(
-                    raw_pairs,
-                    key=lambda a: _ord.get(a.split("=", 1)[0].strip(), 999))[:3]
-            # TARGET-HIT KEYS FIRST (realignment pillar 4b, user 2026-09-11):
-            # when a CVT's extended relation MATCHES the target, show that
-            # relation's value before anything else — not merely admitted.
-            pairs.sort(key=lambda a: a.split("=", 1)[0].strip()
-                       not in _submitted_components)
-        at = "; ".join(pairs[:6])
-        return f"{mid} [{at}]" if at else mid
+        # BARE MID (user ruling 2026-09-12, unified-triple design): the CVT's
+        # attributes are its domain — they render as their own triple rows
+        # right after the pattern row that surfaced the mid (see
+        # _emit_attr_rows), not as an inline bracket. Bracket content that
+        # duplicated compressed sections is gone by construction.
+        return mid
+
+    # PER-CVT ATTRIBUTE ADMISSION (spec pillar 4b, user ruling 2026-09-12):
+    # the key set is THIS CVT's own keys (97% of CVTs have <=5); the case-level
+    # GTE ranking (_kranked_keys) serves only as the keys' RELATIVE order,
+    # never as a global admission quota — the 09-08 case-level top-5 gate
+    # blanked brackets whenever a CVT's only informative key ranked 6+
+    # (Eleanor specimen: institution #7 of 143). Cap applies ONLY to CVTs
+    # with more keys than the cap (3% of CVTs).
+    def _mid_attr_pairs(mid, red):
+        kv = defaultdict(set)
+        for a in cvt_graph.get(mid, ()):
+            if "=" not in a:
+                continue
+            k, v = a.split("=", 1)
+            k, v = k.strip(), v.strip()
+            if not v or v.lower() in red or k in _NOISY_ATTR or len(v) >= 60:
+                continue
+            kv[k].add(v)
+        if not kv:
+            return []
+        keys = list(kv)
+        if len(keys) > _K:
+            _ord = {k: i for i, k in enumerate(_kranked_keys or [])}
+            keys.sort(key=lambda k: (k not in _submitted_components,
+                                     _ord.get(k, 99), k))
+            keys = keys[:_K]
+        # TARGET-HIT KEYS FIRST (pillar 4b)
+        keys.sort(key=lambda k: k not in _submitted_components)
+        return [(k, sorted(kv[k])) for k in keys]
+
+    _section_mids = defaultdict(set)     # section rel -> mids to expand
+    _mid_red = {}                        # mid -> row-endpoint names to suppress
+    _mid_done = set()                    # mids whose attrs live in a
+                                         # compression summary already
+    _attr_emitted = set()
+    _mid_sec = {}                        # mid -> registered section
+
+    def _reg_mid(mid, section_r, red):
+        if not _cvt(mid):
+            return
+        cur = _mid_sec.get(mid)
+        # a SELECTED section owns the mid's domain rows (pattern-related
+        # content stays with the pattern): it overrides an earlier
+        # environment-section registration (person.education rec_out rows
+        # register before sel_cvt does)
+        if cur is not None and not (cur not in sel_shorts
+                                    and section_r in sel_shorts):
+            return
+        if cur is not None:
+            _section_mids[cur].discard(mid)
+        _mid_sec[mid] = section_r
+        _mid_red[mid] = {x.lower() for x in red}
+        _section_mids[section_r].add(mid)
+
+    def _emit_attr_rows(r):
+        """The CVT domain as triple rows (user design 2026-09-12): each
+        admitted attribute edge renders `mids --key--> value`; same value
+        across many mids merges the HEAD side (pillar 4c compression), the
+        mids whose attributes a tail-compression summary already carries are
+        skipped (no duplicated display after compression)."""
+        kv_groups = defaultdict(lambda: defaultdict(set))
+        for mid in sorted(_section_mids.get(r, ())):
+            if mid in _mid_done or mid in _attr_emitted:
+                continue
+            pairs = _mid_attr_pairs(mid, _mid_red.get(mid, ()))
+            if not pairs:
+                continue
+            _attr_emitted.add(mid)
+            for k, vs in pairs:
+                for v in vs:
+                    kv_groups[k][v].add(mid)
+        if not kv_groups:
+            return []
+        _ord = {k: i for i, k in enumerate(_kranked_keys or [])}
+        out = []
+        for k in sorted(kv_groups, key=lambda k: (k not in _submitted_components,
+                                                  _ord.get(k, 99), k)):
+            for v in sorted(kv_groups[k]):
+                ms = sorted(kv_groups[k][v])
+                head = " | ".join(ms[:6]) + (f" …(+{len(ms)-6} mids)"
+                                             if len(ms) > 6 else "")
+                out.append(f"{head} --{k}--> {v}")
+        return out[:20]
 
     lines = []
 
@@ -426,6 +484,7 @@ def render_v38_ack(treq, bres, ctx):
                 # in the same (h, r) row are untouched
                 for mid in mids:
                     tails_of[(h, r)].pop(mid, None)
+                    _mid_done.add(mid)      # attrs live in the summary
                 if _style == "block":
                     _cvt_block.append((r, h, _sum))
                     tails_of[(h, r)][f"__evt{n}"] = f"(↓ {len(mids)} event records)"
@@ -435,6 +494,7 @@ def render_v38_ack(treq, bres, ctx):
                 continue
         for mid in mids:
             tails_of[(h, r)][mid] = cvt_disp(mid, {h.lower()})
+            _reg_mid(mid, r, {h})
     # shape 2: singletons regroup many heads → same r + t. Synthetic
     # compressed entries (__evt*) must NOT enter the regroup — it keys by
     # the TAIL NAME, which would print the raw key instead of the summary;
@@ -495,6 +555,8 @@ def render_v38_ack(treq, bres, ctx):
     # every relation the model asked for stays visible as a triple
     for (r, t) in sorted(sel_cvt):
         disps = [cvt_disp(m, {t.lower()}) for m in sorted(sel_cvt[(r, t)])]
+        for m in sorted(sel_cvt[(r, t)]):
+            _reg_mid(m, r, {t})
         rows.append((r, f"{' | '.join(disps)} --{r}--> {t}",
                      any(_anch_pair(m, t) for m in sel_cvt[(r, t)]), 1))
     # record reverse-shape rows (CVT→entity edges that stayed as records)
@@ -505,6 +567,7 @@ def render_v38_ack(treq, bres, ctx):
         if not extra:
             continue
         for m in sorted(extra):
+            _reg_mid(m, r, {t})
             rows.append((r, f"{cvt_disp(m, {t.lower()})} --{r}--> {t}",
                          _anch_pair(m, t), 1))
 
@@ -589,6 +652,10 @@ def render_v38_ack(treq, bres, ctx):
         L.append(f"▸ --{r}-->  ({tag}"
                  + (f" · candidates: {ros}" if ros else "") + ")")
         L.extend(f"    {row}" for row in tier_rows)
+        # the CVT domain as its own triple rows — pattern-related content
+        # stays in the section that surfaced the mids (user 2026-09-12)
+        for _ar in _emit_attr_rows(r):
+            L.append(f"    {_ar}")
     L.append("▸ other walked relations (environment — not center-anchored paths):")
     for r in sorted(by_rel):
         env_rows = [row for row, anch, _h in by_rel[r] if not anch]

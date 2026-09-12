@@ -129,6 +129,27 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-12 统一三元组 CVT 展示(用户批准的 spec 对齐实施)
+- **实施**(seq_render_v38):
+  1. **cvt_disp 去括号**:CVT 属性不再内联 `[k=v;...]`,裸 mid 进行;
+  2. **per-CVT 键准入**(支柱 4b 对齐):`_mid_attr_pairs` 准入域=该 CVT 自己的键,
+     case 级 GTE 排名只作相对序;cap 仅对 >5 键的 CVT(3%)生效;never-blank 回退删除;
+  3. **属性行同段发射**(`_emit_attr_rows`):`m.xxx --key--> value` 三元组行跟在
+     浮出该 mid 的模式行同段;同 (key,value) 跨 mid 合并头侧(4c);每段 cap 20;
+     选中段注册覆盖环境段注册(person.education 抢注 bug 修复);
+  4. **压缩去重**:≥4 CVT 尾折叠摘要已含属性的 mid 标记 done,不再发属性行
+     (用户裁决:压缩后括号信息不重复展示);
+  5. **_candidate_provenance 整体删除**(用户多轮要求):有效信息走三元组,
+     无边实体移除;答案合法性池/walk_extra 账本不变。
+- **标本**:Eleanor `m.0k0m3wk --institution--> The New School` 同段可见;
+  Ron-Howard awards_won 段 `(16 event records · award: Academy Award...)` 压缩摘要
+  +链式行,无重复展开;143 测试全绿(provenance 测试随行为删除,Debussy 夹具误删已复原)。
+- **48×3 判决**(unitri):hit **77.1%**(多步族新高,72.9→76.4→77.1)/ f1 0.611
+  (cvtfix 0.644;**OVER-EMIT 16→26**——属性三元组暴露更多候选名,模型列举过多,
+  组成分降)。WRONG 33 新低。**命中-组成权衡待用户轨迹裁决**。
+- run: reports/v38_unitri_48x3.json + dump tmp/teacher_audit_dump_unitri.txt +
+  索引 tmp/unitri_index.txt(topk5/cvtfix/unitri 三方)。
+
 ### 2026-09-12 CVT 括号消失取证+永不空括号回退(用户审计 1392 标本)
 - **现象**:Eleanor/New-School case,`m.0k0m3wk --education.student--> Eleanor` 渲染为
   裸 mid,无 `[institution=The New School]` 括号——模型被迫绑定事件节点(触发 §7.5
