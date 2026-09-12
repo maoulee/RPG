@@ -3604,8 +3604,10 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, max_named=3, topk=3):
     # GTE is available (render must never re-cut; the old support-topk here
     # pre-empted the semantic pick and cost the discriminator patterns,
     # e2c80dcd specimen: date_of_death lost to a support ranking)
-    ranked = sorted(patterns.items(),
-                    key=lambda kv: (-len(kv[1]), kv[0]))[:max(topk, 0) or None]
+    # ORDERING: name-deterministic — support was never in the user design
+    # (length first, semantics second, both applied downstream); fan-out
+    # counts must not influence selection
+    ranked = sorted(patterns.items(), key=lambda kv: kv[0])[:max(topk, 0) or None]
     out = {}
     for (r1, r2), support in ranked:
         out[(r1, r2)] = (frozenset([r1]), frozenset([r2]))

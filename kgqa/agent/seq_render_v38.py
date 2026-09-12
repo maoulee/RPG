@@ -470,9 +470,11 @@ def render_v38_ack(treq, bres, ctx):
         def _pkey(rt):
             insts = {k for k in groups[rt]}
             anchored = any(k[0] in _cn for k in insts)
+            # support (-len) removed per user ruling 2026-09-12: never in the
+            # design — length first, semantics (B phase) second
             return (0 if _short_r(rt[-1]) in _sub_sh else 1,
                     0 if anchored else 1,
-                    len(rt), -len(insts), rt)
+                    len(rt), rt)
 
         L = [f"entities: {' | '.join(center_names)}"]
         _ms_emitted = set()                 # CVT mids whose attrs rendered
