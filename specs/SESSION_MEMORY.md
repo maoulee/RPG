@@ -129,6 +129,29 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-13 V2.2 回退归因(子智能体轨迹对比,5 回退 case 全样本)
+- **五个回退的失败层分布**:da555ded=答案决策(金在证据里,单选偏置选了
+  "the original film");bdf429c6=关系选择(sub-question 措辞泛化,
+  servicemembers 没进候选,一次就 ✗empty)+绑事件节点;44734cf0=绑定污染
+  (Red Hook 混入)+None 回答×5;24832cdc=绑定污染(角色名混入)后 Mode2
+  排序重"有日期"轻"值匹配"(1997>1992-01 最近值);9925c777=答案变量
+  计划成中间 ?person,被引擎 answer-type 合同覆盖。
+- **5 个根因(排序)**:
+  RC1 单选偏置——V22"Return the top-ranked candidate"+从严并列取代了
+     V21 的"平局提交平局集合+禁名气选择"(三句承重文本被删);
+  RC2 None 回答——V21 的"NONE 只保留给零相关证据"被删;
+  RC3 弱关系集无修复梯——V21 §7 的改写重查/回退一级被删(sub-question
+     泛化措辞永不到位,一次 ✗empty);
+  RC4 实体优先计划削弱——V22 计划漏列 Stephanie Meyer(引擎未消费实体
+     门没机会救);answer_type 灵活性条款被删;
+  RC5 Mode2 排序重证据存在轻值接近——"比较判别器按显示值执行比较"被删。
+- **两改善 case 证明 V22 亮点**:语义关系原则+按字面读题(eb615bab
+  "talked about"→演讲主题→Democracy,V21 三样本全灭);Mode2 具体性排序
+  敢于提交(f85999f1 The Journey)。
+- **修复方向**:措辞级融合而非结构重写——V2.2 骨架 + 回填 V21 五段承重
+  句(平局集合/禁名气/NONE 保留/修复梯/值接近比较),保留 V2.2 的语义
+  选择与两层决策。
+
 ### 2026-09-13 实体一一对应评分(用户裁决)+V2.2 提示语首测
 - **裁决**:gold 与预测是图实体,须**一一对应**——'Western Europe' 与 'Europe'
   是不同节点(语料中各自独立出现),token 包含也算错。三个匹配器
