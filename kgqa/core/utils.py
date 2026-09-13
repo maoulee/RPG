@@ -168,11 +168,10 @@ def candidate_hit(cands: List[str], targets: List[str]) -> bool:
         if len(nt) < 2:
             continue
         for c in norm_cands:
+            # ENTITY ONE-TO-ONE: exact normalized equality only —
+            # containment across distinct surface forms miscounts hits
             if c == nt:
                 return True
-            short, lng = (nt, c) if len(nt) <= len(c) else (c, nt)
-            if len(short) >= 4 and _contains_whole(short, lng):
-                return True    # token-boundary containment (see helper note)
     # Fuzzy fallback: catch near-matches like "Connor" vs "Conner"
     # Only for entities >= 8 chars to avoid false positives on short names.
     # Threshold 0.95 (not 0.92): "2010 World Series" vs "2014 World Series" =
@@ -190,7 +189,7 @@ def candidate_hit(cands: List[str], targets: List[str]) -> bool:
 
 
 def strict_candidate_hit(cands: List[str], targets: List[str]) -> bool:
-    """Strict matching: exact or token-boundary containment (min length 4)."""
+    """Strict matching: exact normalized equality only (entity one-to-one)."""
     norm_cands = [normalize(c) for c in cands]
     for t in targets:
         nt = normalize(t)
@@ -200,9 +199,6 @@ def strict_candidate_hit(cands: List[str], targets: List[str]) -> bool:
             if len(c) < 2:
                 continue
             if c == nt:
-                return True
-            short, lng = (nt, c) if len(nt) <= len(c) else (c, nt)
-            if len(short) >= 4 and _contains_whole(short, lng):
                 return True
     return False
 
@@ -256,11 +252,13 @@ def compute_match_stats(predicted: List[str], gold: List[str]) -> Dict[str, floa
                 'matched_gold': 0, 'matched_pred': 0, 'n_gold': len(gold), 'n_pred': len(predicted)}
 
     def _matches(c: str, t: str) -> bool:
+        # ENTITY ONE-TO-ONE (user ruling 2026-09-13): gold and prediction
+        # are graph ENTITIES — 'Western Europe' vs 'Europe' are distinct
+        # nodes (both live as separate entities across the corpus), so
+        # token containment across different surface forms is a wrong
+        # match. Exact normalized equality + typo-tolerant fuzzy only.
         if c == t:
             return True
-        short, lng = (c, t) if len(c) <= len(t) else (t, c)
-        if len(short) >= 4 and _contains_whole(short, lng):
-            return True    # token-boundary containment (see helper note)
         if len(c) >= 8 and len(t) >= 8 and SequenceMatcher(None, c, t).ratio() >= 0.95:
             return True
         return False

@@ -467,8 +467,11 @@ def seq_agents_md() -> str:
     """The SEQ system prefix (loaded once per process). SEQ_PROMPT=V21 selects
     the V2.1 evidence-grounded prototype (contract/extend/commit/two-stage)."""
     import os
-    if os.environ.get("SEQ_PROMPT", "").upper() in ("V21", "V2.1"):
+    _p = os.environ.get("SEQ_PROMPT", "").upper()
+    if _p in ("V21", "V2.1"):
         return (_AGENT_DIR / "SEQ_AGENTS_V21.md").read_text()
+    if _p in ("V22", "V2.2"):
+        return (_AGENT_DIR / "SEQ_AGENTS_V22.md").read_text()
     return (_AGENT_DIR / "SEQ_AGENTS.md").read_text()
 
 
