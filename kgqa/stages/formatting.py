@@ -489,7 +489,10 @@ def build_pattern_evidence_triples(selected_patterns, ents, rels_list, h_ids, r_
                     non_cvt_nodes.append(normalize(name))
         return (tuple(non_cvt_nodes), tuple(cvt_nodes))
 
-    def _select_support_paths(lp, max_paths=24):
+    def _select_support_paths(lp, max_paths=10000):
+        # SUPPORT CAP REMOVED (user ruling 2026-09-13): a fixed pattern path
+        # has no branching — instantiation keeps every chain satisfying the
+        # WHOLE path; fan-out caps must not cut pattern-level completions
         witness = lp.get("best_raw_path")
         if not witness:
             return []
