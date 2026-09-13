@@ -129,6 +129,25 @@
   (dispatch 全真重放 BT1/BT0 对照)、tmp/realign5_cases.txt(重建的 5case 队列)、
   tmp/realign5_instr3.json(反事实重跑)。
 
+### 2026-09-13 实体一一对应评分(用户裁决)+V2.2 提示语首测
+- **裁决**:gold 与预测是图实体,须**一一对应**——'Western Europe' 与 'Europe'
+  是不同节点(语料中各自独立出现),token 包含也算错。三个匹配器
+  (compute_match_stats/candidate_hit/strict_candidate_hit)全部收紧为
+  **规范化精确相等 + ≥8 字符 0.95 模糊(容错)**,包含彻底移除。
+  143 全绿。离线重算(一一对应口径):perquotA 77.1/0.639,topk5 77.8/0.645
+  ——**多步配置与站立的差距缩到 0.7pp/0.6pp**(旧口径 4.8pp 主要是包含水分)。
+- **V2.2 提示语**(用户/Codex 稿+四修订:plan 闭合纪律/answer_type 绑定自检/
+  CVT 非答案条款/并列从严)已写入 kgqa/agent/SEQ_AGENTS_V22.md,
+  SEQ_PROMPT=V22 接入。
+- **V22 首测 48×3**:hit 69.4/f1 0.592 vs V21(perquotA 一一口径 77.1/0.639,
+  **-7.7pp/-4.7pp——超方差带,首测负**)。V21 vs V22 逐 case:worse 6 / better 2;
+  最大回退 da555ded(1.0→0.13)/bdf429c6/44734cf0;改善 eb615bab(0→0.56)/
+  f85999f1(0→0.33)。sg 调用 376→330(检索更少),reached-nothing=0。
+  **待读轨迹定位**:V2.2 的结构重排(两层决策/语义覆盖)对 9B 模型可能
+  措辞面变化过大——需对比 da555ded 的 V21/V22 轨迹差异后迭代措辞。
+- 评分变更后所有历史 run 的 recorded 数字不可与一一一口径直接比较。
+- run: reports/v38_v22_48x3.json + dump _v22 + 索引 tmp/v22_index.txt。
+
 ### 2026-09-13 按关系配额+echo缺失回退(用户两问题)+终版判决
 - **用户问题**:①比利时 1 个提交关系渲染 6 个多跳段(配额没对齐);
   ②Charlie Hunnam 的第二关系 starring_roles 完全没出现。
