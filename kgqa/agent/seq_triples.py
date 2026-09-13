@@ -58,18 +58,32 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
 
     # ORDER walked patterns, never cut (semantic choice happened in B phase)
     _env_cap = 2
+    # SECTION MEMBERSHIP ALIGNED WITH THE SELECTION (user ruling 2026-09-13,
+    # Belgium specimen: 6 multi-hop sections for ONE submitted relation —
+    # the per-relation top-3 quota must hold at display too). Only the
+    # SELECTED patterns (treq.multistep keys — B phase, per-terminal-relation
+    # quota) and the 1-hop SUBMITTED-direct patterns render as sections;
+    # loose RPE-walked patterns go to the environment edge block below.
+    _selected = set()
+    for _ci, _pats in (treq.get("multistep") or {}).items():
+        for _pk in _pats:
+            _selected.add(tuple(str(ctx.rels[_r]) for _r in _pk))
     _shown = []
     for rt in sorted(groups, key=_pkey):
-        if _short_r(rt[-1]) not in _sub_sh:
-            if _env_cap <= 0:
-                continue
-            _env_cap -= 1
-        _shown.append(rt)
+        if rt in _selected:
+            _shown.append(rt)
+            continue
+        if len(rt) == 1 and _short_r(rt[0]) in _sub_sh:
+            _shown.append(rt)      # 1-hop submitted-direct
+            continue
+        if _env_cap <= 0:
+            continue
+        _env_cap -= 1
 
     patterns = []
     shown_edges = set()
     ms_emitted = set()
-    for rt in _shown[:6]:
+    for rt in _shown:
         insts = sorted({k for k in groups[rt]})
         hops = []                       # [(rel_short, {h: [t...]})]
         attrs = []                      # [(hop_idx, (mid, key, value))]

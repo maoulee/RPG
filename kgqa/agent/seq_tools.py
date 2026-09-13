@@ -3497,10 +3497,26 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             # derivation FAMILY = the MATCHED relations only (bridges expanded
             # into rel_idxs under BT1 must not become pattern terminals)
             _matched = set()
-            for _exp in (_fam_echo or {}).values():
+            _echoed = set()
+            _submitted_names_cache = list(rel_names)
+            for _rs, _exp in (_fam_echo or {}).items():
+                _echoed.add(str(_rs))
                 for _dn in (_exp.get("direct") or []):
                     if _dn in ctx.rels:
                         _matched.add(ctx.rels.index(_dn))
+            # echo-less submissions (full names with no bridges attached —
+            # Charlie-Hunnam specimen: 'tv.tv_actor.starring_roles' never
+            # echoed, so the SECOND submitted relation vanished from the
+            # pattern family entirely) match by name directly
+            _l1 = lambda rn: str(rn).rsplit(".", 1)[-1]
+            for _rs in _submitted_names_cache:
+                if str(_rs) in _echoed:
+                    continue
+                for _ri, _rn in enumerate(ctx.rels):
+                    if (str(_rn) == str(_rs) or _l1(_rn) == str(_rs)
+                            or _l1(_rs) == _l1(_rn)):
+                        _matched.add(_ri)
+                        break
             _fam = _matched or set(rel_idxs)
             for _cn, _ci in centers:
                 if not (0 <= _ci < len(ctx.ents)):
@@ -3762,17 +3778,21 @@ async def _sg_execute(treq, ctx, session):
                 _rank = {r.get("candidate"): i
                          for i, r in enumerate(_rows or [])}
             _sel = {}
-            _per_center = {}
+            _per_term = {}
             # ranking = length first, then GTE semantics (user ruling
             # 2026-09-13); 顺延 = walk down the ranking until the quota
-            # fills — every enumerated pattern is realizable by construction
+            # fills. QUOTA IS PER SUBMITTED TERMINAL RELATION (user ruling
+            # 2026-09-13, Charlie-Hunnam specimen: two submitted relations
+            # must EACH get their share — a per-center quota let one
+            # relation's patterns crowd the other out entirely)
             for (_ci, _s) in sorted(
                     _cmap,
                     key=lambda k: (len(_cmap[k]), _rank.get(k[1], 999), k[1], k[0])):
-                n = _per_center.get(_ci, 0)
+                _term = _cmap[(_ci, _s)][-1]     # terminal relation idx
+                n = _per_term.get((_ci, _term), 0)
                 if n >= 3:
                     continue
-                _per_center[_ci] = n + 1
+                _per_term[(_ci, _term)] = n + 1
                 _sel.setdefault(_ci, {})[_cmap[(_ci, _s)]] = _mseq[_ci][_cmap[(_ci, _s)]]
             # 1-hop direct patterns always survive (first-class, no quota)
             for _ci, _pats in _mseq.items():
@@ -3793,10 +3813,23 @@ async def _sg_execute(treq, ctx, session):
       # Belgium specimen: the CET/CEST direct row and the
       # containedby→time_zones chain both render, length-first ordered)
       _direct_fam = set()
-      for _exp in (treq.get("attr_expansion") or {}).values():
+      _echo_sh = set()
+      for _rs, _exp in (treq.get("attr_expansion") or {}).items():
+          _echo_sh.add(str(_rs))
           for _dn in (_exp.get("direct") or []):
               if _dn in ctx.rels:
                   _direct_fam.add(ctx.rels.index(_dn))
+      # echo-less submitted names count too (same fallback as prepare's
+      # _matched — Charlie-Hunnam specimen lost the plain direct step)
+      _l1x = lambda rn: str(rn).rsplit(".", 1)[-1]
+      for _rs in (treq.get("rel_names") or []):
+          if str(_rs) in _echo_sh:
+              continue
+          for _ri, _rn in enumerate(ctx.rels):
+              if (str(_rn) == str(_rs) or _l1x(_rn) == str(_rs)
+                      or _l1x(_rs) == _l1x(_rn)):
+                  _direct_fam.add(_ri)
+                  break
       for _cn, _ci in treq["centers"]:
           _pats = _mseq.get(_ci) or {}
           if _pats:
