@@ -431,23 +431,19 @@ def render_v38_ack(treq, bres, ctx):
     _style = os.environ.get("SEQ_CVT_STYLE", "inline").strip().lower()
     n = 0                         # synthetic-entry counter for compressed rows
 
-    if (treq.get("multistep")
-            or os.environ.get("SEQ_UNICHAIN", "0") == "1"):
+    if treq.get("multistep"):
         # TWO-LAYER RENDER (user ruling 2026-09-12): the triple layer
         # rebuilds the walk's logical paths into the subgraph's triples
         # (dedup/merge evaluation live there); the row layer formats rows
-        # and accepts ONLY the triple store. ALL calls in multistep runs
-        # route here (2026-09-13): a call whose derivation came back empty
-        # used to fall to the LEGACY renderer, whose CVT-tail compression
-        # folds mid-edges like (Miley --performance.actor--> m.xxx) into
-        # "(24 event records · …)" summaries — the hop stopped being a
-        # literal triple (path-integrity audit: 19 chain breaks). The same
-        # call renders its direct edges + RPE loose paths as plain pattern
-        # sections here. Legacy stays for MM=0. GATED (SEQ_UNICHAIN): the
-        # unichain 48x3 measured hit 74.3 / f1 0.624 vs the semantic band
-        # 78.7±1.4 / 65.1±2.0 — the legacy CVT-tail compression it replaces
-        # is measured-good context for empty-derivation calls; integrity
-        # (FULL 39.8%) wants it on. User ruling pending.
+        # and accepts ONLY the triple store. UNIFORM ROUTING (2026-09-13,
+        # supersedes SEQ_UNICHAIN): the DIRECT relation is a first-class
+        # 1-hop pattern in the derivation (key (None, fam)) — multistep is
+        # non-empty whenever direct support exists, so no call falls to the
+        # legacy renderer for lack of 2-hop patterns; the UNICHAIN gate is
+        # retired.
+        # The legacy CVT-tail compression's -4pp context loss is addressed
+        # by the pattern framework itself (direct-first + deferral), not by
+        # a renderer split.
         from kgqa.agent.seq_triples import collect_pattern_triples
         from kgqa.agent.seq_rows import render_rows
         return render_rows(collect_pattern_triples(

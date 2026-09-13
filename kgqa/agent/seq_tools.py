@@ -3581,36 +3581,77 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
                 hop1[r].add(h2)
     if not hop1:
         return None
-    # enumerate distinct 2-hop patterns: (r1, r_family) where r_family rides
-    # on some entity reached via r1. A SET of pattern keys — fan-out counts
-    # are not tracked (audit F8: the counting outlived the ranking it fed;
-    # support must not influence anything)
+    # PATTERN ENUMERATION, ANY HOP DEPTH 1..3 (user ruling 2026-09-13):
+    # patterns are pure RELATION sequences ending in a submitted relation —
+    # 1-hop (the direct pattern, forward+reverse), 2-hop, 3-hop. Enumeration
+    # is CONSTRUCTIVE from index reachability: every yielded pattern has at
+    # least one entity-level instantiation by construction (顺延 is inherent
+    # — selection ranks only realizable patterns and fills the quota down
+    # the ranking). Fan-out counts are never tracked (support is not in the
+    # design); same-rel out-and-back steps are skipped (trivial loops).
+    fams = fam_idxs
     patterns = set()
+
+    # depth 1: the direct pattern
+    for f in fams:
+        if (((ix.head_mask.get(f, 0) >> ci) & 1)
+                or ((ix.tail_mask.get(f, 0) >> ci) & 1)):
+            patterns.add((f,))
+
+    # named-reach helper for one more hop from a node set
+    def _reach(nodes):
+        out = defaultdict(set)          # rel -> {named idx}
+        for x in nodes:
+            for r in range(len(ctx.rels)):
+                for t2 in ix.fwd[r].get(x, ()):
+                    if 0 <= t2 < n and not _icl(str(ctx.ents[t2])):
+                        out[r].add(t2)
+                for h2 in ix.rev[r].get(x, ()):
+                    if 0 <= h2 < n and not _icl(str(ctx.ents[h2])):
+                        out[r].add(h2)
+        return out
+
+    def _fam_incident(node):
+        return any(f in fams and (node in ix.fwd[f] or node in ix.rev[f])
+                   for f in fams)
+
+    # depth 2: (r1, fam)
     for r1, reach in hop1.items():
         for node in reach:
             if not (0 <= node < n) or node == ci:
                 continue
-            for r2 in range(len(ctx.rels)):
-                if r2 not in fam_idxs or r2 == r1:
-                    continue    # same-rel out-and-back is a trivial loop, not
-                                # a pattern (it crowded real 2-hop patterns
-                                # out of top-K: time_zones→time_zones support
-                                # 17 beat containedby→time_zones support 3)
-                if node in ix.fwd[r2] or node in ix.rev[r2]:
-                    patterns.add((r1, r2))
+            for f in fams:
+                if f == r1:
+                    continue
+                if node in ix.fwd[f] or node in ix.rev[f]:
+                    patterns.add((r1, f))
+
+    # depth 3: (r1, r2, fam) — hop2 named reach from hop1 nodes, bounded
+    hop2_cache = {}
+    for r1, reach in hop1.items():
+        for node in reach:
+            if not (0 <= node < n) or node == ci:
+                continue
+            if node not in hop2_cache:
+                hop2_cache[node] = _reach({node})
+            for r2, reach2 in hop2_cache[node].items():
+                if r2 == r1:
+                    continue
+                for node2 in reach2:
+                    if node2 == ci or node2 == node:
+                        continue
+                    for f in fams:
+                        if f == r2 or f == r1:
+                            continue
+                        if node2 in ix.fwd[f] or node2 in ix.rev[f]:
+                            patterns.add((r1, r2, f))
     if not patterns:
         return None
-    # LENGTH-COARSE-RANKED FULL ENUMERATION (user ruling 2026-09-12): the
-    # derivation layer returns ALL 2-hop patterns ordered by (hops implicit,
-    # support desc) — semantic top-3 selection happens in the B phase where
-    # GTE is available (render must never re-cut; the old support-topk here
-    # pre-empted the semantic pick and cost the discriminator patterns,
-    # e2c80dcd specimen: date_of_death lost to a support ranking)
-    # ORDERING: name-deterministic — support was never in the user design
-    # (length first, semantics second, both applied downstream); fan-out
-    # counts must not influence selection
-    ranked = sorted(patterns)[:max(topk, 0) or None]
-    return {(r1, r2): (frozenset([r1]), frozenset([r2])) for r1, r2 in ranked}
+    # ORDERING: (hops, name) — length first, semantics second (B phase);
+    # support never influences selection
+    ranked = sorted(patterns, key=lambda p: (len(p), p))[:max(topk, 0) or None]
+    out = {p: tuple(frozenset([r]) for r in p) for p in ranked}
+    return out
 
 
 async def _sg_execute(treq, ctx, session):
@@ -3705,12 +3746,14 @@ async def _sg_execute(treq, ctx, session):
             _q = str(getattr(ctx, "question", "") or "")
             _cands, _cmap = [], {}
             for _ci, _pats in _mseq.items():
-                for (r1, r2) in _pats:
-                    _s = f"{ctx.rels[r1]} -> {ctx.rels[r2]}"
+                for _pk in _pats:
+                    if len(_pk) == 1:
+                        continue        # 1-hop direct: first-class, no quota
+                    _s = " -> ".join(str(ctx.rels[_r]) for _r in _pk)
                     _k = (_ci, _s)     # per-center (audit F14: a shared
                                         # pattern string deduped centers away)
                     if _k not in _cmap:
-                        _cmap[_k] = (r1, r2)
+                        _cmap[_k] = _pk
                         _cands.append(_s)
             _rank = {}
             if _cands and _q and session is not None:
@@ -3720,13 +3763,22 @@ async def _sg_execute(treq, ctx, session):
                          for i, r in enumerate(_rows or [])}
             _sel = {}
             _per_center = {}
-            for (_ci, _s) in sorted(_cmap, key=lambda k: (_rank.get(k[1], 999),
-                                                          k[1], k[0])):
+            # ranking = length first, then GTE semantics (user ruling
+            # 2026-09-13); 顺延 = walk down the ranking until the quota
+            # fills — every enumerated pattern is realizable by construction
+            for (_ci, _s) in sorted(
+                    _cmap,
+                    key=lambda k: (len(_cmap[k]), _rank.get(k[1], 999), k[1], k[0])):
                 n = _per_center.get(_ci, 0)
                 if n >= 3:
                     continue
                 _per_center[_ci] = n + 1
                 _sel.setdefault(_ci, {})[_cmap[(_ci, _s)]] = _mseq[_ci][_cmap[(_ci, _s)]]
+            # 1-hop direct patterns always survive (first-class, no quota)
+            for _ci, _pats in _mseq.items():
+                for _pk, _v in _pats.items():
+                    if len(_pk) == 1:
+                        _sel.setdefault(_ci, {})[_pk] = _v
             treq["multistep"] = _mseq = _sel
         except Exception:
             pass
@@ -3748,9 +3800,13 @@ async def _sg_execute(treq, ctx, session):
       for _cn, _ci in treq["centers"]:
           _pats = _mseq.get(_ci) or {}
           if _pats:
+              _n_walk = 0
               for _pk, _seq in _pats.items():
+                  if len(_pk) == 1:
+                      continue     # 1-hop direct: the plain step walks it
                   _ms_steps.append((_ci, _seq, treq["fid"]))
-              _ms_map[_ci] = len(_pats)
+                  _n_walk += 1
+              _ms_map[_ci] = _n_walk
               if (0 <= _ci < len(ctx.ents)) and any(
                       (((_ix2.head_mask.get(r, 0) >> _ci) & 1)
                        or ((_ix2.tail_mask.get(r, 0) >> _ci) & 1))
@@ -3805,25 +3861,34 @@ async def _sg_execute(treq, ctx, session):
                         _have.add((tuple(str(x) for x in (_tp.get("nodes") or [])),
                                    tuple(str(x) for x in (_tp.get("relations") or []))))
                 _add = []
-                for (r1, r2) in _pats:
+                for _pk in _pats:
+                    if len(_pk) == 1:
+                        continue     # 1-hop direct: plain step owns it
                     _budget = 200
-                    for _x in list(_ixg.fwd[r1].get(_ci, ())) + list(_ixg.rev[r1].get(_ci, ())):
-                        if not (0 <= _x < _n) or _x == _ci:
-                            continue
-                        for _y in list(_ixg.fwd[r2].get(_x, ())) + list(_ixg.rev[r2].get(_x, ())):
-                            if not (0 <= _y < _n) or _y == _ci or _y == _x:
-                                continue
-                            _nodes = (str(ctx.ents[_ci]), str(ctx.ents[_x]),
-                                      str(ctx.ents[_y]))
-                            _rels = (str(ctx.rels[r1]), str(ctx.rels[r2]))
+
+                    def _enum(level, cur_nodes, chain):
+                        if len(_add) >= _budget:
+                            return
+                        if level == len(_pk):
+                            _nodes = tuple([str(ctx.ents[_ci])]
+                                           + [str(ctx.ents[_x]) for _x in chain])
+                            _rels = tuple(str(ctx.rels[_r]) for _r in _pk)
                             if (_nodes, _rels) not in _have:
                                 _have.add((_nodes, _rels))
                                 _add.append({"nodes": list(_nodes),
                                              "relations": list(_rels)})
-                            if len(_add) >= _budget:
-                                break
-                        if len(_add) >= _budget:
-                            break
+                            return
+                        r = _pk[level]
+                        srcs = set()
+                        for _cur in cur_nodes:
+                            srcs.update(_ixg.fwd[r].get(_cur, ()))
+                            srcs.update(_ixg.rev[r].get(_cur, ()))
+                        for _x in sorted(srcs):
+                            if not (0 <= _x < _n) or _x == _ci or _x in chain:
+                                continue
+                            _enum(level + 1, {_x}, chain + [_x])
+
+                    _enum(0, {_ci}, [])
                 if _add:
                     if not isinstance(_pe, dict):
                         _pe = {}
