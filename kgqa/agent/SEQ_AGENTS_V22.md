@@ -119,12 +119,22 @@ answer: ?country
 answer_type: country
 ```
 
-The type is a semantic hint for interpretation, not a hard output filter.
-BUT perform a BINDING SELF-CHECK: before declaring a checkpoint binding,
-if the bound entity's type plainly conflicts with the answer role (a
-language bound to ?country, a person bound to ?year), re-examine the
-evidence rather than committing the mismatch — usually the relation chosen
-answers a different slot of the question than asked.
+The type is a semantic hint for interpretation, not a hard output filter
+— never a reason to reject a graph-supported answer or to chase a bare
+literal: a date/year/number question is answered by the NAMED entity
+that carries the value.
+
+BINDING SELF-CHECK: before declaring a checkpoint binding, if the bound
+entity's type plainly conflicts with the answer role (a language bound
+to ?country, a person bound to ?year), re-examine the evidence rather
+than committing the mismatch — usually the relation chosen answers a
+different slot of the question than asked.
+
+SLOT SELF-CHECK: mid-run, if you notice the question grammatically asks
+for a different slot than the planned answer variable (the plan targeted
+an intermediate entity), answer the slot the QUESTION asks for — the
+question's grammar outranks the plan, and answer_type never overrides
+the question's own grammar.
 
 ## 3.3 Evidence Requirements
 
@@ -176,11 +186,17 @@ For every retrieval fact:
    compatible ones TOGETHER in one submission.
 4. Avoid noisy relations: ones that only share words, are topically
    related, or cannot advance the current evidence requirement.
-5. If NO candidate relation semantically matches (e.g. you need a
-   person's human children but the list offers fictional-character
-   relations), reword the sub-question and re-call retrieve_relations —
-   a semantically wrong pick wastes the fact's budget and returns
-   environment noise.
+5. If NO candidate relation semantically matches, reword the sub-question
+   and re-call retrieve_relations — a semantically wrong pick wastes the
+   fact's budget and returns environment noise.
+6. A retrieval that yields nothing useful is a repair signal, not a
+   verdict. Before declaring `✗ empty`, top up with sibling candidate
+   relations not yet tried, and REWORD the sub-question once in the
+   requirement's own domain vocabulary — the role-word the question
+   itself uses names the semantic need better than a generic paraphrase.
+   The ranker is wording-sensitive; one reworded re-call can surface the
+   relation family the first phrasing hid. Only a reworded re-call that
+   still returns nothing closes the fact `✗ empty`.
 
 ---
 
@@ -216,6 +232,12 @@ automatically removes them.
 
 # 8. Answer Decision — Two Modes
 
+Graph data is imperfect, and answering does not wait for perfect data.
+Once any named candidate carries question-relevant evidence, the
+question has an answer: incompleteness changes WHICH candidate ranks
+first, never WHETHER to answer. Answer selection always ends in a
+committed answer — never in stalling, never in withholding.
+
 ## Mode 1: Complete Evidence Selection
 
 Use when some candidate satisfies ALL explicit requirements:
@@ -224,15 +246,20 @@ Use when some candidate satisfies ALL explicit requirements:
 Return the candidates satisfying every requirement.
 ```
 
-Complete evidence has priority.
+Complete evidence has priority. Comparatives the question poses (latest /
+earliest / largest ...) are executed on the DISPLAYED values; values that
+are missing or incomparable fall through to Mode 2.
 
 ## Mode 2: Incomplete Evidence Ranking
 
 When NO candidate satisfies all requirements (KG evidence may be
 incomplete), do NOT return empty and do NOT stall. Rank candidates by
-available evidence:
+the evidence actually retrieved:
 
-1. **Requirement coverage** — more SUPPORTED requirements rank higher.
+1. **Requirement coverage** — more SUPPORTED requirements rank higher,
+   and coverage is judged by value closeness, not evidence presence: a
+   displayed value that CONTRADICTS a requirement ranks below a merely
+   missing one. UNRESOLVED outranks CONTRADICTED.
 2. **Evidence strength** — direct evidence > short evidence path > weak
    indirect evidence.
 3. **Evidence specificity** — exact value > approximate value > related
@@ -240,17 +267,37 @@ available evidence:
 4. **Evidence consistency** — the retrieved evidence forms a coherent
    explanation of the question.
 
-Return the top-ranked candidate.
+Only differences visible in the retrieved evidence may order candidates:
+fame, prominence, canonical ordering, and world knowledge are not
+evidence — selecting by them is guessing, not deciding.
+
+Both endings are answers: one candidate strictly dominates → return it
+alone; the evidence ties candidates → return the tied SET (§9).
+
+An empty answer is reserved for ZERO question-relevant evidence —
+nothing retrieved connects to the question's entities or requirements.
+Imperfect match is never emptiness; it is what Mode 2 exists for. Before
+declaring a discriminator (a date, value, or ordering) unobtainable,
+scan the DISPLAYED subgraphs for it — a value hidden behind the wrong
+relation calls for one relation re-selection (§5.2), not a verdict of
+absence.
 
 ---
 
 # 9. Tie Handling
 
-Return multiple entities ONLY when their evidence strength is genuinely
-equivalent (same requirements SUPPORTED at the same strength). Otherwise
-return the single best-supported candidate. Never pad answers with
-weaker-supported entities — extra unsupported entities LOWER the answer
-quality.
+A tie is an evidence verdict, not a failure to break it. When candidates
+hold the same requirements SUPPORTED at the same strength and no
+displayed value separates them, submit the tied SET — excluding a tied
+candidate requires displayed evidence that CONTRADICTS it; a mixed or
+uncertain reading is still positive support, and ambiguity is not
+contradiction.
+
+Return ONE entity only when its evidence strictly dominates the others
+under §8. Never break a tie by fame, prominence, or world knowledge, and
+never pad an answer with weaker-supported entities — both trades LOWER
+the answer quality. The tied set is not padding; it is the honest
+reading of equal evidence.
 
 ---
 
