@@ -144,6 +144,17 @@ def get_entity_contexts(entity_names, h_ids, r_ids, t_ids, ents, rels):
 # Candidate matching
 # ---------------------------------------------------------------------------
 
+def _contains_whole(short: str, long_: str) -> bool:
+    """Token-boundary containment: `short` appears as whole consecutive
+    word(s) inside `long_`. Raw substring scoring is WRONG: gold 'Europe'
+    matched 'Central European Summer Time' because 'europe' is a substring
+    of the token 'european' — a wrong answer scored F1=1.0 (user-reported
+    2026-09-13, GMT/Belgium case). Token boundary keeps legitimate cases
+    ('Netherlands' in 'Kingdom of the Netherlands') while rejecting
+    morphological accidents ('europe' vs 'european')."""
+    return (" " + short.strip() + " ") in (" " + long_.strip() + " ")
+
+
 def candidate_hit(cands: List[str], targets: List[str]) -> bool:
     # Filter empties AFTER normalize: brackets/punctuation like "[]" or "()" normalize
     # to "" and `"" in target` is True for every string — an empty answer would match
@@ -157,8 +168,11 @@ def candidate_hit(cands: List[str], targets: List[str]) -> bool:
         if len(nt) < 2:
             continue
         for c in norm_cands:
-            if c == nt or nt in c or c in nt:
+            if c == nt:
                 return True
+            short, lng = (nt, c) if len(nt) <= len(c) else (c, nt)
+            if len(short) >= 4 and _contains_whole(short, lng):
+                return True    # token-boundary containment (see helper note)
     # Fuzzy fallback: catch near-matches like "Connor" vs "Conner"
     # Only for entities >= 8 chars to avoid false positives on short names.
     # Threshold 0.95 (not 0.92): "2010 World Series" vs "2014 World Series" =
@@ -176,7 +190,7 @@ def candidate_hit(cands: List[str], targets: List[str]) -> bool:
 
 
 def strict_candidate_hit(cands: List[str], targets: List[str]) -> bool:
-    """Strict matching: exact or substring with min length 4."""
+    """Strict matching: exact or token-boundary containment (min length 4)."""
     norm_cands = [normalize(c) for c in cands]
     for t in targets:
         nt = normalize(t)
@@ -187,8 +201,8 @@ def strict_candidate_hit(cands: List[str], targets: List[str]) -> bool:
                 continue
             if c == nt:
                 return True
-            shorter = min(len(c), len(nt))
-            if shorter >= 4 and (nt in c or c in nt):
+            short, lng = (nt, c) if len(nt) <= len(c) else (c, nt)
+            if len(short) >= 4 and _contains_whole(short, lng):
                 return True
     return False
 
@@ -242,8 +256,11 @@ def compute_match_stats(predicted: List[str], gold: List[str]) -> Dict[str, floa
                 'matched_gold': 0, 'matched_pred': 0, 'n_gold': len(gold), 'n_pred': len(predicted)}
 
     def _matches(c: str, t: str) -> bool:
-        if c == t or t in c or c in t:
+        if c == t:
             return True
+        short, lng = (c, t) if len(c) <= len(t) else (t, c)
+        if len(short) >= 4 and _contains_whole(short, lng):
+            return True    # token-boundary containment (see helper note)
         if len(c) >= 8 and len(t) >= 8 and SequenceMatcher(None, c, t).ratio() >= 0.95:
             return True
         return False
