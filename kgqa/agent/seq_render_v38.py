@@ -431,11 +431,23 @@ def render_v38_ack(treq, bres, ctx):
     _style = os.environ.get("SEQ_CVT_STYLE", "inline").strip().lower()
     n = 0                         # synthetic-entry counter for compressed rows
 
-    if treq.get("multistep"):
+    if (treq.get("multistep")
+            or os.environ.get("SEQ_UNICHAIN", "0") == "1"):
         # TWO-LAYER RENDER (user ruling 2026-09-12): the triple layer
         # rebuilds the walk's logical paths into the subgraph's triples
         # (dedup/merge evaluation live there); the row layer formats rows
-        # and accepts ONLY the triple store.
+        # and accepts ONLY the triple store. ALL calls in multistep runs
+        # route here (2026-09-13): a call whose derivation came back empty
+        # used to fall to the LEGACY renderer, whose CVT-tail compression
+        # folds mid-edges like (Miley --performance.actor--> m.xxx) into
+        # "(24 event records · …)" summaries — the hop stopped being a
+        # literal triple (path-integrity audit: 19 chain breaks). The same
+        # call renders its direct edges + RPE loose paths as plain pattern
+        # sections here. Legacy stays for MM=0. GATED (SEQ_UNICHAIN): the
+        # unichain 48x3 measured hit 74.3 / f1 0.624 vs the semantic band
+        # 78.7±1.4 / 65.1±2.0 — the legacy CVT-tail compression it replaces
+        # is measured-good context for empty-derivation calls; integrity
+        # (FULL 39.8%) wants it on. User ruling pending.
         from kgqa.agent.seq_triples import collect_pattern_triples
         from kgqa.agent.seq_rows import render_rows
         return render_rows(collect_pattern_triples(

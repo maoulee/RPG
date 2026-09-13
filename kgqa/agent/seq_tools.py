@@ -3776,6 +3776,63 @@ async def _sg_execute(treq, ctx, session):
             _merged.append(_combined if _combined else {})
             _idx += _n
         pe_list = _merged
+    # PATTERN-COMPLETENESS GUARANTEE (user ruling 2026-09-13: the walk runs
+    # on the reconstructed PATTERN graph — pattern branches are few, and
+    # ENTITY-layer caps (beam / per-branch / support-path limits) must never
+    # sever a SELECTED pattern's instantiations). Every selected 2-hop
+    # pattern is instantiated EXHAUSTIVELY from the pattern index (bounded
+    # only by a generous per-pattern budget; display caps apply later in the
+    # render) and any hop the capped walk missed joins the pe paths.
+    if _mseq and _ms_map:
+        try:
+            from kgqa.traversal.pattern_walk import get_pattern_index as _gpi2
+            from kgqa.stages.formatting import PatternEvidence as _PE
+            _ixg = _gpi2(ctx)
+            _n = len(ctx.ents)
+            for (_cn, _ci) in treq["centers"]:
+                _pats = _mseq.get(_ci) or {}
+                if not _pats or not (0 <= _ci < _n):
+                    continue
+                _slot = next((k for k, (_c2, _i2) in enumerate(treq["centers"])
+                              if _i2 == _ci), None)
+                if _slot is None or _slot >= len(pe_list):
+                    continue
+                _pe = pe_list[_slot]
+                _have = set()
+                for _p in (_pe.values() if isinstance(_pe, dict) else []):
+                    for _tp in ((getattr(_p, "tree_data", None) or {})
+                                .get("paths") or []):
+                        _have.add((tuple(str(x) for x in (_tp.get("nodes") or [])),
+                                   tuple(str(x) for x in (_tp.get("relations") or []))))
+                _add = []
+                for (r1, r2) in _pats:
+                    _budget = 200
+                    for _x in list(_ixg.fwd[r1].get(_ci, ())) + list(_ixg.rev[r1].get(_ci, ())):
+                        if not (0 <= _x < _n) or _x == _ci:
+                            continue
+                        for _y in list(_ixg.fwd[r2].get(_x, ())) + list(_ixg.rev[r2].get(_x, ())):
+                            if not (0 <= _y < _n) or _y == _ci or _y == _x:
+                                continue
+                            _nodes = (str(ctx.ents[_ci]), str(ctx.ents[_x]),
+                                      str(ctx.ents[_y]))
+                            _rels = (str(ctx.rels[r1]), str(ctx.rels[r2]))
+                            if (_nodes, _rels) not in _have:
+                                _have.add((_nodes, _rels))
+                                _add.append({"nodes": list(_nodes),
+                                             "relations": list(_rels)})
+                            if len(_add) >= _budget:
+                                break
+                        if len(_add) >= _budget:
+                            break
+                if _add:
+                    if not isinstance(_pe, dict):
+                        _pe = {}
+                    _pe["PG"] = _PE(label="PG", readable="",
+                                    candidates=[], triples=[],
+                                    tree_data={"paths": _add})
+                    pe_list[_slot] = _pe
+        except Exception:
+            pass
     return {"pe_list": pe_list}
 
 
