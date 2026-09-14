@@ -2979,7 +2979,21 @@ async def _rr_execute(treq, ctx, session):
                           if 0 <= i < len(ctx.rels)]
         attr_names = sorted({r.rsplit(".", 1)[-1] for r in pool_rel_names
                              if "." in r})
-        combined = attr_names + pool_rel_names[:15]
+        # GLOBAL SEMANTIC MERGE (user ruling 2026-09-14, deflator specimen):
+        # re-rank the WHOLE per-entity union, not the first 15 by entity
+        # order. cands is concatenated in ENTITY order (per-entity GTE
+        # scores are dropped at _gte_for_triple's boundary), so [:15] is
+        # the first entity's cluster — a later entity's #1 (Monaco's
+        # gdp_deflator_change, GTE 0.51, union position ~29) never entered
+        # the re-rank and the menu showed the first entity's generic
+        # relations. Re-ranking all union members by the SAME question
+        # restores semantic order for every entity's contributions.
+        if os.environ.get("SEQ_RR_GLOBAL_MERGE", "1") == "1":
+            merged_pool = pool_rel_names[:int(os.environ.get(
+                "SEQ_RR_MERGE_CAP", "80"))]
+        else:
+            merged_pool = pool_rel_names[:15]
+        combined = attr_names + merged_pool
         rows = await gte_retrieve(session, treq["question"], combined,
                                   top_k=len(combined), instruct=GTE_INSTRUCT)
         ranked_combined = [r.get("candidate") for r in (rows or [])
@@ -2988,7 +3002,7 @@ async def _rr_execute(treq, ctx, session):
         attr_ranked = [c for c in ranked_combined if c in attr_set]
         rel_ranked = [c for c in ranked_combined if c not in attr_set]
         attr_ranked += [a for a in attr_names if a not in set(attr_ranked)]
-        rel_ranked += [r for r in pool_rel_names[:15] if r not in set(rel_ranked)]
+        rel_ranked += [r for r in merged_pool if r not in set(rel_ranked)]
         return {"cands": cands, "attr_ranked": attr_ranked, "rel_ranked": rel_ranked}
     except Exception:
         return {"cands": cands}

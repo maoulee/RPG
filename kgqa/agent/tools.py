@@ -816,14 +816,29 @@ def _reach2_relids(ctx, entity_set) -> set:
     if _edges is None or len(_edges) != len(ctx.rels):
         from collections import defaultdict as _dd
         _cvt_named = _dd(set)
+        _cvt_touch = _dd(int)
         _edges = _dd(list)
         for hh, rr2, tt in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
             _edges[rr2].append((hh, tt))
             hc, tc = _is_cvt(hh), _is_cvt(tt)
+            if hc:
+                _cvt_touch[hh] += 1
+            if tc:
+                _cvt_touch[tt] += 1
             if hc and not tc and 0 <= tt < len(ctx.ents):
                 _cvt_named[hh].add(tt)
             elif tc and not hc and 0 <= hh < len(ctx.ents):
                 _cvt_named[tt].add(hh)
+        # VALUE-STUB ADMISSION (user ruling 2026-09-14, gdp_deflator specimen):
+        # a relation whose every edge ends on a DANGLING CVT/g terminal (the
+        # dataset truncated the value chain at the node) was pays=False and
+        # so never entered ANY GTE pool — the semantically top-ranked
+        # relation (Monaco #1, 0.51) lost before ranking. But a stub edge
+        # renders as `country --rel--> g.xxx`, and edge EXISTENCE is the
+        # discriminator signal (deflator: only 2/9 neighbors carry it;
+        # runtime: 1/19). A CVT touching exactly ONE edge overall is a
+        # value stub, not a content CVT — its edge pays.
+        _stub_pays = os.environ.get("SEQ_POOL_VALUE_STUB", "1") == "1"
         _pays = {}
         for rr2, es in _edges.items():
             _pays[rr2] = any(
@@ -831,6 +846,9 @@ def _reach2_relids(ctx, entity_set) -> set:
                     (not _is_cvt(hh) and not _is_cvt(tt))
                     or (hh in _cvt_named and (_cvt_named[hh] - {tt}))
                     or (tt in _cvt_named and (_cvt_named[tt] - {hh}))
+                    or (_stub_pays
+                        and (_is_cvt(hh) != _is_cvt(tt))
+                        and _cvt_touch.get(hh if _is_cvt(hh) else tt, 0) <= 1)
                 )
                 for hh, tt in es)
         ctx._rel_edges_idx = _edges

@@ -170,6 +170,33 @@
   引导/改写为"?var 问值"(或系统侧自动扩宽),再把 CVT 终点展开
   接上,两个标本家族(runtime/tvrage 类)即闭环。
 
+### 2026-09-14 深夜六:【机制终局+已修】deflator 被砍真相 = 两道串联闸门
+- **更正深夜二/五的归因**:并集切片不是唯一/第一死因。插桩定罪链:
+  1. **闸门一(主凶):池的 pays 渲染性不变量**(tools.py `_reach2_relids`,
+     2026-08-22 Norwood 规则)。deflator 全部 76 边都指向**悬空 g 节点**
+     (度数=1,值链被数据截断),pays 判"渲染不出东西"→从**所有** GTE 池
+     剔除→语义分再高也没进比赛(Monaco 直测排名本应 #1/0.51)。
+     插桩反证:cpi_inflation pays 同样 False 却在池里——它从
+     `_seq_pool_relids` 的 CVT 透明扩展**旁路**(无过滤)混入;deflator
+     是 Monaco 直连边,旁路不覆盖。→ "兄弟都在唯独缺它"的诡异菜单。
+  2. **闸门二:实体序并集 + [:15] 切片**(seq_tools `_rr_execute`)——
+     池修复后 deflator 入并集第 17 位,仍被切。两闸串联,缺一不可。
+- **修复(已提交,双门默认开,可独立回退)**:
+  - `SEQ_POOL_VALUE_STUB=1`(tools.py):pays 承认"度数=1 的 CVT/g 终端
+    =值桩"——桩边渲染为 `country --rel--> g.xxx`,**边存在性即判别
+    证据**(deflator 2/9 邻国有边,runtime 1/19)。内容型 CVT(度数≥2)
+    维持原判。
+  - `SEQ_RR_GLOBAL_MERGE=1`(+`SEQ_RR_MERGE_CAP=80`)(seq_tools.py):
+    属性优先重排输入从"实体序前 15"改为全并集(≤80)。
+- **端到端验证(tmp/rr_slice_repro.py,真实函数三配置)**:
+  双关=旧(全程缺席)/仅池(入 Monaco #1 但位 17 仍被切)/双开
+  (**菜单最终 #1 = statistical_region.gdp_deflator_change**)。
+  pytest 143 绿。48×3 实测运行中(reports/v38_poolstub_gmerge_48x3.json,
+  对照 = 多步三 run 均值 0.6513/77.6%)。
+- **普适性**:闸门一影响所有"值尾关系"(统计/时长/id 类判别器)的
+  菜单可见性——不止 deflator 家族;闸门二影响所有多实体 rr 调用
+  (变量扩展)里"非首位实体的高分关系"。
+
 ### 2026-09-14 深夜五:【更正】CVT"展开失效"系误诊 + 数据侧悬空值链真相
 - **更正前两条(e7155b4/ab311a6)的错误前提**:"payload 在 ctx 数组
   一跳之遥,展开没接上"——实测不成立。
