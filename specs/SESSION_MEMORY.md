@@ -2,6 +2,80 @@
 
 > **Purpose**: This file survives container resets. It is the operational
 
+## 2026-09-14 晚间:三 run 均值判决 + AOP(固定证据作答规则迭代)
+
+### ⚠ 容器已重建,运维变更
+- 系统解释器 /opt/conda py3.8 缺 aiohttp/pydantic2;**跑批/分析一律用
+  `/root/miniconda3/envs/qwen35/bin/python`**(vLLM/GTE 服务即此环境)。
+- vLLM :8000(Qwen3.5-9B)/ GTE :8003 均存活;batch 入口仍是
+  `python -m kgqa.rl.seq_rollout` + env OUT(冒烟先 3 case)。
+
+### 三 run 均值判决(用户方法;一对一重算,存档分不可信)
+| 栈 | r1 | r2 | r3 | **均值** | hit |
+|---|---|---|---|---|---|
+| 单步(walkperf 配置,当前代码) | 0.6895 | 0.6745 | 0.6837 | **0.6826** | 80.6% |
+| 多步(当前站立栈 perquotA 配置) | 0.6390 | 0.6587 | 0.6561 | **0.6513** | 77.6% |
+- **单步真领先 ~3.1pp f1/3pp hit,分数带不重叠**(单步最低 0.6745 >
+  多步最高 0.6587)——"历史最佳很微妙"落定:真实但集中在少数 case。
+- 逐 case:单步赢 21 / 多步赢 16 / 平 11。单步头部优势 case =
+  ab5818ba(Jesus Christ) / 1bf29d73(Europe) / ad5593ec / eb615bab
+  ——全是作答层家族(平局/绑定),非检索;多步赢面 = da555ded
+  (New Moon) / d9206043(Saami South)——老栈规则毁掉的两案。
+- 历史记的 walkperf 0.707 实为 0.6895(存档分含 containment bug:
+  1bf29d73 存档 1.0 → 重算 0.0,即评分切换导火索本尊)。
+- run: reports/v38_wpcur_{r2,r3}_48x3.json + v38_pq_{r2,r3}_48x3.json
+  + tmp/replicate_3run_casemeans.json(逐 case 三 run 均值)。
+
+### 不稳定 case 分类(子智能体 A;主判据 perquotA 3 采样重算 f1)
+- STABLE_GOOD 17 / UNSTABLE 23 / STABLE_BAD 8;**检索死区 0**
+  (8 个全错 case 的 gold 也全可见)→ 失败全在作答层,佐证两分法。
+- **AOP 子集 31 case**,证据固化 tmp/aop_evidence.json(31 case 取
+  perquotA gold 可见采样;含 zh 重述)。索引 tmp/aop_index.txt,
+  机器可读 tmp/aop_stability.json,可复现脚本 tmp/aop_analysis.py。
+- **evidence_entities 字段弃用**(不可靠:38 gold 实例"在字段不在工具
+  文本"= 渲染前子图超集;3 例反向漏报)——可见性判定一律文本法。
+- 标本 91218362(NBA 全列):模型能列全年份但交裸值不交
+  "XXXX NBA Finals" 节点名,三采样 0.11——表象/实体名家族。
+
+### AOP 六变体判决(31 case × 3 采样 × 6,固定证据;子智能体 B)
+| 变体 | f1 | 单gold(n=20) | 多gold(n=11) |
+|---|---|---|---|
+| **V3 条件式个数契约** | **.522** | **.447** | .658 |
+| V4 =V3+判别值最近 | .505 | .444 | .614 |
+| V0 六条基本规则(基线) | .493 | .392 | **.679** |
+| V2 两步判读表 | .487 | .389 | .664 |
+| V5 链式+类型守卫 | .486 | .367 | .702 |
+| V1 answer-now(基线) | .446 | .342 | .635 |
+- **无变体两面全赢**——单 gold 判别 × 多 gold 枚举的结构性张力在
+  规则层复现(oracle-v2 教训再次坐实)。
+- **因果结论**:①判读表单独无效(V2≈V0);**活性成分=条件式个数
+  契约**(CASE A 全满足→交全部;CASE B 无全满足→交最强单个;
+  V2→V3 = +3.5pp,空答 17→8);②判别值规则双刃,需 FILTER(保全部
+  通过者)/DISCRIMINATOR(取单一极值)二分;③链式 FOCUS/穷举框架是
+  单 gold 毒药(sg −8pp,合取题无中间 focus 就空答);④TYPE GUARD +
+  "实体不裸值"安全(over/bare_value/chain_type 三家族清零)。
+- **作答规则层不可修**(认知边界):under-枚举(检索完整性)、比较型
+  择优、KG 词汇/粒度对齐(Parliamentary republic vs Democracy)。
+- 家族计数(V0→V3→V5):定数过溢 7→4→1(治)、裸值 3→2→0(治)、
+  None 13→8→15(半治,严判读反弹)、定数不足 15→15→17(治不住)。
+- **V6 复合变体 = 唯一两族全赢的赢家**(主线程补跑):V3 骨架(判读表
+  +条件个数契约)+ TYPE GUARD + "实体不裸值" + FILTER/DISCRIMINATOR
+  二分 + 数值全 UNRESOLVED 不许空答,**去掉** V5 的 FOCUS/穷举链式框架。
+  **f1 .543 / 单gold .453 / 多gold .708 / hit 64.5%**——四项全部超过
+  V0(.493/.392/.679/58.1)与 V3;over 家族 7→3、None 13→6。
+  规则原文在 tmp/aop_harness.py 的 `V6_RULES`(生产候选)。
+- **决定性对照(同 31 不稳定 case)**:agent 在环作答(perquotA 自己的
+  证据).441(单gold .362/多gold .585) < V0 裸答 .493 < **V6 一次性
+  作答 .543**——两阶段协议(固化证据+单次 V6 作答)在自己证据上
+  反超在环规则系统 +10.2pp。注意 full_fix agent 在这 31 case 上
+  .582 仍高于 V6,但其证据不同(单步宽环境)+ 含世界知识幸运样本
+  (Trn-1812 类),非同类比较。
+- 家族残余:wrong_entity 27(比较型择优/KG 词汇粒度对齐——作答规则
+  层不可修)、under 18(检索完整性问题)——这两族是下一步检索侧/
+  两段式结构的靶子,不是提示语的靶子。
+- 产物:tmp/aop_run_V{0..6}.json + tmp/aop_summary.json +
+  harness tmp/aop_harness.py(V6 已注册,`--variants V6` 可复跑)。
+
 ## 2026-09-14 SESSION HANDOFF(压缩前完整状态,接管 2026-09-11 版)
 
 ### 当前分支与代码状态
