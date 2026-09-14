@@ -2,6 +2,30 @@
 
 > **Purpose**: This file survives container resets. It is the operational
 
+## 2026-09-15 凌晨:并集改"先并后排"(UNION-THEN-RANK)+池过滤审计
+- **用户裁定:并集应先算所有实体的关系,再一次排名;不是每实体排
+  完再拼**。实施 `SEQ_RR_UNION_RANK=1`(默认,seq_tools _rr_execute):
+  池=全体请求实体的可达关系并集 → 一次标注 GTE 排名(top30,候选
+  标签"实体|关系|?"——每关系取一个真实可达实体作头,保住
+  Giants/Crazy Crab 要求的实体特异性,旧失败源于泛头非专头)。
+  每实体 top-15 预切口消失,省 N-1 次 GTE 往返。生产函数四配置
+  端到端(tmp/rr_union_rank_test.py):全关=缺席;STUB+任一排名修
+  =菜单第 1 组 gdp_deflator_change;pytest 143 绿。
+- **池过滤逐条审计(用户问:1/2/CVT-3 跳可达为什么还被复杂规则滤)**:
+  可达性结构本身已符合意图(_expand CVT/g 透明,E→CVT→E2→E3 算
+  2 命名跳)。叠在可达性上的三条准入:
+  ①noisy(type.object.*/key/webpage)——真元数据噪声,保留;
+  ②walkability(08-21 King)——不是质量预测,是"本引擎可达"的定义
+  (池⟺可走一致性),撤掉重开"关系可达子图不可达"缝,保留;
+  ③pays 渲染性(08-22 Norwood)——**质量预测当准入**,deflator 案
+  证明预测会错(新渲染器下桩边=判别证据);已由 VALUE_STUB 修正,
+  残余排除类=CVT 度数≥2 且零命名邻居(真无内容,暂保留)。
+- **架构原则(用户表述,入档)**:池=结构可达性;语义=GTE 排名;
+  质量/降级=选择-游走-显示时处理。准入过滤只准编码"结构不可能",
+  不准编码"质量预测"。
+- 验证序列:poolstub_gmerge 48×3(STUB+MERGE,UNION_RANK=0 状态)
+  运行中;完成后跑 UNION_RANK=1 一轮做单变量归因。
+
 ## 2026-09-14 晚间:三 run 均值判决 + AOP(固定证据作答规则迭代)
 
 ### ⚠ 容器已重建,运维变更

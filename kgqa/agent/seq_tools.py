@@ -2949,9 +2949,18 @@ def _rr_prepare(args: Dict[str, Any], ctx) -> dict:
 
 
 async def _rr_execute(treq, ctx, session):
-    """B段: the GTE correction (or the per-entity ranking awaits). Sequential
-    per request — the candidate ORDER is per-entity rank order, unioned in
-    entity order (the collector batches across cases).
+    """B段: the GTE correction (or the ranking awaits).
+
+    UNION-THEN-RANK (user ruling 2026-09-14): the candidate pool is the
+    UNION of all requesting entities' reachable relations, and ONE labeled
+    GTE ranking orders that union by the sub-question. The old path ranked
+    each entity separately (top-15 each) and concatenated in entity order —
+    a relation ranked #16 for every entity never entered the union, and a
+    later entity's #1 sat behind the first entity's cluster. Entity
+    specificity is preserved by the candidate LABELS ("entity | relation |
+    ?" — one label per relation, headed by an entity that actually reaches
+    it); the Giants/Crazy Crab failure that motivated per-entity CALLS was
+    a generic head, not a specific one. Also saves N-1 GTE round-trips.
 
     ATTRIBUTE-FIRST RANKING (user design 2026-09-08): one GTE call ranks
     BOTH the attribute names AND the full relation names together. The
@@ -2961,13 +2970,43 @@ async def _rr_execute(treq, ctx, session):
     if treq["kind"] == "corr":
         cands = await _entity_correction(treq["entity"], treq["question"], ctx, session)
         return {"cands": cands}
-    cands, seen = [], set()
-    for ent, pool in treq["requests"]:
-        ranked = await _gte_for_triple(ctx, session, ent, treq["question"], "",
-                                       pool_relids=pool)
-        for r in ranked:
-            if r not in seen:
-                seen.add(r); cands.append(r)
+    if os.environ.get("SEQ_RR_UNION_RANK", "1") == "1":
+        from kgqa.agent.tools import _rel_last2, _TRIPLE_GTE_INSTRUCT
+        from kgqa.stages.stage2_entity import gte_retrieve
+        pool_ids = sorted({i for _ent, pool in treq["requests"] for i in pool})
+        head_of = {}
+        for ent, pool in treq["requests"]:
+            for i in pool:
+                head_of.setdefault(i, ent)
+        pool_names = [str(ctx.rels[i]) if 0 <= i < len(ctx.rels) else ""
+                      for i in pool_ids]
+        labeled = [f"{head_of.get(i, '?')} | {_rel_last2(ctx.rels[i])} | ?"
+                   for i in pool_ids]
+        name2pos = {n: k for k, n in enumerate(pool_names) if n}
+        rows = await gte_retrieve(session, treq["question"], pool_names,
+                                  candidate_texts=labeled,
+                                  top_k=30, instruct=_TRIPLE_GTE_INSTRUCT)
+        cands = []
+        for r in rows or []:
+            pos = r.get("index")
+            try:
+                pos = int(pos)
+            except (TypeError, ValueError):
+                pos = None
+            if not (isinstance(pos, int) and 0 <= pos < len(pool_ids)):
+                pos = name2pos.get(r.get("candidate"))
+            if isinstance(pos, int) and 0 <= pos < len(pool_ids):
+                full = pool_ids[pos]
+                if full not in cands:
+                    cands.append(full)
+    else:
+        cands, seen = [], set()
+        for ent, pool in treq["requests"]:
+            ranked = await _gte_for_triple(ctx, session, ent, treq["question"], "",
+                                           pool_relids=pool)
+            for r in ranked:
+                if r not in seen:
+                    seen.add(r); cands.append(r)
     # ATTRIBUTE-FIRST: derive attribute names from the ranked relations and
     # rank them in the SAME GTE call (add as extra candidates — piggyback,
     # no second round-trip). We use the /retrieve endpoint directly since
