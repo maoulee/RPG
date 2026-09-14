@@ -2378,7 +2378,13 @@ async def _run_walk_one_step(ctx, center_idx: int, rel_idxs, fid: str,
         return {}
     return build_pattern_evidence_triples(
         valid, ctx.ents, ctx.rels, ctx.h_ids, ctx.r_ids, ctx.t_ids, center_idx,
-        max_grouped_lines=120, selected_rel_ids=set(rel_idxs))
+        max_grouped_lines=120,
+        # tuple (multistep layer sets) must FLATTEN — set(rel_idxs) on a
+        # tuple yields a set of frozensets the filter never matches (the
+        # worker path at _walk_case_steps already unions; this inline
+        # WALK_POOL=0 path silently lost the whole selection)
+        selected_rel_ids=(set().union(*rel_idxs)
+                          if isinstance(rel_idxs, tuple) else set(rel_idxs)))
 
 
 def _walk_call_spawn_timed(task):
@@ -2944,6 +2950,24 @@ def _rr_prepare(args: Dict[str, Any], ctx) -> dict:
         if len(ent_pool) < _GTE_POOL_MIN:
             ent_pool = set(range(len(ctx.rels)))
         reqs.append((ent, ent_pool))
+    # SEQUENCE-FRONTIER POOL (SEQ_REL_SEQ): when a passed entity IS an anchor
+    # with declared layers, the next-layer relations live on the sequence's
+    # CURRENT FRONTIER (its completions) — a discriminator ask over the
+    # anchor must rank from there, not from the anchor's own 2-hop pool (the
+    # runtime specimen: film.film.runtime is unreachable from Taylor Lautner
+    # but first-class from the actor.film completions). One anchor match is
+    # enough; the union-then-rank merge folds the extra pool in.
+    if os.environ.get("SEQ_REL_SEQ", "0") == "1":
+        _ast = getattr(ctx, "anchor_seqs", None) or {}
+        for ent, i in zip(entities, idxs):
+            _layers = _ast.get(i)
+            if not _layers:
+                continue
+            from kgqa.traversal.pattern_walk import get_pattern_index
+            _front = _seq_completions(ctx, get_pattern_index(ctx), i, _layers)[-1]
+            if _front and _front != {i}:
+                reqs.append((ent, _seq_pool_relids(ctx, _front)))
+            break
     return {"kind": "rr", "requests": reqs, "entities": entities,
             "question": question, "nudge": _nudge}
 
@@ -3262,6 +3286,203 @@ def _relation_snapshot(ctx, center_idxs, cand_rel_idxs, top_k: int = 8) -> str:
 # batched by the round-level coordinator; GTE correction for bad names first)
 # → _sg_finalize (C: accumulate + render + evidence sets, pure CPU).
 
+
+# ───────────────────────── RELATION-SEQUENCE STATE (SEQ_REL_SEQ, user design 2026-09-15) ─────────────────────────
+# The authoritative walk state is the ANCHOR + its accumulated relation LAYERS
+# (ctx.anchor_seqs: {anchor_idx: [frozenset(rel_idx), ...]}). A later
+# retrieve_subgraph CENTERED ON THE SAME ANCHOR appends: each submitted
+# relation joins the deepest layer whose completions make it structurally
+# feasible (continuation-first; anchor-direct feasible = layer-1 widening).
+# The walk then instantiates the FULL sequence from the anchor — typed entity
+# lists never become walk centers (the runtime/tvrage specimens' rosters
+# dropped exactly the gold; constructive instantiation cannot). Gate is OFF by
+# default: same-anchor call semantics change (repair re-selection becomes
+# union-accumulate), so it ships dark until the 48×3 verdict flips it.
+
+def _anchor_seq_layers(ctx) -> dict:
+    st = getattr(ctx, "anchor_seqs", None)
+    if st is None:
+        st = {}
+        ctx.anchor_seqs = st
+    return st
+
+
+def _cvt_like_name(n) -> bool:
+    s = str(n)
+    return s[:2] in ("m.", "g.") and len(s) > 4
+
+
+def _trans_named_step(ctx, ix, cur, rels) -> set:
+    """One layer step with the ENGINE's transparency semantics: raw edges of
+    the layer's relations land on endpoints; landed m./g. nodes (event CVTs
+    AND id-nodes — actor.film lands on m.0gwrkz0 while the film's attribute
+    edges hang on its NAME node one object.name hop away) pass through ALL
+    their edges within the same layer, exactly as the walk engine's hop
+    layering treats them. Returns the NAMED endpoint set."""
+    from kgqa.agent.tools import _full_adj
+    adj = _full_adj(ctx)
+    ents = ctx.ents
+    nxt = set()
+    for r in rels:
+        f, rv = ix.fwd.get(r, {}), ix.rev.get(r, {})
+        for e in cur:
+            nxt.update(f.get(e, ()))
+            nxt.update(rv.get(e, ()))
+    def _cvtl(i):
+        return _cvt_like_name(ents[i] if 0 <= i < len(ents) else i)
+    named = {n for n in nxt if not _cvtl(n)}
+    stack = [n for n in nxt if _cvtl(n)]
+    seen = set(nxt) | set(cur)
+    while stack:
+        n = stack.pop()
+        for _rr, o in (adj[n] if 0 <= n < len(adj) else ()):
+            if o in seen:
+                continue
+            seen.add(o)
+            if _cvtl(o):
+                stack.append(o)
+            else:
+                named.add(o)
+    return named
+
+
+def _seq_completions(ctx, ix, anchor_idx, layers):
+    """[ {anchor}, NAMED completions through L1, ..., through Lk ] — one
+    transparent layer step each (see _trans_named_step). Memoized per
+    (anchor, layers); deterministic, so the memo is always valid."""
+    memo = getattr(ctx, "anchor_seq_memo", None)
+    if memo is None:
+        memo = {}
+        ctx.anchor_seq_memo = memo
+    key = (anchor_idx, tuple(frozenset(l) for l in layers))
+    hit = memo.get(key)
+    if hit is not None:
+        return hit
+    out = [{anchor_idx}]
+    cur = out[0]
+    visited = set(cur)               # cross-layer: a completion never
+    for lay in layers:               # loops back to an earlier layer's set
+        nxt = _trans_named_step(ctx, ix, cur, lay) - visited
+        if not nxt:
+            break
+        visited |= nxt
+        out.append(nxt)
+        cur = nxt
+    memo[key] = out
+    return out
+
+
+def _feasible_rels_one_hop(ctx, ent_set) -> set:
+    """Relation idxs with at least one edge touching ent_set (either
+    direction) — the structural half of the layer-assignment judgment."""
+    from kgqa.agent.tools import _full_adj
+    adj = _full_adj(ctx)
+    out = set()
+    for e in ent_set:
+        if 0 <= e < len(adj):
+            for rr, _o in adj[e]:
+                out.add(rr)
+    return out
+
+
+def _classify_seq_submit(ctx, ix, anchor_idx, layers, new_rel_idxs):
+    """Deepest-feasible-layer assignment for appended relations.
+    Returns (updated_layers, {rel_idx: action}, completions). Actions:
+    'append' (new layer beyond the last — frontier relations submitted
+    TOGETHER share that one new layer), 'join:k' (added to existing layer
+    k), 'infeasible' (no layer's completions reach it). Two-pass: every
+    relation is assigned against the PRE-update completions, then applied —
+    mutating mid-loop would both index past feas and split same-call
+    frontier siblings into separate layers."""
+    comps = _seq_completions(ctx, ix, anchor_idx, layers)
+    feas = [_feasible_rels_one_hop(ctx, comps[k]) for k in range(len(comps))]
+    layers = [set(l) for l in layers]
+    n0 = len(layers)
+    assign = {}
+    for r in new_rel_idxs:
+        join_at = None
+        for k in range(len(feas) - 1, -1, -1):      # deepest first
+            if r in feas[k]:
+                join_at = k + 1
+                break
+        assign[r] = join_at
+    actions = {}
+    for r in new_rel_idxs:
+        join_at = assign[r]
+        if join_at is None:
+            actions[r] = "infeasible"
+            continue
+        if join_at > n0:
+            if n0 >= 3:                             # depth cap = derive's
+                actions[r] = "depth_cap"
+                continue
+            if len(layers) == n0:                   # first frontier rel
+                layers.append(set())
+            layers[-1].add(r)
+            actions[r] = "append"
+        else:
+            layers[join_at - 1].add(r)
+            actions[r] = f"join:{join_at}"
+    return [frozenset(l) for l in layers], actions, comps
+
+
+def _chain_feasible(ctx, ix, anchor_idx, chain) -> bool:
+    """Per-layer feasibility of one declared chain. BETWEEN layers the
+    handoff uses the transparent named step (id-node → name-node bridging —
+    actor.film lands on m.0gwrkz0 while the next relation's edges hang on
+    the film's NAME node); the FINAL layer only needs RAW edges nonempty —
+    discriminator terminals land on CVT/value nodes (runtime → m.0h100dp)
+    and a named-only emptiness check wrongly pruned exactly those."""
+    cur = {anchor_idx}
+    for k, r in enumerate(chain):
+        if k == len(chain) - 1:
+            f, rv = ix.fwd.get(r, {}), ix.rev.get(r, {})
+            nxt = set()
+            for e in cur:
+                nxt.update(f.get(e, ()))
+                nxt.update(rv.get(e, ()))
+        else:
+            nxt = _trans_named_step(ctx, ix, cur, [r])
+        if not nxt:
+            return False
+        cur = nxt
+    return True
+
+
+def _patterns_from_layers(ctx, ix, anchor_idx, layers, submitted):
+    """Cross-product of the declared layers into multistep pattern tuples
+    (existing {rel-idx tuple: tuple(frozenset([r]))} format), keeping only
+    patterns whose FINAL relation is among this call's submissions (the call's
+    fact) and whose every prefix instantiates from the anchor. Layer widths
+    are trimmed (largest first) until the cross product is ≤24 — the B-phase
+    per-terminal quota is the real semantic filter; this only bounds
+    combinatorics deterministically."""
+    from itertools import product as _prod
+    lay = [sorted(l) for l in layers if l]
+    if not lay:
+        return {}
+    widths = [len(l) for l in lay]
+    n = 1
+    for w in widths:
+        n *= w
+    while n > 24:                     # trim widest layer by one until ≤24
+        k = widths.index(max(widths))
+        if widths[k] <= 1:
+            break
+        widths[k] -= 1
+        lay[k] = lay[k][:widths[k]]
+        n = 1
+        for w in widths:
+            n *= w
+    out = {}
+    for combo in _prod(*lay):
+        if combo[-1] not in submitted:
+            continue
+        if _chain_feasible(ctx, ix, anchor_idx, combo):
+            out[tuple(combo)] = tuple(frozenset([r]) for r in combo)
+    return out
+
+
 def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     """A段: terminal errors render here (kind="done"); a wrong/low-conf center
     name defers its GTE correction to execute (corr field — when the
@@ -3571,8 +3792,51 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                         _matched.add(_ri)
                         break
             _fam = _matched or set(rel_idxs)
+            # RELATION-SEQUENCE ACCUMULATION (SEQ_REL_SEQ, user design
+            # 2026-09-15): a call centered on an anchor that already has
+            # declared layers APPENDS — the submitted relations are
+            # classified into the deepest feasible layer and the patterns
+            # are built from the DECLARED sequence (derivation skipped:
+            # the model stated the layers, the system only validates
+            # feasibility). First sight of an anchor records its layer 1
+            # and falls through to derivation as before.
+            _declared = {}
+            _seq_echo = ""
+            if os.environ.get("SEQ_REL_SEQ", "0") == "1":
+                _ast = _anchor_seq_layers(ctx)
+                for _cn, _ci in centers:
+                    if not (0 <= _ci < len(ctx.ents)):
+                        continue
+                    _layers = _ast.get(_ci)
+                    if _layers is None:
+                        if rel_idxs:
+                            _ast[_ci] = [frozenset(rel_idxs)]
+                        continue
+                    _have = set().union(*_layers) if _layers else set()
+                    _new = [r for r in rel_idxs if r not in _have]
+                    if not _new:
+                        continue                        # pure repeat → derive path
+                    _up, _acts, _comps = _classify_seq_submit(
+                        ctx, _ix, _ci, _layers, _new)
+                    _ast[_ci] = _up
+                    _pats_d = _patterns_from_layers(
+                        ctx, _ix, _ci, _up, set(rel_idxs))
+                    if _pats_d:
+                        _declared[_ci] = _pats_d
+                        _short = lambda ri: ".".join(
+                            str(ctx.rels[ri]).rsplit(".", 2)[-2:]) \
+                            if 0 <= ri < len(ctx.rels) else str(ri)
+                        _parts = [str(ctx.ents[_ci])]
+                        for _li, _lay in enumerate(_up):
+                            _lbl = " | ".join(_short(r) for r in sorted(_lay))
+                            _cnt = len(_comps[_li + 1]) if _li + 1 < len(_comps) else 0
+                            _parts.append(f"{_lbl} ({_cnt})")
+                        _seq_echo = " ⭢ ".join(_parts)
             for _cn, _ci in centers:
                 if not (0 <= _ci < len(ctx.ents)):
+                    continue
+                if _ci in _declared:
+                    _multistep[_ci] = _declared[_ci]
                     continue
                 # DERIVE ALWAYS (user audit 2026-09-12, Belgium/GMT specimen):
                 # the design evaluates the top-K PATTERN PATHS ending in the
@@ -3596,6 +3860,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             "rel_idxs": rel_idxs, "rel_names": rel_names, "fid": fid,
             "entities": entities, "nudge": _nudge, "attr_expansion": _fam_echo,
             "prefix": _prefix, "var_name": _var_name, "multistep": _multistep,
+            "anchor_seq": _seq_echo,
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
@@ -4760,6 +5025,12 @@ def _sg_finalize(treq, bres, ctx) -> str:
         # model audits its own selection and the trajectory shows the
         # expansion instead of hiding it.
         _res["relation_expansion"] = treq["attr_expansion"]
+    if treq.get("anchor_seq"):
+        # SEQUENCE-STATE ECHO (SEQ_REL_SEQ): the anchor's accumulated
+        # relation layers + per-layer completion counts — the model's cue
+        # that a later fact continuing this subgraph just re-calls with the
+        # ANCHOR + the new relation (the system appends the layer).
+        _res["anchor_sequence"] = treq["anchor_seq"]
     if bres.get("pattern_display"):
         # PATTERN-PATH WALK echo (2026-09-10): the call ran as ONE set-state
         # walk over the binding set; this is the ranked pattern list the
