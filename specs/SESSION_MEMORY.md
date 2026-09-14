@@ -76,6 +76,42 @@
 - 产物:tmp/aop_run_V{0..6}.json + tmp/aop_summary.json +
   harness tmp/aop_harness.py(V6 已注册,`--variants V6` 可复跑)。
 
+### 2026-09-14 深夜:单 gold 低分机制解剖(读思考链+数据侧取证)
+- **先纠正口径**:单 gold 并不弱。全 48 上 agent sg .645 > mg .620;
+  AOP 子集 sg 低是选择偏差(17 个稳对 case 里 16 个是 sg 被排除)+
+  计分结构(sg 53% 样本零分悬崖无部分分;mg 61% 样本靠部分分垫均值;
+  V6 完全对率 sg 43% 反而 > mg 36%)。
+- **思考链读判(7 标本 × 2 采样,tmp/aop_think_traces.json)**:模型认知
+  全程正确——正确分解任务、显式扫描证据找值(runtime 标本原话
+  "Scanning the text... No results")、正确判 UNRESOLVED、显式走完
+  CASE B 梯子并指出全平局("any of the neighbors is equally valid"),
+  然后按列表第一个(Italy)或连接度最高(Twilight)硬选。
+  **错误选择是"值缺失+强制作答+全平局梯子"制造的,模型全程知情。**
+  同题不同采样选不同错候选(Grant/Farragut、Cocoon/Gung Ho)——
+  不稳定的选择过程,非固定名气偏见。
+- **数据侧取证(case pkl 直查)**:判别关系全在 case KG 里
+  (film.film.runtime / tv.tv_program.tvrage_id /
+  location.statistical_region.gdp_deflator_change / date_of_death /
+  initial_release_date)。**但 runtime/tvrage 全 case 各只有一条边,
+  都挂在 gold 头上**(gold --runtime--> CVT m.0h100dp;
+  gold --tvrage_id--> '20997' 字面值);deflator 76 条边但值全藏
+  g.xxx 不透明节点后(R8)。
+- **三条 surfacing 断裂**(值进不了证据的机制):
+  ① frontier 完整性:agent 问"这电影的 runtime"时 entities=18 部电影
+  **不含 gold**(tvrage 问甚至只带 Twilight 一个)——判别边只在 gold
+  上,_reach2_relids(frontier) 池必然无此关系,菜单无法提供;
+  ② GTE 排序:deflator 关系在池内(76 边),但 GTE 把 cpi/debt/health
+  等兄弟排前面,菜单 top-K 切掉(模型自己扫描证据确认无 deflator);
+  ③ 值不透明:即使边被走到,runtime 值在 CVT m.xxx 内、deflator 值在
+  g.xxx 内,需 payload 展开才可见。
+- **结论**:单 gold 判别失败=**判别值 surfacing 缺口**(检索侧),
+  非作答规则问题——与 AOP "wrong_entity 作答层不可修"判决互证。
+  修法家族=判别器定向探查:对全部候选(含 gold 候选)枚举值型关系
+  (runtime/id/dates/statistical)+ CVT/g payload 展开,一次性把
+  "候选×判别值"表带进证据。与 walkperf 审计候选 1(判别器门控发射)
+  同向,现在有了数据级证据。作答侧无可修信息,别在那里找。
+- 工具:tmp/aop_think_read.py(重跑抓 reasoning 的模板)。
+
 ## 2026-09-14 SESSION HANDOFF(压缩前完整状态,接管 2026-09-11 版)
 
 ### 当前分支与代码状态
