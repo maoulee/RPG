@@ -170,6 +170,38 @@
   引导/改写为"?var 问值"(或系统侧自动扩宽),再把 CVT 终点展开
   接上,两个标本家族(runtime/tvrage 类)即闭环。
 
+### 2026-09-14 深夜四:CVT 展开失效根因(代码级)+关系序列机制评估
+- **CVT 根因**:"渲染完自动展开"不是实现事实。展开不是渲染层规则,
+  而是 walk 证据构建层的**分支性**步骤(formatting.py:377
+  `_expand_endpoint_cvt`,挂在 support-path/兄弟 CVT/K-path 分支,
+  带 witness/scoring/_sel_ids 闸门;seq_tools:2104 注释自认
+  "may miss some due to scoring/limits")。渲染层(seq_triples 的
+  mid admission + seq_render 的 _mid_attr_pairs)只读已入库属性
+  (cvt_graph/kept)——m.0h100dp 的属性边没被任何构建分支拉取,
+  模式行就只剩裸 id。**修法方向**:模式实例化收集时,终点/倒数第
+  二为 CVT/g 且库内无其属性 ⇒ 从 case 数组(ctx.h/r/t)无条件补拉
+  一跳 payload——数据永远在一跳之遥,不需要 walk 分支碰巧跑到。
+- **关系序列机制评估(用户提议,已对齐设计)**:
+  - 现有半套:plan chains={anchor,fact_steps}(层级 DAG 已编码)/
+    _derive_multistep_seq 关系元组枚举/ ?var pattern 接续/pattern_walk
+    引擎。缺的是把"序列"提升为**请求与状态的一等单位**——绑定变成
+    实例化集的派生读数(非权威状态),s0/s1 的名单≠实例化集分歧
+    从构造上不可能。
+  - 层级关切(用户 a):同级 fact(f1 影片/f2 电视)是并行序列,
+    **绝不串接**(串接=类型域错配=关系崩溃);判别/属性类 fact 是
+    当前层读数(PROBE),不是链延伸。层级来自 plan 的 chain DAG +
+    关系域校验(r2 的 domain 必须匹配 r1 的 range 类型),不从调用
+    顺序推断。
+  - 多起点关切(用户 b):子图 k 的起点=其 DAG 父序列完成集的并集
+    (junction 规则);父输出类型异构时(影片∪电视节目)保持按父
+    分列序列、只在判别值表合并(tvrage 标本:film 域实体问
+    tv.tv_program 域关系=类型错配的实例)。
+  - 请求三态:SEQUENCE(start,seq,level)/PROBE(var,值关系)/
+    FILTER(var,约束);frontier=实例化完成集(派生);菜单按序列
+    位置的域约束池+全局 max-merge;CVT/g 终点展开为收集期无条件
+    步骤。风险:plan 质量变成承重件(靠域校验+构造性顺延兜底);
+    hub 上实例化成本(保证通道 200/模式预算已覆盖)。
+
 ## 2026-09-14 SESSION HANDOFF(压缩前完整状态,接管 2026-09-11 版)
 
 ### 当前分支与代码状态
