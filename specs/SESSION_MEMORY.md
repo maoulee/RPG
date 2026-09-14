@@ -142,6 +142,34 @@
   需求时,系统侧对全部候选×值型边(日期/时长/id/统计+CVT/g 展开)
   出"候选×判别值"表(系统性收编 Q1+R8)。
 
+### 2026-09-14 深夜三:runtime 原始轨迹核验(用户问:plan 问题还是机制问题)
+- **判决:不是 plan 问题**。027d777f 三采样 plan 全部含显式 fact
+  f3=(?film | what is the runtime of this film | ?runtime),
+  answer=?longest_work——runtime 是显式约束成立,且拿到候选后
+  每个采样都发了 runtime 检索。
+- **同题两路对照(perquotA s0/s1 vs s2,同一 case)**:
+  - s0/s1(答 Twilight,错):手打 18 部电影名单问 runtime(两次),
+    名单不含 gold m.0gwrkz0——消息自述"event node bindings removed"
+    (moot 关闭时 gold 的 id 形态绑定被当事件节点剥离);随后 [16]
+    模式行明明列出全部 19 部(含 m.0gwrkz0),重问仍抄旧名单。
+    per-entity 池永远没有 runtime 关系→菜单两次不提供→按协议
+    正确关 ✗ unresolved→答题期强制单选。
+  - **s2(答 The Nick and Jessica Variety Hour,对)**:用 ?movie
+    **变量调用**(即用户关系序列语义)→retrieve_subgraph
+    (film.film.runtime)→模式实例化仅 1 条:
+    gold --runtime--> m.0h100dp→模型推理"只有一部有 runtime 证据"
+    →答对。**?var+模式路径已被生产轨迹证明可行**——用户提议的
+    序列约束 frontier 有正反两面人证。
+- **新机制缺口(CVT 展开真实失败实例)**:s2 路径终点就是 CVT
+  (m.0h100dp),但分钟值**未被展开渲染**(输出只有裸 id,无数字)
+  ——?var pattern 路径的渲染没有走 multistep derive 的 CVT 终点
+  展开。s2 靠"唯一有值即最长"绕过;若多候选都有值则致命。
+  修法:pattern 行渲染时终点为 CVT/g 节点即展开 payload 属性
+  (不限 multistep derive 路径)。
+- 推论:判别器探查的最小可行形态已经存在——把"手打名单问值"
+  引导/改写为"?var 问值"(或系统侧自动扩宽),再把 CVT 终点展开
+  接上,两个标本家族(runtime/tvrage 类)即闭环。
+
 ## 2026-09-14 SESSION HANDOFF(压缩前完整状态,接管 2026-09-11 版)
 
 ### 当前分支与代码状态
