@@ -2,7 +2,117 @@
 
 > **Purpose**: This file survives container resets. It is the operational
 
-## 2026-09-11 SESSION HANDOFF(压缩前完整状态)
+## 2026-09-14 SESSION HANDOFF(压缩前完整状态,接管 2026-09-11 版)
+
+### 当前分支与代码状态
+- **分支**: walk-perf(领先 agent-toolcall ~50 commits;2026-09-12~13
+  的全部提交见下方时间线,均已入 git)
+- **测试**: 143 全绿(tests/,忽略两个缺数据文件的收集错)
+- **评分口径已切换(重要)**:2026-09-13 起 = **实体一一对应**(规范化精确
+  相等 + ≥8字符0.95模糊),包含匹配彻底移除(compute_match_stats /
+  candidate_hit / strict_candidate_hit 三处,kgqa/core/utils.py)。
+  **历史 run 的 recorded 数字与新口径不可直接比**——离线重算工具:
+  逐条 compute_match_stats 重打。新口径下:topk5(站立) 77.8/0.645,
+  perquotA(多步) 77.1/0.639,**差距只有 0.7pp/0.6pp**(旧口径 4.8pp
+  大半是包含水分)。
+
+### 多步管线终态(2026-09-13 收敛,全部用户裁决落地)
+管线:模式枚举(任意跳深1..3,构造式=顺延内建)→ B段 GTE 语义选
+(每提交关系 top-3 + 直连1跳免配额)→ 整链穷举实例化(无扇出上限)+
+模式完整性保证 → 两层渲染(seq_triples 产三元组store / seq_rows 只渲染
+行,跨模式去重,头/尾合并,capped 环境段)。
+- 关键文件:kgqa/agent/seq_triples.py + seq_rows.py(两层);
+  seq_render_v38._render_pattern_sections 已删,由两层取代;
+  _derive_multistep_seq(任意深度);_sg_execute 语义选取+保证通道。
+- 关键 env:SEQ_MULTISTEP=1(总开关)、SEQ_PAT_SEMANTIC=1(语义选,
+  默认开)、SEQ_BRIDGE_TERMINAL=0(实验族)、WALK_POOL=3。
+- 排序准则全线统一=命中(提交终结)→长度→语义→名字;**support/扇出
+  从所有排序键删除**(用户:设计里从来没有);支持度路径上限已移除。
+- 体量:p50=14 行/调用,p90=39,宽松段=0——数量问题不成立。
+
+### 提示语状态(V2.1/V2.2/V2.2.1)
+- **站立 = V21**(SEQ_PROMPT=V21);V2.2(seq_agents_v22.md)=用户/Codex
+  稿+四修订;V2.2.1 = 有机融合(不完美立场开篇/值接近排序/平局=提交
+  集合/✗empty前领域词改写/SLOT自检)。
+- 判决:V21 一一口径 77.1/0.639 > V2.2 69.4 > V2.2.1 72.9(单轮带内);
+  V2.2 的语义读题亮点实证(eb615bab 0→1.0),V21 的护栏句承重。
+- **待做**:V2.2.1 vs V21 均值判决(各3轮,用户方法)未跑。
+
+### 规则系统审判(2026-09-13 三线证据闭环,下一步主政)
+1. **规则审计**(53失败样本全读):87% gold 在证据里,~33 模型推理点名过
+   gold——规则系统是瓶颈。杀手排行:R4绑定冻结 10.25 / R2平局过溢 7.58 /
+   R3 JOIN钉死 5.75 可回吸 f1;前3家族上限 +0.16(0.598→~0.76),超历史
+   最佳差距。净正向规则(保留):SYSTEM JOIN整体/未消费门/STAGE GATE/§7.5。
+2. **裸模型基线**(用户设计,同证据+六条基本规则):oracle 0.589/64.6% vs
+   agent 0.598/72.9%——规则系统净贡献 +0.9pp f1;裸模型在被规则毁掉的
+   6 case 全对(Village of Giants/New Moon/NBA全列/Jesus Christ/Barbados/
+   Saami South);规则救的是纪律面(None回答/表象节点/类型对位)。
+3. **oracle-v2**(answer-now 规则):0.579/66.7%——修单gold判别题、
+   伤多gold列举题;平局全交/最强单交各管一半 case,无单一措辞全赢;
+   None 回潮说明提交纪律必须有。
+- **重构方向(待实施)**:保留纪律骨架(敢提交/表象排除/类型对位/实体名),
+  砍状态钉死类(绑定冻结→证据驱动加宽;JOIN 只钉成员不钉拼写;平局在
+  判别值已显示时按最近值裁)。约 1/4 override 质量在评分侧(strict×
+  answer_type 字面/别名表象)。
+
+### 思考预算
+- 截断影响 25-31/48 case,受影响样本 -8-10pp(相关非因果);
+  THINK_BUDGET 1000→2000:泄漏 46→8 样本,f1 +0.6pp(带内),墙钟+31%。
+  **截断不是分数主驱动**;可取 1500 折中。
+
+### 历史最佳参照
+- walkperf(2026-09-07/08 full_fix#5 栈)一一口径 **80.6/0.707**;
+  差距审计:集中在 ~6 case,11/12 最差损失 gold 可见=检索后失败;
+  主导家族=未解析判别器下的答案集组成(与 R2/R4 同族)。
+  当前栈赢面:宽模式环境让 gold 进视野(Trn-567 等)。
+
+### 2026-09-12~13 完整时间线(全部已提交,细节见下方各节)
+1. 09-12:license×BT0缝隙取证→路径级准入→CVT穿透修复→统一三元组→
+   derive-always→链拆解回三元组→模式路径分段(pattern2 81.9 新高)→
+   pattern3/4分解(压缩无罪)→语义选取(确定性平手+均值判决默认开)→
+   support全面移除→两层渲染落地→子智能体审计+F1-F13修复→F5统一+
+   路径完整性审计→保证通道(WALK_BREAK 27.3→0.6%)
+2. 09-13:支持度上限移除→任意跳深+直连一等+顺延→按关系配额+echo缺失
+   回退(f1 0.647)→一一对应评分→V2.2接入→回退归因→V2.2.1融合→
+   walkperf差距审计→思考预算A/B→规则系统审计→裸模型oracle×2
+- 关键提交:8af278e(评分修复)→b9a2162(一一对应+V2.2)→e25cd2b(V2.2.1)
+  →9e869b5(walkperf审计)→2bc1d73(预算A/B)→9814329(规则审计)
+  →1550474(裸模型)→c59e9d5(oracle-v2)
+
+### 方法学教训(累积)
+- 单轮 48×3 分差 <±3pp 是噪声;裁决顺序=确定性重渲染(rerender/
+  path_integrity 审计)排除证据层差异 → 执行内 case 均值 → 跨执行均值
+- 一一一口径下重算历史 run 再比较;审计工具先验证自身(解析器要处理
+  头合并行/CVT反向槽位/节点对连通)
+- 自写 rollout wrapper 必须 if __name__=="__main__" 守卫(WALK_POOL
+  spawn worker 重导入 __main__ = 递归风暴)
+- 压缩/收窄类改动几乎全部测负:凡砍证据面的"清理"先怀疑;语义/结构
+  排序无罪,扇出计数不进任何排序键
+
+### 待裁决(优先级排)
+1. **规则系统重构实施**(方向已三线闭环,见上)——最大单项杠杆 +0.16
+2. V2.2.1 vs V21 均值判决(各3轮)
+3. 评分侧:answer_type 字面/别名表象的 override 质量(~1/4)
+4. OSPD teacher pool / 分支合并 walk-perf→agent-toolcall
+
+### 运维
+- vLLM :8000(Qwen3.5-9B, TP2)/ GTE :8003(Qwen3-Embedding-0.6B)
+- 标准env: `SPLIT=test_v4 N_CASES=48 N_SAMPLES=3 TEMP=0.3
+  CASE_FILTER=tmp/v21_cohort.txt CASE_BATCH=1000 INFLOW_TARGET=500
+  LLM_MODE=http SEQ_PROMPT=V21 WALK_POOL=3
+  GTE_CLIENT_BATCH_WINDOW=0.08 GTE_CLIENT_BATCH_FIRST=0.02
+  SEQ_RENDER_V38=1 SEQ_LICENSE_FILTER=1 SEQ_GHOST_EDGES=1
+  SEQ_ZH_QUESTION=tmp/zh_questions_48.json SEQ_CVT_STYLE=inline
+  SEQ_MULTISTEP=1 SEQ_BRIDGE_TERMINAL=0`(多步实验族)
+- 跑批 wrapper:tmp/run_realign5_instr.py(OUT 可外覆;已守卫)
+- 审计工具箱(tmp/,可复跑):path_integrity_audit(断链归因到层)/
+  rerender_config_audit(配置确定性对比)/volume_eval(体量)/
+  reach_audit(命中分类)/empty_derive_eval/semantic_pattern_eval/
+  baseline_oracle_test{,2}(裸模型)/dump via scripts/dump_teacher_audit.py
+- dumps: tmp/teacher_audit_dump_{perquotA,v22,v221,tb2k,walkperf-era...}
+  + 各轮 index 文件
+
+## 2026-09-11 SESSION HANDOFF(旧版,部分被上文取代)
 
 ### 当前分支与代码状态
 - **分支**: walk-perf(领先 agent-toolcall ~40 commits)
