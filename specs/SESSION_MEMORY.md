@@ -112,6 +112,36 @@
   同向,现在有了数据级证据。作答侧无可修信息,别在那里找。
 - 工具:tmp/aop_think_read.py(重跑抓 reasoning 的模板)。
 
+### 2026-09-14 深夜二:三问取证(用户追问 CVT/GTE/frontier)
+- **Q1 CVT 自动展开**:机制没坏,是没机会触发——展开条件是"被走到的
+  路径端点(或倒数第二实体)是 CVT";runtime 的值在 gold 的**属性出边**
+  后面(gold --runtime--> CVT m.0h100dp --值--> 分钟),这条边从未被
+  走到(菜单没给),gold 又只是模式行里的命名叶(叶的出边 CVT 不在
+  触发范围)。deflator 值藏 g.xxx 后同理(R8)。→ 叶属性值需要
+  "判别器定向探查"显式带出,靠路径自然经过不会发生。
+- **Q2 GTE 砍单(实测定罪,替 GTE 平反)**:GTE 本身无罪——deflator 在
+  Monaco 池中排**第 1**(0.51 分断层);真凶是 `_rr_execute` 的并集
+  构造:多实体调用按**实体顺序**拼 per-entity top-15,属性优先重排只
+  取 `pool_rel_names[:15]`(=第一个实体的贡献)。生产路径模拟:
+  9 国并集 41 条,deflator 在第 29 位(Monaco 是第 8 个实体)→ 显示前
+  被切;**改成全局按分数 max-merge 后 deflator 回第 1**。
+  附带数据事实:deflator 边只挂在部分国家(Monaco/Andorra),多数
+  frontier 成员的池子里真没有——所以必须靠并集全局视角救。
+- **Q3 frontier(用户关系序列约束提议)**:mid-loop retrieve_relations
+  完全信任模型手打的实体表(runtime 问=18 部电影无 gold;tvrage 问=
+  只有 Twilight)——模型抄的是**渲染出的名单**(每关系配额 3),不是
+  模式实例化全集(gold 在实例化集里,证据中名字可见证明)。用户提议
+  的"用关系序列约束 frontier/验证子图衔接"在代码里已有半套:
+  ?var 单变量调用会触发 pattern-prefix continuation(_sg_prepare),
+  模式实例化集包含 gold;缺的是 retrieve_relations 菜单询问不做
+  实体表→实例化绑定集的自动扩宽。
+- **修法三层(按侵入性排)**:①菜单并集改全局分数 max-merge
+  (小改,模拟已证救回 deflator 类);②实体表扩宽:询问实体命中某
+  模式位置时扩到完整实例化绑定集(救 tvrage/runtime 类——值边只在
+  gold 上,frontier 必须含 gold);③判别器定向探查:问句含值判别
+  需求时,系统侧对全部候选×值型边(日期/时长/id/统计+CVT/g 展开)
+  出"候选×判别值"表(系统性收编 Q1+R8)。
+
 ## 2026-09-14 SESSION HANDOFF(压缩前完整状态,接管 2026-09-11 版)
 
 ### 当前分支与代码状态
