@@ -3807,6 +3807,8 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             # makes a submitted relation feasible, then the deepest.
             _declared = {}
             _seq_echo = ""
+            _cont_compare = False
+            _cont_frontier = {}
             if os.environ.get("SEQ_REL_SEQ", "1") == "1" and rel_idxs:
                 _ast = _anchor_seq_layers(ctx)
                 _root_of = {}
@@ -3830,6 +3832,12 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                     _cands.sort(key=lambda x: (x[0], x[1]), reverse=True)
                     _root_of[_ci] = _cands[0][2]
                 if _root_of:
+                    # collapsing several typed centers into one root drops
+                    # the multi-center COMPARE framing — the frontier members
+                    # are still the comparison subjects, so the contract must
+                    # survive the replacement (1278d3da specimen: 9-country
+                    # roster answered whole after continuation reframed it)
+                    _cont_compare = True
                     _newc, _seen = [], set()
                     for _cn, _ci in centers:
                         _r = _root_of.get(_ci, _ci)
@@ -3847,6 +3855,14 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                     _up, _acts, _comps = _classify_seq_submit(
                         ctx, _ix, _a, _layers, _new)
                     _ast[_a] = _up
+                    _comps2 = _seq_completions(ctx, _ix, _a, _up)
+                    if len(_comps2) > 1 and _comps2[-1]:
+                        # the plain direct step must apply the new relation to
+                        # the FRONTIER (per-member rows, the old per-binding
+                        # compare render) — a root-based plain step walks the
+                        # root's OWN edges (1278d3da: France's 100 co2 edges
+                        # flooded the discriminating rows)
+                        _cont_frontier[_a] = sorted(_comps2[-1])[:12]
                     _pats_d = _patterns_from_layers(
                         ctx, _ix, _a, _up, set(rel_idxs))
                     if _pats_d:
@@ -3888,7 +3904,8 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             "rel_idxs": rel_idxs, "rel_names": rel_names, "fid": fid,
             "entities": entities, "nudge": _nudge, "attr_expansion": _fam_echo,
             "prefix": _prefix, "var_name": _var_name, "multistep": _multistep,
-            "anchor_seq": _seq_echo,
+            "anchor_seq": _seq_echo, "cont_compare": _cont_compare,
+            "cont_frontier": _cont_frontier,
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
@@ -4176,6 +4193,7 @@ async def _sg_execute(treq, ctx, session):
                       or _l1x(_rs) == _l1x(_rn)):
                   _direct_fam.add(_ri)
                   break
+      _fr_of = treq.get("cont_frontier") or {}
       for _cn, _ci in treq["centers"]:
           _pats = _mseq.get(_ci) or {}
           if _pats:
@@ -4186,15 +4204,34 @@ async def _sg_execute(treq, ctx, session):
                   _ms_steps.append((_ci, _seq, treq["fid"]))
                   _n_walk += 1
               _ms_map[_ci] = _n_walk
-              if (0 <= _ci < len(ctx.ents)) and any(
+              # SEQUENCE CONTINUATION: the plain direct step applies the
+              # submitted relation to the tree's FRONTIER members (per-member
+              # rows, the per-binding compare render) — never to the root
+              # (the root's OWN edges on the submitted relation flood the
+              # render: France's 100 co2 edges swamped the 9-country rows)
+              _fr = _fr_of.get(_ci)
+              if _fr:
+                  for _fi in _fr:
+                      if any((((_ix2.head_mask.get(r, 0) >> _fi) & 1)
+                              or ((_ix2.tail_mask.get(r, 0) >> _fi) & 1))
+                             for r in _direct_fam):
+                          _ms_steps.append((_fi, treq["rel_idxs"], treq["fid"]))
+                          _ms_map[_ci] += 1
+              elif (0 <= _ci < len(ctx.ents)) and any(
                       (((_ix2.head_mask.get(r, 0) >> _ci) & 1)
                        or ((_ix2.tail_mask.get(r, 0) >> _ci) & 1))
                       for r in _direct_fam):
                   _ms_steps.append((_ci, treq["rel_idxs"], treq["fid"]))
                   _ms_map[_ci] += 1
           else:
-              _ms_steps.append((_ci, treq["rel_idxs"], treq["fid"]))
-              _ms_map[_ci] = 1
+              _fr = _fr_of.get(_ci)
+              if _fr:
+                  for _fi in _fr:
+                      _ms_steps.append((_fi, treq["rel_idxs"], treq["fid"]))
+                      _ms_map[_ci] = _ms_map.get(_ci, 0) + 1
+              else:
+                  _ms_steps.append((_ci, treq["rel_idxs"], treq["fid"]))
+                  _ms_map[_ci] = 1
       if _ms_steps:
           _steps = _ms_steps
     with phase_timer("walk"):
@@ -5032,6 +5069,10 @@ def _sg_finalize(treq, bres, ctx) -> str:
         "note": ((_nudge + " ") if _nudge else "") +
                 (("Multiple centers retrieved with one shared relation set — COMPARE them via "
                   "the triples (an edge '--to--> (incumbent)' marks the current holder). ") if multi else "") +
+                (("SEQUENCE EXTENSION applied to several frontier members — the new layer's "
+                  "edges are per-candidate: COMPARE them across the candidates (values, dates, "
+                  "ids) and commit the discriminated one(s), never the whole frontier roster. "
+                  "Mid-chain entities are HOPS, not answers. ") if treq.get("cont_compare") else "") +
                  ("triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or "
                   "'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. "
                   "Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound "
