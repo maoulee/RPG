@@ -23,8 +23,15 @@
 - **架构原则(用户表述,入档)**:池=结构可达性;语义=GTE 排名;
   质量/降级=选择-游走-显示时处理。准入过滤只准编码"结构不可能",
   不准编码"质量预测"。
-- 验证序列:poolstub_gmerge 48×3(STUB+MERGE,UNION_RANK=0 状态)
-  运行中;完成后跑 UNION_RANK=1 一轮做单变量归因。
+- 验证序列:poolstub_gmerge 48×3(STUB+MERGE,UNION_RANK=0 状态)完成:
+  **f1 0.6529/hit 75.7%——总分层带内**(基线三 run 均值 0.6513/77.6%,
+  带 0.6390-0.6587/75.7-78.5)。**判别器家族显著正向**(逐 case vs
+  perquotA 基线):deflator 0.20→**0.67**(轨迹实证:菜单出现
+  gdp_deflator_change→模型走它→答"Andorra | Monaco"=恰为有边的
+  两国,gold 在内;值不存在故无法再分,0.67 即数据最优)、tvrage
+  0→0.33、eb615bab 0→0.33、f85999f1 0→0.33、d9206043 0.50→**1.00**;
+  027d777f 0.33→0(翻转 case 采样噪声量级,列入观察)、6d6f2ca8 不变。
+  UNION_RANK=1 一轮运行中(reports/v38_unionrank_48x3.json)。
 
 ## 2026-09-14 晚间:三 run 均值判决 + AOP(固定证据作答规则迭代)
 
