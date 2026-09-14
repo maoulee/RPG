@@ -24,9 +24,14 @@
   tmp/relseq_specimen_test.py 真实 case 两调用标本——runtime/tvrage
   均:追加成层+声明模式(actor.film,判别关系)+echo 生成+gold 在
   透明前沿;pytest 153 绿。
-- 48×3 SEQ_REL_SEQ=1 验证轮运行中(reports/v38_relseq_48x3.json,
-  对照 unionrank 0.6558/76.4%)。审计要点:anchor_sequence 采用率、
-  判别器家族逐 case、总分带内。判决后定门默认。
+- 48×3 SEQ_REL_SEQ=1 验证轮判决(reports/v38_relseq_48x3.json):
+  **f1 0.6571 / hit 79.2%**——hit 超三 run 带顶(75.7-78.5)2.8pp,
+  f1 带顶(unionrank 0.6558);**采用率 12%**(18/144 轨迹见过
+  anchor_sequence echo)——机制生效但模型少用,头部空间在提示语引导。
+  家族:c7fffe30(tvrage)0→**0.67**、eb615bab 0→**0.78** 结构性赢;
+  d9206043/1278d3da 回落(churn 量级)。判决:方向正、单轮、
+  采用受限——**门默认保持 0,站立 env 加 SEQ_REL_SEQ=1 积累样本**,
+  采用率引导(提示语/echo 强化)列为下一步。
 
 ## 2026-09-15 凌晨:并集改"先并后排"(UNION-THEN-RANK)+池过滤审计
 - **用户裁定:并集应先算所有实体的关系,再一次排名;不是每实体排
