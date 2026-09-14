@@ -2,6 +2,32 @@
 
 > **Purpose**: This file survives container resets. It is the operational
 
+## 2026-09-15:关系序列参数 SEQ_REL_SEQ 落地(37a0a93,门默认关)
+- **机制**(用户设计,参数累积语义):权威状态=ctx.anchor_seqs
+  {锚:[L1关系集,L2...]}(运行期 setattr,与 fid_pattern 同惯例);
+  同锚 retrieve_subgraph=追加——提交关系按**最深可行层**归层
+  (两遍式:先按原完成集全判,再落地;同调用的前沿关系共享同一新层),
+  声明层直接构建 multistep patterns(推导降级为兜底),下游
+  语义配额/保证通道/license/V38 渲染零改动复用。
+- **关键实现语义**(调试中确立,易错点):
+  ① 层间接棒必须用**透明命名步进**(id 节点↔名字节点经 object.name
+  桥接——actor.film 原始边落在 m.0gwrkz0,判别边挂在名字节点上,
+  裸转移会判不可行)+ 跨层 visited 防回环;
+  ② **最后一层只查原始边非空**(值型终点是 CVT/悬空节点,
+  命名集为空≠不可行——这正是判别器家族的形状);
+  ③ 同层兄弟一次提交共享新层(中途改 layers 会越界+拆层)。
+- **配套面**:anchor_sequence 回显(层标签+完成数,教模型"锚+新关系"
+  续层);_rr_prepare 前沿池扩展(菜单从序列前沿取池,摆脱检查点绑定);
+  WALK_POOL=0 元组摊平 latent bug 修复;SEQ_AGENTS_V21 加
+  SEQUENCE EXTENSION 条目(§0 格式块未动);schema description 更新。
+- **验证**:tests/test_rel_seq.py 10 用例(分类/层积/裁剪/记忆化);
+  tmp/relseq_specimen_test.py 真实 case 两调用标本——runtime/tvrage
+  均:追加成层+声明模式(actor.film,判别关系)+echo 生成+gold 在
+  透明前沿;pytest 153 绿。
+- 48×3 SEQ_REL_SEQ=1 验证轮运行中(reports/v38_relseq_48x3.json,
+  对照 unionrank 0.6558/76.4%)。审计要点:anchor_sequence 采用率、
+  判别器家族逐 case、总分带内。判决后定门默认。
+
 ## 2026-09-15 凌晨:并集改"先并后排"(UNION-THEN-RANK)+池过滤审计
 - **用户裁定:并集应先算所有实体的关系,再一次排名;不是每实体排
   完再拼**。实施 `SEQ_RR_UNION_RANK=1`(默认,seq_tools _rr_execute):
