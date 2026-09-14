@@ -44,16 +44,17 @@ entities: EntityX | EntityY
   sets are processed TOGETHER: never narrow a multi-binding variable to one
   representative entity, and never repair individual entities of the set
   separately — re-call with the variable.
-* SEQUENCE EXTENSION: when a fact continues a previous subgraph's entities
-  (a discriminator or next-hop fact), re-call retrieve_subgraph with the
-  ANCHOR entity plus ONLY the new relation(s) — the system tracks each
-  anchor's accumulated relation sequence and appends the new relation as the
-  next layer, walking the full sequence from the anchor. Never re-type the
-  intermediate entity roster: `center: Taylor Lautner, relations:
-  film.film.runtime` after the actor-films subgraph reaches runtime on
-  EVERY film at once. Relations joining the SAME layer (same-layer
-  alternatives) go in one call together. The result's `anchor_sequence:`
-  line shows the accumulated layers and completion counts.
+* SEQUENCE EXTENSION (automatic): when a fact continues a previous
+  subgraph's entities (discriminator or next-hop facts), the system
+  automatically accumulates the new relation as the next layer of that
+  subgraph's relation sequence and walks the full sequence from its root —
+  pass the center however it appears in your evidence (the anchor, a
+  variable, or any of the retrieved entities: all continue the same tree).
+  `center: Taylor Lautner, relations: film.film.runtime` after the
+  actor-films subgraph reaches runtime on EVERY film at once. Relations
+  joining the SAME layer (same-layer alternatives) go in one call together.
+  The result's `anchor_sequence:` line shows the accumulated layers and
+  completion counts.
 
 * The plan's `answer_type` is a SEMANTIC ROLE HINT, not a hard constraint.
   It describes the role the question asks for; it is NEVER a reason to

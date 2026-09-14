@@ -56,8 +56,9 @@ class RetrieveSubgraphArgs(BaseModel):
         description="['?variable'] or ['named entity']")
     relations: List[str] = Field(default_factory=list,
         description="selected structural relations from retrieve_relations; "
-                    "on a repeated anchor the system appends them to the "
-                    "anchor's relation sequence (new layer)")
+                    "when the center continues an earlier subgraph's tree "
+                    "the system automatically appends them as the next "
+                    "relation layer and walks from that tree's root")
     sg: Optional[str] = Field(default=None,
         description="subgraph id, e.g. 'sg1'")
 

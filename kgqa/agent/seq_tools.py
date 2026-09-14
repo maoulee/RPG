@@ -2957,7 +2957,7 @@ def _rr_prepare(args: Dict[str, Any], ctx) -> dict:
     # runtime specimen: film.film.runtime is unreachable from Taylor Lautner
     # but first-class from the actor.film completions). One anchor match is
     # enough; the union-then-rank merge folds the extra pool in.
-    if os.environ.get("SEQ_REL_SEQ", "0") == "1":
+    if os.environ.get("SEQ_REL_SEQ", "1") == "1":
         _ast = getattr(ctx, "anchor_seqs", None) or {}
         for ent, i in zip(entities, idxs):
             _layers = _ast.get(i)
@@ -3792,41 +3792,69 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                         _matched.add(_ri)
                         break
             _fam = _matched or set(rel_idxs)
-            # RELATION-SEQUENCE ACCUMULATION (SEQ_REL_SEQ, user design
-            # 2026-09-15): a call centered on an anchor that already has
-            # declared layers APPENDS — the submitted relations are
-            # classified into the deepest feasible layer and the patterns
-            # are built from the DECLARED sequence (derivation skipped:
-            # the model stated the layers, the system only validates
-            # feasibility). First sight of an anchor records its layer 1
-            # and falls through to derivation as before.
+            # RELATION-SEQUENCE ACCUMULATION (SEQ_REL_SEQ, user ruling
+            # 2026-09-15: DEFAULT-ON TREE CONTINUATION): accumulation is a
+            # SYSTEM behavior, not a call form the model opts into. A call
+            # whose centers are MEMBERS of an existing anchor tree — the
+            # root itself, any layer's completions, a typed roster subset,
+            # or a ?var expanding to bindings, all structurally the same —
+            # CONTINUES that tree: submitted relations join the deepest
+            # feasible layer and the walk instantiates the full sequence
+            # from the tree ROOT (typed centers are relation-determination
+            # hints only; roster-vs-instantiation divergence cannot occur).
+            # Centers outside every tree start a new root. Root preference
+            # when several trees contain the center: one whose frontier
+            # makes a submitted relation feasible, then the deepest.
             _declared = {}
             _seq_echo = ""
-            if os.environ.get("SEQ_REL_SEQ", "0") == "1":
+            if os.environ.get("SEQ_REL_SEQ", "1") == "1" and rel_idxs:
                 _ast = _anchor_seq_layers(ctx)
+                _root_of = {}
                 for _cn, _ci in centers:
                     if not (0 <= _ci < len(ctx.ents)):
                         continue
-                    _layers = _ast.get(_ci)
-                    if _layers is None:
-                        if rel_idxs:
-                            _ast[_ci] = [frozenset(rel_idxs)]
+                    _cands = []
+                    for _a, _l in _ast.items():
+                        if _a == _ci:
+                            _cands.append((True, len(_l), _a))
+                            continue
+                        _comps = _seq_completions(ctx, _ix, _a, _l)
+                        if any(_ci in _s for _s in _comps):
+                            _fe = (_feasible_rels_one_hop(ctx, _comps[-1])
+                                   if len(_comps) > 1 else set())
+                            _hit = any(_r in _fe for _r in rel_idxs)
+                            _cands.append((_hit, len(_l), _a))
+                    if not _cands:
+                        _ast[_ci] = [frozenset(rel_idxs)]    # new root
                         continue
+                    _cands.sort(key=lambda x: (x[0], x[1]), reverse=True)
+                    _root_of[_ci] = _cands[0][2]
+                if _root_of:
+                    _newc, _seen = [], set()
+                    for _cn, _ci in centers:
+                        _r = _root_of.get(_ci, _ci)
+                        if _r in _seen:
+                            continue
+                        _seen.add(_r)
+                        _newc.append((str(ctx.ents[_r]), _r))
+                    centers = _newc
+                for _a in sorted(set(_root_of.values())):
+                    _layers = _ast[_a]
                     _have = set().union(*_layers) if _layers else set()
                     _new = [r for r in rel_idxs if r not in _have]
                     if not _new:
                         continue                        # pure repeat → derive path
                     _up, _acts, _comps = _classify_seq_submit(
-                        ctx, _ix, _ci, _layers, _new)
-                    _ast[_ci] = _up
+                        ctx, _ix, _a, _layers, _new)
+                    _ast[_a] = _up
                     _pats_d = _patterns_from_layers(
-                        ctx, _ix, _ci, _up, set(rel_idxs))
+                        ctx, _ix, _a, _up, set(rel_idxs))
                     if _pats_d:
-                        _declared[_ci] = _pats_d
+                        _declared[_a] = _pats_d
                         _short = lambda ri: ".".join(
                             str(ctx.rels[ri]).rsplit(".", 2)[-2:]) \
                             if 0 <= ri < len(ctx.rels) else str(ri)
-                        _parts = [str(ctx.ents[_ci])]
+                        _parts = [str(ctx.ents[_a])]
                         for _li, _lay in enumerate(_up):
                             _lbl = " | ".join(_short(r) for r in sorted(_lay))
                             _cnt = len(_comps[_li + 1]) if _li + 1 < len(_comps) else 0
