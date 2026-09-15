@@ -86,7 +86,13 @@ def render_v38_ack(treq, bres, ctx):
                 if len(relsn) >= 2:
                     rd = {i: hop_dir(relsn[i], key[i], key[i + 1])
                           for i in range(len(relsn))}
+                    # same-relation out-and-back = returns to a VISITED node.
+                    # A CVT bridge legitimately walks one relation r-then-f
+                    # (France←m.adjoins→Spain); killing any same-rel
+                    # direction change severed every CVT-mediated chain
+                    # (1278d3da: the adjoins⭢co2 composite never rendered).
                     if any(relsn[a] == relsn[b] and rd[a] != rd[b]
+                           and key[a] == key[b + 1]
                            for a in range(len(relsn))
                            for b in range(a + 1, len(relsn))):
                         continue

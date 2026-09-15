@@ -20,6 +20,19 @@ def _short_r(rname):
     return ".".join(str(rname).rsplit(".", 2)[-2:])
 
 
+def _collapse_rt(rt):
+    """Consecutive-duplicate collapse: a CVT mid-node repeats the relation
+    across its two edges ((France,m,Belgium) walks (adjoins,adjoins)), so a
+    walked 2-layer chain carries a 3-tuple while its pattern key is the
+    2-tuple. Pattern identity = the DISTINCT relation sequence (user ruling
+    2026-09-15: CVT traversal is an expansion detail, not a pattern hop)."""
+    out = []
+    for r in rt:
+        if not out or out[-1] != r:
+            out.append(r)
+    return tuple(out)
+
+
 def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
                             mid_attr_pairs):
     """Rebuild the pattern-walk's logical paths into the subgraph's triples.
@@ -68,13 +81,15 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
     for _ci, _pats in (treq.get("multistep") or {}).items():
         for _pk in _pats:
             _selected.add(tuple(str(ctx.rels[_r]) for _r in _pk))
+    _selected_c = {_collapse_rt(k) for k in _selected}
     _shown = []
     for rt in sorted(groups, key=_pkey):
-        if rt in _selected:
+        _rtc = _collapse_rt(rt)
+        if rt in _selected or _rtc in _selected_c:
             _shown.append(rt)
             continue
-        if len(rt) == 1 and _short_r(rt[0]) in _sub_sh:
-            _shown.append(rt)      # 1-hop submitted-direct
+        if len(_rtc) == 1 and _short_r(_rtc[0]) in _sub_sh:
+            _shown.append(rt)      # 1-hop submitted-direct (CVT mids collapse)
             continue
         if _env_cap <= 0:
             continue
@@ -107,7 +122,7 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
                 for k, vs in mid_attr_pairs(mid, red):
                     for v in vs:
                         attrs.append((i, (mid, k, v)))
-        patterns.append({"label": " ⭢ ".join(_short_r(r) for r in rt),
+        patterns.append({"label": " ⭢ ".join(_short_r(r) for r in _collapse_rt(rt)),
                          "hops": hops, "attrs": attrs, "n_inst": len(insts)})
 
     # environment: walked edges not on any rendered pattern
