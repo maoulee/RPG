@@ -1,5 +1,28 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-15 十补:GTE 排序根因 = last-2 截断丢失域前缀(b3c44e1 已修)
+- **用户问题**:"嵌入不是跟人类语义对齐了吗,为什么 border→adjoins
+  排 #11?" — 分解实验给了决定性答案:
+  | 标签格式 | adjoins 排名 |
+  |---|---|
+  | last-1 (`adjoins`) | **#1** |
+  | **last-2 (当前,`relationship.adjoins`)** | **#13** ← 问题 |
+  | last-3 (`location adjoining relationship adjoins`) | **#1** |
+  | 全名 | **#1** |
+  | 自然语言化(去点/下划线) | **#1** |
+- **根因**:last-2 恰好切掉 `location.` 域前缀;剩下的
+  `adjoining_relationship.adjoins` 被中介名 `adjoining_relationship`
+  拖偏(它本身不像"边界")。last-1/last-3/全名让 `adjoins` 核心词
+  与 `location` 上下文一起呈现,语义恢复。
+- **GTE 本身无罪**——嵌入对人类语义对齐很好,问题纯粹是候选文本
+  截断了语义信号。
+- **修复**:`_rel_last2` → last-3(`domain.type.attribute`,
+  下划线→空格)。验证:1278d3da 模型现在直接选 adjoins;
+  153 绿。
+- 指令实验附带发现(7 配置对比):QUERY-SIDE-REWRITE(问句改写为
+  "adjacent to or share a border")让 adjoin_s 排 #2——问句侧
+  改写也有提升空间,但修标签格式已解决主问题。
+
 ### 2026-09-15 九补:跨层模式爆炸修复(534d55a)
 - **用户发现**:24353bbc 子图2渲染出 9 个模式段——"第一层 top3 ×
   第二层 top3 = 9"的跨层笛卡尔积爆炸。设计应该是**整体模式路径
