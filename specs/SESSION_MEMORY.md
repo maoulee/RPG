@@ -82,6 +82,29 @@
   的过溢(交 9 国全名单)。这是 AOP/V6 COUNT CONTRACT 线的活,
   不是检索层的。修复版 48×3 验证运行中(v38_relseq_fix2)。
 
+### 2026-09-15 再补:用户 dump 审查揪出三处(311ffe0 已修)+一处开放
+- **harness repeat 门死锁**(用户贴的 [7]→[10]):`_finalize` 的错误
+  检测只认 JSON `'{"error"'`,而 SEQ `_json_result` 渲染平铺
+  `error: ...` 文本——"绑定未声明"错误从不置位 `_last_tool_errored`,
+  模型按提示声明检查点后重调同参 rr 被 REJECTED。已修(检测扩到
+  平铺 error:/entity_error:)。
+- **前沿计算错层**:续接普通步的前沿用了**更新后**层序的终层完成集
+  (=co2 目标/日期值),应为**更新前**末层完成集(9 国)且排除锚
+  自身(adjoins 边会回环到 France)。已修——每绑定一行渲染恢复
+  (1278d3da s1 → 1.00 答 Belgium)。
+- **声明链替换推导是错的**:声明-only 链死在保证通道裸枚举的
+  id/名字节点边界(与 runtime 同款缝隙),渲染管线实证能渲染的是
+  推导链。已改声明∪推导并集(声明优先排序)。
+- **开放问题(下一轮取证入口)**:完成命令的链段
+  (`adjoins ⭢ co2`)对 1278d3da 仍不渲染(并集后也不),而
+  24353bbc 的链(`official_symbols ⭢ location_symbol`)能渲染——
+  差异指向**末跳为值 CVT 的 2-hop 链**在 walk→license→collect
+  某层被丢。这是值终端形态缝隙的又一处(pays/展开/链渲染一脉)。
+  取证路径:对比两 case 的 _sg_execute walk 输出 pe["PG"].paths
+  → _display_license_filter path_mode → collect_pattern_triples kept。
+- fix3/fix4 迷你轮:1278d3da 0.47/0.27(修复面改善但翻转大),
+  24353bbc 0.61/0.67 稳定。
+
 ## 2026-09-15 凌晨:并集改"先并后排"(UNION-THEN-RANK)+池过滤审计
 - **用户裁定:并集应先算所有实体的关系,再一次排名;不是每实体排
   完再拼**。实施 `SEQ_RR_UNION_RANK=1`(默认,seq_tools _rr_execute):
