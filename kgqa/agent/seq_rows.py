@@ -79,7 +79,23 @@ def render_rows(store):
                 L.append(f"    {mid} --{k}--> {shown}{more}")
     if store["env_triples"]:
         L.append("▸ other walked relations (environment):")
-        for h, r, t in store["env_triples"][:_ENV_CAP]:
-            L.append(f"    {h} --{r}--> {t}")
+        # TAIL-MERGE (user ruling 2026-09-15): same head + same relation
+        # folds to ONE row with merged tails (the format the pattern rows
+        # already use) — one-edge-per-line flooded the block and broke the
+        # model's evidence reading (Missouri --official_symbols--> ×6 lines)
+        from collections import defaultdict as _dd
+        _env = _dd(list)
+        for h, r, t in store["env_triples"][:_ENV_CAP * 3]:
+            _env[(h, r)].append(t)
+        _n = 0
+        for (h, r), ts in _env.items():
+            if _n >= _ENV_CAP:
+                break
+            ts_u = sorted(set(ts))
+            shown = " | ".join(ts_u[:_TAIL_CAP])
+            more = (f" …(+{len(ts_u) - _TAIL_CAP})"
+                    if len(ts_u) > _TAIL_CAP else "")
+            L.append(f"    {h} --{r}--> {shown}{more}")
+            _n += 1
     L.append(_NOTE)
     return "\n".join(L)
