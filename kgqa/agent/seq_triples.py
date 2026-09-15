@@ -129,8 +129,14 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
                         ms_emitted.add(x)
                         mids_here.append((x, {a.lower(), b.lower()}))
             hops.append((sh, {h: sorted(ts) for h, ts in tails_of_h.items()}))
+            # SECTION-SCOPED attr exclusion: a key folds into attrs unless
+            # its relation is part of THIS pattern (there it renders as hop
+            # rows). Call-level exclusion severed cross-section disclosures —
+            # the CVT admitted by administrative_division never showed its
+            # date_adopted value next to the owning state (24353bbc).
+            _rt_bare = {str(x).rsplit(".", 1)[-1] for x in rt}
             for mid, red in mids_here:
-                for k, vs in mid_attr_pairs(mid, red):
+                for k, vs in mid_attr_pairs(mid, red, section_bare=_rt_bare):
                     for v in vs:
                         attrs.append((i, (mid, k, v)))
         # label = the ACTUAL walked sequence (doubled relations included —

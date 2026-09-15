@@ -307,9 +307,9 @@ def render_v38_ack(treq, bres, ctx):
     # blanked brackets whenever a CVT's only informative key ranked 6+
     # (Eleanor specimen: institution #7 of 143). Cap applies ONLY to CVTs
     # with more keys than the cap (3% of CVTs).
-    def _mid_attr_pairs(mid, red):
+    def _mid_attr_pairs(mid, red, section_bare=frozenset()):
         kv = defaultdict(set)
-        for a in cvt_graph.get(mid, ()):
+        for a in cvt_graph_all.get(mid, ()):
             if "=" not in a:
                 continue
             k, v = a.split("=", 1)
@@ -319,7 +319,9 @@ def render_v38_ack(treq, bres, ctx):
             kv[k].add(v)
         if not kv:
             return []
-        keys = list(kv)
+        keys = [k for k in kv if k not in section_bare]
+        if not keys:
+            return []
         if len(keys) > _K:
             _ord = {k: i for i, k in enumerate(_kranked_keys or [])}
             keys.sort(key=lambda k: (k not in _submitted_components,
@@ -360,10 +362,19 @@ def render_v38_ack(treq, bres, ctx):
         mids whose attributes a tail-compression summary already carries are
         skipped (no duplicated display after compression)."""
         kv_groups = defaultdict(lambda: defaultdict(set))
+        # SECTION-SCOPED exclusion (user ruling 2026-09-15, 24353bbc
+        # specimen): the sel_bare exclusion used to be CALL-level, so a CVT
+        # admitted by section A (administrative_division) never disclosed a
+        # key because the relation owning it was selected for section B —
+        # Nebraska-m.04st86j-date_adopted is a perfect path but its value
+        # never appeared next to the association row. Exclusion applies only
+        # where the key's relation IS this section (there it renders as rows).
+        _sec_bare = {str(r).rsplit(".", 1)[-1]}
         for mid in sorted(_section_mids.get(r, ())):
             if mid in _mid_done or mid in _attr_emitted:
                 continue
-            pairs = _mid_attr_pairs(mid, _mid_red.get(mid, ()))
+            pairs = _mid_attr_pairs(mid, _mid_red.get(mid, ()),
+                                    section_bare=_sec_bare)
             if not pairs:
                 continue
             _attr_emitted.add(mid)
