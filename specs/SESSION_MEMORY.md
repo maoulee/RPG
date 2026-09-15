@@ -1,5 +1,23 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-15 八补:层操作语义 + 提示语修改 + ≡标记(bdc46fa)
+- **用户裁定**:更新/延长由**中心位置**决定——中心在最后层完成集=
+  往前走 → EXTEND(追加);中心在更早层或根 = 同一步找方向 →
+  UPDATE(替换该层关系集,清除不在新提交中的旧关系)。树链入双信号
+  (实体+plan,保守方向)。实施 `SEQ_LAYER_OPS=1`(默认开):
+  `_center_layer` 追踪中心所在层,据此分 extend / update:k / repeat;
+  `layer_action` 回显让模型首次看到系统做了什么操作。
+- **提示语三处**:§0 SEQUENCE EXTENSION 重写(教 "submit ALL
+  semantically-matching relations together in ONE call" + root=update/
+  frontier=extend 语义);§2.4 追加 "splitting semantic equivalents
+  across calls wastes budget";state_aware_hint 改 "pick ALL structural
+  bridge relations that encode the same semantic fact — submit them
+  TOGETHER"。rr grouped_relations 行内同 domain.type 前缀追加 ≡ 标记。
+- **迷你验证**:24353bbc **0.89**(历史最高,超旧栈 0.79);关系提交
+  分布从 14:4(单:双)改善到 **7:5:1**(多关系提交占多数);
+  layer_action echo 出现(extend×3, update×1)。1278d3da 0.07
+  (答案层 tie 仍主导,证据已齐)。
+
 ### 2026-09-15 七补:链约束落地(603e3a8)+ 三问题修复状态
 - **问题 3 已修**:序列存在时 declared-only(必须穿过已积层,
   满足整个关系链),自由枚举仅首次调用。验证:military_combatant
