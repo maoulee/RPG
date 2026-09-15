@@ -3487,6 +3487,16 @@ def _patterns_from_layers(ctx, ix, anchor_idx, layers, submitted):
             continue
         if _chain_feasible(ctx, ix, anchor_idx, combo):
             out[tuple(combo)] = tuple(frozenset([r]) for r in combo)
+    # TOP-K CHAIN SELECTION (user ruling 2026-09-15, 24353bbc specimen):
+    # the second subgraph's patterns are the OVERALL top-K chains, not the
+    # full layer cross-product — L1(3 rels) × L2(3 rels) = 9 sections was
+    # the explosion the trajectory review caught. Rank: (a) shorter chains
+    # first (fewer intermediates = tighter evidence); (b) deterministic
+    # (rel-idx sorted). K=3 matches the derive path's per-terminal quota.
+    _K_CHAINS = int(os.environ.get("SEQ_CHAIN_TOPK", "3"))
+    if len(out) > _K_CHAINS:
+        _ranked = sorted(out, key=lambda pk: (len(pk), pk))
+        out = {k: out[k] for k in _ranked[:_K_CHAINS]}
     return out
 
 
