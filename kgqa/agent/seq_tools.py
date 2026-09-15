@@ -3148,7 +3148,14 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 shown = members[:_ATTR_GROUP_THRESHOLD]
                 more = (f" …(+{len(members)-_ATTR_GROUP_THRESHOLD})"
                         if len(members) > _ATTR_GROUP_THRESHOLD else "")
-                lines.append(f"{t} ← {', '.join(shown)}{more}")
+                # SEMANTIC-EQUIVALENCE MARKER (user ruling 2026-09-15):
+                # same domain.type prefix + same attribute base = likely
+                # semantic equivalents (adjoins ≡ adjoin_s) — signal "these
+                # belong in ONE submission, not split across calls"
+                _pref = t.rsplit(".", 1)[0]
+                _equiv = [m for m in shown if m.rsplit(".", 1)[0] == _pref]
+                _mark = " ≡" if len(_equiv) > 1 else ""
+                lines.append(f"{t} ← {', '.join(shown)}{more}{_mark}")
                 if len(lines) >= 12:
                     break
             if len(lines) >= 12:
@@ -3809,9 +3816,12 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             _seq_echo = ""
             _cont_compare = False
             _cont_frontier = {}
+            _layer_action = ""
+            _layer_ops = os.environ.get("SEQ_LAYER_OPS", "1") == "1"
             if os.environ.get("SEQ_REL_SEQ", "1") == "1" and rel_idxs:
                 _ast = _anchor_seq_layers(ctx)
                 _root_of = {}
+                _center_layer = {}  # center_idx → layer k it belongs to
                 for _cn, _ci in centers:
                     if not (0 <= _ci < len(ctx.ents)):
                         continue
@@ -3819,13 +3829,17 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                     for _a, _l in _ast.items():
                         if _a == _ci:
                             _cands.append((True, len(_l), _a))
+                            _center_layer[_ci] = 0  # the root itself
                             continue
                         _comps = _seq_completions(ctx, _ix, _a, _l)
-                        if any(_ci in _s for _s in _comps):
-                            _fe = (_feasible_rels_one_hop(ctx, _comps[-1])
-                                   if len(_comps) > 1 else set())
-                            _hit = any(_r in _fe for _r in rel_idxs)
-                            _cands.append((_hit, len(_l), _a))
+                        for _lk, _s in enumerate(_comps):
+                            if _ci in _s:
+                                _center_layer[_ci] = _lk
+                                _fe = (_feasible_rels_one_hop(ctx, _comps[-1])
+                                       if len(_comps) > 1 else set())
+                                _hit = any(_r in _fe for _r in rel_idxs)
+                                _cands.append((_hit, len(_l), _a))
+                                break
                     if not _cands:
                         _ast[_ci] = [frozenset(rel_idxs)]    # new root
                         continue
@@ -3850,18 +3864,52 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                     _layers = _ast[_a]
                     _have = set().union(*_layers) if _layers else set()
                     _new = [r for r in rel_idxs if r not in _have]
+                    if not _new and _layer_ops:
+                        _layer_action = "repeat"
+                        continue
                     if not _new:
                         continue                        # pure repeat → derive path
-                    _up, _acts, _comps = _classify_seq_submit(
-                        ctx, _ix, _a, _layers, _new)
+
+                    # UPDATE vs EXTEND (user ruling 2026-09-15): the center's
+                    # POSITION in the tree determines the intent —
+                    #   center ∈ last layer's completions = model moving
+                    #     FORWARD → EXTEND (deepest-feasible append/join)
+                    #   center ∈ earlier layer (or is the root = layer 0) =
+                    #     model re-working that step → UPDATE: REPLACE the
+                    #     relations of the layer that FOLLOWS the center's
+                    #     layer, dropping old ones not in this submission
+                    _comps = _seq_completions(ctx, _ix, _a, _layers)
+                    _cl = min((_center_layer.get(_ci, len(_comps) - 1)
+                               for _ci in _root_of if _root_of[_ci] == _a),
+                              default=len(_comps) - 1)
+                    _is_extend = (_cl >= len(_comps) - 1)
+
+                    if not _is_extend and _layer_ops:
+                        # UPDATE: replace layer _cl+1's relations
+                        _target = _cl  # layer index to replace (0-based)
+                        _old_layer = set(_layers[_target]) if _target < len(_layers) else set()
+                        _repl = set(rel_idxs)
+                        _layers_up = [set(l) for l in _layers]
+                        if _target < len(_layers_up):
+                            _layers_up[_target] = _repl
+                        else:
+                            _layers_up.append(_repl)
+                        _up = [frozenset(l) for l in _layers_up]
+                        _acts = {r: ("update:%d" % (_target + 1))
+                                 for r in rel_idxs}
+                        _layer_action = "update layer %d (replaced %s)" % (
+                            _target + 1,
+                            ", ".join(str(ctx.rels[r])[-40:]
+                                      for r in (_old_layer - _repl)) or "none")
+                    else:
+                        # EXTEND: existing deepest-feasible classification
+                        _up, _acts, _comps2 = _classify_seq_submit(
+                            ctx, _ix, _a, _layers, _new)
+                        _layer_action = "extend"
                     _ast[_a] = _up
                     # FRONTIER for the plain direct step = the PRE-update
                     # last layer's completions (the members the new relation
-                    # applies to — the 9 bordering countries), NOT the
-                    # updated sequence's terminal completions (the co2
-                    # targets/date-values) — and never the anchor itself
-                    # (adjoin edges loop back to France). Per-member rows =
-                    # the old per-binding compare render.
+                    # applies to), never the anchor itself.
                     if len(_comps) > 1 and _comps[-1]:
                         _fr = sorted(_comps[-1] - {_a})[:12]
                         if _fr:
@@ -3909,7 +3957,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             "entities": entities, "nudge": _nudge, "attr_expansion": _fam_echo,
             "prefix": _prefix, "var_name": _var_name, "multistep": _multistep,
             "anchor_seq": _seq_echo, "cont_compare": _cont_compare,
-            "cont_frontier": _cont_frontier,
+            "cont_frontier": _cont_frontier, "layer_action": _layer_action,
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
@@ -5118,6 +5166,12 @@ def _sg_finalize(treq, bres, ctx) -> str:
         # that a later fact continuing this subgraph just re-calls with the
         # ANCHOR + the new relation (the system appends the layer).
         _res["anchor_sequence"] = treq["anchor_seq"]
+    if treq.get("layer_action"):
+        # LAYER-ACTION ECHO (user ruling 2026-09-15): the model's first
+        # visibility into what the system DID with its submission —
+        # extend (new layer), update:k (replaced layer k's relations), or
+        # repeat (already in layers, pick different relations)
+        _res["layer_action"] = treq["layer_action"]
     if bres.get("pattern_display"):
         # PATTERN-PATH WALK echo (2026-09-10): the call ran as ONE set-state
         # walk over the binding set; this is the ranked pattern list the

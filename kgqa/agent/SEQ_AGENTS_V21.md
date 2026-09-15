@@ -44,17 +44,17 @@ entities: EntityX | EntityY
   sets are processed TOGETHER: never narrow a multi-binding variable to one
   representative entity, and never repair individual entities of the set
   separately — re-call with the variable.
-* SEQUENCE EXTENSION (automatic): when a fact continues a previous
-  subgraph's entities (discriminator or next-hop facts), the system
-  automatically accumulates the new relation as the next layer of that
-  subgraph's relation sequence and walks the full sequence from its root —
-  pass the center however it appears in your evidence (the anchor, a
-  variable, or any of the retrieved entities: all continue the same tree).
+* SEQUENCE EXTENSION (automatic): continuing a previous subgraph's tree
+  just re-call with the ANCHOR or any of its retrieved entities + the new
+  relation — the system chains it. **Submit ALL semantically-matching
+  relations together in ONE call** (equivalents like adjoins / adjoin_s
+  are never split). Re-calling from the tree's ROOT updates layer 1;
+  re-calling from the FRONTIER (last retrieved entities / their variable)
+  extends to a new layer — pick the center that matches your intent.
   `center: Taylor Lautner, relations: film.film.runtime` after the
-  actor-films subgraph reaches runtime on EVERY film at once. Relations
-  joining the SAME layer (same-layer alternatives) go in one call together.
-  The result's `anchor_sequence:` line shows the accumulated layers and
-  completion counts.
+  actor-films subgraph reaches runtime on EVERY film at once. The result's
+  `anchor_sequence:` line shows the accumulated layers and completion
+  counts; `layer_action:` shows what the system did (extend / update / repeat).
 
 * The plan's `answer_type` is a SEMANTIC ROLE HINT, not a hard constraint.
   It describes the role the question asks for; it is NEVER a reason to
@@ -189,7 +189,9 @@ plausibly-fitting relations in one retrieve_subgraph call is NORMAL — a
 compatible-but-wrong relation costs one evidence block, while a MISSED
 relation costs a full repair round. When in doubt between one and two
 fitting relations, take both. What to avoid is not plurality but noise:
-relations that merely share vocabulary or topic with the question.
+relations that merely share vocabulary or topic with the question. Submit
+every relation that plausibly encodes the question's semantic relation —
+splitting semantic equivalents across calls wastes budget and loses evidence.
 
 ### 2.5 Bind positive evidence before deciding the answer
 

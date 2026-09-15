@@ -535,7 +535,8 @@ class SeqReactCase:
         last_tool = self._last_tool_sig[0]
         if last_tool == "retrieve_relations":
             return ("You have candidate_relations from your last retrieve_relations call. "
-                    "NOW pick the structural bridge relation(s) and call retrieve_subgraph. "
+                    "NOW pick ALL structural bridge relations that encode the same semantic "
+                    "fact — submit them TOGETHER in one retrieve_subgraph call. "
                     "Do NOT re-call retrieve_relations.\n")
         if last_tool == "retrieve_subgraph":
             return ("You just retrieved a subgraph. Declare the checkpoint for the fact: "
