@@ -329,7 +329,12 @@ _GTE_POOL_MIN = 8
 
 def _rel_last2(rel_id: str) -> str:
     segs = str(rel_id).split(".")
-    return " ".join(p.replace("_", " ") for p in segs[-2:]) if len(segs) >= 2 else str(rel_id).replace("_", " ")
+    # LAST-3 (user ruling 2026-09-15, GTE decomposition experiment):
+    # last-2 severed the domain prefix — "adjoining_relationship.adjoins"
+    # without "location" ranked #13 for "border"; last-1/last-3/full all
+    # rank #1. The domain prefix carries the semantic context the embedding
+    # needs. Keep last-3 (domain.type.attribute) with underscores→spaces.
+    return " ".join(p.replace("_", " ") for p in segs[-3:]) if len(segs) >= 3 else str(rel_id).replace("_", " ")
 
 
 async def _gte_for_triple(ctx, session, head, rel_clause, tail, pool_relids=None):
