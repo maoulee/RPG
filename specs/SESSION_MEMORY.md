@@ -1,5 +1,26 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-15 六补:用户轨迹审阅三大发现(待修,优先级排)
+- **问题1:单关系提交回潮**。attrfix 轮 14/18 次 retrieve_subgraph
+  只提交 1 个关系(设计是 2-3 个相关关系一起交,V21 §2.4)。诱因:
+    type+value 分组显示后组间无重叠,模型不再"选一组=选多关系"。
+  修向:rr 渲染恢复语义同族分组(如 adjoins/adjoin_s 并组)+
+  组级提交提示;或在 grouped_relations 行内直接给"同义关系集合"。
+- **问题2:GTE 排序回退实证**。"which countries border this country"
+  对 France 池:adjoins 真实排名 **#11**(0.571),top10 全是
+  containedby/contains/basin_countries 等容器类。这不是
+  union-rank 引入的(离线复现原 per-entity 路径同序)——GTE 对
+  "border→adjoins" 的语义匹配本身弱。修向:rr 问句改写提升
+  词汇重叠(把 "border" 映射为 "adjoins/adjoin_s" 语域),或
+  candidate label 中携带完整关系路径提示。
+- **问题3(最核心):跨层约束缺失**。用户:第二子图的实体"不应该
+  只满足第二个 step 的关系,还需要跟前面子图的关系有约束,某些
+  起点实体应该跟前面的子图做重叠"。现状:derive-union(fix:
+  declared∪derived)重新引入了自由枚举——military_combatant→co2
+  等链出现,并非穿过已走的第一层关系。修向:**链枚举以前缀层
+  为约束**——序列存在时,derived patterns 必须以已积层为前缀
+  (derive 的 hop1 限定在 L1 关系集内),自由枚举仅在无序列时。
+
 > **Purpose**: This file survives container resets. It is the operational
 
 ## 2026-09-15:关系序列参数 SEQ_REL_SEQ 落地(37a0a93,门默认关)
