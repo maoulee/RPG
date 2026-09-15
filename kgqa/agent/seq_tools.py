@@ -3882,24 +3882,26 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             for _cn, _ci in centers:
                 if not (0 <= _ci < len(ctx.ents)):
                     continue
-                # DECLARED ∪ DERIVED (user design 2026-09-15, 1278d3da s2):
-                # declared chains take ordering precedence but derivation is
-                # NOT skipped — the guarantee channel's raw enumeration cannot
-                # cross the id-node/name-node boundary, so a declared-only
-                # chain can die unrendered while the derived chains (which the
-                # render pipeline demonstrably carries as ⭢ sections) supply
-                # the completed-command view. Union, dedup by pattern key.
+                # CHAIN-CONSTRAINED (user ruling 2026-09-15, trajectory
+                # review): when a sequence exists the second subgraph is a
+                # RE-WALK of the full chain — patterns must go THROUGH the
+                # accumulated layers, satisfying the entire relation chain.
+                # Free derivation (which produced military_combatant→co2
+                # chains that bypass L1) only applies when NO sequence
+                # exists. The declared-only chains now survive because the
+                # render pipeline fixes (collapse matching, out-and-back
+                # guard with node-return, section-scoped attrs) landed.
                 # DERIVE ALWAYS (user audit 2026-09-12, Belgium/GMT specimen):
                 # the top-K PATTERN PATHS ending in the submitted relation —
-                # 1-hop direct AND 2-hop — both belong in the list.
+                # applies to first-call anchors only.
+                if _ci in _declared:
+                    _multistep[_ci] = _declared[_ci]
+                    continue
                 _sem = os.environ.get("SEQ_PAT_SEMANTIC", "1") == "1"
                 _der = _derive_multistep_seq(
                     _ix, ctx, _ci, _fam, topk=0 if _sem else 3)
-                _merged = dict(_declared.get(_ci) or {})
-                for _k, _v in (_der or {}).items():
-                    _merged.setdefault(_k, _v)
-                if _merged:
-                    _multistep[_ci] = _merged
+                if _der:
+                    _multistep[_ci] = _der
         except Exception:
             _multistep = {}
     return {"kind": "sg", "corr": bad_name, "centers": centers, "skipped": skipped,
