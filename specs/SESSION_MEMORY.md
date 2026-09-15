@@ -9823,3 +9823,10 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   GTE_CLIENT_BATCH_WINDOW=0.08 GTE_CLIENT_BATCH_FIRST=0.02
   BUBBLE_LLM_CONC=256(大批量) SEQ_ZH_QUESTION=tmp/zh_questions_48.json
   SEQ_CVT_ATTR_TOPK=3(0=off) SEQ_JOIN_GATE=1(0=off)
+
+### 2026-09-15 全量 48×3 首战(全修复栈)
+- **f1 0.6967 / hit 79.2%**——历史单轮最高(f1 超 relseq 均值 0.6709
+  达 +2.6pp,超旧栈 +4.5pp);hit 79.2% 超三 run 带顶 78.5。
+- 判别器家族:deflator **1.00**(历史首满)、Saami **1.00**;
+  24353bbc 0.71/027d777f 0.33 持平;1278d3da 0.13(答案层)。
+- 单轮 vs 三 run 均值——需复跑确认。r2/r3 待跑。
