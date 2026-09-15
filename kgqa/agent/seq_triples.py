@@ -82,10 +82,21 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
         for _pk in _pats:
             _selected.add(tuple(str(ctx.rels[_r]) for _r in _pk))
     _selected_c = {_collapse_rt(k) for k in _selected}
+    _selected_terms = ({k[-1] for k in _selected if k} |
+                       {str(r) for r in (treq.get("rel_names") or [])})
     _shown = []
     for rt in sorted(groups, key=_pkey):
         _rtc = _collapse_rt(rt)
-        if rt in _selected or _rtc in _selected_c:
+        # ACTUAL-PATH GROUNDED ADMISSION (user ruling 2026-09-15): the
+        # walked tuple is the ground truth — entity+adjoins alone may not
+        # reach co2 while entity+adjoins+adjoins (CVT in/out) exactly hits
+        # it, and that doubled form is the real pattern, not noise to be
+        # collapsed away into an inconsistency with the declared key. A path
+        # is a SECTION when it completes a submitted relation as its actual
+        # terminal (bounded depth), or matches a declared key exactly /
+        # collapsed. The declared key is intent; the actual path is truth.
+        if (rt in _selected or _rtc in _selected_c
+                or (rt[-1] in _selected_terms and len(rt) <= 4)):
             _shown.append(rt)
             continue
         if len(_rtc) == 1 and _short_r(_rtc[0]) in _sub_sh:
@@ -122,7 +133,10 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
                 for k, vs in mid_attr_pairs(mid, red):
                     for v in vs:
                         attrs.append((i, (mid, k, v)))
-        patterns.append({"label": " ⭢ ".join(_short_r(r) for r in _collapse_rt(rt)),
+        # label = the ACTUAL walked sequence (doubled relations included —
+        # the CVT in/out is part of the real pattern; collapsing the label
+        # while rows show actual hops recreated the pattern/walk mismatch)
+        patterns.append({"label": " ⭢ ".join(_short_r(r) for r in rt),
                          "hops": hops, "attrs": attrs, "n_inst": len(insts)})
 
     # environment: walked edges not on any rendered pattern
