@@ -3937,6 +3937,32 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                             _cnt = len(_comps[_li + 1]) if _li + 1 < len(_comps) else 0
                             _parts.append(f"{_lbl} ({_cnt})")
                         _seq_echo = " ⭢ ".join(_parts)
+            # SEMANTIC IDEMPOTENCE (user ruling 2026-09-15, trajectory
+            # review): the model re-called the same walk with surface-
+            # different args (typed roster → ?country → short rel name →
+            # full rel name) four times, each producing the same evidence.
+            # The repeat gate catches exact-match only. Check the RESOLVED
+            # (root, relation-set) — if already served this rollout, return
+            # the cached result with a note instead of re-walking.
+            _sem_key = tuple(sorted((ci, frozenset(rel_idxs))
+                                    for ci, _n in centers))
+            _served = getattr(ctx, "_sg_served", None)
+            if _served is None:
+                _served = {}
+                ctx._sg_served = _served
+            _hit = _served.get(_sem_key)
+            if _hit and os.environ.get("SEQ_SEM_IDEMPOTENT", "1") == "1":
+                return {"kind": "done", "result": _json_result({
+                    "evidence_repeat": True,
+                    "note": ("This retrieval produces the SAME evidence as your "
+                             "previous call (same walk root + same relations after "
+                             "name resolution). Re-calling with different surface "
+                             "forms (typed entities vs ?variable, short vs full "
+                             "relation name) does not change the result. ACT on the "
+                             "evidence you already have: discriminate the candidates "
+                             "from the values/dates/symbols in the existing subgraph "
+                             "blocks, or pick a DIFFERENT relation / move to the next "
+                             "fact.")})}
             for _cn, _ci in centers:
                 if not (0 <= _ci < len(ctx.ents)):
                     continue
@@ -4742,6 +4768,15 @@ def _sg_finalize(treq, bres, ctx) -> str:
     _nudge = treq["nudge"]
     skipped = treq["skipped"]
     prior_triples = treq["prior"]
+    # SEMANTIC IDEMPOTENCE: mark this (center-set, relation-set) as served
+    # (see the check in _sg_prepare — same resolved walk returns cached note)
+    _sem_key = tuple(sorted((ci, frozenset(treq.get("rel_idxs") or ()))
+                            for _n, ci in (treq.get("centers") or ())))
+    _served = getattr(ctx, "_sg_served", None)
+    if _served is None:
+        _served = {}
+        ctx._sg_served = _served
+    _served[_sem_key] = True
     # per-center walk; accumulate evidence inline, collect PatternEvidence for the
     # cross-center merged display (one block per relation pattern, all roots under it)
     candidates, all_triples = [], []
