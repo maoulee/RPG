@@ -1,101 +1,158 @@
-"""ROW LAYER (user ruling 2026-09-12): rendering is split in two — this
-module ONLY renders ROWS and accepts nothing but the triple store built by
-seq_triples.collect_pattern_triples. It knows nothing about treq/bres/ctx
-or walk internals; the layers never share control flow.
+"""ROW LAYER (user ruling 2026-09-12; entity-block layout 2026-09-15):
+rendering is split in two — this module ONLY renders ROWS and accepts
+nothing but the triple store built by seq_triples.collect_pattern_triples.
 
-Row discipline (accumulated rulings):
-  * every hop of a pattern renders as triples grouped per head with merged
-    tails; many single-tail heads sharing one tail merge head-side (prefix
-    compression);
-  * CVT attribute edges render under the pattern whose hop surfaced the
-    mid (cvt_triples is ordered by surfacing; consumed in order);
-  * the environment block is a capped list of unrendered walked triples —
-    no bare entity names anywhere;
-  * the fixed note explains the notation.
+ENTITY-BLOCK LAYOUT (user ruling 2026-09-15): patterns render as an INDEX
+line at the top; the evidence body groups triples by ENTITY — each
+non-CVT entity gets a block with all its edges (both directions, tail-
+merged) plus the CVT attribute expansions of edges that connect to it.
+No candidate marking: structurally related entities appear together and
+the model reads/compares blocks naturally. Blocks are ordered by
+information density (discriminator-carrying entities first, then
+by degree); the anchor's block serves as the roster/context view.
 """
+from collections import defaultdict
 
 _NOTE = ("note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) "
          "or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. "
          "Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose "
-         "ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver "
-         "| --performance.actor--> Jon Favreau' means 'a performance event where the character "
-         "Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER "
-         "variable bindings — answer and bind with the event's named ATTRIBUTES (actor, "
-         "character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) "
-         "appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph "
-         "shows the FULL evidence its pattern paths justify — an edge may legitimately reappear "
-         "across subgraphs with its complete tail set. Pick the next center FROM these triples.")
+         "ATTRIBUTES are the event's content. Event nodes are NEVER answer candidates and NEVER "
+         "variable bindings — answer and bind with the event's named ATTRIBUTES. "
+         "Discriminator attributes (dates, values, symbols) appear within the owning entity's "
+         "block — compare blocks to pick latest/largest/incumbent. Pick the next center FROM "
+         "these blocks.")
 
 _TAIL_CAP = 40
 _HEAD_CAP = 12
 _VAL_CAP = 8
 _ENV_CAP = 24
 _MULTI_MIN = 3
+_BLOCK_CAP = 16
+
+
+def _cvt(n):
+    s = str(n)
+    return s[:2] in ("m.", "g.") and len(s) > 4
+
+
+def _has_discriminator(edges):
+    """Whether any edge targets a value/date/number/symbol key."""
+    _DISC = ("date", "number", "symbol", "id", "value", "rate", "amount",
+             "year", "time", "kind", "type_of", "name")
+    return any(any(d in str(r).lower() for d in _DISC)
+               for _, r, _ in edges)
 
 
 def render_rows(store):
-    """Format the triple store into the model-facing evidence text."""
-    # SEQUENCE-CONTINUATION HEADER (user ruling 2026-09-15): the walk root is
-    # the tree's ANCHOR, but the new layer applies to the tree's FRONTIER —
-    # both must be visible in the header or a continuation reads as if the
-    # anchor itself were the new relation's subject (France "has" co2)
+    """Format the triple store into the model-facing evidence text:
+    pattern index → entity blocks → note."""
+    # ── header ──
     if store.get("frontier"):
         L = [f"entities: {' | '.join(store['centers'])}  "
              f"(sequence root; this layer applies to the frontier: "
              f"{' | '.join(store['frontier'])})"]
     else:
         L = [f"entities: {' | '.join(store['centers'])}"]
+
+    # ── collect ALL edges from patterns + env into a flat edge list ──
+    all_edges = []          # (h, r, t)
+    cvt_attrs = []          # (mid, key, value) — attributes of CVT nodes
+    pattern_labels = []
     for pat in store["patterns"]:
-        L.append(f"▸ pattern {pat['label']}  ({pat['n_inst']} instantiations)")
-        for hi, (sh, hop) in enumerate(pat["hops"]):
-            heads_of_t = {}
+        pattern_labels.append(pat["label"])
+        for sh, hop in pat["hops"]:
             for h, ts in hop.items():
-                if len(ts) == 1:
-                    heads_of_t.setdefault(ts[0], []).append(h)
-            multi = {t for t, hs in heads_of_t.items()
-                     if len(hs) >= _MULTI_MIN}
-            for h in sorted(hop):
-                ts = hop[h]
-                if len(ts) == 1 and ts[0] in multi:
-                    continue          # rendered in the head-merged row below
-                shown = " | ".join(ts[:_TAIL_CAP])
-                more = f" …(+{len(ts) - _TAIL_CAP})" if len(ts) > _TAIL_CAP else ""
-                L.append(f"    {h} --{sh}--> {shown}{more}")
-            for t in sorted(multi):
-                hs = sorted(heads_of_t[t])
-                shown = " | ".join(hs[:_HEAD_CAP])
-                more = f" …(+{len(hs) - _HEAD_CAP})" if len(hs) > _HEAD_CAP else ""
-                L.append(f"    {shown}{more} --{sh}--> {t}")
-            # CVT attribute triples of mids THIS hop surfaced (pillar
-            # 4a/4b) — values merged per (mid, key) like the direct rows
-            _by_mid_key = {}
-            for _hi, (mid, k, v) in pat.get("attrs", ()):
-                if _hi == hi:
-                    _by_mid_key.setdefault((mid, k), []).append(v)
-            for (mid, k) in sorted(_by_mid_key):
-                vs = sorted(set(_by_mid_key[(mid, k)]))
-                shown = " | ".join(vs[:_VAL_CAP])
-                more = f" …(+{len(vs) - _VAL_CAP})" if len(vs) > _VAL_CAP else ""
-                L.append(f"    {mid} --{k}--> {shown}{more}")
-    if store["env_triples"]:
-        L.append("▸ other walked relations (environment):")
-        # TAIL-MERGE (user ruling 2026-09-15): same head + same relation
-        # folds to ONE row with merged tails (the format the pattern rows
-        # already use) — one-edge-per-line flooded the block and broke the
-        # model's evidence reading (Missouri --official_symbols--> ×6 lines)
-        from collections import defaultdict as _dd
-        _env = _dd(list)
-        for h, r, t in store["env_triples"][:_ENV_CAP * 3]:
-            _env[(h, r)].append(t)
-        _n = 0
-        for (h, r), ts in _env.items():
-            if _n >= _ENV_CAP:
-                break
+                for t in ts:
+                    all_edges.append((h, sh, t))
+        for _hi, (mid, k, v) in pat.get("attrs", ()):
+            cvt_attrs.append((mid, k, v))
+    for h, r, t in store.get("env_triples", ()):
+        all_edges.append((h, r, t))
+
+    # ── pattern index ──
+    if pattern_labels:
+        L.append(f"▸ patterns: {' | '.join(pattern_labels)}")
+
+    # ── build entity blocks ──
+    # entity → list of (h, r, t) edges where it participates
+    # VALUE entities (dates, numbers, bare values) are NOT block owners —
+    # they are discriminating VALUES that belong inside the block of the
+    # entity that carries them via a CVT (user ruling 2026-09-15: no
+    # ── 1997-08:00 ── blocks)
+    _VALUE_HINTS = ("08:00", "utc", "19", "20")
+    def _is_value_entity(n):
+        s = str(n)
+        if _cvt(s):
+            return False
+        return (len(s) <= 12 and any(c.isdigit() for c in s)
+                and not any(c.isalpha() for c in s.replace("-","").replace(":","")))
+
+    ent_edges = defaultdict(list)
+    for h, r, t in all_edges:
+        if not _cvt(h) and not _is_value_entity(h):
+            ent_edges[h].append((h, r, t))
+        if not _cvt(t) and not _is_value_entity(t):
+            ent_edges[t].append((h, r, t))
+    # CVT attributes: assign to the entity that connects to this CVT
+    cvt_owner = {}
+    for h, r, t in all_edges:
+        if _cvt(t):
+            cvt_owner.setdefault(t, h)     # first non-CVT connector
+        elif _cvt(h):
+            cvt_owner.setdefault(h, t)
+    cvt_block = defaultdict(list)
+    for mid, k, v in cvt_attrs:
+        owner = cvt_owner.get(mid)
+        if owner:
+            cvt_block[owner].append((mid, k, v))
+    # value-carrying edges (date/number → value): assign to the CVT's owner
+    # instead of creating a value-entity block
+    for h, r, t in all_edges:
+        if _cvt(h) and _is_value_entity(t):
+            owner = cvt_owner.get(h)
+            if owner and owner in ent_edges:
+                cvt_block[owner].append((h, r, t))
+
+    # ── order blocks: discriminator-carrying first, then by edge count ──
+    centers = set(store.get("centers", []))
+    ordered = sorted(
+        ent_edges,
+        key=lambda e: (
+            0 if e in centers else 1,              # anchor/context first
+            0 if _has_discriminator(ent_edges[e]) else 1,
+            -len(ent_edges[e]),
+            e))
+    # ── render blocks ──
+    _n = 0
+    for ent in ordered:
+        if _n >= _BLOCK_CAP:
+            break
+        edges = ent_edges[ent]
+        if not edges:
+            continue
+        L.append(f"── {ent} ──")
+        # tail-merge: same (h, r) → one row with merged tails
+        by_hr = defaultdict(list)
+        for h, r, t in edges:
+            by_hr[(h, r)].append(t)
+        for (h, r), ts in sorted(by_hr.items()):
             ts_u = sorted(set(ts))
             shown = " | ".join(ts_u[:_TAIL_CAP])
             more = (f" …(+{len(ts_u) - _TAIL_CAP})"
                     if len(ts_u) > _TAIL_CAP else "")
-            L.append(f"    {h} --{r}--> {shown}{more}")
-            _n += 1
+            prefix = "" if h == ent else f"{h} "
+            L.append(f"    {prefix}--{r}--> {shown}{more}")
+        # CVT attribute expansions for CVTs this entity connects to
+        _by_mid_key = defaultdict(list)
+        for mid, k, v in cvt_block.get(ent, ()):
+            _by_mid_key[(mid, k)].append(v)
+        for (mid, k) in sorted(_by_mid_key):
+            vs = sorted(set(_by_mid_key[(mid, k)]))
+            shown = " | ".join(vs[:_VAL_CAP])
+            more = (f" …(+{len(vs) - _VAL_CAP})"
+                    if len(vs) > _VAL_CAP else "")
+            L.append(f"    {mid} --{k}--> {shown}{more}")
+        _n += 1
+
     L.append(_NOTE)
     return "\n".join(L)
