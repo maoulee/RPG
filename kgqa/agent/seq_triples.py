@@ -123,4 +123,7 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
     env_triples = sorted(e for e in _edges if e not in shown_edges)
 
     return {"centers": [str(c) for c, _i in treq["centers"]],
+            "frontier": [str(ctx.ents[i]) for i in (treq.get("cont_frontier") or {}).get(
+                treq["centers"][0][1], []) if 0 <= i < len(ctx.ents)]
+            if treq.get("cont_frontier") else [],
             "patterns": patterns, "env_triples": env_triples}

@@ -4167,6 +4167,13 @@ async def _sg_execute(treq, ctx, session):
             treq["multistep"] = _mseq = _sel
         except Exception:
             pass
+        if os.environ.get("SEQ_DEBUG_CHAIN", "0") == "1":
+            import sys as _sys
+            for _ci, _pats in (treq.get("multistep") or {}).items():
+                _multi = {("->".join(str(ctx.rels[r]) for r in k)): len(k)
+                          for k in _pats if len(k) > 1}
+                print(f"[CHAIN-SEL] center={str(ctx.ents[_ci])[:24]!r} "
+                      f"2hop+={_multi}", file=_sys.stderr, flush=True)
       # PATTERN-LEVEL MULTI-STEP (user design corrected 2026-09-11):
         # each center's top-K patterns become separate multi-step steps;
         # their pe results merge at finalize (same center, same fid).
@@ -4247,6 +4254,13 @@ async def _sg_execute(treq, ctx, session):
             for _pe in pe_list[_idx:_idx + _n]:
                 if isinstance(_pe, dict):
                     _combined.update(_pe)
+            if os.environ.get("SEQ_DEBUG_CHAIN", "0") == "1":
+                import sys as _sys
+                for _k, _v in _combined.items():
+                    _np = len((getattr(_v, "tree_data", None) or {}).get("paths", []) or [])
+                    if _np or len(str(_k)) > 2:
+                        print(f"[CHAIN-WALK] center={str(ctx.ents[_ci])[:20]!r} "
+                              f"pat={_k} paths={_np}", file=_sys.stderr, flush=True)
             _merged.append(_combined if _combined else {})
             _idx += _n
         pe_list = _merged

@@ -102,9 +102,31 @@ def render_v38_ack(treq, bres, ctx):
     if not raw:
         return "(empty)"
 
-    node_seqs = {k[0] for k in raw}
-    kept = {k: v for k, v in raw.items()
-            if not any(k[0][i:] in node_seqs for i in range(1, len(k[0])))}
+    # COMPOSITE-FIRST (user ruling 2026-09-15): a MULTI-RELATION chain path
+    # is the completed walk command — the question-relevant composite. Its
+    # per-member fragments (the frontier plain steps' last-hop paths) are
+    # CONTAINED inside the chain's hop rows and are the redundant copies.
+    # The old suffix-suppression kept the fragment and dropped the chain
+    # (1278d3da: adjoins⭢co2 never rendered because (Belgium,g) rendered
+    # standalone). Inverted: drop a path only when it is a proper contiguous
+    # subsequence of a LONGER path. Perf guard: fall back to the old rule on
+    # path-count blowups.
+    if len(raw) > 400:
+        node_seqs = {k[0] for k in raw}
+        kept = {k: v for k, v in raw.items()
+                if not any(k[0][i:] in node_seqs for i in range(1, len(k[0])))}
+    else:
+        _seqs = [k[0] for k in raw]
+        _seq_set = set(_seqs)
+
+        def _fragment_of(seq):
+            for o in _seq_set:
+                if len(o) > len(seq) and any(
+                        o[i:i + len(seq)] == seq
+                        for i in range(1, len(o) - len(seq) + 1)):
+                    return True
+            return False
+        kept = {k: v for k, v in raw.items() if not _fragment_of(k[0])}
 
     # ── derive EDGES with true storage orientation ──
     # EDGE DISPLAY SHORT NAME (user audit 2026-09-09): last TWO components

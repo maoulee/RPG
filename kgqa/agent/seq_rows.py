@@ -35,7 +35,16 @@ _MULTI_MIN = 3
 
 def render_rows(store):
     """Format the triple store into the model-facing evidence text."""
-    L = [f"entities: {' | '.join(store['centers'])}"]
+    # SEQUENCE-CONTINUATION HEADER (user ruling 2026-09-15): the walk root is
+    # the tree's ANCHOR, but the new layer applies to the tree's FRONTIER —
+    # both must be visible in the header or a continuation reads as if the
+    # anchor itself were the new relation's subject (France "has" co2)
+    if store.get("frontier"):
+        L = [f"entities: {' | '.join(store['centers'])}  "
+             f"(sequence root; this layer applies to the frontier: "
+             f"{' | '.join(store['frontier'])})"]
+    else:
+        L = [f"entities: {' | '.join(store['centers'])}"]
     for pat in store["patterns"]:
         L.append(f"▸ pattern {pat['label']}  ({pat['n_inst']} instantiations)")
         for hi, (sh, hop) in enumerate(pat["hops"]):
