@@ -1776,8 +1776,14 @@ class SeqReactCase:
         parsed_args = prep["args"]
         raw_response = prep["raw"]
         # errored calls are not "served": flag for the repeat detector so the
-        # corrected retry is not rejected as a loop (see _parse_prepare)
-        if result_str[:64].lstrip().startswith('{"error"') or '"error"' in result_str[:80]:
+        # corrected retry is not rejected as a loop (see _parse_prepare).
+        # SEQ's _json_result renders errors as FLAT "error: ..." / "entity_error: ..."
+        # text, not JSON — the old '{"error"' probe never matched, so the
+        # unbound-?var error → checkpoint declaration → corrected re-call hit
+        # the repeat gate and dead-ended (1278d3da s2 specimen)
+        _head = result_str[:120].lstrip()
+        if (_head.startswith('{"error"') or '"error"' in result_str[:80]
+                or _head.startswith("error:") or _head.startswith("entity_error:")):
             self._last_tool_errored = True
         self.messages.append({"role": "user",
                               "content": f"Tool result ({tool_name}): {result_str}"})

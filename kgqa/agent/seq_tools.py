@@ -3855,14 +3855,17 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                     _up, _acts, _comps = _classify_seq_submit(
                         ctx, _ix, _a, _layers, _new)
                     _ast[_a] = _up
-                    _comps2 = _seq_completions(ctx, _ix, _a, _up)
-                    if len(_comps2) > 1 and _comps2[-1]:
-                        # the plain direct step must apply the new relation to
-                        # the FRONTIER (per-member rows, the old per-binding
-                        # compare render) — a root-based plain step walks the
-                        # root's OWN edges (1278d3da: France's 100 co2 edges
-                        # flooded the discriminating rows)
-                        _cont_frontier[_a] = sorted(_comps2[-1])[:12]
+                    # FRONTIER for the plain direct step = the PRE-update
+                    # last layer's completions (the members the new relation
+                    # applies to — the 9 bordering countries), NOT the
+                    # updated sequence's terminal completions (the co2
+                    # targets/date-values) — and never the anchor itself
+                    # (adjoin edges loop back to France). Per-member rows =
+                    # the old per-binding compare render.
+                    if len(_comps) > 1 and _comps[-1]:
+                        _fr = sorted(_comps[-1] - {_a})[:12]
+                        if _fr:
+                            _cont_frontier[_a] = _fr
                     _pats_d = _patterns_from_layers(
                         ctx, _ix, _a, _up, set(rel_idxs))
                     if _pats_d:
@@ -3879,25 +3882,24 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             for _cn, _ci in centers:
                 if not (0 <= _ci < len(ctx.ents)):
                     continue
-                if _ci in _declared:
-                    _multistep[_ci] = _declared[_ci]
-                    continue
+                # DECLARED ∪ DERIVED (user design 2026-09-15, 1278d3da s2):
+                # declared chains take ordering precedence but derivation is
+                # NOT skipped — the guarantee channel's raw enumeration cannot
+                # cross the id-node/name-node boundary, so a declared-only
+                # chain can die unrendered while the derived chains (which the
+                # render pipeline demonstrably carries as ⭢ sections) supply
+                # the completed-command view. Union, dedup by pattern key.
                 # DERIVE ALWAYS (user audit 2026-09-12, Belgium/GMT specimen):
-                # the design evaluates the top-K PATTERN PATHS ending in the
-                # submitted relation — 1-hop direct AND 2-hop (containedby→
-                # time_zones) both in the list, shortest first. The old rule
-                # ("direct support ⇒ skip derivation") collapsed top-K to
-                # top-1: Belgium kept only its direct CET/CEST row while the
-                # answer sat on the 2-hop pattern (Belgium --containedby-->
-                # Europe --time_zones--> GMT), which the beam-limited fallback
-                # walk also lost to the arrondissement fan-out. Direct
-                # evidence still renders — _sg_execute keeps the plain step
-                # alongside the pattern steps for centers with direct edges.
+                # the top-K PATTERN PATHS ending in the submitted relation —
+                # 1-hop direct AND 2-hop — both belong in the list.
                 _sem = os.environ.get("SEQ_PAT_SEMANTIC", "1") == "1"
-                _seq = _derive_multistep_seq(
+                _der = _derive_multistep_seq(
                     _ix, ctx, _ci, _fam, topk=0 if _sem else 3)
-                if _seq:
-                    _multistep[_ci] = _seq
+                _merged = dict(_declared.get(_ci) or {})
+                for _k, _v in (_der or {}).items():
+                    _merged.setdefault(_k, _v)
+                if _merged:
+                    _multistep[_ci] = _merged
         except Exception:
             _multistep = {}
     return {"kind": "sg", "corr": bad_name, "centers": centers, "skipped": skipped,
