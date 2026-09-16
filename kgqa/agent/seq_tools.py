@@ -372,11 +372,12 @@ def _variable_nudge(raw_entities, ctx) -> str:
             continue
         picked = [e for e in literals if e in bound]
         if picked:
-            return (f"⚠ You passed a literal entity ({picked[0]}) but {var} has "
-                    f"{len(bound)} declared candidates {bound[:6]}. You picked one from "
-                    f"several — pass {var} (\"{var}\") instead so the retrieval carries "
-                    f"every candidate. Only use a literal if evidence already narrowed "
-                    f"{var} to one.")
+            return (f"⚠ Passing only '{picked[0]}' narrows the relation pool to just "
+                    f"that entity's edges — {var} has {len(bound)} candidates whose "
+                    f"relations may differ. For full-frontier relation discovery, pass "
+                    f"the variable {var} or ALL relevant entities together. A single "
+                    f"literal is fine when the tree continuation handles it (the system "
+                    f"walks from the root regardless).")
     return ""
 
 
@@ -2867,21 +2868,18 @@ def _do_seq_decompose(args: Dict[str, Any], ctx, session=None) -> str:
         # SEPARATE FIELD (2026-09-01: buried in the note the model ignored
         # it — 1171 V37e specimen, reminder present, plan unchanged)
         result["multi_anchor"] = _ma
-    result["note"] = ("Iterative subgraph retrieval. For EACH OPEN fact in order: call "
-                      "retrieve_relations, pick the structural bridge relation(s), then "
-                      "retrieve_subgraph to get the dense subgraph tree. After each "
+    result["note"] = ("Iterative subgraph retrieval. For EACH OPEN fact: call "
+                      "retrieve_relations to find question-RELEVANT relations (all that "
+                      "match, typically ≤3, max 5 — not just the single best), then "
+                      "retrieve_subgraph with ALL of them together. After each "
                       "retrieve_subgraph, close the fact with ONE of three checkpoints: "
                       "resolve it `[fid ✓] ?var = [v1 | v2 | ...]`; close it EMPTY "
                       "`[fid ✗ empty]` when no candidate relation advances it; close it "
                       "MOOT `[fid ✗ moot]` when earlier evidence already bound its target. "
-                      "The plan is immutable — never re-plan, only close facts. ANSWER as "
-                      "soon as the QUESTION's answer variable is bound, regardless of open "
-                      "facts. For every fact after the first, pass "
-                      "the VARIABLE (`entities: [\"?var\"]`) to BOTH tools — the runtime expands "
-                      "it to all declared bindings; never narrow to one representative. Pick the "
-                      "next center FROM the tree. The system auto-penetrates CVTs — their radiating "
-                      "entities are themselves selectable centers, so never pick attribute relations "
-                      "as bridges. Fact-1 center = the literal named anchor.")
+                      "For later facts continuing a previous subgraph's tree, just pass "
+                      "the ANCHOR or any retrieved entity + the new relation — the system "
+                      "walks the full chain from the root automatically. Fact-1 center = "
+                      "the literal named anchor. The system auto-penetrates CVTs.")
     return _json_result(result)
 
 
@@ -3175,15 +3173,12 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 "entities": treq["entities"], "question": treq["question"],
                 "candidate_relations": _flat,
                 "grouped_relations": _grouped,
-                "note": ("Pick 1-2 TARGET GROUPS (typed names below). Submit "
-                         "the TYPED NAME (e.g. relations: baseball_division.teams "
-                         "| producer.film) — it expands to exactly that group's "
-                         "relations. A BARE attribute (relations: teams) expands "
-                         "to ALL relations with that attribute across types — "
-                         "wider retrieval, use it only when the type is unclear. "
-                         "Full relation names are also accepted. 1-2 groups is "
-                         "the norm; more costs retrieval budget. For any fact "
-                         "after the first, pass the entity variable (?var). "
+                "note": ("Identify ALL question-relevant groups below — typically "
+                         "≤3, max 5. Submit the TYPED NAME (e.g. relations: "
+                         "baseball_division.teams | producer.film) — it expands "
+                         "to that group's relations. ≡ marks semantic equivalents: "
+                         "submit them TOGETHER. A BARE attribute (relations: teams) "
+                         "expands to ALL relations with that attribute across types. "
                          + (_nudge + " " if _nudge else "")),
             })
     # FALLBACK: no attribute ranking (GTE failure) — flat list as before
@@ -3195,22 +3190,14 @@ def _rr_finalize(treq, bres, ctx) -> str:
     # the retrieve_subgraph `relations:` field carries Required ∪ Supporting
     # (hard cap 10). Call-level data: live hard selection captured gold 58%
     # per call; three-way recovers 62% of the missed golds at ×4 set size.
-    _note = ("Classify the candidate relations into three groups for THIS "
-             "fact: Required — without one of them the fact cannot be "
-             "evidenced; Supporting — alternative or complementary encodings "
-             "of the SAME fact (equivalent/inverse/sibling schema, or a CVT "
-             "bridge of it); Irrelevant — unrelated to this fact. Never "
-             "discard a semantically equivalent relation merely because its "
-             "name differs (film.director.film and film.film.directed_by are "
-             "the same fact from two ends). Then call retrieve_subgraph with "
-             "relations: Required ∪ Supporting, AT MOST 10, ordered most "
-             "relevant first. Reject relations that merely share vocabulary "
-             "or topic (question about music ≠ any music.* relation). Do NOT "
-             "pick attribute relations (date/name/type/role) — the system "
-             "reveals those automatically inside CVTs. "
-             "For any fact after the first, pass the entity variable (?var) — intermediate "
-             "facts have multiple candidate entities and the variable carries all of them; "
-             "passing one literal entity means you chose one from several.")
+    _note = ("Identify ALL question-RELEVANT relations for this fact — "
+             "typically ≤3 core relations, max 5. Include every semantically "
+             "equivalent encoding (film.director.film and film.film.directed_by "
+             "are the same fact from two ends) — never discard an equivalent "
+             "merely because its name differs. Reject relations that merely "
+             "share vocabulary or topic. Do NOT pick attribute relations "
+             "(date/name/type/role) — the system reveals those inside CVTs. "
+             "Then call retrieve_subgraph with ALL relevant relations together.")
     if _nudge:
         _note = _nudge + " " + _note
     cand_rel_names = [ctx.rels[i] for i in cands if 0 <= i < len(ctx.rels)]

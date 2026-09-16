@@ -319,11 +319,10 @@ def _allowed_hint(state: SeqAgentState) -> str:
         if state.all_retrieved:
             return (f"`retrieve_relations`/`retrieve_subgraph` (extra probes on seen entities) "
                     f"or `answer`. facts: {todo}")
-        return (f"WORKFLOW ORDER per fact: `retrieve_relations` FIRST (returns candidate "
-                f"relations), THEN `retrieve_subgraph` with the relations you picked. You CANNOT "
-                f"call `retrieve_subgraph` before `retrieve_relations` — it has no relations to "
-                f"walk. Next action: `retrieve_relations` for the next unresolved fact, or "
-                f"`answer`. facts: {todo}")
+        return (f"`retrieve_relations` finds relations for a NEW subgraph; "
+                f"`retrieve_subgraph` continues an existing tree (anchor + relations — "
+                f"the system walks the full chain). Both are valid. "
+                f"facts: {todo}")
     return "(done)"
 
 

@@ -627,8 +627,11 @@ class SeqReactCase:
                 + "\n  (UNRESOLVED ≠ CONTRADICTED: a requirement whose "
                 "fact closed empty gives NO positive support — it does "
                 "not erase candidates supported elsewhere.)"
+                "\n  COUNT CONTRACT: CASE A — any candidate fully supported → "
+                "submit ALL fully-supported; CASE B — none fully supported → "
+                "submit the single best-supported. Never mix full and partial."
                 "\n  Next: emit ANSWER_ANALYSIS (BASE_CANDIDATES / "
-                "REQUIREMENT_CHECK / PROVISIONAL_FINAL / REASON) — do "
+                "REQUIREMENT_CHECK / COUNT_CONTRACT / PROVISIONAL_FINAL) — do "
                 "NOT call answer yet.")
         self.messages.append({"role": "user", "content": _led})
         self.ctx.trajectory.append({"role": "tool", "content": _led[:300]})
@@ -1446,7 +1449,8 @@ class SeqReactCase:
                 self.ctx._analysis_pending = False
                 self.ctx._analysis_done = True
                 self.messages.append({"role": "user", "content":
-                    "ANSWER_READY — submit the final answer now from your analysis "
+                    "ANSWER_READY — submit the final answer now from your analysis. "
+                    "COUNT CONTRACT: CASE A = ALL fully-supported; CASE B = single best. "
                     "(FINAL_BINDINGS, then the answer call). Flat format:\n"
                     "tool: answer\nentities: A | B"})
                 self.ctx.trajectory.append({"role": "tool", "content": "ANSWER_READY signal"})
@@ -1646,8 +1650,9 @@ class SeqReactCase:
                 self.messages.append({"role": "user", "content":
                     "STAGE GATE: evidence is committed but not yet analyzed. "
                     "Emit ANSWER_ANALYSIS now (BASE_CANDIDATES / REQUIREMENT_"
-                    "CHECK / PROVISIONAL_FINAL / REASON) — no answer call. "
-                    "The next turn will be ANSWER_READY."})
+                    "CHECK / COUNT_CONTRACT / PROVISIONAL_FINAL) — no answer call. "
+                    "COUNT CONTRACT: CASE A = all fully-supported; CASE B = single "
+                    "best-supported. The next turn will be ANSWER_READY."})
                 self.ctx.trajectory.append({"role": "tool", "content":
                     "STAGE GATE: ANSWER_ANALYSIS required before answer"})
                 return {"ret": "continue"}
@@ -1843,7 +1848,8 @@ class SeqReactCase:
             self.ctx._analysis_done = True
             self.messages.append({"role": "user", "content":
                 "ANSWER_READY — submit the final answer now from your analysis "
-                "(FINAL_BINDINGS + tool: answer). Do not reinterpret."})
+                "(FINAL_BINDINGS + tool: answer). COUNT CONTRACT: CASE A = ALL "
+                "fully-supported; CASE B = single best-supported. Do not reinterpret."})
             self.ctx.trajectory.append({"role": "tool", "content": "ANSWER_READY signal"})
 
         if self.state.state == "DONE":
