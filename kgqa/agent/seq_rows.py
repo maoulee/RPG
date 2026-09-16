@@ -1,22 +1,21 @@
-"""ROW LAYER — entity-block layout with inline CVT brackets (user ruling
-2026-09-15): patterns render as an index line; evidence groups by entity
-blocks. Within each block:
-  * direct edges: tail-merged (one head, many tails per row)
-  * incoming edges: head-merged (many heads, one tail per row)
-  * CVT connections: INLINE brackets — m.xxx [key: value | key: value]
-  * deduplicated: same edge with short/full relation name shows once
-  * hub entities whose edges are all shown in other blocks: skipped
+"""ROW LAYER — entity-block primary with inline CVT brackets (user ruling
+2026-09-16): entities are the primary grouping unit; pattern paths render
+as an index line only. Within each entity block:
+  * outgoing edges: tail-merged
+  * incoming edges: head-merged (many→one)
+  * CVT connections: INLINE brackets — m.xxx [key: value; key: value]
+  * cross-block dedup: each (h, rel, t) edge appears exactly once
+Two rules (user): ① related attributes together, ② no duplicate rendering.
 """
 from collections import defaultdict
 
 _NOTE = ("note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' "
-         "merges tails; 'h1 | h2 --rel--> t' merges heads. m.xxx [key: value] "
-         "shows a CVT's attributes inline — the owning entity connects to it. "
-         "Compare blocks to discriminate candidates (dates, values, symbols).")
+         "merges tails; m.xxx [key: value] shows a CVT's attributes inline. "
+         "Compare blocks by bracketed values to discriminate candidates.")
 
 _TAIL_CAP = 40
 _HEAD_CAP = 12
-_VAL_CAP = 8
+_VAL_CAP = 6
 _GROUP_CAP = 10
 _MULTI_MIN = 3
 
@@ -46,42 +45,49 @@ def render_rows(store):
     else:
         L = [f"entities: {' | '.join(store['centers'])}"]
 
+    # ── flatten + dedup all edges ──
+    _seen_e = set()
     all_edges = []
-    cvt_attrs = []
     pattern_labels = []
     for pat in store["patterns"]:
         pattern_labels.append(pat["label"])
         for sh, hop in pat["hops"]:
             for h, ts in hop.items():
                 for t in ts:
-                    all_edges.append((h, sh, t))
-        for _hi, (mid, k, v) in pat.get("attrs", ()):
-            cvt_attrs.append((mid, k, v))
+                    k = (str(h), _short_rel(sh), str(t))
+                    if k not in _seen_e:
+                        _seen_e.add(k)
+                        all_edges.append((h, sh, t))
     for h, r, t in store.get("env_triples", ()):
-        all_edges.append((h, r, t))
+        k = (str(h), _short_rel(r), str(t))
+        if k not in _seen_e:
+            _seen_e.add(k)
+            all_edges.append((h, r, t))
 
+    # CVT attrs (deduped)
+    cvt_kv = defaultdict(lambda: defaultdict(set))
+    _seen_a = set()
+    for pat in store["patterns"]:
+        for _hi, (mid, kk, v) in pat.get("attrs", ()):
+            k2 = (mid, _short_rel(kk), v)
+            if k2 not in _seen_a:
+                _seen_a.add(k2)
+                cvt_kv[mid][_short_rel(kk)].add(v)
+
+    # pattern index (one line)
     if pattern_labels:
         L.append(f"▸ patterns: {' | '.join(pattern_labels)}")
 
-    # dedup edges by (h, short_rel, t)
-    _seen = set()
-    deduped = []
-    for h, r, t in all_edges:
-        k = (str(h), _short_rel(r), str(t))
-        if k not in _seen:
-            _seen.add(k)
-            deduped.append((h, r, t))
-    all_edges = deduped
-    _seen_a = set()
-    cvt_d = []
-    for mid, k, v in cvt_attrs:
-        k2 = (mid, _short_rel(k), v)
-        if k2 not in _seen_a:
-            _seen_a.add(k2)
-            cvt_d.append((mid, k, v))
-    cvt_attrs = cvt_d
+    def _tail_str(t):
+        if _cvt(t) and t in cvt_kv and cvt_kv[t]:
+            pairs = []
+            for k in sorted(cvt_kv[t]):
+                vs = sorted(cvt_kv[t][k])
+                pairs.append(f"{k}: {' | '.join(vs[:_VAL_CAP])}")
+            return f"{t} [{'; '.join(pairs)}]"
+        return str(t)
 
-    # CVT owner map
+    # ── CVT owner: which entity connects to each CVT ──
     cvt_owner = {}
     for h, r, t in all_edges:
         if _cvt(t) and not _cvt(h) and not _is_value(h):
@@ -89,6 +95,7 @@ def render_rows(store):
         elif _cvt(h) and not _cvt(t) and not _is_value(t):
             cvt_owner.setdefault(h, t)
 
+    # ── entity classification ──
     centers = set(store.get("centers", []))
     ent_out = defaultdict(list)
     ent_in = defaultdict(list)
@@ -98,43 +105,51 @@ def render_rows(store):
         if not _cvt(t) and not _is_value(t):
             ent_in[t].append((h, r, t))
 
+    # block candidates: anchor + entities with CVT connections or high degree
     cvt_connected = set(cvt_owner.values())
     all_ents = set(ent_out) | set(ent_in)
-    block_ents = sorted(
+    scored = sorted(
         all_ents,
         key=lambda e: (
             0 if e in centers else 1,
             0 if e in cvt_connected else 1,
             -(len(ent_out.get(e, ())) + len(ent_in.get(e, ()))),
-            e))[:_GROUP_CAP]
+            e))
+    block_ents = scored[:_GROUP_CAP]
 
-    shown_edges = set()
+    # ── render blocks with cross-block dedup ──
+    rendered_edges = set()
     for ent in block_ents:
         out_e = ent_out.get(ent, [])
         in_e = ent_in.get(ent, [])
-        if not out_e and not in_e:
-            continue
+        has_new = any((str(h), _short_rel(r), str(t)) not in rendered_edges
+                      for h, r, t in out_e + in_e)
+        if not has_new:
+            continue    # all edges already shown in earlier blocks — skip
         L.append(f"── {ent} ──")
         # outgoing: tail-merge
         by_hr = defaultdict(lambda: [None, []])
         for h, r, t in out_e:
-            k = (h, _short_rel(r))
-            by_hr[k][0] = r
-            by_hr[k][1].append(t)
-            shown_edges.add((str(h), _short_rel(r), str(t)))
+            k = (str(h), _short_rel(r), str(t))
+            if k in rendered_edges:
+                continue
+            rendered_edges.add(k)
+            sk = (h, _short_rel(r))
+            by_hr[sk][0] = r
+            by_hr[sk][1].append(t)
         for (h, _), (r, ts) in sorted(by_hr.items()):
-            ts_u = sorted(set(ts))
-            shown = " | ".join(ts_u[:_TAIL_CAP])
-            more = (f" …(+{len(ts_u) - _TAIL_CAP})" if len(ts_u) > _TAIL_CAP else "")
-            L.append(f"    --{r}--> {shown}{more}")
-        # incoming: skip already-shown, head-merge when many
+            rendered = [_tail_str(t) for t in ts[:_TAIL_CAP]]
+            shown_s = " | ".join(rendered)
+            more = (f" …(+{len(ts) - _TAIL_CAP})" if len(ts) > _TAIL_CAP else "")
+            L.append(f"    --{r}--> {shown_s}{more}")
+        # incoming: skip shown, head-merge many→one
         by_rt = defaultdict(list)
         for h, r, t in in_e:
             k = (str(h), _short_rel(r), str(t))
-            if k in shown_edges:
+            if k in rendered_edges:
                 continue
+            rendered_edges.add(k)
             by_rt[(_short_rel(r), t)].append((h, r))
-            shown_edges.add(k)
         for (_, t), hrs in sorted(by_rt.items()):
             if len(hrs) >= _MULTI_MIN:
                 hs_u = sorted(set(h for h, _ in hrs))
@@ -144,43 +159,20 @@ def render_rows(store):
             else:
                 for h, r in sorted(hrs):
                     L.append(f"    {h} --{r}--> {t}")
-        # CVT inline brackets
-        my_cvts = defaultdict(lambda: defaultdict(set))
-        for mid, owner in cvt_owner.items():
-            if owner == ent:
-                for m2, k, v in cvt_attrs:
-                    if m2 == mid:
-                        my_cvts[mid][_short_rel(k)].add(v)
-        for mid in sorted(my_cvts):
-            pairs = []
-            for k in sorted(my_cvts[mid]):
-                vs = sorted(my_cvts[mid][k])
-                shown_v = " | ".join(vs[:_VAL_CAP])
-                pairs.append(f"{k}: {shown_v}")
-            if pairs:
-                L.append(f"    {mid} [{' | '.join(pairs)}]")
-            else:
-                L.append(f"    {mid}")
 
-    # context tail
-    ctx = []
-    for h, r, t in all_edges:
-        k = (str(h), _short_rel(r), str(t))
-        if k not in shown_edges and not _cvt(h) and not _cvt(t):
-            ctx.append((h, r, t))
+    # context tail: remaining unshown edges
+    ctx = [(h, r, t) for h, r, t in all_edges
+           if (str(h), _short_rel(r), str(t)) not in rendered_edges
+           and not _cvt(h) and not _cvt(t)]
     if ctx:
         _ctx_by = defaultdict(list)
         for h, r, t in ctx[:_GROUP_CAP * 3]:
             _ctx_by[(h, _short_rel(r))].append((r, t))
-        _n = 0
         for (h, _), rts in sorted(_ctx_by.items()):
-            if _n >= 8:
-                break
             r0 = rts[0][0]
             ts_u = sorted(set(t for _, t in rts))
-            shown = " | ".join(ts_u[:_TAIL_CAP])
+            shown = " | ".join(str(t) for t in ts_u[:_TAIL_CAP])
             L.append(f"    {h} --{r0}--> {shown}")
-            _n += 1
 
     L.append(_NOTE)
     return "\n".join(L)
