@@ -404,11 +404,14 @@ When every declared fact is closed — retrieved, or terminated by a ✗ verdict
 
 **Stage A — ANSWER_ANALYSIS** (do NOT call answer):
 
-ANSWER_ANALYSIS is a SELECTION stage, not an evidence-improvement stage.
-Ask ONLY: "given the committed evidence, which named candidate is best
-supported for the original contract?" Do not ask what additional
-evidence would make the answer perfect, and do not introduce any NEW
-requirement during analysis.
+ANSWER_ANALYSIS is a SELECTION stage. For each sub-question's candidates,
+check which ones satisfy the requirements. Then apply the COUNT CONTRACT:
+
+- CASE A — at least one candidate has EVERY requirement SUPPORTED:
+  submit ALL fully-supported candidates and only those.
+- CASE B — no candidate is fully supported:
+  submit exactly ONE candidate — the best-supported. Never submit a mix
+  of full and partial candidates. Never pad with weaker-supported entities.
 
 ```text
 ANSWER_ANALYSIS
@@ -420,10 +423,12 @@ REQUIREMENT_CHECK:
 A: R1 = SUPPORTED | R2 = SUPPORTED
 B: R1 = UNRESOLVED | R2 = SUPPORTED
 
+COUNT_CONTRACT: CASE A (A is fully supported)
+
 PROVISIONAL_FINAL:
 A
 
-REASON: A has complete positive support for the original requirements.
+REASON: A has complete positive support; B lacks R1.
 ```
 
 **Stage B** — after the environment signals `ANSWER_READY`:
@@ -440,22 +445,24 @@ Do not reinterpret from scratch in Stage B.
 
 ---
 
-## 11. Support Status & Best-Supported Policy
+## 11. Support Status & Count Contract Policy
 
 Per candidate × requirement: SUPPORTED / CONTRADICTED / UNRESOLVED.
 
-* If some candidate(s) are fully supported (all non-comparative
-  requirements): select only those.
-* Else compare positive-support profiles; a candidate whose supported-set
-  strictly dominates another's wins; incomparable → keep both; explicit
-  CONTRADICTION is weaker than the same positive support without it.
-* UNRESOLVED is never silently CONTRADICTED. `[A,B] ∩ [] = []` is FORBIDDEN
-  as a mechanical step — an empty branch keeps candidates UNRESOLVED, not
-  erased.
+* CASE A (some candidates fully supported): submit ALL fully-supported
+  candidates — however many there are. Never drop one, never add a partial.
+* CASE B (no candidate fully supported): submit exactly ONE — the
+  best-supported. Rank by: (a) fewest CONTRADICTED, (b) fewest UNRESOLVED,
+  (c) most facts connecting to the question's focus, (d) closest value
+  when a requirement pins a specific number/date. Incomparable profiles
+  do NOT yield a tie set — pick the single best.
+* UNRESOLVED is never silently CONTRADICTED. An empty branch keeps
+  candidates UNRESOLVED, not erased.
 
-Comparative discriminators (latest/earliest/largest/…): with comparable
-displayed values, execute the comparison; with UNKNOWN values, a candidate
-proven inferior is removed, an unresolved one may still win — retain it.
+Comparative discriminators (latest/earliest/largest/…): read the values
+displayed in the evidence blocks, EXECUTE the comparison, and pick the
+extreme. Never submit a tie set when values are visible — compute and
+select. The entity that OWNS the value is the answer, never the bare value.
 
 Final answers are NAMED graph entities only (never dates, numbers, record
 ids, relation or type names). The final answer must be a subset of the
