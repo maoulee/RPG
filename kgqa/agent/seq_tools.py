@@ -304,6 +304,27 @@ def _expand_entities(entities, ctx):
         if e.startswith("?"):
             bound = vb.get(e)
             if not bound:
+                # TREE-COMPLETION EXPANSION (user ruling 2026-09-16): with
+                # SEQ_REL_SEQ the anchor trees already know the frontier —
+                # if any tree's last-layer completions contain named entities,
+                # auto-expand the variable from there instead of erroring
+                # (21 dead-lock turns / 16 cases in the V6 run)
+                if os.environ.get("SEQ_REL_SEQ", "1") == "1":
+                    _ast = getattr(ctx, "anchor_seqs", None) or {}
+                    if _ast:
+                        from kgqa.traversal.pattern_walk import get_pattern_index
+                        _ix = get_pattern_index(ctx)
+                        for _a, _l in sorted(_ast.items()):
+                            _comps = _seq_completions(ctx, _ix, _a, _l)
+                            if len(_comps) > 1 and _comps[-1]:
+                                _named = sorted(str(ctx.ents[_e])
+                                                for _e in _comps[-1]
+                                                if 0 <= _e < len(ctx.ents)
+                                                and not _cvt(ctx.ents[_e]))
+                                if _named:
+                                    vb[e] = _named
+                                    out.extend(_named)
+                                    continue
                 # CVT-CHAIN DEADLOCK EXIT (Norwood specimen, 2026-08-22): the
                 # variable's only declared values were EVENT nodes (stripped by
                 # the §7.5 guard) — re-declaring them can never bind it, and a
@@ -361,7 +382,23 @@ def _variable_nudge(raw_entities, ctx) -> str:
     """If the model passed a LITERAL entity that is one of several bindings of a
     declared ?variable, it picked one representative from a multi-candidate set.
     Nudge it to pass the variable instead so all candidates are carried forward
-    (the 832 pipe-string / pick-one failure). Returns the nudge text, or '' ."""
+    (the 832 pipe-string / pick-one failure). Returns the nudge text, or '' .
+
+    SEQ_REL_SEQ SUPPRESSION (user ruling 2026-09-16): with tree continuation,
+    passing a literal entity that is a tree MEMBER is legitimate — the system
+    auto-detects tree membership and root-replaces (92 false nudges / 33 cases
+    in the V6 run). Only nudge when the entity is NOT in any anchor tree."""
+    if os.environ.get("SEQ_REL_SEQ", "1") == "1":
+        _ast = getattr(ctx, "anchor_seqs", None) or {}
+        if _ast:
+            from kgqa.traversal.pattern_walk import get_pattern_index
+            _ix = get_pattern_index(ctx)
+            for _a, _l in _ast.items():
+                _comps = _seq_completions(ctx, _ix, _a, _l)
+                for _cn, _ce in ((str(e), _e) for e in (raw_entities or [])
+                                 if not str(e).startswith("?")):
+                    if _ce in _comps[0] or any(_ce in _s for _s in _comps):
+                        return ""     # tree member — legal continuation
     vb = getattr(ctx, "var_bindings", {}) or {}
     literals = [str(e) for e in (raw_entities or []) if not str(e).startswith("?")]
     if not literals or not vb:

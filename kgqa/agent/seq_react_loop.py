@@ -1697,6 +1697,16 @@ class SeqReactCase:
             from kgqa.core.utils import normalize as _qn
             _key = _qn(str((parsed_args.get("center") or [""])[0]))[:60]
             _qq = _qn(str(parsed_args.get("question") or ""))
+            # TREE-AWARE PURITY (user ruling 2026-09-16): queries on the
+            # same tree center with DIFFERENT question intent (sequence
+            # extensions — asking about different relations) are NOT loops.
+            # Skip purity counting when any anchor tree exists whose members
+            # include this center — the model is legitimately exploring
+            # different aspects of the same subgraph.
+            if os.environ.get("SEQ_REL_SEQ", "1") == "1":
+                _ast = getattr(self.ctx, "anchor_seqs", None) or {}
+                if _ast and len(_ast) > 0:
+                    pass    # tree exists — still count but with higher threshold
             _hist = getattr(self.ctx, "_qsim_hist", None)
             if _hist is None:
                 _hist = {}; self.ctx._qsim_hist = _hist
@@ -1711,6 +1721,9 @@ class SeqReactCase:
                 jac = inter / len(_tok | t)
                 cont = inter / min(len(_tok), len(t))   # paraphrases keep
                 if jac >= 0.45 or cont >= 0.6:          # content words but
+                    # TREE-AWARE: same-center similar queries are expected
+                    # when trees exist (discriminator/extension) — require
+                    # 5th (not 3rd) occurrence before warning
                     _sims.append(q)                     # swap wh/verbs
             _hist.setdefault(_key, []).append((_qq, _tok))
             # streak: consecutive queries on this center similar to a prior one
@@ -1718,7 +1731,8 @@ class SeqReactCase:
             _n = (_st.get(_key, 0) + 1) if _sims else 1
             _st[_key] = _n
             self.ctx._qsim_streak = _st
-            if _n == 3:
+            _threshold = 5 if (_ast and len(_ast) > 0) else 3
+            if _n == _threshold:
                 self.messages.append({"role": "user", "content":
                     "⚠ BEHAVIOR PATTERN: this is your 3rd similarly-worded query "
                     "for the same center. Re-asking with new wording is the "
@@ -1728,7 +1742,7 @@ class SeqReactCase:
                     "`[fid ✗ unresolved-after-repair]` NOW and move on."})
                 self.ctx.trajectory.append({"role": "tool", "content":
                     "⚠ purity-loop reminder (3rd similar query)"})
-            elif _n >= 4:
+            elif _n >= _threshold + 1:
                 _fid = str(parsed_args.get("sg") or "") or next(
                     (f for f in reversed(self.state.fact_ids)
                      if f not in self.state.retrieved_fids), "")
