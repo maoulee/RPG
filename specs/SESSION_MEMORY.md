@@ -10014,3 +10014,37 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   渲染;★行=该消息命中的 gold 实体+原文行引用(1379-s1 Freemasonry
   在基线 CVT 内联属性里、567_df97 gold 首次建树即交付且 join path
   指给模型仍答错);◆行=φ/p_gain/标注。用户审核后冻结标注集。
+
+### 2026-09-17 游走提速(079e94b 基线 → f8e2bf0):轨迹级等价 + derive 5.3×
+- **用户要求**:保留现有游走逻辑单独 git 版本,不改变现有结果前提
+  下利用关系层提速(稠密图全游走降速问题)。
+- **Profile 结论**(scripts/profile_walk_hotspots.py,gitignored,
+  8 case 半稠密排序):`_derive_multistep_seq` 占游走时间 64%——
+  `_reach`/`_behind`/hop1 主循环都是 O(|rels|) 全关系字典扫描
+  (112 万次 dict.get/8case)。`_seq_completions` 的 memo key=完整
+  层元组,层一变全链重走(结构性浪费,EXTEND 只该算新层)。
+- **优化 1 derive 邻接倒排**(seq_tools.py):hop1/`_behind`/`_reach`
+  改用 `_full_adj(ctx)` 的 per-node 索引(fwd/rev 同一边集),
+  O(|rels|)→O(deg(node))。等价:同边集同名过滤,pattern set+
+  (len,tuple) 排序保证确定性。
+- **优化 2 前缀 memo**(seq_tools.py `_seq_completions`):每算出的
+  层前缀带 visited 快照入 memo;EXTEND 复用全部前层只算新层,
+  UPDATE 复用 L1..k-1 只算后缀。**坑(等价验证逮到)**:断链状态
+  的完全 key 元组等于"层 j 前缀"key 会被当前缀误用——必须校验
+  值长==k+1(断链 out 短)。别名契约:test_memo_returns_same_object
+  锁定 memo 命中返回同一对象——完全 key 存 out 引用不拷贝。
+- **验证三层**:①单元等价 24 case 全字段(build/extend/update/
+  regress/patterns/derive/chain_feasible)零 diff
+  (scripts/verify_walk_equivalence.py,gitignored,git stash 切换
+  对照);②端到端 replay 24 轨迹 DUMP_TRAJ 字节级一致
+  (replay_dispatch.py 加 RESULTS_ORDER=1 + CASE_FILTER=run 的
+  case-id 集——**run 的 case_idx 是 run 时 pool 序,与 pkl 序不同,
+  必须按 RESULTS 出现序重排**;filter 文件从 results 生成而非
+  pkl 前 N);③153 测试绿。
+- **提速数字**:derive 53.4→10.1ms(5.3×),max 184→22ms(8.4×);
+  hub 压测(Walt Disney 度 1180):3 层冷走 0.7ms,EXTEND+L4 前缀
+  复用 0.02ms;UPDATE L1 仍从根重算(语义必然),UPDATE 中层复用
+  L1 前缀。剩余热点=CasePatternIndex/_full_adj 每 case 一次性建
+  图(~16+14ms,多轮摊薄,未追)。
+- replay 保真度注记:vs 录制结果 turns≠11 是 P2/P3 文案/gate 变化
+  的共有影响(两版一致),非游走优化引入。
