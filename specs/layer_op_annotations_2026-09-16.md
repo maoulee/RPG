@@ -154,9 +154,9 @@
 | WebQTrn-25_7cec3 | 2 | 10 | Taylor Lautner | extend | 17 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-25_892ff | 0 | 9 | ? | extend | 3 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-25_892ff | 0 | 16 | ? | repeat | 0 | re | 0.0 | - | no | nohelp-repeat |
-| WebQTrn-25_892ff | 1 | 13 | ? | extend | 3 | first | 1.0 | adv | n/a | helpful |
+| WebQTrn-25_892ff | 1 | 13 | ? | extend | 3 | first | 1.0 | adv | yes | helpful |
 | WebQTrn-2784_3a1 | 0 | 10 | Tupac Shakur | extend | 12 | re | 0.0 | - | no | nohelp-irrelevant |
-| WebQTrn-2784_3a1 | 0 | 19 | ? | repeat | 0 | re | 0.0 | - | n/a | nohelp-repeat |
+| WebQTrn-2784_3a1 | 0 | 19 | ? | repeat | 0 | re | 0.0 | - | no | nohelp-repeat |
 | WebQTrn-2784_3a1 | 1 | 9 | Tupac Shakur | extend | 13 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-2784_3a1 | 2 | 10 | Tupac Shakur | extend | 12 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-452_5b0f | 1 | 13 | ? | update layer 1 (replaced | 1 | re | 0.0 | - | yes | helpful-midchain |
@@ -286,31 +286,3 @@
 | WebQTrn-241_97bfe74d | 1 | 0.00 | False | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-241_97bfe74d | 2 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-452_343ed3d9 | 0 | 1.00 | True | 5 | {'nohelp-repeat': 3, 'helpful': 1, 'nohelp-irrelevant': 1} |
-
-## v4 单通路独立评估 + 展示图基准（2026-09-17，用户裁定实施）
-
-**裁定依据**: §6.14/§6.20（判定基准=实际展示，不用底层全图——φ 改展示图，
-hub-gold 假阳性消除）；§10.8+v10.6（替代对各自有效）；L6319（合取必要性）；
-用户追加（本日）：通路独立判有效的前提是核心路径不同，完全一致的后来者冗余。
-
-**语义**: 通路=锚（树根）。块归属级联：anchor_sequence 根 → "(sequence root"
-行 → **center 成员归属**（调用中心是更早块交付的实体 ⇒ 续接同一树，表面
-center 非新根——567-[11] 伪通路修复）→ 自立新通路。每通路独立判：
-自己的展示边上 锚→gold 连通（图版 p_alone）；核心路径签名=最短链逐跳
-关系集；签名与先行通路一致 ⇒ redundant-followup（防漏——本 run 未出现）。
-
-**结果**: 通路判定 substitute 146 / unreached 30 / redundant 0；113 case
-单通路，30 双通路（15 双替代对、11 一达一未达、4 双未达），1 三通路全未达。
-模块必要性 per-pathway: yes 32 / no 101 / n/a 27；交叉表保持干净
-（yes 32 全在 helpful 族=18 helpful+14 midchain）。
-
-**harmful-break 归零、7 case 转 unreach**: φ 改展示图后原"断链"case 的
-gold 在展示图上从锚不可达（1379 的 Priest 从未在展示边出现）——推进序列
-无法定义。unreach（展示图 gold 不可达）是比全图 φ 假推进更诚实的分型；
-case 级仍可由人工在 dump 中定位第一偏离操作。
-
-**标本**: 567-s0——Ron Howard 通路 unreached（**展示图忠实**：渲染的
-director/producer 系边不含 Ron Howard→Village 的 performance 边，模型
-视角证据里该通路从未到达 gold——answer 选 A Beautiful Mind 的部分原因
-被结构化呈现）；Child prodigy 通路 substitute（[19] 必要，核心路径
-film.subjects→gold）。21-s0 单通路 [5][9] 必要不变。

@@ -331,7 +331,9 @@ def _call_center(rec, idx):
             continue
         cm = re.search(r"^center:\s*(.+)$", m["content"], re.M)
         if cm:
-            return norm(cm.group(1).split(" | ")[0].strip())
+            parts = [x.strip() for x in cm.group(1).split(" | ")]
+            named = [x for x in parts if x[:2] not in ("m.", "g.")]
+            return norm(named[0]) if named else norm(parts[0])
         break
     return None
 
@@ -390,7 +392,11 @@ def mark_necessity(cases, recs_by_key):
                 for b2 in c["blocks"]:
                     if b2["idx"] >= b["idx"] or b2.get("pathway") is None:
                         continue
-                    if center in {norm(e) for e in (b2.get("_ents") or ())}:
+                    b2_ents = {norm(e) for e in (b2.get("_ents") or ())}
+                    for (h, _r, t) in edges_owner[b2["idx"]]:
+                        b2_ents.add(h)
+                        b2_ents.add(t)
+                    if center in b2_ents:
                         pw = b2["pathway"]
                         break
             if pw is None:
@@ -401,6 +407,10 @@ def mark_necessity(cases, recs_by_key):
             p["edges"].extend(edges_owner[b["idx"]])
             p["blocks"].append(b)
             p["ents"].update(norm(e) for e in (b.get("_ents") or ()))
+            # edge ENDPOINTS too (CVT ids never enter _ents but a
+            # continuation call may be centered ON one)
+            p["ents"].update(h for (h, _r, t) in edges_owner[b["idx"]])
+            p["ents"].update(t for (h, _r, t) in edges_owner[b["idx"]])
         # independent reach + signature + redundant-followup dedup
         order = sorted(pathways.items(), key=lambda kv: kv[1]["first_idx"])
         seen_sigs = {}

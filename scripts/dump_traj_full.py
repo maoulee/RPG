@@ -127,7 +127,10 @@ def main():
     out = "specs/layer_op_traj_full_dump_2026-09-17.md"
     pick = ["WebQTest-1379:0", "WebQTest-1379:1", "WebQTest-1797:1",
             "WebQTrn-567_11fd:0", "WebQTrn-567_df97:0", "WebQTrn-2784_b64:2",
-            "WebQTrn-21_:0", "WebQTrn-2209_c13:0"]
+            "WebQTrn-21_:0", "WebQTrn-2209_c13:0",
+            # v4 pathway specimens: dual-substitute / sub+unreach / all-unreach
+            "WebQTrn-2316_b8e:0", "WebQTrn-1731_4ee:0", "WebQTrn-2784_b64:0",
+            "WebQTest-626_01a:0", "WebQTrn-2576_872:0", "WebQTest-1379:1"]
     argv = sys.argv[2:]
     for a in argv:
         if a == "--out":
