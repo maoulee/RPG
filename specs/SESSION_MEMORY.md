@@ -10098,3 +10098,22 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   - 2209-s0: p0=.611→pF=.095 反降(17-gold 串在多候选证据下概率分散);
   - 1379: 双零(unreach 量化)。
 - 坑:json 序列化把 modules 键变 str,读取处 int()。
+
+### 2026-09-17 概率族 v2 对齐既有机制(c2a7558,用户纠正)
+- **纠正**:上一版重写了打分而没用既有机制——有效/无效/冗余历来是
+  **概率判定**,结构只判必要性。v2 全面对齐 seq_advantage/
+  recompute_advantage_v15:①per-entity 打分(gold 逐实体,cap 8
+  deterministic sample,V=log-mean-exp 长度去偏——2209 的 17-gold
+  整串 pF 0.095→per-entity 0.314,整串低估被修正);②**d 必须概率域**
+  (v15: dp=exp(Vseq)−prev;log 域差在微概率下恒>τ,1379 曾因此全
+  effective);③v1.5 级联分档: L1 结构=必要∨台阶(lineage:后续调用
+  中心来自本块证据——1379 各块靠台阶判有效,正确语义);
+  L2 概率 d>τ∨l>τ=有效, d<−τ∧g=0∧f≤τ=有害;
+  L3 新颖性 g∨(N≥0.2∧f>0.005)=有效, N<0.2=redundant_dup,
+  N≥0.2∧f≤0.005=redundant_irr(TAU=0.005/N_THR=0.2/U_THR=0.005)。
+- 信号:d=累积序增量(概率域)/l=pF−p⁻移除伤害/f=p_alone−p0/
+  g=金标首达/N=展示边首现占比/lineage=台阶。
+- dump ◆ 行现为: φ/cov_gain/width/通路/结构必要 + 概率 d/l/f/N/g/
+  台阶⇒概率档。标本:21-[9] d=+.437 l=+.458 f=+.501(核心模块);
+  567-[5] l=−.028(移除反升,噪声);1379 各块 lineage 台阶有效、
+  末块 irr;2209 per-entity 修正后 p0=.042→pF=.314。
