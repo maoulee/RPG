@@ -3381,26 +3381,50 @@ def _trans_named_step(ctx, ix, cur, rels) -> set:
 def _seq_completions(ctx, ix, anchor_idx, layers):
     """[ {anchor}, NAMED completions through L1, ..., through Lk ] — one
     transparent layer step each (see _trans_named_step). Memoized per
-    (anchor, layers); deterministic, so the memo is always valid."""
+    (anchor, layers); deterministic, so the memo is always valid.
+
+    PREFIX REUSE (walk speedup, user request 2026-09-17): completion set k
+    depends only on (anchor, layers[:k]) — an EXTEND (new tail layer) or
+    UPDATE (replace layer j) invalidates only the SUFFIX, but the old
+    whole-tuple key forced a full-chain rewalk on every layer change.
+    Every computed prefix is cached with its cross-layer visited set, so
+    continuation calls walk only the layers they actually changed."""
     memo = getattr(ctx, "anchor_seq_memo", None)
     if memo is None:
         memo = {}
         ctx.anchor_seq_memo = memo
-    key = (anchor_idx, tuple(frozenset(l) for l in layers))
+    lkey = tuple(frozenset(l) for l in layers)
+    key = (anchor_idx, lkey)
     hit = memo.get(key)
     if hit is not None:
-        return hit
-    out = [{anchor_idx}]
-    cur = out[0]
-    visited = set(cur)               # cross-layer: a completion never
-    for lay in layers:               # loops back to an earlier layer's set
-        nxt = _trans_named_step(ctx, ix, cur, lay) - visited
+        return hit[0]
+    # longest cached prefix (values: (out_list, visited_set)). A stored
+    # value must have k+1 entries (anchor + k walked layers) — a CHAINED-OFF
+    # full key (the chain broke at layer j) also matches layer-j prefix
+    # lookups by tuple equality but has FEWER entries; reusing it would
+    # resume walking from the wrong layer (equivalence harness catch).
+    out, visited, k = None, None, 0
+    for k in range(len(layers) - 1, 0, -1):
+        phit = memo.get((anchor_idx, lkey[:k]))
+        if phit is not None and len(phit[0]) == k + 1:
+            out, visited = list(phit[0]), set(phit[1])
+            break
+    if out is None:
+        out, visited = [{anchor_idx}], {anchor_idx}
+        k = 0
+    cur = out[-1]
+    for j in range(k, len(layers)):
+        nxt = _trans_named_step(ctx, ix, cur, layers[j]) - visited
         if not nxt:
             break
         visited |= nxt
         out.append(nxt)
         cur = nxt
-    memo[key] = out
+        # out has m entries ⇔ layers[:m-1] walked — cache that prefix
+        memo[(anchor_idx, lkey[:len(out) - 1])] = (list(out), set(visited))
+    # the full key shares the OUT OBJECT itself (aliasing contract:
+    # repeat calls return the same object — test_memo_returns_same_object)
+    memo[key] = (out, visited)
     return out
 
 
@@ -4035,7 +4059,20 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
     caller submits each as a separate step."""
     from kgqa.traversal.cvt import is_cvt_like as _icl
     from collections import defaultdict
+    from kgqa.agent.tools import _full_adj
     n = len(ctx.ents)
+    # PER-NODE INVERTED ADJACENCY (walk speedup, user request 2026-09-17):
+    # the O(|rels|) full-relation scans below (hop1/_behind/_reach each
+    # enumerated every relation dict per node) dominated the walk profile —
+    # 64% of walk time on dense cases. _full_adj is the same edge set as
+    # (fwd, rev) indexed by node, so the scans become O(deg(node)).
+    # Equivalence: same edges, same named-filter; pattern SETS and the
+    # final (len, tuple) ranking make ordering deterministic.
+    _adj_all = _full_adj(ctx)
+
+    def _named(i):
+        return 0 <= i < n and not _icl(str(ctx.ents[i]))
+
     # local adjacency (center's 1-hop only, with CVT transparency)
     hop1 = defaultdict(set)          # rel_idx -> {named entity idxs reached}
     # CVT transparency: a CVT 1-hop neighbor contributes ALL its named
@@ -4050,27 +4087,19 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
         out = _behind_memo.get(cvt_idx)
         if out is None:
             out = set()
-            for r2 in range(len(ctx.rels)):
-                for x in ix.fwd[r2].get(cvt_idx, ()):
-                    if 0 <= x < n and not _icl(str(ctx.ents[x])):
-                        out.add(x)
-                for x in ix.rev[r2].get(cvt_idx, ()):
-                    if 0 <= x < n and not _icl(str(ctx.ents[x])):
-                        out.add(x)
+            if 0 <= cvt_idx < n:
+                for _r2, o in _adj_all[cvt_idx]:
+                    if _named(o):
+                        out.add(o)
             _behind_memo[cvt_idx] = out
         return out
 
-    for r in range(len(ctx.rels)):
-        for t2 in ix.fwd[r].get(ci, ()):
+    if 0 <= ci < n:
+        for r, t2 in _adj_all[ci]:
             if 0 <= t2 < n and _icl(str(ctx.ents[t2])):
                 hop1[r].update(x for x in _behind(t2) if x != ci)
             elif 0 <= t2 < n:
                 hop1[r].add(t2)
-        for h2 in ix.rev[r].get(ci, ()):
-            if 0 <= h2 < n and _icl(str(ctx.ents[h2])):
-                hop1[r].update(x for x in _behind(h2) if x != ci)
-            elif 0 <= h2 < n:
-                hop1[r].add(h2)
     if not hop1:
         return None
     # PATTERN ENUMERATION, ANY HOP DEPTH 1..3 (user ruling 2026-09-13):
@@ -4090,17 +4119,16 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
                 or ((ix.tail_mask.get(f, 0) >> ci) & 1)):
             patterns.add((f,))
 
-    # named-reach helper for one more hop from a node set
+    # named-reach helper for one more hop from a node set (per-node inverted
+    # adjacency — same O(deg) rewrite as hop1/_behind above)
     def _reach(nodes):
         out = defaultdict(set)          # rel -> {named idx}
         for x in nodes:
-            for r in range(len(ctx.rels)):
-                for t2 in ix.fwd[r].get(x, ()):
-                    if 0 <= t2 < n and not _icl(str(ctx.ents[t2])):
-                        out[r].add(t2)
-                for h2 in ix.rev[r].get(x, ()):
-                    if 0 <= h2 < n and not _icl(str(ctx.ents[h2])):
-                        out[r].add(h2)
+            if not (0 <= x < n):
+                continue
+            for r2, o in _adj_all[x]:
+                if _named(o):
+                    out[r2].add(o)
         return out
 
     def _fam_incident(node):

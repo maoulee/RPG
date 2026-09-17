@@ -241,3 +241,5 @@ scripts/dump_all_classes.py
 scripts/classifier_v2.py
 scripts/v2_dump.py
 .zcode/
+scripts/profile_walk_hotspots.py
+scripts/verify_walk_equivalence.py
