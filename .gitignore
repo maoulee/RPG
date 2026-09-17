@@ -109,6 +109,10 @@ scripts/build_offline_dataset.py
 scripts/build_qa_mismatch_dump.py
 scripts/count_cwq_hops.py
 scripts/diag_walk_vs_select.py
+scripts/diag_action_efficiency.py
+scripts/annotate_layer_ops.py
+scripts/dump_layer_op_review.py
+scripts/dump_traj_full.py
 scripts/dump_teacher_audit.py
 scripts/extract_bad_cases.py
 scripts/dump_failure_phase_cases.py

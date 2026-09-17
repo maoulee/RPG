@@ -1546,7 +1546,35 @@ def render_evidence_sections(paths, centers, var_label, all_triples, selected_re
                     entries.append((g, None, [], list(ts)))
         n_shown_inst = 0
         rendered = 0
-        for rep, vpos, vents, tails in entries:
+        # FRONTIER MEMBER CAP (user audit 2026-09-17, 567_df97 specimen: a
+        # story_by layer instantiated 8 films' writer blocks — structurally
+        # unnecessary bulk). K>0 caps the DISTINCT prefix members RENDERED
+        # per multi-hop shape; 0 (default) keeps the full render. Display-
+        # only: the _mark_hop/_cover_cvt loop still runs for every entry,
+        # so licensing and CVT coverage are unchanged.
+        _fk = int(os.environ.get("SEQ_FRONTIER_RENDER_K", "0") or 0)
+        _fk_hidden = 0
+        for _ei, (rep, vpos, vents, tails) in enumerate(entries):
+            if _fk and _ei >= _fk:
+                _fk_hidden += 1
+                tails = _center_first(tails)
+                if vpos is not None:
+                    vents = _center_first(vents)
+                prefixes = ([tuple(x if i == vpos else p for i, p in enumerate(rep))
+                             for x in vents] if vpos is not None else [rep])
+                for pfx in prefixes:
+                    for k in range(len(hops) - 1):
+                        rf, rev = hops[k]
+                        _mark_hop(pfx[k], rf, pfx[k + 1], rev)
+                    lrf, lrev = hops[-1]
+                    for t in tails:
+                        _mark_hop(pfx[-1], lrf, t, lrev)
+                        if _is_cvt_key(t):
+                            _cover_cvt(t, covered)
+                    for m in pfx[1:]:
+                        if _is_cvt_key(m):
+                            _cover_cvt(m, covered)
+                continue
             if rendered >= lines_per_shape:
                 break
             tails = _center_first(tails)
@@ -1588,6 +1616,11 @@ def render_evidence_sections(paths, centers, var_label, all_triples, selected_re
                 for m in pfx[1:]:
                     if _is_cvt_key(m):
                         _cover_cvt(m, covered)
+        if _fk_hidden:
+            block_lines.append(
+                f"  …(+{_fk_hidden} members follow the same relation — not shown; "
+                f"discriminate from the shown ones or retrieve their edges "
+                f"explicitly)")
         rest = len(instances) - n_shown_inst
         if rendered < len(entries) and (rest > 0 or ent.get("overflow")):
             suffix = "+" if ent.get("overflow") else ""
@@ -2873,13 +2906,18 @@ def _do_seq_decompose(args: Dict[str, Any], ctx, session=None) -> str:
                       "match, typically ≤3, max 5 — not just the single best), then "
                       "retrieve_subgraph with ALL of them together. After each "
                       "retrieve_subgraph, close the fact with ONE of three checkpoints: "
-                      "resolve it `[fid ✓] ?var = [v1 | v2 | ...]`; close it EMPTY "
+                      "resolve it `[fid ✓] ?var = [v1 | v2, ...]`; close it EMPTY "
                       "`[fid ✗ empty]` when no candidate relation advances it; close it "
                       "MOOT `[fid ✗ moot]` when earlier evidence already bound its target. "
-                      "For later facts continuing a previous subgraph's tree, just pass "
-                      "the ANCHOR or any retrieved entity + the new relation — the system "
-                      "walks the full chain from the root automatically. Fact-1 center = "
-                      "the literal named anchor. The system auto-penetrates CVTs.")
+                      "MULTI-TREE (question names SEVERAL entities): each declared "
+                      "entity anchors its OWN subgraph tree — walk them separately and "
+                      "let the system JOIN them (an entity reachable from both sides "
+                      "intersects the candidate sets); do NOT fold later requirements "
+                      "into one tree as filter layers. For later facts continuing the "
+                      "SAME tree, just pass the ANCHOR or any retrieved entity + the "
+                      "new relation — the system walks the full chain from the root "
+                      "automatically. Fact-1 center = the literal named anchor. "
+                      "The system auto-penetrates CVTs.")
     return _json_result(result)
 
 

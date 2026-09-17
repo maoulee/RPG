@@ -877,10 +877,16 @@ class SeqReactCase:
         including the gold). Structure-only, from the case arrays."""
         try:
             from collections import defaultdict
+            from kgqa.traversal.path_utils import _is_noisy_path_relation as _noisy
             ents, rels = self.ctx.ents, self.ctx.rels
             unc = {str(u).strip() for u in unconsumed}
             if not unc:
                 return ""
+            # NOISE-FILTERED relations (user audit 2026-09-17, WebQTrn-21:
+            # degree-desc ranking put topic/webpage noise FIRST). Same
+            # filter class as the prelink hint pool / retrieval pool.
+            def _rel_ok(ri):
+                return 0 <= ri < len(rels) and not _noisy(str(rels[ri]))
             mid_attrs = defaultdict(list)      # mid -> [(short_rel, value)]
             # unc -> rel -> attr_key -> vals (per-entity: labels must not mix)
             rel_keys = {u: defaultdict(lambda: defaultdict(list)) for u in unc}
@@ -895,6 +901,8 @@ class SeqReactCase:
                 elif tc and not hc:
                     mid_attrs[tn].append((rn, hn))
             for h, r, t in zip(self.ctx.h_ids, self.ctx.r_ids, self.ctx.t_ids):
+                if not _rel_ok(r):
+                    continue
                 hn = str(ents[h]) if 0 <= h < len(ents) else str(h)
                 tn = str(ents[t]) if 0 <= t < len(ents) else str(t)
                 rn = (str(rels[r]).rsplit(".", 1)[-1]
@@ -939,16 +947,19 @@ class SeqReactCase:
         self.messages.append({"role": "user", "content": note})
         self.ctx.trajectory.append({"role": "tool", "content": note})
 
-    def _anchors_disconnected(self) -> bool:
+    def _anchors_disconnected(self, exclude=()) -> bool:
         """CONNECTIVITY ≠ CONSUMPTION (user audit 2026-09-09): a multi-center
         retrieve_subgraph consumes EVERY center, so the consumption latch can
         no longer detect the unclosed case — both sides consumed, yet no
         walked path links them. BFS the ACCUMULATED walk graph between the
         plan's anchor names; any anchor unreachable from the first → the
-        join gate still owes its one-time check."""
+        join gate still owes its one-time check. `exclude` drops type-word
+        entities (never retrieved by design) from the anchor set."""
         from collections import defaultdict, deque
         from kgqa.core.utils import normalize as _nz
-        pe = [str(e).strip() for e in (getattr(self.ctx, "plan_entities", None) or [])]
+        _ex = {str(e).strip().lower() for e in exclude}
+        pe = [str(e).strip() for e in (getattr(self.ctx, "plan_entities", None) or [])
+              if str(e).strip().lower() not in _ex]
         at = getattr(self.ctx, "accumulated_triples", None) or set()
         if len(pe) < 2:
             return False
@@ -971,6 +982,27 @@ class SeqReactCase:
                     q.append(nxt)
         return any(_nz(e) not in seen for e in pe[1:])
 
+    def _type_word_exempt(self, name):
+        """A plan entity whose EVERY graph edge rides a noisy relation
+        (type./common./webpage/topic…) is a TYPE WORD ('Prime minister',
+        'Continent'), not a retrievable subject — exempting it from the
+        unconsumed set stops the gate from demanding a retrieval that has
+        no meaningful form (WebQTrn-21 specimen: answer already committed,
+        gate still burned a round on webpage edges)."""
+        try:
+            from kgqa.traversal.path_utils import _is_noisy_path_relation as _noisy
+            ents = self.ctx.ents
+            n = str(name).strip()
+            for h, r, t in zip(self.ctx.h_ids, self.ctx.r_ids, self.ctx.t_ids):
+                for i in (h, t):
+                    if 0 <= i < len(ents) and str(ents[i]) == n:
+                        if 0 <= r < len(self.ctx.rels) \
+                                and not _noisy(self.ctx.rels[r]):
+                            return False    # has at least one structural edge
+            return True                     # only noisy edges → type word
+        except Exception:
+            return False
+
     def _ma_gate_would_fire(self, parsed_args):
         """SYNC trigger test for the multi-anchor consumption gate (the
         latch lives here so the deferred async run cannot double-fire)."""
@@ -980,10 +1012,12 @@ class SeqReactCase:
         _pe = getattr(self.ctx, "plan_entities", None) or []
         _cons = {str(c).strip().lower()
                  for c in (getattr(self.ctx, "consumed_anchors", None) or set())}
-        _unc = [e for e in _pe if str(e).strip().lower() not in _cons]
+        _tw = [e for e in _pe if self._type_word_exempt(e)]
+        _unc = [e for e in _pe if str(e).strip().lower() not in _cons
+                and e not in _tw]
         if len(_pe) < 2:
             return False
-        if not _unc and not self._anchors_disconnected():
+        if not _unc and not self._anchors_disconnected(exclude=_tw):
             # all consumed AND the accumulated walk graph already links the
             # anchors — consumption closed AND connectivity closed
             return False
@@ -1334,6 +1368,29 @@ class SeqReactCase:
         # merge any checkpoint variable-bindings the model just declared, so the
         # dispatch below (and later turns) can expand `?var` in tool `entities`.
         _update_var_bindings(self.ctx, raw_response)
+        # MULTI-TREE PROMPT (user audit 2026-09-17, 567_df97 specimen): the
+        # first fact resolved is the moment to check the OTHER declared
+        # entities — if one anchors no tree yet, prompt NOW, not at the
+        # answer gate (by then a 49-member single tree has absorbed several
+        # wasted filter layers; the join side never got its own cheap walk).
+        if not getattr(self.ctx, "_multi_tree_prompted", False):
+            _fb = getattr(self.ctx, "fact_bindings", None) or {}
+            _pe = [str(e) for e in (getattr(self.ctx, "plan_entities", None) or [])]
+            _cons = {str(c).strip().lower() for c in
+                     (getattr(self.ctx, "consumed_anchors", None) or set())}
+            _unanchored = [e for e in _pe
+                           if e.strip().lower() not in _cons
+                           and not self._type_word_exempt(e)]
+            if _fb and len(_pe) >= 2 and _unanchored:
+                self.ctx._multi_tree_prompted = True
+                _mt = ("MULTI-TREE REMINDER: declared entity "
+                       + " | ".join(f"'{e}'" for e in _unanchored[:2])
+                       + " anchors no tree yet. Anchor it as its OWN subgraph"
+                       " (retrieve_relations FROM it), then let SYSTEM JOIN"
+                       " intersect the two sides — anchored retrieval"
+                       " discriminates better than filter layers on one"
+                       " tree.")
+                self._emit_tool_note(_mt)
         # COMMIT-WIDENING: normalize this turn's closures (✗) and accepted
         # declarations (✓) into the state's done-sets — READY and completion
         # counting live in the harness, which sees state only. Pure `sgN`
@@ -1657,19 +1714,6 @@ class SeqReactCase:
                     "STAGE GATE: ANSWER_ANALYSIS required before answer"})
                 return {"ret": "continue"}
 
-        # MULTI-ANCHOR CONSUMPTION GATE (V3.7g, 2026-09-01, restored
-        # 2026-09-07): intercept the answer ONE round when declared plan
-        # entities never anchored a retrieval — MUST run before seq_validate
-        # transitions the state to DONE: intercepting after the transition
-        # leaves state=DONE with done unset, and every later call dies as
-        # "REJECTED: Conversation finished" until the round budget burns out
-        # (24-zombie family in the 2026-09-07 full-fix run).
-        if tool_name == "answer" and _ans_entities \
-                and self._ma_gate_would_fire(parsed_args):
-            # deferred: the gate's join search is GTE-ranked (async) — the
-            # caller runs it BEFORE anything else; state never transitions
-            return {"ret": "continue", "_gate_deferred": (tool_name, parsed_args)}
-
         _ready, _missing = False, None
         if tool_name == "answer":
             _cf = getattr(self.ctx, "closed_facts", None) or {}
@@ -1683,6 +1727,23 @@ class SeqReactCase:
                 _ready = True
             if not _ready:
                 _missing = blocking_facts(self.state, _cf, _fb2, _vj2)
+
+        # MULTI-ANCHOR CONSUMPTION GATE (V3.7g, 2026-09-01, restored
+        # 2026-09-07): intercept the answer ONE round when declared plan
+        # entities never anchored a retrieval — MUST run before seq_validate
+        # transitions the state to DONE: intercepting after the transition
+        # leaves state=DONE with done unset, and every later call dies as
+        # "REJECTED: Conversation finished" until the round budget burns out
+        # (24-zombie family in the 2026-09-07 full-fix run).
+        # READY-EXEMPT (user audit 2026-09-17, WebQTrn-21 specimen): when
+        # every fact is closed and the answer is due, an unconsumed type
+        # word has no retrieval form anyway — the gate only burned a round
+        # between EVIDENCE COMMIT and the accepted answer. Skip it on READY.
+        if tool_name == "answer" and _ans_entities and not _ready \
+                and self._ma_gate_would_fire(parsed_args):
+            # deferred: the gate's join search is GTE-ranked (async) — the
+            # caller runs it BEFORE anything else; state never transitions
+            return {"ret": "continue", "_gate_deferred": (tool_name, parsed_args)}
         ok, err, new_state = seq_validate(
             self.state, _to_tool_calls(tool_name, parsed_args),
             ready=_ready, missing_facts=_missing)

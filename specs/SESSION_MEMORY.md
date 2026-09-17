@@ -9941,3 +9941,76 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **改动**: T8 树续接教学 + T1 关系池宽度措辞 + H3 去除顺序强制 +
   T13/T14 ≤3max5 + R4/R27/R31 CASE A/B 复述
 - literal-nudge 仍 177 次(新措辞保留了功能——关系池从全前沿算)
+
+### 2026-09-16 行为效率审计:v06_aligned 轨迹 92% 动作不撞墙
+- 工具:`scripts/diag_action_efficiency.py`(gitignored 一次性诊断;
+  按动作→响应组归账:ok-data/ok-empty/nudged/rejected/crash/protocol)。
+- **总量**:144 轨迹 × 1133 动作(≈7.9/轨迹)。有效(返回数据)817=72%;
+  接受+纠偏提示 193=17%;**硬拒绝(报错需重试)仅 86=7.6%**;
+  协议回执(EVIDENCE COMMIT-only 轮)37。
+- **70% 轨迹(101/144)零硬拒绝**;按拒绝数分桶 f1 单调下降:
+  0次=0.765 → 1次=0.712 → 2次=0.571 → 4+次=0.200。摩擦高度集中
+  在少数 case(5-7 个 case 吃掉 4+ 拒绝)。
+- **拒绝构成(86 次)**:答案阶段占 41%(Second refusal 18 + NONE
+  ladder 5 + STAGE GATE 5 + premature 3 + var-mismatch 2 + event
+  nodes 1)——最重的两个 case(WebQTest-1379、WebQTrn-2784)答案
+  连续被拒 6-9 轮终至 f1=0,是拒绝梯死循环不是证据缺失;实体解析
+  链 13 次(Lala/LaLa Anthony ×11+Stephanie Meyer,集中在 1-2 case);
+  变量绑定错误 ~10(?work/?movie NEVER bind 等);plan EXTEND 4;
+  repeat gate 2。
+- **3 次崩溃级 bug**(非模型错,代码错):`dispatch_retrieve_subgraph:
+  'dict' object has no attribute 'append'` ×2 + `_seq_echo`
+  UnboundLocalError ×1(后者源码 seq_tools.py:4716 注释处已知坑)。
+  待修。
+- **literal-nudge 177 次基本无害**:数据照常返回(树续接下根替换
+  使单字面量也走全链);f1 按"拒绝+nudge"分桶反而非单调(bucket2
+  0.859)——nudge 是提示噪音不是回合浪费。降频属锦上添花。
+
+### 2026-09-16 层操作标注 v2(信息模块语义)+ 断链点:69/26/5
+- **语义裁定(用户)**:标注对象=信息模块对回答问题的帮助,非操作
+  形式(extend/update/repeat 只是设计侧分类)。有效=gold 覆盖增量
+  p_gain>0 或被命中 answer 引用或距离势推进;无效=重复(width=0,
+  与是否标记 repeat 无关)或无关(零推进零引用);有害=仅未命中 case
+  的**断链点**(与有效路径第一分歧,此后再无推进)。训练侧 token 级
+  优化不需要标注分奖励——标注纯为结构判定设计服务。
+- **实现**:`scripts/annotate_layer_ops.py`(gitignored)+ 图参照
+  Tier2:gold 反向 BFS 距离势 φ,op 推进=新实体降 min-φ;断链=
+  最后一次推进后的第一个非推进 op。case 图解码:ctx.ents=
+  text_entity_list+non_text_entity_list,h/t id 直接索引
+  (loop.py:142-146),锚/gold 按名定位(q_entity_id_list 引用的
+  全实体表 pkl 里没有,勿用)。
+- **结果(v06_aligned 160 op)**:有效 111(69%)/无效 41(26%,
+  重复 9+无关 32)/有害 8(5%)。Σp_gain=92.95。
+- **断链 8 个**:WebQTest-1379×3(注意:第 1 个 op 其实朝 gold
+  推进——Freemasonry 在锚→gold 链上,断链在第 2 op,是"中途弃线"
+  非"全程错")、WebQTest-1797×3、WebQTrn-452-s1、WebQTrn-567_11fd-s0。
+- **未命中但无断链 15 个**(1923/2576/2784-s2/567 等):全程推进,
+  多数 p_gain=1.0(gold 全覆盖)——**败在答案层不在游走层**,结构
+  判定优化不以它们为目标,修复杠杆在 CASE A/B 收束/绑定/拒绝梯。
+- **repeat 脱节归位**:25 个 repeat 仅 9 个真重复(width=0),
+  1 个因推进升级有效(2784-s2)。
+- 文档:specs/layer_op_annotations_2026-09-16.md(全量 160 op 表+
+  断链清单+审核点)。待用户对齐冻结后作为阶段 2(游走结果幂等)
+  与阶段 3(gold-reach)的验证 ground truth。
+- **v2.1 基线口径修正(同日)**:首次建树 sg(无层操作 echo)的交付
+  计入信息基线——层操作只按净增量评三档。修正后:
+  **有效 24(15%)/无效 130(81%,重复30+无关100)/有害断链 6(4%)**;
+  层操作净 gold 覆盖 Σp_gain=19.38(gold 覆盖绝大部分由首次建树
+  完成——层操作边际价值低是树架构下最重要的标注发现)。
+  23 miss 分型:**游走断链 7 / 答案层失败 16**(gold 已交付仍答错,
+  杠杆在答案侧)。
+- **人工审核 dump**:specs/layer_op_review_dump_2026-09-16.md
+  (scripts/dump_layer_op_review.py,gitignored)——逐轨迹 MODEL 行
+  (调用参数)+↳ 行(环境返回)+◆ 行(φ before→after/p_gain/标注),
+  非层 sg 交付也显示(基线块)。标本 567_df97-s0:gold 首次建树
+  即交付(φ→0)、unconsumed gate 甚至把 join path"Child prodigy
+  →Village of the Giants"指给模型,答案层仍选 A Beautiful Mind
+  ——answer-stage 失败的教科书案例。
+- **hub-gold 近似**:Priest 等 profession 型 gold 节点 1-2 跳邻域
+  覆盖大半人物实体,φ 推进假阳性——审 dump 时以 p_gain 为准。
+- **完整轨迹审核 dump(2026-09-17,用户要求逐动作原文)**:
+  `specs/layer_op_traj_full_dump_2026-09-17.md`(3.5k 行/326KB,
+  scripts/dump_traj_full.py,gitignored)——8 条轨迹每消息原文完整
+  渲染;★行=该消息命中的 gold 实体+原文行引用(1379-s1 Freemasonry
+  在基线 CVT 内联属性里、567_df97 gold 首次建树即交付且 join path
+  指给模型仍答错);◆行=φ/p_gain/标注。用户审核后冻结标注集。
