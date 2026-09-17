@@ -243,3 +243,4 @@ scripts/v2_dump.py
 .zcode/
 scripts/profile_walk_hotspots.py
 scripts/verify_walk_equivalence.py
+scripts/score_layer_op_probs.py
