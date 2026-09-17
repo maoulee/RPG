@@ -86,7 +86,7 @@ entities: Franz Liszt
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.organization_membership.member': {'direct': ['organization.organization_membership.member'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
-◆[5] 基线块(首次建树,不参与三档): φ ∞→∞ (未推进)  gold=无  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=-0.0000
+◆[5] 基线块(首次建树): φ ∞→∞ (未推进)  gold=无  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0000 l(移除伤害)=-0.0000 f(独立)=-0.0000 N=1.0 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -152,7 +152,7 @@ note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_founder.organizations_founded': {'direct': ['organization.organization_founder.organizations_founded'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'people.person.employment_history': {'direct': ['people.person.employment_history'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
 layer_action: extend
-◆[9] 层操作标注: φ ∞→∞ (未推进)  cov_gain=0.0  width=1 used=0  gold=-  标注=nohelp-irrelevant  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=+0.0000
+◆[9] 层操作: φ ∞→∞ (未推进)  cov_gain=0.0  width=1 used=0  gold=-  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0000 l(移除伤害)=+0.0000 f(独立)=-0.0000 N=0.611 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [10] ASSISTANT                                                 ──────
 
@@ -225,7 +225,7 @@ note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'people.person.religion': {'direct': ['people.person.religion'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_founder.organizations_founded': {'direct': ['organization.organization_founder.organizations_founded'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
 layer_action: extend
-◆[13] 层操作标注: φ ∞→∞ (未推进)  cov_gain=0.0  width=10 used=0  gold=-  标注=nohelp-irrelevant  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=+0.0000
+◆[13] 层操作: φ ∞→∞ (未推进)  cov_gain=0.0  width=10 used=0  gold=-  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 d=+0.0000 l(移除伤害)=+0.0000 f(独立)=-0.0000 N=0.517 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [14] ASSISTANT                                                 ──────
 
@@ -288,7 +288,7 @@ note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'people.profession.people_with_this_profession': {'direct': ['people.profession.people_with_this_profession'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
 layer_action: extend
-◆[18] 层操作标注: φ ∞→∞ (未推进)  cov_gain=0.0  width=10 used=0  gold=-  标注=nohelp-irrelevant  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=+0.0000
+◆[18] 层操作: φ ∞→∞ (未推进)  cov_gain=0.0  width=10 used=0  gold=-  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 d=+0.0000 l(移除伤害)=+0.0000 f(独立)=-0.0000 N=0.478 g=- 台阶=no ⇒ 概率档=redundant_irr
 
 ────── [19] ASSISTANT                                                 ──────
 
@@ -564,7 +564,7 @@ entities: Franz Liszt
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization_founder.organizations_founded': {'direct': ['organization.organization_founder.organizations_founded'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
-◆[5] 基线块(首次建树,不参与三档): φ ∞→∞ (未推进)  gold=无  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=-0.0000
+◆[5] 基线块(首次建树): φ ∞→∞ (未推进)  gold=无  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0000 l(移除伤害)=-0.0000 f(独立)=-0.0000 N=1.0 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -622,7 +622,7 @@ entities: Freemasonry | Franz Liszt Academy of Music, Budapest
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that entity's edges — ?org has 2 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?org or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'business.employment_tenure.company': {'direct': ['business.employment_tenure.company'], 'bridge': ['education.educational_institution_campus.educational_institution']}}
-◆[9] 基线块(首次建树,不参与三档): φ ∞→∞ (未推进)  gold=无  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=-0.0000
+◆[9] 基线块(首次建树): φ ∞→∞ (未推进)  gold=无  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0000 l(移除伤害)=-0.0000 f(独立)=-0.0000 N=0.6 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [10] ASSISTANT                                                 ──────
 
@@ -686,7 +686,7 @@ note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that enti
 relation_expansion: {'organization.organization_membership.member': {'direct': ['organization.organization_membership.member'], 'bridge': ['business.employment_tenure.company', 'organization.organization.founders', 'organization.organization_membership.organization']}, 'business.employment_tenure.company': {'direct': ['business.employment_tenure.company'], 'bridge': ['education.educational_institution_campus.educational_institution']}, 'business.employer.employees': {'direct': ['business.employer.employees'], 'bridge': ['education.educational_institution_campus.educational_institution']}}
 anchor_sequence: Freemasonry ⭢ employer.employees | employment_tenure.company | membership_organization.members | organization_membership.member | organization_membership.organization (1)
 layer_action: update layer 1 (replaced none)
-◆[13] 层操作标注: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  标注=nohelp-repeat  通路=freemasonry/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=+0.0000
+◆[13] 层操作: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  通路=freemasonry/unreached  结构必要=n/a(gold未连通)  概率 d=+0.0000 l(移除伤害)=+0.0000 f(独立)=-0.0000 N=0.143 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [14] ASSISTANT                                                 ──────
 
@@ -752,7 +752,7 @@ entities: Freemasonry | Franz Liszt Academy of Music, Budapest  (sequence root; 
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that entity's edges — ?org has 2 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?org or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 layer_action: update layer 1 (replaced business.employer.employees, business.employment_tenure.company, nization.membership_organization.members, anization.organization_membership.member, ion.organization_membership.organization)
-◆[17] 层操作标注: φ ∞→∞ (未推进)  cov_gain=0.0  width=4 used=0  gold=-  标注=nohelp-irrelevant  通路=freemasonry fran/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=+0.0000
+◆[17] 层操作: φ ∞→∞ (未推进)  cov_gain=0.0  width=4 used=0  gold=-  通路=freemasonry fran/unreached  结构必要=n/a(gold未连通)  概率 d=+0.0000 l(移除伤害)=+0.0000 f(独立)=-0.0000 N=0.72 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [18] ASSISTANT                                                 ──────
 
@@ -815,7 +815,7 @@ note: Multiple centers retrieved with one shared relation set — COMPARE them v
 relation_expansion: {'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['business.employment_tenure.company', 'organization.organization.founders', 'organization.organization_membership.organization']}, 'organization.organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['business.employment_tenure.company', 'education.educational_institution_campus.educational_institution', 'organization.organization_membership.organization']}}
 anchor_sequence: Freemasonry ⭢ organization.organization_type | organization_membership.organization | organization_sector.organizations_in_this_sector | organization_type.organizations_of_this_type | religion.is_part_of (0)
 layer_action: extend
-◆[21] 层操作标注: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  标注=nohelp-repeat  通路=freemasonry/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=-0.0000
+◆[21] 层操作: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  通路=freemasonry/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0000 l(移除伤害)=-0.0000 f(独立)=-0.0000 N=0.0 g=- 台阶=no ⇒ 概率档=redundant_dup
 
 ────── [22] ASSISTANT                                                 ──────
 
@@ -921,7 +921,7 @@ note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_founder.organizations_founded': {'direct': ['organization.organization_founder.organizations_founded'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_membership.member': {'direct': ['organization.organization_membership.member'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
 layer_action: extend
-◆[29] 层操作标注: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  标注=nohelp-repeat  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=+0.0000
+◆[29] 层操作: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 d=+0.0000 l(移除伤害)=+0.0000 f(独立)=-0.0000 N=0.0 g=- 台阶=no ⇒ 概率档=redundant_dup
 
 ────── [30] ASSISTANT                                                 ──────
 
@@ -986,7 +986,7 @@ CASE WebQTest-1797_2fb9e2823ccf35d2103fa8846d6f2ca8  sample s1  f1=0.00  hit=Fal
 Q: Of the people who fought in the Battle of Vicksburg, who has the earliest date of death?
 GOLD: ['John C. Pemberton']
 PRED: Ulysses S. Grant   pred_entities: ['Ulysses S. Grant']
-  通路[substitute] siege of vicksburg: blocks=3 独立到达gold=是 核心路径=event.included_in_event > military_person.participated_in_conflicts > person.place_of_birt
+  通路[substitute] siege of vicksburg: blocks=3 独立到达gold=是 核心路径=military_conflict.military_personnel_involved|military_person.participated_in_conflicts > 
 ==========================================================================================
 
 ────── [0] ASSISTANT                                                  ──────
@@ -1099,7 +1099,7 @@ entities: Siege of Vicksburg
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'military_conflict.combatants': {'direct': ['military.military_conflict.combatants'], 'bridge': ['time.event.included_in_event']}, 'military_person.participated_in_conflicts': {'direct': ['military.military_person.participated_in_conflicts'], 'bridge': ['base.culturalevent.event.entity_involved', 'military.military_command.military_conflict', 'military.military_conflict.commanders', 'military.military_conflict.military_personnel_involved', 'time.event.included_in_event']}, 'military_conflict.military_personnel_involved': {'direct': ['military.military_conflict.military_personnel_involved'], 'bridge': ['military.military_command.military_conflict', 'military.military_person.participated_in_conflicts']}}
-◆[5] 基线块(首次建树,不参与三档): φ ∞→2 (推进)  gold=无  通路=siege of vicksbu/substitute  结构必要=必要(删后断)  概率 p⁻=0.0308 p_alone=0.0666 移除伤害l_i=+0.0044
+◆[5] 基线块(首次建树): φ ∞→2 (推进)  gold=无  通路=siege of vicksbu/substitute  结构必要=必要(删后断)  概率 d=-0.0847 l(移除伤害)=+0.0049 f(独立)=-0.0847 N=1.0 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -1206,7 +1206,7 @@ anchor_sequence: Siege of Vicksburg ⭢ military_conflict.combatants | military_
 layer_action: extend
 ★[10] 命中GOLD: John C. Pemberton
    > John C. Pemberton --person.place_of_birth--> Philadelphia
-◆[10] 层操作标注: φ 2→0 (推进)  cov_gain=1.0  width=31 used=0  gold=first  标注=helpful  通路=siege of vicksbu/substitute  结构必要=必要(删后断)  概率 p⁻=0.0470 p_alone=0.0285 移除伤害l_i=-0.0119
+◆[10] 层操作: φ 2→0 (推进)  cov_gain=1.0  width=31 used=0  gold=first  通路=siege of vicksbu/substitute  结构必要=必要(删后断)  概率 d=-0.0262 l(移除伤害)=-0.0119 f(独立)=-0.1204 N=0.763 g=首达 台阶=是 ⇒ 概率档=effective
 
 ────── [11] ASSISTANT                                                 ──────
 
@@ -1302,7 +1302,7 @@ note: ⚠ Passing only 'Carter L. Stevenson' narrows the relation pool to just t
 relation_expansion: {'deceased_person.cause_of_death': {'direct': ['people.deceased_person.cause_of_death'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'deceased_person.place_of_death': {'direct': ['people.deceased_person.place_of_death'], 'bridge': ['common.topic.image', 'fictional_universe.fictional_character.based_on', 'government.us_president.vice_president', 'people.person.places_lived']}, 'person.place_of_birth': {'direct': ['people.person.place_of_birth'], 'bridge': ['common.topic.image', 'fictional_universe.fictional_character.based_on', 'location.location.people_born_here', 'people.place_lived.person', 'symbols.namesake.named_after']}, 'place_of_interment.interred_here': {'direct': ['people.place_of_interment.interred_here'], 'bridge': ['base.famouspets.pet_owner.pets_owned', 'base.famouspets.pet_ownership.owner', 'common.topic.image', 'fictional_universe.fictional_character.based_on', 'people.deceased_person.place_of_burial', 'people.person.children']}}
 anchor_sequence: Siege of Vicksburg ⭢ military_conflict.combatants | military_conflict.military_personnel_involved | military_person.participated_in_conflicts (15) ⭢ deceased_person.cause_of_death | deceased_person.place_of_death | person.place_of_birth | place_of_interment.interred_here (23)
 layer_action: update layer 2 (replaced none)
-◆[15] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=3 used=0  gold=-  标注=nohelp-irrelevant  通路=siege of vicksbu/substitute  结构必要=非必要(删后通)  概率 p⁻=0.0387 p_alone=0.0313 移除伤害l_i=-0.0036
+◆[15] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=3 used=0  gold=-  通路=siege of vicksbu/substitute  结构必要=非必要(删后通)  概率 d=-0.0038 l(移除伤害)=-0.0036 f(独立)=-0.1203 N=0.298 g=- 台阶=no ⇒ 概率档=redundant_irr
 
 ────── [16] ASSISTANT                                                 ──────
 
@@ -1373,7 +1373,7 @@ entities: Ulysses S. Grant
 层操作标注分布 {'helpful': 1, 'nohelp-irrelevant': 1}
 
 ==========================================================================================
-CASE WebQTrn-567_11fd073d11dbb5448b6e6ef3f85999f1  sample s0  f1=0.00  hit=False  miss_kind=answer-stage  证据图gold连通=否  概率 p0=0.0018 pF=0.0004 Δ=-0.0014
+CASE WebQTrn-567_11fd073d11dbb5448b6e6ef3f85999f1  sample s0  f1=0.00  hit=False  miss_kind=answer-stage  证据图gold连通=否  概率 p0=0.0018 pF=0.0003 Δ=-0.0015
 Q: What Ron Howard film was released first?
 GOLD: ['The Journey']
 PRED: Cocoon   pred_entities: ['Cocoon']
@@ -1489,7 +1489,7 @@ note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails
 relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.director.film', 'film.producer.film', 'film.producer.films_executive_produced']}}
 ★[5] 命中GOLD: The Journey
    > The Journey --film.directed_by--> Anatole Litvak
-◆[5] 基线块(首次建树,不参与三档): φ ∞→0 (推进)  gold=有  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0002 p_alone=0.0009 移除伤害l_i=+0.0001
+◆[5] 基线块(首次建树): φ ∞→0 (推进)  gold=有  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0009 l(移除伤害)=+0.0001 f(独立)=-0.0010 N=1.0 g=首达 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -1579,7 +1579,7 @@ note: Multiple centers retrieved with one shared relation set — COMPARE them v
 relation_expansion: {'film.release_date_s': {'direct': ['film.film.release_date_s'], 'bridge': ['common.topic.image', 'film.film.soundtrack', 'music.soundtrack.film']}, 'film.film_regional_release_date.film': {'direct': ['film.film_regional_release_date.film'], 'bridge': ['common.topic.image', 'film.film.soundtrack', 'music.soundtrack.film']}}
 anchor_sequence: Ron Howard ⭢ director.film | film.directed_by (29) ⭢ film.release_date_s | film_regional_release_date.film (0)
 layer_action: extend
-◆[9] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=4 used=0  gold=-  标注=nohelp-irrelevant  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0006 p_alone=0.0002 移除伤害l_i=-0.0003
+◆[9] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=4 used=0  gold=-  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0004 l(移除伤害)=-0.0003 f(独立)=-0.0016 N=0.904 g=- 台阶=no ⇒ 概率档=redundant_irr
 
 ────── [10] ASSISTANT                                                 ──────
 
@@ -1660,7 +1660,7 @@ note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails
 note: ⚠ Passing only 'A Beautiful Mind' narrows the relation pool to just that entity's edges — ?film has 33 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?film or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'film.release_date_s': {'direct': ['film.film.release_date_s'], 'bridge': ['common.topic.image', 'film.film.soundtrack', 'music.soundtrack.film']}}
 layer_action: repeat
-◆[12] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=3 used=0  gold=-  标注=nohelp-irrelevant  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0005 p_alone=0.0002 移除伤害l_i=-0.0001
+◆[12] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=3 used=0  gold=-  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0001 l(移除伤害)=-0.0002 f(独立)=-0.0016 N=0.181 g=- 台阶=no ⇒ 概率档=redundant_dup
 
 ────── [13] ASSISTANT                                                 ──────
 
@@ -1896,7 +1896,7 @@ relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'b
 ★[5] 命中GOLD: Village of the Giants
    > Bert I. Gordon --director.film--> Village of the Giants
    > Village of the Giants --film.directed_by--> Bert I. Gordon
-◆[5] 基线块(首次建树,不参与三档): φ ∞→0 (推进)  gold=有  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.6654 p_alone=0.0075 移除伤害l_i=-0.0368
+◆[5] 基线块(首次建树): φ ∞→0 (推进)  gold=有  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0039 l(移除伤害)=-0.0279 f(独立)=-0.0040 N=1.0 g=首达 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -1973,7 +1973,7 @@ note: ⚠ Passing only 'A Beautiful Mind' narrows the relation pool to just that
 relation_expansion: {'film.film_subject.films': {'direct': ['film.film_subject.films'], 'bridge': ['film.film.genre', 'film.film.sequel', 'media_common.adapted_work.adaptations', 'media_common.netflix_title.netflix_genres']}, 'film.film.subjects': {'direct': ['film.film.subjects'], 'bridge': ['film.film.genre', 'film.film.sequel', 'media_common.adapted_work.adaptations', 'media_common.netflix_title.netflix_genres']}}
 anchor_sequence: Ron Howard ⭢ director.film | film.directed_by | film.produced_by | producer.films_executive_produced (49) ⭢ film.subjects | film_subject.films (0)
 layer_action: extend
-◆[9] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=10 used=5  gold=-  标注=nohelp-irrelevant  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.6307 p_alone=0.0070 移除伤害l_i=-0.0021
+◆[9] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=10 used=5  gold=-  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 d=+0.0004 l(移除伤害)=-0.0168 f(独立)=-0.0045 N=0.867 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [10] ASSISTANT                                                 ──────
 
@@ -2006,7 +2006,7 @@ entities: Ron Howard
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: ⚠ Passing only 'A Beautiful Mind' narrows the relation pool to just that entity's edges — ?movie has 37 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?movie or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 layer_action: repeat
-◆[11] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=0 used=0  gold=-  标注=nohelp-repeat  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.6142 p_alone=0.0059 移除伤害l_i=+0.0144
+◆[11] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=0 used=0  gold=-  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 d=+0.0001 l(移除伤害)=+0.0144 f(独立)=-0.0056 N=0.176 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [12] ASSISTANT                                                 ──────
 
@@ -2091,7 +2091,7 @@ note: ⚠ Passing only 'A Beautiful Mind' narrows the relation pool to just that
 relation_expansion: {'film.film_story_contributor.film_story_credits': {'direct': ['film.film_story_contributor.film_story_credits'], 'bridge': ['award.award_honor.honored_for', 'award.award_nominated_work.award_nominations', 'award.award_nomination.nominated_for', 'award.award_winning_work.awards_won', 'film.film.produced_by', 'film.producer.film']}, 'film.film.story_by': {'direct': ['film.film.story_by'], 'bridge': ['award.award_honor.honored_for', 'award.award_nominated_work.award_nominations', 'award.award_nomination.nominated_for', 'award.award_winning_work.awards_won', 'film.film.produced_by', 'film.producer.film']}}
 anchor_sequence: Ron Howard ⭢ director.film | film.directed_by | film.produced_by | producer.films_executive_produced (49) ⭢ film.story_by | film_story_contributor.film_story_credits (5)
 layer_action: update layer 2 (replaced film.film.subjects, film.film_subject.films)
-◆[15] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=8 used=0  gold=-  标注=nohelp-irrelevant  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.6769 p_alone=0.0071 移除伤害l_i=-0.0483
+◆[15] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=8 used=0  gold=-  通路=ron howard/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0008 l(移除伤害)=-0.0483 f(独立)=-0.0044 N=0.636 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [16] ASSISTANT                                                 ──────
 
@@ -2149,7 +2149,7 @@ relation_expansion: {'film.film.subjects': {'direct': ['film.film.subjects'], 'b
    > --film_subject.films--> Village of the Giants
    > Village of the Giants --film.subjects--> Child prodigy
    > ── Village of the Giants ──
-◆[19] 基线块(首次建树,不参与三档): φ 0→0 (覆盖gold)  gold=有  通路=child prodigy/substitute  结构必要=必要(删后断)  概率 p⁻=0.5422 p_alone=0.7438 移除伤害l_i=+0.0864
+◆[19] 基线块(首次建树): φ 0→0 (覆盖gold)  gold=有  通路=child prodigy/substitute  结构必要=必要(删后断)  概率 d=+0.7071 l(移除伤害)=+0.0864 f(独立)=+0.7323 N=1.0 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [20] ASSISTANT                                                 ──────
 
@@ -2269,7 +2269,7 @@ layer_action: extend
    > ── Village of the Giants ──
    > Bert I. Gordon | m.02vbp6p | m.0k7rl9 --director.film--> Village of the Giants
    > Bert I. Gordon --film_story_contributor.film_story_credits--> Village of the Giants
-◆[24] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=13 used=1  gold=re  标注=nohelp-irrelevant  通路=child prodigy/substitute  结构必要=非必要(删后通)  概率 p⁻=0.7163 p_alone=0.6906 移除伤害l_i=-0.0877
+◆[24] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=13 used=1  gold=re  通路=child prodigy/substitute  结构必要=非必要(删后通)  概率 d=-0.0722 l(移除伤害)=-0.0877 f(独立)=+0.6791 N=0.382 g=- 台阶=no ⇒ 概率档=effective
 
 ────── [25] ASSISTANT                                                 ──────
 
@@ -2306,7 +2306,7 @@ entities: A Beautiful Mind
 层操作标注分布 {'nohelp-irrelevant': 3, 'nohelp-repeat': 1}
 
 ==========================================================================================
-CASE WebQTrn-2784_b64250ae3c9d6c724133d09dad5593ec  sample s2  f1=0.00  hit=False  miss_kind=answer-stage  证据图gold连通=是  概率 p0=0.0352 pF=0.5484 Δ=+0.5132
+CASE WebQTrn-2784_b64250ae3c9d6c724133d09dad5593ec  sample s2  f1=0.00  hit=False  miss_kind=answer-stage  证据图gold连通=是  概率 p0=0.0317 pF=0.5484 Δ=+0.5167
 Q: What movie featuring Tupac was directed by Kirk M. Petruccelli?
 GOLD: ['Poetic Justice']
 PRED: None   pred_entities: ['None']
@@ -2465,7 +2465,7 @@ relation_expansion: {'actor.film': {'direct': ['film.actor.film'], 'bridge': ['f
    > --producer.releases_produced--> Poetic Justice | Gang Related
    > ── Poetic Justice ──
    > Janet Jackson | John Singleton | m.02tb74m | m.02vb3h0 | m.02vckpm | m.02vcy64 | m.02vd72n | m.03jpsrt | m.03l7r6x | m.05k9530 | m.0cgc3xp | m.0h3043j …(+3) --director.film--> Poetic Justice
-◆[5] 基线块(首次建树,不参与三档): φ ∞→0 (推进)  gold=有  通路=tupac shakur/substitute  结构必要=必要(删后断)  概率 p⁻=0.3712 p_alone=0.4750 移除伤害l_i=+0.1772
+◆[5] 基线块(首次建树): φ ∞→0 (推进)  gold=有  通路=tupac shakur/substitute  结构必要=必要(删后断)  概率 d=+0.4456 l(移除伤害)=+0.1772 f(独立)=+0.4433 N=1.0 g=首达 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -2553,7 +2553,7 @@ relation_expansion: {'film.directed_by': {'direct': ['film.film.directed_by'], '
    > --producer.releases_produced--> Poetic Justice
    > ── Poetic Justice ──
    > m.02vb3h0 --performance.film--> Poetic Justice
-◆[10] 基线块(首次建树,不参与三档): φ 0→0 (覆盖gold)  gold=有  通路=tupac shakur/substitute  结构必要=非必要(删后通)  概率 p⁻=0.5174 p_alone=0.3487 移除伤害l_i=+0.0310
+◆[10] 基线块(首次建树): φ 0→0 (覆盖gold)  gold=有  通路=tupac shakur/substitute  结构必要=非必要(删后通)  概率 d=+0.0695 l(移除伤害)=+0.0228 f(独立)=+0.3019 N=0.333 g=- 台阶=no ⇒ 概率档=effective
 
 ────── [11] ASSISTANT                                                 ──────
 
@@ -2681,7 +2681,7 @@ layer_action: repeat
    > And the Earth Did Not Swallow Him | Philadelphia Experiment II | Poetic Justice --film.film_art_direction_by--> Kirk M. Petruccelli
    > John Singleton --director.film--> Poetic Justice
    > Poetic Justice --film.directed_by--> John Singleton
-◆[17] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=0 used=0  gold=re  标注=nohelp-repeat  通路=tupac shakur/substitute  结构必要=非必要(删后通)  概率 p⁻=0.5495 p_alone=0.4557 移除伤害l_i=-0.0011
+◆[17] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=0 used=0  gold=re  通路=tupac shakur/substitute  结构必要=非必要(删后通)  概率 d=+0.0166 l(移除伤害)=-0.0042 f(独立)=+0.4184 N=0.015 g=- 台阶=no ⇒ 概率档=effective
 
 ────── [18] ASSISTANT                                                 ──────
 
@@ -2990,7 +2990,7 @@ Second refusal — answer from current support NOW (bindings so far: ?movie=['Po
 层操作标注分布 {'nohelp-repeat': 1}
 
 ==========================================================================================
-CASE WebQTrn-21_6671d5347b1b3cfe482cf5894cc6a05a  sample s0  f1=1.00  hit=True  miss_kind=-  证据图gold连通=是  概率 p0=0.3486 pF=0.8650 Δ=+0.5164
+CASE WebQTrn-21_6671d5347b1b3cfe482cf5894cc6a05a  sample s0  f1=1.00  hit=True  miss_kind=-  证据图gold连通=是  概率 p0=0.3486 pF=0.8635 Δ=+0.5150
 Q: Who is the prime minister of where the currency used in the country, is Ethiopian birr?
 GOLD: ['Hailemariam Desalegn']
 PRED: Hailemariam Desalegn   pred_entities: ['Hailemariam Desalegn']
@@ -3069,7 +3069,7 @@ entities: Ethiopian birr
     Ethiopia --country.currency_used--> Ethiopian birr
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
-◆[5] 基线块(首次建树,不参与三档): φ ∞→1 (推进)  gold=无  通路=ethiopian birr/substitute  结构必要=必要(删后断)  概率 p⁻=0.8492 p_alone=0.4056 移除伤害l_i=+0.0157
+◆[5] 基线块(首次建树): φ ∞→1 (推进)  gold=无  通路=ethiopian birr/substitute  结构必要=必要(删后断)  概率 d=+0.0775 l(移除伤害)=+0.0143 f(独立)=+0.0942 N=1.0 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -3142,7 +3142,7 @@ layer_action: extend
 ★[9] 命中GOLD: Hailemariam Desalegn
    > ── Hailemariam Desalegn ──
    > m.0n1nqyj --government_position_held.office_holder--> Hailemariam Desalegn
-◆[9] 层操作标注: φ 1→0 (推进)  cov_gain=1.0  width=8 used=1  gold=first  标注=helpful  通路=ethiopian birr/substitute  结构必要=必要(删后断)  概率 p⁻=0.4056 p_alone=0.8492 移除伤害l_i=+0.4594
+◆[9] 层操作: φ 1→0 (推进)  cov_gain=1.0  width=8 used=1  gold=first  通路=ethiopian birr/substitute  结构必要=必要(删后断)  概率 d=+0.4374 l(移除伤害)=+0.4579 f(独立)=+0.5006 N=0.931 g=首达 台阶=no ⇒ 概率档=effective
 
 ────── [10] ASSISTANT                                                 ──────
 
@@ -3229,7 +3229,7 @@ entities: Hailemariam Desalegn
 层操作标注分布 {'helpful': 1}
 
 ==========================================================================================
-CASE WebQTrn-2209_c1374f388d9cc7a78365860c91218362  sample s0  f1=0.11  hit=True  miss_kind=-  证据图gold连通=是  概率 p0=0.6109 pF=0.0950 Δ=-0.5159
+CASE WebQTrn-2209_c1374f388d9cc7a78365860c91218362  sample s0  f1=0.11  hit=True  miss_kind=-  证据图gold连通=是  概率 p0=0.0419 pF=0.3143 Δ=+0.2724
 Q: What year did the basketball team coached by Brad Stevens win the championship?
 GOLD: ['2008 NBA Finals', '1969 NBA Finals', '1986 NBA Finals', '1984 NBA Finals', '1981 NBA Finals', '1976 NBA Finals', '1974 NBA Finals', '1968 NBA Finals', '1966 NBA Finals', '1965 NBA Finals', '1964 NBA
 PRED: 2008 NBA Finals   pred_entities: ['2008 NBA Finals']
@@ -3333,7 +3333,7 @@ entities: Brad Stevens
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'basketball.basketball_team.head_coach': {'direct': ['basketball.basketball_team.head_coach'], 'bridge': ['basketball.basketball_coach.previous_teams', 'sports.sports_team_coach.teams_coached', 'sports.sports_team_coach_tenure.coach']}, 'sports.sports_team.coaches': {'direct': ['sports.sports_team.coaches'], 'bridge': ['basketball.basketball_coach.previous_teams', 'basketball.basketball_coach.team', 'sports.sports_team_coach.teams_coached', 'sports.sports_team_coach_tenure.coach']}}
-◆[5] 基线块(首次建树,不参与三档): φ ∞→1 (推进)  gold=无  通路=brad stevens/substitute  结构必要=必要(删后断)  概率 p⁻=0.1201 p_alone=0.5359 移除伤害l_i=-0.0251
+◆[5] 基线块(首次建树): φ ∞→1 (推进)  gold=无  通路=brad stevens/substitute  结构必要=必要(删后断)  概率 d=+0.0122 l(移除伤害)=+0.0221 f(独立)=+0.0124 N=1.0 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -3387,7 +3387,7 @@ layer_action: extend
 ★[9] 命中GOLD: 1957 NBA Finals, 1959 NBA Finals, 1960 NBA Finals, 1961 NBA Finals, 1962 NBA Finals, 1963 NBA Finals, 1964 NBA Finals, 1965 NBA Finals, 1966 NBA Finals, 1968 NBA Finals, 1969 NBA Finals, 1974 NBA Finals, 1976 NBA Finals, 1981 NBA Finals, 1984 NBA Finals, 1986 NBA Finals, 2008 NBA Finals
    > --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Fi
    > 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) --sports_championshi
-◆[9] 层操作标注: φ 1→0 (推进)  cov_gain=1.0  width=18 used=17  gold=first  标注=helpful  通路=brad stevens/substitute  结构必要=必要(删后断)  概率 p⁻=0.5422 p_alone=0.1602 移除伤害l_i=-0.4472
+◆[9] 层操作: φ 1→0 (推进)  cov_gain=1.0  width=18 used=17  gold=first  通路=brad stevens/substitute  结构必要=必要(删后断)  概率 d=+0.2580 l(移除伤害)=+0.2599 f(独立)=+0.2523 N=0.935 g=首达 台阶=no ⇒ 概率档=effective
 
 ────── [10] ASSISTANT                                                 ──────
 
@@ -3485,7 +3485,7 @@ entities: 2008 NBA Finals
 层操作标注分布 {'helpful': 1}
 
 ==========================================================================================
-CASE WebQTrn-1731_4eea981607dbe17b040580ce4cd93ec4  sample s0  f1=1.00  hit=True  miss_kind=-  证据图gold连通=是  概率 p0=0.0022 pF=0.4329 Δ=+0.4307
+CASE WebQTrn-1731_4eea981607dbe17b040580ce4cd93ec4  sample s0  f1=1.00  hit=True  miss_kind=-  证据图gold连通=是  概率 p0=0.0030 pF=0.1789 Δ=+0.1759
 Q: What did Randy Jackson play in the Eclipse Tour?
 GOLD: ['Bass guitar', 'Vocals']
 PRED: Bass guitar | Vocals   pred_entities: ['Bass guitar', 'Vocals']
@@ -3576,7 +3576,7 @@ relations: artist.concert_tours
 triples: (empty)
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'artist.concert_tours': {'direct': ['music.artist.concert_tours'], 'bridge': ['music.group_member.membership', 'music.group_membership.member']}}
-◆[5] 基线块(首次建树,不参与三档): φ ∞→∞ (未推进)  gold=无  通路=randy jackson/substitute  结构必要=非必要(删后通)  概率 p⁻=0.2274 p_alone=0.0216 移除伤害l_i=+0.2055
+◆[5] 基线块(首次建树): φ ∞→∞ (未推进)  gold=无  通路=randy jackson/substitute  结构必要=非必要(删后通)  概率 d=-0.0018 l(移除伤害)=+0.0969 f(独立)=-0.0018 N=0.0 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -3658,7 +3658,7 @@ relation_expansion: {'artist.concert_tours': {'direct': ['music.artist.concert_t
    > m.01vxjq8 | m.05nn6x0 | m.0k_8vdf --group_membership.role--> Bass guitar
    > --group_member.membership--> m.01tf0q1 [has_no_value: Period (end); member: Neal Schon; role: Vocals]
    > --group_member.membership--> m.01vxjq8 [end: 1987-08:00; member: Randy Jackson; role: Bass guitar | Vocals; start: 1985-08:00]
-◆[9] 基线块(首次建树,不参与三档): φ ∞→0 (推进)  gold=有  通路=eclipse tour/substitute  结构必要=必要(删后断)  概率 p⁻=0.1862 p_alone=0.4865 移除伤害l_i=+0.2467
+◆[9] 基线块(首次建树): φ ∞→0 (推进)  gold=有  通路=eclipse tour/substitute  结构必要=必要(删后断)  概率 d=+0.2463 l(移除伤害)=+0.0473 f(独立)=+0.1475 N=1.0 g=首达 台阶=是 ⇒ 概率档=effective
 
 ────── [10] ASSISTANT                                                 ──────
 
@@ -3742,7 +3742,7 @@ layer_action: extend
    > Paul Lee --group_member.instruments_played--> Bass guitar
    > m.01vxjq8 --group_membership.role--> Bass guitar
    > m.040rysf --group_membership.role--> Bass guitar
-◆[13] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=9 used=0  gold=re  标注=helpful-midchain  通路=randy jackson/substitute  结构必要=必要(删后断)  概率 p⁻=0.5834 p_alone=0.1077 移除伤害l_i=-0.1505
+◆[13] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=9 used=0  gold=re  通路=randy jackson/substitute  结构必要=必要(删后断)  概率 d=-0.0664 l(移除伤害)=-0.0252 f(独立)=+0.1000 N=0.778 g=- 台阶=no ⇒ 概率档=effective
 
 ────── [14] ASSISTANT                                                 ──────
 
@@ -3809,7 +3809,7 @@ note: SEQUENCE EXTENSION applied to several frontier members — the new layer's
 relation_expansion: {'artist.track': {'direct': ['artist.track'], 'bridge': []}, 'performance_role.guest_performances': {'direct': ['performance_role.guest_performances'], 'bridge': []}, 'featured_artist.recordings': {'direct': ['music.featured_artist.recordings'], 'bridge': ['music.concert_tour.artist']}, 'album.supporting_tours': {'direct': ['music.album.supporting_tours'], 'bridge': []}}
 anchor_sequence: Eclipse Tour ⭢ album.supporting_tours | featured_artist.recordings (1)
 layer_action: update layer 1 (replaced music.artist.concert_tours, music.group_membership.group)
-◆[17] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=4 used=0  gold=-  标注=nohelp-irrelevant  通路=eclipse tour/substitute  结构必要=非必要(删后通)  概率 p⁻=0.3890 p_alone=0.0098 移除伤害l_i=+0.0439
+◆[17] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=4 used=0  gold=-  通路=eclipse tour/substitute  结构必要=非必要(删后通)  概率 d=-0.0036 l(移除伤害)=+0.0000 f(独立)=-0.0018 N=0.647 g=- 台阶=no ⇒ 概率档=redundant_irr
 
 ────── [18] ASSISTANT                                                 ──────
 
@@ -3865,7 +3865,7 @@ entities: Bass guitar | Vocals
 层操作标注分布 {'helpful-midchain': 1, 'nohelp-irrelevant': 1}
 
 ==========================================================================================
-CASE WebQTrn-2784_b64250ae3c9d6c724133d09dad5593ec  sample s0  f1=1.00  hit=True  miss_kind=-  证据图gold连通=是  概率 p0=0.0317 pF=0.5145 Δ=+0.4828
+CASE WebQTrn-2784_b64250ae3c9d6c724133d09dad5593ec  sample s0  f1=1.00  hit=True  miss_kind=-  证据图gold连通=是  概率 p0=0.0317 pF=0.5126 Δ=+0.4809
 Q: What movie featuring Tupac was directed by Kirk M. Petruccelli?
 GOLD: ['Poetic Justice']
 PRED: Poetic Justice   pred_entities: ['Poetic Justice']
@@ -4015,7 +4015,7 @@ relation_expansion: {'film.actor.film': {'direct': ['film.actor.film'], 'bridge'
    > ── Poetic Justice ──
    > m.02vb3h0 --performance.film--> Poetic Justice
    > m.02vckpm --performance.film--> Poetic Justice
-◆[5] 基线块(首次建树,不参与三档): φ ∞→0 (推进)  gold=有  通路=tupac shakur/substitute  结构必要=必要(删后断)  概率 p⁻=0.5587 p_alone=0.6631 移除伤害l_i=-0.0442
+◆[5] 基线块(首次建树): φ ∞→0 (推进)  gold=有  通路=tupac shakur/substitute  结构必要=必要(删后断)  概率 d=+0.6492 l(移除伤害)=-0.0461 f(独立)=+0.6479 N=1.0 g=首达 台阶=no ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -4172,7 +4172,7 @@ layer_action: extend
    > --film_art_director.films_art_directed--> Philadelphia Experiment II | Poetic Justice
    > Poetic Justice --film.film_art_direction_by--> Kirk M. Petruccelli
    > John Singleton --director.film--> Poetic Justice
-◆[14] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=1 used=0  gold=re  标注=helpful-midchain  通路=kirk m petruccel/substitute  结构必要=必要(删后断)  概率 p⁻=0.6798 p_alone=0.5605 移除伤害l_i=-0.1653
+◆[14] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=1 used=0  gold=re  通路=kirk m petruccel/substitute  结构必要=必要(删后断)  概率 d=-0.1664 l(移除伤害)=-0.1670 f(独立)=+0.5666 N=0.699 g=- 台阶=no ⇒ 概率档=effective
 
 ────── [15] ASSISTANT                                                 ──────
 
@@ -4250,7 +4250,7 @@ entities: Poetic Justice
 层操作标注分布 {'helpful-midchain': 1}
 
 ==========================================================================================
-CASE WebQTest-626_01ad90831a03b6c5ef17898ccd80a639  sample s0  f1=1.00  hit=True  miss_kind=-  证据图gold连通=是  概率 p0=0.0227 pF=0.4304 Δ=+0.4077
+CASE WebQTest-626_01ad90831a03b6c5ef17898ccd80a639  sample s0  f1=1.00  hit=True  miss_kind=-  证据图gold连通=是  概率 p0=0.0226 pF=0.4065 Δ=+0.3838
 Q: What setting of the fictional universe Tempus Unbound is bisected by the Missouri River?
 GOLD: ['Kansas']
 PRED: Kansas   pred_entities: ['Kansas']
@@ -4352,7 +4352,7 @@ relation_expansion: {'fictional_setting.universe': {'direct': ['fictional_univer
    > --work_of_fiction.setting--> Beyond Sanctuary | Citadel of Lemuria | Kansas | Lemuria | Lemurian citadel | Lemurian windows into any place or time | Long Island | Mari, Syria | Meridian | Pinnacle House | Sandia
    > Kansas | Lemuria | Long Island | New York City --fictional_setting.universe--> Tempus Unbound
    > Abarsis Valley | Battleplain of Chaeronea | Beyond Sanctuary | Chaeronea | Citadel of Lemuria | City at the Edge of Time | Free Nisibis | Kansas | Lemuria | Lemurian citadel | Lemurian windows into any place or time | Long Island …(+11) --f
-◆[5] 基线块(首次建树,不参与三档): φ ∞→0 (推进)  gold=有  通路=tempus unbound/substitute  结构必要=必要(删后断)  概率 p⁻=0.3648 p_alone=0.6714 移除伤害l_i=+0.0656
+◆[5] 基线块(首次建树): φ ∞→0 (推进)  gold=有  通路=tempus unbound/substitute  结构必要=必要(删后断)  概率 d=+0.6192 l(移除伤害)=+0.0407 f(独立)=+0.6177 N=1.0 g=首达 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -4485,7 +4485,7 @@ layer_action: extend
    > Chaeronea | Egypt | Kansas | Long Island | Mygdonia | New York City | Wizardwall --location_in_fiction.universe--> The Sacred Band of Stepsons universe
    > Arkansas --location.containedby--> Contiguous United States | United States of America | United States, with Territories
    > Arkansas River --location.containedby--> North America | United States of America
-◆[9] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=40 used=0  gold=re  标注=helpful-midchain  通路=tempus unbound/substitute  结构必要=必要(删后断)  概率 p⁻=0.4507 p_alone=0.4445 移除伤害l_i=-0.0204
+◆[9] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=40 used=0  gold=re  通路=tempus unbound/substitute  结构必要=必要(删后断)  概率 d=+0.0182 l(移除伤害)=-0.0755 f(独立)=+0.4271 N=0.889 g=- 台阶=no ⇒ 概率档=effective
 
 ────── [10] ASSISTANT                                                 ──────
 
@@ -4610,7 +4610,7 @@ relation_expansion: {'location.location.partially_contains': {'direct': ['locati
    > Kansas --location.partially_contains--> Arikaree River
    > Kansas --location.partially_contains--> Big Blue River
    > Kansas --location.partially_contains--> Little Osage River
-◆[13] 基线块(首次建树,不参与三档): φ 0→0 (覆盖gold)  gold=有  通路=missouri river/substitute  结构必要=必要(删后断)  概率 p⁻=0.6602 p_alone=0.3129 移除伤害l_i=-0.2298
+◆[13] 基线块(首次建树): φ 0→0 (覆盖gold)  gold=有  通路=missouri river/substitute  结构必要=必要(删后断)  概率 d=-0.2586 l(移除伤害)=-0.2537 f(独立)=+0.2905 N=0.981 g=- 台阶=no ⇒ 概率档=effective
 
 ────── [14] ASSISTANT                                                 ──────
 
@@ -4786,7 +4786,7 @@ relation_expansion: {'location.location.containedby': {'direct': ['location.loca
    > Americas --location.contains--> Falkland Islands
    > ── Americas ──
    > Anguilla | Antigua and Barbuda | Aruba | Bahamas | Barbados | Belize | Bermuda | Bonaire | British Virgin Islands | Canada | Caribbean | Cayman Islands …(+6) --location.containedby--> Americas
-◆[5] 基线块(首次建树,不参与三档): φ ∞→0 (推进)  gold=有  通路=falkland islands/substitute  结构必要=非必要(删后通)  概率 p⁻=0.0034 p_alone=0.0387 移除伤害l_i=+0.0036
+◆[5] 基线块(首次建树): φ ∞→0 (推进)  gold=有  通路=falkland islands/substitute  结构必要=非必要(删后通)  概率 d=+0.0399 l(移除伤害)=+0.0032 f(独立)=+0.0399 N=1.0 g=首达 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -4878,7 +4878,7 @@ relation_expansion: {'location.location.time_zones': {'direct': ['location.locat
 ★[9] 命中GOLD: Americas
    > ── Americas ──
    > Anguilla | Falkland Islands | Montserrat | Turks and Caicos Islands --location.containedby--> Americas
-◆[9] 基线块(首次建树,不参与三档): φ 0→0 (覆盖gold)  gold=有  通路=falkland islands/substitute  结构必要=非必要(删后通)  概率 p⁻=0.0152 p_alone=0.0094 移除伤害l_i=-0.0081
+◆[9] 基线块(首次建树): φ 0→0 (覆盖gold)  gold=有  通路=falkland islands/substitute  结构必要=非必要(删后通)  概率 d=-0.0286 l(移除伤害)=-0.0115 f(独立)=+0.0093 N=0.931 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [10] ASSISTANT                                                 ──────
 
@@ -4958,7 +4958,7 @@ anchor_sequence: United Kingdom ⭢ sovereign_domain.sovereign_state | location.
 layer_action: extend
 ★[13] 命中GOLD: Americas
    > --location.containedby--> Americas | Atlantic Ocean
-◆[13] 层操作标注: φ 0→0 (未推进)  cov_gain=0.0  width=21 used=1  gold=re  标注=nohelp-irrelevant  通路=united kingdom/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0107 p_alone=0.0000 移除伤害l_i=-0.0037
+◆[13] 层操作: φ 0→0 (未推进)  cov_gain=0.0  width=21 used=1  gold=re  通路=united kingdom/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0038 l(移除伤害)=-0.0037 f(独立)=-0.0001 N=0.816 g=- 台阶=no ⇒ 概率档=redundant_irr
 
 ────── [14] TOOL                                                      ──────
 === EVIDENCE COMMIT ===
@@ -5085,7 +5085,7 @@ entities: Franz Liszt
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization_founder.organizations_founded': {'direct': ['organization.organization_founder.organizations_founded'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
-◆[5] 基线块(首次建树,不参与三档): φ ∞→∞ (未推进)  gold=无  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=-0.0000
+◆[5] 基线块(首次建树): φ ∞→∞ (未推进)  gold=无  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0000 l(移除伤害)=-0.0000 f(独立)=-0.0000 N=1.0 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [6] ASSISTANT                                                  ──────
 
@@ -5143,7 +5143,7 @@ entities: Freemasonry | Franz Liszt Academy of Music, Budapest
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that entity's edges — ?org has 2 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?org or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'business.employment_tenure.company': {'direct': ['business.employment_tenure.company'], 'bridge': ['education.educational_institution_campus.educational_institution']}}
-◆[9] 基线块(首次建树,不参与三档): φ ∞→∞ (未推进)  gold=无  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=-0.0000
+◆[9] 基线块(首次建树): φ ∞→∞ (未推进)  gold=无  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0000 l(移除伤害)=-0.0000 f(独立)=-0.0000 N=0.6 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [10] ASSISTANT                                                 ──────
 
@@ -5207,7 +5207,7 @@ note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that enti
 relation_expansion: {'organization.organization_membership.member': {'direct': ['organization.organization_membership.member'], 'bridge': ['business.employment_tenure.company', 'organization.organization.founders', 'organization.organization_membership.organization']}, 'business.employment_tenure.company': {'direct': ['business.employment_tenure.company'], 'bridge': ['education.educational_institution_campus.educational_institution']}, 'business.employer.employees': {'direct': ['business.employer.employees'], 'bridge': ['education.educational_institution_campus.educational_institution']}}
 anchor_sequence: Freemasonry ⭢ employer.employees | employment_tenure.company | membership_organization.members | organization_membership.member | organization_membership.organization (1)
 layer_action: update layer 1 (replaced none)
-◆[13] 层操作标注: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  标注=nohelp-repeat  通路=freemasonry/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=+0.0000
+◆[13] 层操作: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  通路=freemasonry/unreached  结构必要=n/a(gold未连通)  概率 d=+0.0000 l(移除伤害)=+0.0000 f(独立)=-0.0000 N=0.143 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [14] ASSISTANT                                                 ──────
 
@@ -5273,7 +5273,7 @@ entities: Freemasonry | Franz Liszt Academy of Music, Budapest  (sequence root; 
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that entity's edges — ?org has 2 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?org or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 layer_action: update layer 1 (replaced business.employer.employees, business.employment_tenure.company, nization.membership_organization.members, anization.organization_membership.member, ion.organization_membership.organization)
-◆[17] 层操作标注: φ ∞→∞ (未推进)  cov_gain=0.0  width=4 used=0  gold=-  标注=nohelp-irrelevant  通路=freemasonry fran/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=+0.0000
+◆[17] 层操作: φ ∞→∞ (未推进)  cov_gain=0.0  width=4 used=0  gold=-  通路=freemasonry fran/unreached  结构必要=n/a(gold未连通)  概率 d=+0.0000 l(移除伤害)=+0.0000 f(独立)=-0.0000 N=0.72 g=- 台阶=是 ⇒ 概率档=effective
 
 ────── [18] ASSISTANT                                                 ──────
 
@@ -5336,7 +5336,7 @@ note: Multiple centers retrieved with one shared relation set — COMPARE them v
 relation_expansion: {'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['business.employment_tenure.company', 'organization.organization.founders', 'organization.organization_membership.organization']}, 'organization.organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['business.employment_tenure.company', 'education.educational_institution_campus.educational_institution', 'organization.organization_membership.organization']}}
 anchor_sequence: Freemasonry ⭢ organization.organization_type | organization_membership.organization | organization_sector.organizations_in_this_sector | organization_type.organizations_of_this_type | religion.is_part_of (0)
 layer_action: extend
-◆[21] 层操作标注: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  标注=nohelp-repeat  通路=freemasonry/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=-0.0000
+◆[21] 层操作: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  通路=freemasonry/unreached  结构必要=n/a(gold未连通)  概率 d=-0.0000 l(移除伤害)=-0.0000 f(独立)=-0.0000 N=0.0 g=- 台阶=no ⇒ 概率档=redundant_dup
 
 ────── [22] ASSISTANT                                                 ──────
 
@@ -5442,7 +5442,7 @@ note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_founder.organizations_founded': {'direct': ['organization.organization_founder.organizations_founded'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_membership.member': {'direct': ['organization.organization_membership.member'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
 layer_action: extend
-◆[29] 层操作标注: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  标注=nohelp-repeat  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 p⁻=0.0000 p_alone=0.0000 移除伤害l_i=+0.0000
+◆[29] 层操作: φ ∞→∞ (未推进)  cov_gain=0.0  width=0 used=0  gold=-  通路=franz liszt/unreached  结构必要=n/a(gold未连通)  概率 d=+0.0000 l(移除伤害)=+0.0000 f(独立)=-0.0000 N=0.0 g=- 台阶=no ⇒ 概率档=redundant_dup
 
 ────── [30] ASSISTANT                                                 ──────
 

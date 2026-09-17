@@ -93,21 +93,23 @@ def dump_case(f, c, dist, rec, gold_disp, probs=None):
         pstr = ""
         if i in pm:
             m = pm[i]
-            lstr = f"{m['l_i']:+.4f}" if m.get("l_i") is not None else "?"
-            pstr = (f"  概率 p⁻={m.get('p_minus', 0):.4f}"
-                    f" p_alone={m.get('p_alone', 0):.4f}"
-                    f" 移除伤害l_i={lstr}") \
-                if m.get("p_minus") is not None else "  概率=?"
+            def _r(x):
+                return f"{x:+.4f}" if isinstance(x, (int, float)) else "?"
+            pstr = (f"  概率 d={_r(m.get('d'))} l(移除伤害)={_r(m.get('l'))}"
+                    f" f(独立)={_r(m.get('f'))} N={m.get('N')}"
+                    f" g={'首达' if m.get('g') else '-'}"
+                    f" 台阶={'是' if m.get('lineage') else 'no'}"
+                    f" ⇒ 概率档={m.get('cls')}")
         if i in ops_by_idx:
             o = ops_by_idx[i]
             before, after, _ = phis.get(i, (float("inf"), float("inf"), None))
             adv = "推进" if after < before else \
                   ("覆盖gold" if o["p_gain"] > 0 else "未推进")
             b = blocks_by_idx.get(i, {})
-            f.write(f"◆[{i}] 层操作标注: φ {d_str(before)}→{d_str(after)} "
+            f.write(f"◆[{i}] 层操作: φ {d_str(before)}→{d_str(after)} "
                     f"({adv})  cov_gain={o['p_gain']}  width={o['width']} "
                     f"used={o['used']}  gold={o['gold_hit']}  "
-                    f"标注={o['label']}  通路={b.get('pathway', '?')[:16]}"
+                    f"通路={b.get('pathway', '?')[:16]}"
                     f"/{b.get('pathway_verdict', '?')}  "
                     f"结构必要={nec_str(b)}{pstr}\n")
         elif i in blocks_by_idx and blocks_by_idx[i].get("is_op") is False:
@@ -115,7 +117,7 @@ def dump_case(f, c, dist, rec, gold_disp, probs=None):
             gh = b.get("gold_here") or ()
             adv = "推进" if after < before else \
                   ("覆盖gold" if gh else "未推进")
-            f.write(f"◆[{i}] 基线块(首次建树,不参与三档): "
+            f.write(f"◆[{i}] 基线块(首次建树): "
                     f"φ {d_str(before)}→{d_str(after)} ({adv})  "
                     f"gold={'有' if gh else '无'}  "
                     f"通路={b.get('pathway', '?')[:16]}"
