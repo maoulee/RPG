@@ -10059,3 +10059,21 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   力在**分型**(answer-stage/walk-break)——建议分型升主维度。
 - **待裁定 3 双通路互冗余**:单步删除边际语义 vs 判别价值
   (567 双通路都"非必要")——可引成对删除或接受边际语义。
+
+### 2026-09-17 标注 v4(bd69eb8):展示图基准+单通路独立评估(裁定实施)
+- **裁定**:①判定基准=实际展示(§6.14/§6.20 先例)——φ 从 case 全图改
+  渲染边并集,hub-gold 假阳性消除;②通路=锚,独立评估(§10.8 替代对/
+  L6319 合取必要性);③核心路径完全一致的后来通路=冗余(防漏,本 run 0)。
+- **块归属级联**(坑:derive-path 的 repeat 无 sequence-root 标记,
+  表面 center 会分裂伪通路):anchor_sequence 根 → "(sequence root"行
+  → **center 成员归属**(中心∈更早块实体⇒续接同树) → 自立新通路。
+- **结果**:substitute 146/unreached 30/redundant 0 通路;113 单通路、
+  30 双通路(15 双替代对/11 一达一未达/4 双未达);必要性 yes 32(全在
+  helpful 族:18+14 midchain,per-pathway 比 全局并集敏感,midchain
+  8→14);**harmful-break 归零、7 case 转 unreach**——展示图上 gold
+  从锚不可达,比全图 φ 假推进诚实。
+- **标本 567-s0 深刻结果**:Ron Howard 通路 unreached 是**忠实**的——
+  渲染边是 director/producer 系,Ron Howard→Village 的 performance
+  边没被走到,模型视角证据里该通路从未到达 gold;Child prodigy 通路
+  substitute([19] 必要,核心路径 film.subjects)。
+- 产出:标注文档 v4 章节+dump 通路表(12 case)+◆行通路列。
