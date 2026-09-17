@@ -9,7 +9,7 @@
 - **nohelp-irrelevant（无效·无关）**: 有新实体但零 gold 推进、零命中引用
 - **harmful-break（有害·断链点）**: 仅未命中 case——Tier2 图参照（锚→gold 最短链并集=有效路径），实际探索第一个偏离有效路径的 op；其后的偏离记 nohelp-irrelevant，在路径上的 op 仍helpful（败在答案层不在游走）
 
-汇总: {'helpful': 24, 'nohelp-repeat': 30, 'nohelp-irrelevant': 92, 'helpful-midchain': 8, 'harmful-break': 6}；Σp_gain=19.38。Tier2: 7 个未命中 case 有图参照，0 个 gold 图上不可达（无法定断链）。
+汇总: {'helpful': 22, 'nohelp-repeat': 33, 'nohelp-irrelevant': 91, 'helpful-midchain': 14}；Σp_gain=19.38。Tier2: 0 个未命中 case 有图参照，7 个 gold 图上不可达（无法定断链）。
 
 ## 全量层操作表
 
@@ -24,13 +24,13 @@
 | WebQTest-1923_2d | 0 | 9 | Heritage Elementary Scho | extend | 9 | first | 0.294 | adv | yes | helpful |
 | WebQTest-1923_2d | 1 | 10 | Heritage Elementary Scho | extend | 9 | first | 0.294 | adv | yes | helpful |
 | WebQTest-1923_2d | 2 | 9 | Heritage Elementary Scho | extend | 11 | first | 0.647 | adv | yes | helpful |
-| WebQTrn-2576_872 | 0 | 13 | United Kingdom | extend | 21 | re | 0.0 | - | no | nohelp-irrelevant |
+| WebQTrn-2576_872 | 0 | 13 | United Kingdom | extend | 21 | re | 0.0 | - | n/a | nohelp-irrelevant |
 | WebQTrn-2576_872 | 1 | 9 | Falkland Islands | extend | 35 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-2576_872 | 1 | 16 | ? | repeat | 0 | re | 0.0 | - | no | nohelp-repeat |
 | WebQTrn-2576_872 | 2 | 11 | Falkland Islands | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
-| WebQTrn-1731_4ee | 0 | 13 | Randy Jackson | extend | 9 | re | 0.0 | - | no | nohelp-irrelevant |
+| WebQTrn-1731_4ee | 0 | 13 | Randy Jackson | extend | 9 | re | 0.0 | - | yes | helpful-midchain |
 | WebQTrn-1731_4ee | 0 | 17 | Eclipse Tour | update layer 1 (replaced | 4 | - | 0.0 | - | no | nohelp-irrelevant |
-| WebQTrn-1731_4ee | 1 | 13 | Randy Jackson | extend | 2 | re | 0.0 | - | no | nohelp-irrelevant |
+| WebQTrn-1731_4ee | 1 | 13 | Randy Jackson | extend | 2 | re | 0.0 | - | yes | helpful-midchain |
 | WebQTrn-1731_4ee | 1 | 17 | ? | update layer 1 (replaced | 11 | - | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-1731_4ee | 2 | 13 | Randy Jackson | update layer 1 (replaced | 10 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-3084_026 | 0 | 9 | Japan | extend | 14 | re | 0.0 | - | no | nohelp-irrelevant |
@@ -42,9 +42,9 @@
 | WebQTrn-1392_6fb | 0 | 9 | Eleanor Roosevelt | extend | 0 | re | 0.0 | - | no | nohelp-repeat |
 | WebQTrn-1392_6fb | 1 | 9 | Eleanor Roosevelt | extend | 2 | first | 1.0 | adv | yes | helpful |
 | WebQTrn-1392_6fb | 2 | 9 | Eleanor Roosevelt | extend | 0 | re | 0.0 | - | no | nohelp-repeat |
-| WebQTrn-567_df97 | 0 | 9 | Ron Howard | extend | 10 | - | 0.0 | - | no | nohelp-irrelevant |
-| WebQTrn-567_df97 | 0 | 11 | ? | repeat | 0 | - | 0.0 | - | no | nohelp-repeat |
-| WebQTrn-567_df97 | 0 | 15 | Ron Howard | update layer 2 (replaced | 8 | - | 0.0 | - | no | nohelp-irrelevant |
+| WebQTrn-567_df97 | 0 | 9 | Ron Howard | extend | 10 | - | 0.0 | - | n/a | nohelp-irrelevant |
+| WebQTrn-567_df97 | 0 | 11 | ? | repeat | 0 | - | 0.0 | - | n/a | nohelp-repeat |
+| WebQTrn-567_df97 | 0 | 15 | Ron Howard | update layer 2 (replaced | 8 | - | 0.0 | - | n/a | nohelp-irrelevant |
 | WebQTrn-567_df97 | 0 | 24 | Child prodigy | extend | 13 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-567_df97 | 1 | 9 | Ron Howard | extend | 18 | re | 0.0 | - | yes | helpful-midchain |
 | WebQTrn-567_df97 | 2 | 9 | Ron Howard | extend | 13 | re | 0.0 | - | yes | helpful-midchain |
@@ -58,12 +58,12 @@
 | WebQTrn-2152_52a | 2 | 9 | American League West | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-124_6655 | 0 | 9 | Angelina Jolie | extend | 20 | re | 0.0 | - | yes | helpful-midchain |
 | WebQTrn-124_6655 | 1 | 9 | Angelina Jolie | extend | 20 | re | 0.0 | - | yes | helpful-midchain |
-| WebQTrn-124_6655 | 1 | 14 | ? | repeat | 48 | re | 0.0 | - | no | nohelp-irrelevant |
+| WebQTrn-124_6655 | 1 | 14 | ? | repeat | 48 | re | 0.0 | - | yes | helpful-midchain |
 | WebQTrn-124_6655 | 2 | 9 | Angelina Jolie | extend | 40 | re | 0.0 | - | yes | helpful-midchain |
 | WebQTrn-3744_1bc | 0 | 9 | Russell Wilson | extend | 1 | first | 1.0 | adv | yes | helpful |
 | WebQTrn-3744_1bc | 1 | 9 | Russell Wilson | extend | 1 | first | 1.0 | adv | yes | helpful |
 | WebQTrn-3744_1bc | 2 | 9 | Russell Wilson | extend | 1 | first | 1.0 | adv | yes | helpful |
-| WebQTrn-2784_b64 | 0 | 14 | Kirk M. Petruccelli | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
+| WebQTrn-2784_b64 | 0 | 14 | Kirk M. Petruccelli | extend | 1 | re | 0.0 | - | yes | helpful-midchain |
 | WebQTrn-2784_b64 | 2 | 17 | ? | repeat | 0 | re | 0.0 | - | no | nohelp-repeat |
 | WebQTrn-62_bce88 | 0 | 9 | Walt Disney | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-62_bce88 | 0 | 13 | ? | repeat | 2 | re | 0.0 | - | no | nohelp-irrelevant |
@@ -71,15 +71,15 @@
 | WebQTrn-62_bce88 | 1 | 9 | Walt Disney | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-62_bce88 | 1 | 14 | ? | repeat | 2 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-62_bce88 | 2 | 9 | Walt Disney | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
-| WebQTest-1379_25 | 0 | 9 | ? | extend | 1 | - | 0.0 | - | n/a | harmful-break |
-| WebQTest-1379_25 | 0 | 13 | ? | extend | 10 | - | 0.0 | - | n/a | nohelp-irrelevant |
-| WebQTest-1379_25 | 0 | 18 | ? | extend | 10 | - | 0.0 | - | n/a | nohelp-irrelevant |
-| WebQTest-1379_25 | 1 | 13 | Freemasonry | update layer 1 (replaced | 0 | - | 0.0 | - | n/a | harmful-break |
-| WebQTest-1379_25 | 1 | 17 | ? | update layer 1 (replaced | 4 | - | 0.0 | - | n/a | nohelp-irrelevant |
-| WebQTest-1379_25 | 1 | 21 | Freemasonry | extend | 0 | - | 0.0 | - | no | nohelp-repeat |
-| WebQTest-1379_25 | 1 | 29 | ? | extend | 0 | - | 0.0 | - | no | nohelp-repeat |
-| WebQTest-1379_25 | 2 | 13 | Franz Liszt Academy of M | extend | 0 | - | 0.0 | - | no | harmful-break |
-| WebQTest-1379_25 | 2 | 20 | ? | extend | 10 | - | 0.0 | - | n/a | nohelp-irrelevant |
+| WebQTest-1379_25 | 0 | 9 | ? | extend | 1 | - | 0.0 | ? | n/a | nohelp-irrelevant |
+| WebQTest-1379_25 | 0 | 13 | ? | extend | 10 | - | 0.0 | ? | n/a | nohelp-irrelevant |
+| WebQTest-1379_25 | 0 | 18 | ? | extend | 10 | - | 0.0 | ? | n/a | nohelp-irrelevant |
+| WebQTest-1379_25 | 1 | 13 | Freemasonry | update layer 1 (replaced | 0 | - | 0.0 | ? | n/a | nohelp-repeat |
+| WebQTest-1379_25 | 1 | 17 | ? | update layer 1 (replaced | 4 | - | 0.0 | ? | n/a | nohelp-irrelevant |
+| WebQTest-1379_25 | 1 | 21 | Freemasonry | extend | 0 | - | 0.0 | ? | n/a | nohelp-repeat |
+| WebQTest-1379_25 | 1 | 29 | ? | extend | 0 | - | 0.0 | ? | n/a | nohelp-repeat |
+| WebQTest-1379_25 | 2 | 13 | Franz Liszt Academy of M | extend | 0 | - | 0.0 | ? | n/a | nohelp-repeat |
+| WebQTest-1379_25 | 2 | 20 | ? | extend | 10 | - | 0.0 | ? | n/a | nohelp-irrelevant |
 | WebQTest-576_130 | 0 | 9 | Central America | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-513_78ac | 0 | 9 | Amanda Rollins | extend | 42 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-513_78ac | 1 | 10 | Amanda Rollins | extend | 65 | re | 0.0 | - | no | nohelp-irrelevant |
@@ -97,7 +97,7 @@
 | WebQTrn-2570_195 | 2 | 18 | Eleanor Roosevelt | update layer 2 (replaced | 1 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-2540_1af | 0 | 9 | ? | repeat | 0 | re | 0.0 | - | no | nohelp-repeat |
 | WebQTrn-2540_1af | 1 | 9 | ? | repeat | 0 | re | 0.0 | - | no | nohelp-repeat |
-| WebQTrn-2540_1af | 2 | 9 | ? | repeat | 0 | re | 0.0 | - | no | nohelp-repeat |
+| WebQTrn-2540_1af | 2 | 9 | ? | repeat | 0 | re | 0.0 | - | n/a | nohelp-repeat |
 | WebQTrn-2319_cdb | 2 | 9 | Acting Prime Minister of | extend | 24 | first | 1.0 | adv | yes | helpful |
 | WebQTrn-2319_cdb | 2 | 15 | Acting Prime Minister of | update layer 2 (replaced | 0 | - | 0.0 | - | no | nohelp-repeat |
 | WebQTest-537_80c | 0 | 15 | Charlie Hunnam | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
@@ -108,7 +108,7 @@
 | WebQTest-1840_3d | 2 | 9 | Norway | extend | 8 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-60_6b8ef | 1 | 9 | Portuguese Language | extend | 16 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-60_6b8ef | 2 | 9 | Portuguese Language | extend | 16 | re | 0.0 | - | no | nohelp-irrelevant |
-| WebQTest-626_01a | 0 | 9 | Tempus Unbound | extend | 40 | re | 0.0 | - | no | nohelp-irrelevant |
+| WebQTest-626_01a | 0 | 9 | Tempus Unbound | extend | 40 | re | 0.0 | - | yes | helpful-midchain |
 | WebQTest-626_01a | 1 | 9 | Tempus Unbound | extend | 31 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTest-626_01a | 1 | 13 | Tempus Unbound | extend | 21 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTest-626_01a | 2 | 13 | Tempus Unbound | extend | 91 | re | 0.0 | - | no | nohelp-irrelevant |
@@ -124,14 +124,14 @@
 | WebQTest-1797_2f | 2 | 13 | Siege of Vicksburg | extend | 36 | first | 1.0 | adv | yes | helpful |
 | WebQTest-1797_2f | 2 | 17 | Siege of Vicksburg | update layer 2 (replaced | 1 | - | 0.0 | - | no | nohelp-irrelevant |
 | WebQTest-1470_88 | 0 | 11 | Poland | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
-| WebQTest-1470_88 | 1 | 14 | Nelson Mandela | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
+| WebQTest-1470_88 | 1 | 14 | Nelson Mandela | extend | 1 | re | 0.0 | - | n/a | nohelp-irrelevant |
 | WebQTest-626_743 | 2 | 9 | Missouri River | extend | 7 | re | 0.143 | - | no | helpful |
-| WebQTrn-452_f79f | 0 | 9 | Michelle Anthony | extend | 14 | - | 0.0 | - | n/a | harmful-break |
-| WebQTrn-452_f79f | 0 | 14 | Michelle Anthony | extend | 3 | - | 0.0 | - | n/a | nohelp-irrelevant |
-| WebQTrn-452_f79f | 1 | 10 | Carmelo Anthony | extend | 6 | - | 0.0 | adv | n/a | helpful |
-| WebQTrn-452_f79f | 1 | 16 | ? | update layer 1 (replaced | 10 | - | 0.0 | - | n/a | harmful-break |
-| WebQTrn-452_f79f | 2 | 10 | Carmelo Anthony | extend | 0 | - | 0.0 | - | n/a | nohelp-repeat |
-| WebQTrn-452_f79f | 2 | 14 | Carmelo Anthony | extend | 6 | - | 0.0 | adv | n/a | helpful |
+| WebQTrn-452_f79f | 0 | 9 | Michelle Anthony | extend | 14 | - | 0.0 | ? | n/a | nohelp-irrelevant |
+| WebQTrn-452_f79f | 0 | 14 | Michelle Anthony | extend | 3 | - | 0.0 | ? | n/a | nohelp-irrelevant |
+| WebQTrn-452_f79f | 1 | 10 | Carmelo Anthony | extend | 6 | - | 0.0 | ? | n/a | nohelp-irrelevant |
+| WebQTrn-452_f79f | 1 | 16 | ? | update layer 1 (replaced | 10 | - | 0.0 | ? | n/a | nohelp-irrelevant |
+| WebQTrn-452_f79f | 2 | 10 | Carmelo Anthony | extend | 0 | - | 0.0 | ? | n/a | nohelp-repeat |
+| WebQTrn-452_f79f | 2 | 14 | Carmelo Anthony | extend | 6 | - | 0.0 | ? | n/a | nohelp-irrelevant |
 | WebQTest-626_525 | 0 | 11 | Missouri River | extend | 7 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTest-626_525 | 0 | 16 | Missouri River | update layer 2 (replaced | 3 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTest-626_525 | 2 | 9 | Missouri River | extend | 6 | re | 0.0 | - | no | nohelp-irrelevant |
@@ -154,27 +154,27 @@
 | WebQTrn-25_7cec3 | 2 | 10 | Taylor Lautner | extend | 17 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-25_892ff | 0 | 9 | ? | extend | 3 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-25_892ff | 0 | 16 | ? | repeat | 0 | re | 0.0 | - | no | nohelp-repeat |
-| WebQTrn-25_892ff | 1 | 13 | ? | extend | 3 | first | 1.0 | adv | yes | helpful |
+| WebQTrn-25_892ff | 1 | 13 | ? | extend | 3 | first | 1.0 | adv | n/a | helpful |
 | WebQTrn-2784_3a1 | 0 | 10 | Tupac Shakur | extend | 12 | re | 0.0 | - | no | nohelp-irrelevant |
-| WebQTrn-2784_3a1 | 0 | 19 | ? | repeat | 0 | re | 0.0 | - | no | nohelp-repeat |
+| WebQTrn-2784_3a1 | 0 | 19 | ? | repeat | 0 | re | 0.0 | - | n/a | nohelp-repeat |
 | WebQTrn-2784_3a1 | 1 | 9 | Tupac Shakur | extend | 13 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-2784_3a1 | 2 | 10 | Tupac Shakur | extend | 12 | re | 0.0 | - | no | nohelp-irrelevant |
-| WebQTrn-452_5b0f | 1 | 13 | ? | update layer 1 (replaced | 1 | re | 0.0 | - | no | nohelp-irrelevant |
+| WebQTrn-452_5b0f | 1 | 13 | ? | update layer 1 (replaced | 1 | re | 0.0 | - | yes | helpful-midchain |
 | WebQTrn-452_5b0f | 1 | 17 | ? | repeat | 0 | re | 0.0 | - | no | nohelp-repeat |
 | WebQTrn-452_5b0f | 2 | 11 | ? | repeat | 2 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-452_5b0f | 2 | 21 | ? | extend | 47 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-567_11fd | 0 | 9 | Ron Howard | extend | 4 | - | 0.0 | - | n/a | nohelp-irrelevant |
 | WebQTrn-567_11fd | 0 | 12 | ? | repeat | 3 | - | 0.0 | - | n/a | nohelp-irrelevant |
-| WebQTrn-567_11fd | 1 | 8 | Ron Howard | extend | 0 | - | 0.0 | - | n/a | harmful-break |
+| WebQTrn-567_11fd | 1 | 8 | Ron Howard | extend | 0 | - | 0.0 | ? | n/a | nohelp-repeat |
 | WebQTrn-567_11fd | 2 | 9 | Ron Howard | extend | 22 | - | 0.0 | - | n/a | nohelp-irrelevant |
 | WebQTrn-241_97bf | 0 | 9 | France | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-241_97bf | 1 | 9 | France | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-241_97bf | 2 | 10 | France | extend | 1 | re | 0.0 | - | no | nohelp-irrelevant |
 | WebQTrn-452_343e | 0 | 7 | ? | repeat | 0 | - | 0.0 | - | no | nohelp-repeat |
 | WebQTrn-452_343e | 0 | 11 | Carmelo Anthony | extend | 0 | - | 0.0 | - | no | nohelp-repeat |
-| WebQTrn-452_343e | 0 | 15 | ? | repeat | 14 | first | 1.0 | adv | n/a | helpful |
-| WebQTrn-452_343e | 0 | 19 | Carmelo Anthony | extend | 10 | re | 0.0 | - | n/a | nohelp-irrelevant |
-| WebQTrn-452_343e | 0 | 23 | ? | repeat | 0 | re | 0.0 | - | n/a | nohelp-repeat |
+| WebQTrn-452_343e | 0 | 15 | ? | repeat | 14 | first | 1.0 | adv | no | helpful |
+| WebQTrn-452_343e | 0 | 19 | Carmelo Anthony | extend | 10 | re | 0.0 | - | no | nohelp-irrelevant |
+| WebQTrn-452_343e | 0 | 23 | ? | repeat | 0 | re | 0.0 | - | no | nohelp-repeat |
 
 ## 按家族汇总
 
@@ -189,8 +189,8 @@
 | WebQTrn-2576_872253e | 0 | 0.00 | False | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-2576_872253e | 1 | 1.00 | True | 2 | {'nohelp-irrelevant': 1, 'nohelp-repeat': 1} |
 | WebQTrn-2576_872253e | 2 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
-| WebQTrn-1731_4eea981 | 0 | 1.00 | True | 2 | {'nohelp-irrelevant': 2} |
-| WebQTrn-1731_4eea981 | 1 | 0.80 | True | 2 | {'nohelp-irrelevant': 2} |
+| WebQTrn-1731_4eea981 | 0 | 1.00 | True | 2 | {'helpful-midchain': 1, 'nohelp-irrelevant': 1} |
+| WebQTrn-1731_4eea981 | 1 | 0.80 | True | 2 | {'helpful-midchain': 1, 'nohelp-irrelevant': 1} |
 | WebQTrn-1731_4eea981 | 2 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-3084_026bed8 | 0 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-3084_026bed8 | 1 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
@@ -211,19 +211,19 @@
 | WebQTrn-2152_52aec01 | 1 | 0.00 | False | 1 | {'helpful': 1} |
 | WebQTrn-2152_52aec01 | 2 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-124_6655b537 | 0 | 1.00 | True | 1 | {'helpful-midchain': 1} |
-| WebQTrn-124_6655b537 | 1 | 1.00 | True | 2 | {'helpful-midchain': 1, 'nohelp-irrelevant': 1} |
+| WebQTrn-124_6655b537 | 1 | 1.00 | True | 2 | {'helpful-midchain': 2} |
 | WebQTrn-124_6655b537 | 2 | 1.00 | True | 1 | {'helpful-midchain': 1} |
 | WebQTrn-3744_1bc38ed | 0 | 1.00 | True | 1 | {'helpful': 1} |
 | WebQTrn-3744_1bc38ed | 1 | 1.00 | True | 1 | {'helpful': 1} |
 | WebQTrn-3744_1bc38ed | 2 | 1.00 | True | 1 | {'helpful': 1} |
-| WebQTrn-2784_b64250a | 0 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
+| WebQTrn-2784_b64250a | 0 | 1.00 | True | 1 | {'helpful-midchain': 1} |
 | WebQTrn-2784_b64250a | 2 | 0.00 | False | 1 | {'nohelp-repeat': 1} |
 | WebQTrn-62_bce880153 | 0 | 1.00 | True | 3 | {'nohelp-irrelevant': 2, 'nohelp-repeat': 1} |
 | WebQTrn-62_bce880153 | 1 | 1.00 | True | 2 | {'nohelp-irrelevant': 2} |
 | WebQTrn-62_bce880153 | 2 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
-| WebQTest-1379_255da8 | 0 | 0.00 | False | 3 | {'harmful-break': 1, 'nohelp-irrelevant': 2} |
-| WebQTest-1379_255da8 | 1 | 0.00 | False | 4 | {'harmful-break': 1, 'nohelp-irrelevant': 1, 'nohelp-repeat': 2} |
-| WebQTest-1379_255da8 | 2 | 0.00 | False | 2 | {'harmful-break': 1, 'nohelp-irrelevant': 1} |
+| WebQTest-1379_255da8 | 0 | 0.00 | False | 3 | {'nohelp-irrelevant': 3} |
+| WebQTest-1379_255da8 | 1 | 0.00 | False | 4 | {'nohelp-repeat': 3, 'nohelp-irrelevant': 1} |
+| WebQTest-1379_255da8 | 2 | 0.00 | False | 2 | {'nohelp-repeat': 1, 'nohelp-irrelevant': 1} |
 | WebQTest-576_13008c4 | 0 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-513_78acb100 | 0 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-513_78acb100 | 1 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
@@ -246,7 +246,7 @@
 | WebQTest-1840_3d474a | 2 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-60_6b8ef173b | 1 | 0.50 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-60_6b8ef173b | 2 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
-| WebQTest-626_01ad908 | 0 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
+| WebQTest-626_01ad908 | 0 | 1.00 | True | 1 | {'helpful-midchain': 1} |
 | WebQTest-626_01ad908 | 1 | 1.00 | True | 2 | {'nohelp-irrelevant': 2} |
 | WebQTest-626_01ad908 | 2 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-241_a6090427 | 0 | 1.00 | True | 2 | {'nohelp-repeat': 2} |
@@ -258,9 +258,9 @@
 | WebQTest-1470_888604 | 0 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTest-1470_888604 | 1 | 0.00 | False | 1 | {'nohelp-irrelevant': 1} |
 | WebQTest-626_74344bd | 2 | 0.73 | True | 1 | {'helpful': 1} |
-| WebQTrn-452_f79ffe93 | 0 | 0.00 | False | 2 | {'harmful-break': 1, 'nohelp-irrelevant': 1} |
-| WebQTrn-452_f79ffe93 | 1 | 0.00 | False | 2 | {'helpful': 1, 'harmful-break': 1} |
-| WebQTrn-452_f79ffe93 | 2 | 0.00 | False | 2 | {'nohelp-repeat': 1, 'helpful': 1} |
+| WebQTrn-452_f79ffe93 | 0 | 0.00 | False | 2 | {'nohelp-irrelevant': 2} |
+| WebQTrn-452_f79ffe93 | 1 | 0.00 | False | 2 | {'nohelp-irrelevant': 2} |
+| WebQTrn-452_f79ffe93 | 2 | 0.00 | False | 2 | {'nohelp-repeat': 1, 'nohelp-irrelevant': 1} |
 | WebQTest-626_5258a16 | 0 | 0.50 | True | 2 | {'nohelp-irrelevant': 2} |
 | WebQTest-626_5258a16 | 2 | 0.80 | True | 3 | {'nohelp-irrelevant': 2, 'nohelp-repeat': 1} |
 | WebQTrn-25_db9695c22 | 0 | 1.00 | True | 1 | {'helpful-midchain': 1} |
@@ -277,34 +277,40 @@
 | WebQTrn-2784_3a12729 | 0 | 1.00 | True | 2 | {'nohelp-irrelevant': 1, 'nohelp-repeat': 1} |
 | WebQTrn-2784_3a12729 | 1 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-2784_3a12729 | 2 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
-| WebQTrn-452_5b0f29b4 | 1 | 0.67 | True | 2 | {'nohelp-irrelevant': 1, 'nohelp-repeat': 1} |
+| WebQTrn-452_5b0f29b4 | 1 | 0.67 | True | 2 | {'helpful-midchain': 1, 'nohelp-repeat': 1} |
 | WebQTrn-452_5b0f29b4 | 2 | 1.00 | True | 2 | {'nohelp-irrelevant': 2} |
 | WebQTrn-567_11fd073d | 0 | 0.00 | False | 2 | {'nohelp-irrelevant': 2} |
-| WebQTrn-567_11fd073d | 1 | 0.00 | False | 1 | {'harmful-break': 1} |
+| WebQTrn-567_11fd073d | 1 | 0.00 | False | 1 | {'nohelp-repeat': 1} |
 | WebQTrn-567_11fd073d | 2 | 0.00 | False | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-241_97bfe74d | 0 | 0.00 | False | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-241_97bfe74d | 1 | 0.00 | False | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-241_97bfe74d | 2 | 1.00 | True | 1 | {'nohelp-irrelevant': 1} |
 | WebQTrn-452_343ed3d9 | 0 | 1.00 | True | 5 | {'nohelp-repeat': 3, 'helpful': 1, 'nohelp-irrelevant': 1} |
 
-## v3 元评估修正（2026-09-17）
+## v4 单通路独立评估 + 展示图基准（2026-09-17，用户裁定实施）
 
-**内部矛盾清零**: 8 个 (nohelp-irrelevant, necessary=yes) 的操作重标为
-**helpful-midchain**（中间链贡献——它们交付的是 gold 边所挂的 hop 实体，
-Tier-1 条件"零覆盖零引用"漏掉了桥价值；7/8 在 f1=1.0 轨迹）。修正后
-交叉表: necessity=yes 的 27 个操作全部对应 helpful 族，无"无关却唯一
-通路"的矛盾。
+**裁定依据**: §6.14/§6.20（判定基准=实际展示，不用底层全图——φ 改展示图，
+hub-gold 假阳性消除）；§10.8+v10.6（替代对各自有效）；L6319（合取必要性）；
+用户追加（本日）：通路独立判有效的前提是核心路径不同，完全一致的后来者冗余。
 
-**元评估遗留（待用户裁定）**:
-1. **hub-gold 暴露面 40%**（57/144 轨迹的 gold 图度>100，如 Priest）:
-   φ 推进与 harmful-break 的推进序列在这些轨迹上不可靠——
-   选项 A: hub-gold 轨迹关闭 φ 分支只留 p_gain/必要性；
-   选项 B: 断链标记降级为"待人工"。
-2. **档位对结局预测力弱**: 轨迹级 helpful-share 与 f1 非单调
-   （share~0.0 的 82 条均值 0.754，share~0.5 的 7 条均值 0.052）——
-   净增量口径下层操作 p_gain 天然小（gold 覆盖在基线块）。
-   真正有结局解释力的是**分型**（answer-stage 16 vs walk-break 7）。
-   建议: 分型升级为主维度，层操作档位为次维度。
-3. **双通路互冗余**: 单步反事实删除下两条通路各自"非必要"
-   （567 的 [5] Ron Howard 侧与 [19] Child prodigy 侧），但直觉上
-   各有判别价值——选项: 引入成对删除（联合必要性）或接受边际语义。
+**语义**: 通路=锚（树根）。块归属级联：anchor_sequence 根 → "(sequence root"
+行 → **center 成员归属**（调用中心是更早块交付的实体 ⇒ 续接同一树，表面
+center 非新根——567-[11] 伪通路修复）→ 自立新通路。每通路独立判：
+自己的展示边上 锚→gold 连通（图版 p_alone）；核心路径签名=最短链逐跳
+关系集；签名与先行通路一致 ⇒ redundant-followup（防漏——本 run 未出现）。
+
+**结果**: 通路判定 substitute 146 / unreached 30 / redundant 0；113 case
+单通路，30 双通路（15 双替代对、11 一达一未达、4 双未达），1 三通路全未达。
+模块必要性 per-pathway: yes 32 / no 101 / n/a 27；交叉表保持干净
+（yes 32 全在 helpful 族=18 helpful+14 midchain）。
+
+**harmful-break 归零、7 case 转 unreach**: φ 改展示图后原"断链"case 的
+gold 在展示图上从锚不可达（1379 的 Priest 从未在展示边出现）——推进序列
+无法定义。unreach（展示图 gold 不可达）是比全图 φ 假推进更诚实的分型；
+case 级仍可由人工在 dump 中定位第一偏离操作。
+
+**标本**: 567-s0——Ron Howard 通路 unreached（**展示图忠实**：渲染的
+director/producer 系边不含 Ron Howard→Village 的 performance 边，模型
+视角证据里该通路从未到达 gold——answer 选 A Beautiful Mind 的部分原因
+被结构化呈现）；Child prodigy 通路 substitute（[19] 必要，核心路径
+film.subjects→gold）。21-s0 单通路 [5][9] 必要不变。

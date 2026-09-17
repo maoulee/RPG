@@ -58,6 +58,11 @@ def dump_case(f, c, dist, rec, gold_disp):
     f.write(f"GOLD: {gold_disp}\n")
     f.write(f"PRED: {rec.get('answer')}   pred_entities: "
             f"{rec.get('pred_entities')}\n")
+    for t in c.get("pathway_table", []):
+        core = " > ".join("|".join(rels) for rels in t["core_path"]) \
+            if t["core_path"] else "-"
+        f.write(f"  通路[{t['verdict']}] {t['root'][:28]}: blocks={t['blocks']} "
+                f"独立到达gold={'是' if t['reached'] else '否'} 核心路径={core[:90]}\n")
     f.write("=" * 90 + "\n\n")
     for i, m in enumerate(tr):
         role = m["role"].upper()
@@ -83,7 +88,9 @@ def dump_case(f, c, dist, rec, gold_disp):
             f.write(f"◆[{i}] 层操作标注: φ {d_str(before)}→{d_str(after)} "
                     f"({adv})  p_gain={o['p_gain']}  width={o['width']} "
                     f"used={o['used']}  gold={o['gold_hit']}  "
-                    f"标注={o['label']}  结构必要={nec_str(b)}\n")
+                    f"标注={o['label']}  通路={b.get('pathway', '?')[:16]}"
+                    f"/{b.get('pathway_verdict', '?')}  "
+                    f"结构必要={nec_str(b)}\n")
         elif i in blocks_by_idx and blocks_by_idx[i].get("is_op") is False:
             before, after, b = phis[i]
             gh = b.get("gold_here") or ()
@@ -91,7 +98,10 @@ def dump_case(f, c, dist, rec, gold_disp):
                   ("覆盖gold" if gh else "未推进")
             f.write(f"◆[{i}] 基线块(首次建树,不参与三档): "
                     f"φ {d_str(before)}→{d_str(after)} ({adv})  "
-                    f"gold={'有' if gh else '无'}  结构必要={nec_str(b)}\n")
+                    f"gold={'有' if gh else '无'}  "
+                    f"通路={b.get('pathway', '?')[:16]}"
+                    f"/{b.get('pathway_verdict', '?')}  "
+                    f"结构必要={nec_str(b)}\n")
         f.write("\n")
     labs = collections.Counter(o["label"] for o in c["ops"])
     seq = " ".join(f"{'推进' if o.get('on_path') == 'adv' else '·'}→"
@@ -167,9 +177,9 @@ def main():
                 if not c["ops"]:
                     continue
                 rec = rec_map[(c["case_id"], str(c["sample"]))]
-                sample = by_id.get(c["case_id"])
-                dist = gold_reference(sample, sample.get("a_entity", [])) \
-                    if sample else None
+                # φ on the DISPLAY graph (mark_necessity stashes it) —
+                # same ruling basis as the annotation itself
+                dist = c.get("_display_dist")
                 gold_disp = str(rec["_gold_list"])[:200]
                 dump_case(f, c, dist, rec, gold_disp)
     print("wrote", out)

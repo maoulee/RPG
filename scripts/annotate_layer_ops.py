@@ -265,59 +265,199 @@ def reconcile_necessity(cases):
                 o["label"] = "helpful-midchain"
 
 
+def _display_rel_adj(edges):
+    """norm -> [(rel, other_norm)] from displayed (h, rel, t) edges."""
+    adj = collections.defaultdict(list)
+    for (h, r, t) in edges:
+        adj[h].append((r, t))
+        adj[t].append((r, h))
+    return adj
+
+
+def _chain_signature(adj, start, golds):
+    """Shortest start→gold chain on a RELATION-adjacency map; signature =
+    per-hop frozenset of the parallel relation names along the chain (the
+    core path). None when unreachable. Doubles as the connectivity check."""
+    if start not in adj:
+        return None
+    prev = {start: None}
+    q = collections.deque([start])
+    goal = None
+    while q and goal is None:
+        u = q.popleft()
+        for _r, v in adj.get(u, ()):
+            if v in prev:
+                continue
+            prev[v] = (u, _r)
+            if v in golds:
+                goal = v
+                break
+            q.append(v)
+    if goal is None:
+        return None
+    hops, node = [], goal
+    while prev[node] is not None:
+        u, _r = prev[node]
+        rs = frozenset(rr for rr, vv in adj.get(u, ()) if vv == node)
+        hops.append(rs)
+        node = u
+    return tuple(reversed(hops))
+
+
+def _block_pathway(c, b, rec):
+    """Pathway owner (tree-root name norm) of a block: layer ops carry the
+    anchor_sequence root (fallback: the '(sequence root' entity line).
+    Returns None when neither marker exists (derive-path repeats carry no
+    root echo) — the caller then falls back to CENTER MEMBERSHIP: a call
+    centered on an entity an EARLIER block delivered belongs to that
+    block's pathway (continuation on the same tree; the surface center is
+    a frontier member, never a new root)."""
+    if b.get("is_op"):
+        root = (b.get("op") or {}).get("root")
+        if root:
+            return norm(root)
+        m = re.search(r"entities:\s*([^\n(]+?)\s*\(sequence root",
+                      rec["trajectory"][b["idx"]]["content"])
+        if m:
+            return norm(m.group(1))
+        return None
+    return None
+
+
+def _call_center(rec, idx):
+    for i in range(idx - 1, -1, -1):
+        m = rec["trajectory"][i]
+        if m["role"] != "assistant":
+            continue
+        cm = re.search(r"^center:\s*(.+)$", m["content"], re.M)
+        if cm:
+            return norm(cm.group(1).split(" | ")[0].strip())
+        break
+    return None
+
+
 def mark_necessity(cases, recs_by_key):
-    """STRUCTURAL NECESSITY (user ruling 2026-09-17): step i is necessary
-    iff removing the edges FIRST DELIVERED by step i from the accumulated
-    evidence graph breaks anchor→gold connectivity — a pure evidence-state
-    check, NO re-walking. Duplicate re-renders of an edge are the same
-    information and belong to its first deliverer."""
+    """STRUCTURAL NECESSITY v4 (user rulings 2026-09-17): PATHWAY = anchor
+    (tree root), evaluated INDEPENDENTLY per pathway —
+      - a pathway independently reaches gold iff anchor→gold connects on
+        the pathway's OWN displayed edges (the graph version of p_alone);
+      - core-path signature = per-hop relation sets of a shortest anchor→gold
+        chain; a LATER pathway with an identical signature is a redundant
+        follow-up (identical core path ⇒ later one redundant; with distinct
+        anchors this should be rare — safety net);
+      - module necessity is judged WITHIN its pathway: removing the module's
+        first-delivered edges breaks the pathway's own anchor→gold ⇒ yes.
+    All on DISPLAYED edges only (ruling §6.14/§6.20: judgments use what the
+    model actually saw, never the raw case graph — hub golds like 'Priest'
+    carry only a few displayed edges, so potentials no longer false-fire)."""
     for c in cases:
         if not c.get("blocks"):
             continue
         rec = recs_by_key[(c["case_id"], str(c["sample"]))]
-        anchors = set()
         golds = {norm(g) for g in rec["_gold_list"] if g}
+        # per-block first-delivered edges + global display graph
+        edges_owner, seen_edges, all_edges = {}, set(), set()
+        for b in c["blocks"]:
+            es = set()
+            for e in edges_of(rec["trajectory"][b["idx"]]["content"]):
+                all_edges.add(e)
+                if e not in seen_edges:
+                    seen_edges.add(e)
+                    es.add(e)
+            edges_owner[b["idx"]] = es
+        full_rel = _display_rel_adj(all_edges)
+        full_adj = collections.defaultdict(set)
+        for h, _r, t in all_edges:
+            full_adj[h].add(t)
+            full_adj[t].add(h)
+        anchors = set()
         for m in rec["trajectory"]:
             if m["role"] == "assistant" and "tool: plan" in m["content"]:
                 em = re.search(r"^entities:\s*(.+)$", m["content"], re.M)
                 if em:
                     anchors = {norm(x) for x in em.group(1).split(" | ") if x}
                 break
-        edges_owner = {}                        # (step_idx) -> set(edges)
-        seen_edges = set()
-        full_adj = collections.defaultdict(set)
-        for b in c["blocks"]:
-            es = set()
-            for e in edges_of(rec["trajectory"][b["idx"]]["content"]):
-                if e not in seen_edges:
-                    seen_edges.add(e)
-                    es.add(e)
-                full_adj[e[0]].add(e[2])
-                full_adj[e[2]].add(e[0])
-            edges_owner[b["idx"]] = es
         c["_gold_reach_full"] = _bfs_reach(full_adj, anchors, golds)
+        c["_display_dist"] = _gold_dist(full_adj, golds)
+        # ── pathway grouping ── (in document order; assignment cascade:
+        # root echo → sequence-root line → center membership in an earlier
+        # block's entities → new pathway at the call's own center head)
+        pathways = {}                       # root_norm -> {first_idx, edges, blocks, ents}
         for b in c["blocks"]:
-            drop = edges_owner[b["idx"]]
-            if not drop:
-                b["necessary"] = "no"           # no first-delivered information
-                b["reach_wo"] = c["_gold_reach_full"]
-                continue
-            adj2 = collections.defaultdict(set)
-            for u in full_adj:
-                adj2[u] = set(full_adj[u])
-            for (h, _r, t) in drop:
-                adj2[h].discard(t)
-                adj2[t].discard(h)
-                if not adj2[h]:
-                    del adj2[h]
-                if not adj2[t] and t in adj2:
-                    del adj2[t]
-            reach_wo = _bfs_reach(adj2, anchors, golds)
-            b["reach_wo"] = reach_wo
-            if not c["_gold_reach_full"]:
-                b["necessary"] = "n/a"          # gold never reachable at all
-            else:
+            pw = _block_pathway(c, b, rec)
+            center = _call_center(rec, b["idx"])
+            if pw is None and center is not None:
+                for b2 in c["blocks"]:
+                    if b2["idx"] >= b["idx"] or b2.get("pathway") is None:
+                        continue
+                    if center in {norm(e) for e in (b2.get("_ents") or ())}:
+                        pw = b2["pathway"]
+                        break
+            if pw is None:
+                pw = center or "?"
+            b["pathway"] = pw
+            p = pathways.setdefault(pw, {"first_idx": b["idx"], "edges": [],
+                                         "blocks": [], "ents": set()})
+            p["edges"].extend(edges_owner[b["idx"]])
+            p["blocks"].append(b)
+            p["ents"].update(norm(e) for e in (b.get("_ents") or ()))
+        # independent reach + signature + redundant-followup dedup
+        order = sorted(pathways.items(), key=lambda kv: kv[1]["first_idx"])
+        seen_sigs = {}
+        table = []
+        for pw, p in order:
+            pw_adj = _display_rel_adj(p["edges"])
+            sig = _chain_signature(pw_adj, pw, golds)
+            verdict = ("redundant" if sig is not None and sig in seen_sigs
+                       else "substitute" if sig is not None else "unreached")
+            if sig is not None and verdict == "substitute":
+                seen_sigs[sig] = pw
+            # module necessity WITHIN the pathway (only for reached paths;
+            # redundant paths keep the per-pathway verdict on their blocks)
+            pw_node_adj = collections.defaultdict(set)
+            for h, _r, t in p["edges"]:
+                pw_node_adj[h].add(t)
+                pw_node_adj[t].add(h)
+            reached = sig is not None
+            for b in p["blocks"]:
+                b["pathway_verdict"] = verdict
+                drop = edges_owner[b["idx"]]
+                if not reached or not drop:
+                    b["necessary"] = "n/a" if not reached else "no"
+                    b["reach_wo"] = reached
+                    continue
+                adj2 = collections.defaultdict(set)
+                for u in pw_node_adj:
+                    adj2[u] = set(pw_node_adj[u])
+                for (h, _r, t) in drop:
+                    adj2[h].discard(t)
+                    adj2[t].discard(h)
+                reach_wo = _bfs_reach(adj2, {pw}, golds)
+                b["reach_wo"] = reach_wo
                 b["necessary"] = "yes" if not reach_wo else "no"
+            table.append({"root": pw, "blocks": len(p["blocks"]),
+                          "reached": bool(sig),
+                          "verdict": verdict,
+                          "core_path": ([sorted(s) for s in sig]
+                                        if sig else None)})
+        c["pathway_table"] = table
+
+
+def _gold_dist(adj, golds):
+    """φ on the DISPLAY graph: hops-to-nearest-gold BFS from the gold side.
+    None when no gold node exists in the graph at all."""
+    golds_in = {g for g in golds if g in adj}
+    if not golds_in:
+        return None
+    dist = {g: 0 for g in golds_in}
+    q = collections.deque(golds_in)
+    while q:
+        u = q.popleft()
+        for v in adj[u]:
+            if v not in dist:
+                dist[v] = dist[u] + 1
+                q.append(v)
+    return dist
 
 
 def gold_reference(sample, gold_list):
@@ -378,7 +518,10 @@ def mark_break_points(cases, pkl_path):
                                           for b in c.get("blocks", [])
                                           if b.get("gold_here")))) \
             if c.get("blocks") else bool(c["ops"])
-        dist = gold_reference(sample, sample.get("a_entity", []))
+        # φ on the DISPLAY graph (ruling §6.14/§6.20: judgments use what the
+        # model actually saw — hub golds carry only a few displayed edges, so
+        # the potential no longer false-fires on 1-hop profession neighbors)
+        dist = c.get("_display_dist")
         INF = float("inf")
         if dist is not None:
             d = INF
