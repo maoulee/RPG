@@ -10077,3 +10077,24 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   边没被走到,模型视角证据里该通路从未到达 gold;Child prodigy 通路
   substitute([19] 必要,核心路径 film.subjects)。
 - 产出:标注文档 v4 章节+dump 通路表(12 case)+◆行通路列。
+
+### 2026-09-17 概率族入轨迹(cb8b045):cov_gain≠概率,l_i 揭示噪声负贡献
+- **用户裁定**:p_gain=1.0 是覆盖率不是概率——轨迹必须带实际模型值
+  (p0 模型直答/pF 全证据/p⁻ 移除反事实/l_i=pF−p⁻ 移除伤害)。
+- **实现**:`scripts/score_layer_op_probs.py`(gitignored)——复用跑着的
+  vLLM(:8000) /v1/completions echo+logprobs=1(HTTP 等价
+  OfflineVLLM.gold_logprob_batch;marker "\n\nAnswer: ",gold token
+  logprob 均值,末 token 是 max_tokens=1 的生成 token 需丢);块文本
+  截 15 行(seq_advantage 惯例);8 线程。13 条轨迹≈5 分钟。
+  产物 specs/layer_op_probs_2026-09-17.json,dump ◆ 行与 case 头合并
+  (p_gain 更名 cov_gain)。
+- **标本发现**:
+  - 21-s0: p0=.349→pF=.865;[9] 层操作 **l_i=+.459**(gold 的
+    government_positions_held 层唯一来源=核心模块),[5] 基线 l_i=+.016
+    (树全链渲染使 L1 边在 [9] 文本里重复——信息冗余的正确反映);
+  - 567_df97-s0: pF=.629 但答错(answer-stage 铁证);**[5](99 部电影)
+    l_i=−.037——移除后概率反升**:渲染噪声概率负贡献,尽管文本含
+    gold(cov 视角"有效")——cov_gain 与概率族交叉的分歧样本;
+  - 2209-s0: p0=.611→pF=.095 反降(17-gold 串在多候选证据下概率分散);
+  - 1379: 双零(unreach 量化)。
+- 坑:json 序列化把 modules 键变 str,读取处 int()。
