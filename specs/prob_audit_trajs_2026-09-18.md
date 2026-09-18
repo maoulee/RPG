@@ -68,6 +68,9 @@ tool: retrieve_subgraph
 center: Franz Liszt
 relations: organization.organization_membership.member | organization.organization_member.member_of
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=franz liszt/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=3.62e-06 │ 移除后整体 p=1.57e-05 │ (case pF=9.41e-06)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Franz Liszt
@@ -130,6 +133,9 @@ tool: retrieve_subgraph
 center: Franz Liszt
 relations: organization.organization.founders | organization.organization_founder.organizations_founded | people.person.employment_history
 
+┌─▶ 🟪 块入口 #1 层操作·effective·通路未达 │ 通路=franz liszt/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=1.34e-06 │ 移除后整体 p=7.43e-06 │ (case pF=9.41e-06)
+└───────────────────────────────────────────────────────────────────
 ────── [9] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Franz Liszt
@@ -195,6 +201,9 @@ tool: retrieve_subgraph
 center: Franz Liszt
 relations: people.person.religion | organization.organization.founders | organization.organization_founder.organizations_founded
 
+┌─▶ 🟪 块入口 #2 层操作·effective·通路未达 │ 通路=franz liszt/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=5.08e-06 │ 移除后整体 p=3.72e-06 │ (case pF=9.41e-06)
+└───────────────────────────────────────────────────────────────────
 ────── [13] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Franz Liszt
@@ -269,6 +278,9 @@ tool: retrieve_subgraph
 center: Franz Liszt
 relations: people.profession.people_with_this_profession | organization.organization_member.member_of
 
+┌─▶ 🟨 块入口 #3 层操作·redundant_irr │ 通路=franz liszt/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=8.78e-06 │ 移除后整体 p=4.49e-06 │ (case pF=9.41e-06)
+└───────────────────────────────────────────────────────────────────
 ────── [18] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Franz Liszt
@@ -544,6 +556,9 @@ tool: retrieve_subgraph
 center: Franz Liszt
 relations: organization.founders | organization_founder.organizations_founded | organization_member.member_of
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=franz liszt/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=2.89e-06 │ 移除后整体 p=2.76e-06 │ (case pF=2.52e-06)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Franz Liszt
@@ -603,6 +618,9 @@ tool: retrieve_subgraph
 center: Freemasonry | Franz Liszt Academy of Music, Budapest
 relations: organization.membership_organization.members | business.employment_tenure.company
 
+┌─▶ 🟦 块入口 #1 基线块·首次建树 │ 通路=franz liszt/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=1.47e-06 │ 移除后整体 p=2.36e-06 │ (case pF=2.52e-06)
+└───────────────────────────────────────────────────────────────────
 ────── [9] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Freemasonry | Franz Liszt Academy of Music, Budapest
@@ -661,6 +679,9 @@ tool: retrieve_subgraph
 center: Freemasonry | Franz Liszt Academy of Music, Budapest
 relations: organization.membership_organization.members | organization.organization_membership.member | organization.organization_membership.organization | business.employment_tenure.company | business.employer.employees
 
+┌─▶ 🟪 块入口 #2 层操作·effective·通路未达 │ 通路=freemasonry/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=4.75e-06 │ 移除后整体 p=2.15e-06 │ (case pF=2.52e-06)
+└───────────────────────────────────────────────────────────────────
 ────── [13] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Freemasonry | Franz Liszt Academy of Music, Budapest  (sequence root; this layer applies to the frontier: Life of Franz Liszt)
@@ -725,6 +746,9 @@ tool: retrieve_subgraph
 center: Freemasonry | Franz Liszt Academy of Music, Budapest
 relations: organization.organization_type.organizations_of_this_type | organization.organization.organization_type | organization.organization_sector.organizations_in_this_sector | religion.religion.is_part_of
 
+┌─▶ 🟪 块入口 #3 层操作·effective·通路未达 │ 通路=freemasonry franz li/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=1.06e-05 │ 移除后整体 p=1.73e-06 │ (case pF=2.52e-06)
+└───────────────────────────────────────────────────────────────────
 ────── [17] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Freemasonry | Franz Liszt Academy of Music, Budapest  (sequence root; this layer applies to the frontier: Life of Franz Liszt)
@@ -791,6 +815,9 @@ tool: retrieve_subgraph
 center: ?org
 relations: organization.organization_membership.organization | organization.organization_member.member_of | organization.organization.founders
 
+┌─▶ 🟨 块入口 #4 层操作·redundant_dup │ 通路=freemasonry/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=2.04e-06 │ 移除后整体 p=2.55e-06 │ (case pF=2.52e-06)
+└───────────────────────────────────────────────────────────────────
 ────── [21] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Freemasonry | Franz Liszt Academy of Music, Budapest
@@ -900,6 +927,9 @@ tool: retrieve_subgraph
 center: Franz Liszt
 relations: organization.organization.founders | organization.organization_founder.organizations_founded | organization.organization_member.member_of | organization.organization_membership.member
 
+┌─▶ 🟨 块入口 #5 层操作·redundant_dup │ 通路=franz liszt/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=3.03e-06 │ 移除后整体 p=1.74e-06 │ (case pF=2.52e-06)
+└───────────────────────────────────────────────────────────────────
 ────── [29] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Franz Liszt
@@ -986,7 +1016,7 @@ CASE WebQTest-1797_2fb9e2823ccf35d2103fa8846d6f2ca8  sample s1  f1=0.00  hit=Fal
 Q: Of the people who fought in the Battle of Vicksburg, who has the earliest date of death?
 GOLD: ['John C. Pemberton']
 PRED: Ulysses S. Grant   pred_entities: ['Ulysses S. Grant']
-  通路[substitute] siege of vicksburg: blocks=3 独立到达gold=是 核心路径=event.included_in_event > military_person.participated_in_conflicts > person.place_of_birt
+  通路[substitute] siege of vicksburg: blocks=3 独立到达gold=是 核心路径=military_conflict.military_personnel_involved|military_person.participated_in_conflicts > 
 ==========================================================================================
 
 ────── [0] ASSISTANT                                                  ──────
@@ -1049,6 +1079,9 @@ tool: retrieve_subgraph
 center: Siege of Vicksburg
 relations: military_conflict.combatants | military_person.participated_in_conflicts | military_conflict.military_personnel_involved
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=siege of vicksburg/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.0672 │ 移除后整体 p=0.0308 │ (case pF=0.0351)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Siege of Vicksburg
@@ -1139,6 +1172,9 @@ tool: retrieve_subgraph
 center: Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner | William F. Draper
 relations: deceased_person.place_of_death | place_of_interment.interred_here | person.place_of_birth
 
+┌─▶ 🟩 块入口 #1 层操作·effective │ 通路=siege of vicksburg/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.0291 │ 移除后整体 p=0.0470 │ (case pF=0.0351)
+└───────────────────────────────────────────────────────────────────
 ────── [10] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Siege of Vicksburg  (sequence root; this layer applies to the frontier: Carter L. Stevenson | Confederate States of America | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant)
@@ -1247,6 +1283,9 @@ tool: retrieve_subgraph
 center: Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner | William F. Draper
 relations: deceased_person.cause_of_death | deceased_person.place_of_death | person.place_of_birth | place_of_interment.interred_here
 
+┌─▶ 🟨 块入口 #2 层操作·redundant_irr │ 通路=siege of vicksburg/substitute │ 结构必要=非必要
+│   分数: 仅本块 p=0.0314 │ 移除后整体 p=0.0405 │ (case pF=0.0351)
+└───────────────────────────────────────────────────────────────────
 ────── [15] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Siege of Vicksburg  (sequence root; this layer applies to the frontier: Atlanta | Bloomingburg | Breckinridge County | Caroline County | Clyde | Duisburg | Edwards | Farragut | Fredericksburg | Fremont | General Grant National Memorial | Koblenz)
@@ -1439,6 +1478,9 @@ tool: retrieve_subgraph
 center: Ron Howard
 relations: film.director.film | film.film.directed_by
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=ron howard/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=8.50e-04 │ 移除后整体 p=2.23e-04 │ (case pF=3.00e-04)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Ron Howard
@@ -1526,6 +1568,9 @@ tool: retrieve_subgraph
 center: ?film
 relations: film.release_date_s | film.film_regional_release_date.film
 
+┌─▶ 🟨 块入口 #1 层操作·redundant_irr │ 通路=ron howard/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=1.64e-04 │ 移除后整体 p=6.36e-04 │ (case pF=3.00e-04)
+└───────────────────────────────────────────────────────────────────
 ────── [9] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Ron Howard | Clean and Sober | Closet Land | The 'Burbs | Changeling  (sequence root; this layer applies to the frontier: A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto)
@@ -1596,6 +1641,9 @@ relations: film.release_date_s
 === EVIDENCE COMMIT ===
   CANDIDATES (?film): [A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z:
 
+┌─▶ 🟨 块入口 #2 层操作·redundant_dup │ 通路=ron howard/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=2.17e-04 │ 移除后整体 p=4.84e-04 │ (case pF=3.00e-04)
+└───────────────────────────────────────────────────────────────────
 ────── [12] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Ron Howard | Clean and Sober | Closet Land | The 'Burbs | Changeling
@@ -1809,6 +1857,9 @@ tool: retrieve_subgraph
 center: Ron Howard
 relations: film.director.film | film.film.directed_by | film.produced_by | film.producer.films_executive_produced
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=ron howard/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=0.0075 │ 移除后整体 p=0.6565 │ (case pF=0.6286)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Ron Howard
@@ -1933,6 +1984,9 @@ tool: retrieve_subgraph
 center: A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | Rush | Splash | The Da Vinci Code | The Dark Tower | The Dilemma | The Lost Symbol | The Missing | The Paper | Willow | Clean and Sober | Closet Land | The 'Burbs | Changeling | J. Edgar | Arrested Development | Leo and Loree
 relations: film.film_subject.films | film.film.subjects
 
+┌─▶ 🟪 块入口 #1 层操作·effective·通路未达 │ 通路=ron howard/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=0.0070 │ 移除后整体 p=0.6454 │ (case pF=0.6286)
+└───────────────────────────────────────────────────────────────────
 ────── [9] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Ron Howard  (sequence root; this layer applies to the frontier: A Beautiful Mind | Angels & Demons | Apollo 13 | Arrested Development | Backdraft | Beyond the Mat | Changeling | Cinderella Man | Clean and Sober | Closet Land | Cocoon | Cotton Candy)
@@ -1984,6 +2038,9 @@ tool: retrieve_subgraph
 center: A Beautiful Mind
 relations: film.film_subject.films | film.film.subjects
 
+┌─▶ 🟪 块入口 #2 层操作·effective·通路未达 │ 通路=ron howard/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=0.0059 │ 移除后整体 p=0.6142 │ (case pF=0.6286)
+└───────────────────────────────────────────────────────────────────
 ────── [11] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Ron Howard
@@ -2043,6 +2100,9 @@ tool: retrieve_subgraph
 center: A Beautiful Mind
 relations: film.film_story_contributor.film_story_credits | film.film.story_by
 
+┌─▶ 🟪 块入口 #3 层操作·effective·通路未达 │ 通路=ron howard/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=0.0071 │ 移除后整体 p=0.6769 │ (case pF=0.6286)
+└───────────────────────────────────────────────────────────────────
 ────── [15] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Ron Howard  (sequence root; this layer applies to the frontier: Boxing | Freemasonry | Pedophilia | Substance abuse | Television)
@@ -2133,6 +2193,9 @@ tool: retrieve_subgraph
 center: Child prodigy
 relations: film.film_subject.films | film.film.subjects
 
+┌─▶ 🟦 块入口 #4 基线块·首次建树 │ 通路=child prodigy/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.7438 │ 移除后整体 p=0.5199 │ (case pF=0.6286)
+└───────────────────────────────────────────────────────────────────
 ────── [19] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Child prodigy
@@ -2197,6 +2260,9 @@ relations: film.director.film | film.film.directed_by | film.produced_by | film.
 ★[23] 命中GOLD: Village of the Giants
    > center: Village of the Giants
 
+┌─▶ 🟩 块入口 #5 层操作·effective │ 通路=child prodigy/substitute │ 结构必要=非必要
+│   分数: 仅本块 p=0.6745 │ 移除后整体 p=0.7307 │ (case pF=0.6286)
+└───────────────────────────────────────────────────────────────────
 ────── [24] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Child prodigy  (sequence root; this layer applies to the frontier: Village of the Giants)
@@ -2375,6 +2441,9 @@ tool: retrieve_subgraph
 center: Tupac Shakur | Kirk M. Petruccelli
 relations: actor.film | film.starring | director.film | film.directed_by
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=tupac shakur/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.4773 │ 移除后整体 p=0.3712 │ (case pF=0.5484)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Tupac Shakur | Kirk M. Petruccelli
@@ -2507,6 +2576,9 @@ tool: retrieve_subgraph
 center: m.02vb3h0 | m.02vcpnk | m.02vcykh | m.0j_81z | m.0js_kj | m.0jyn86 | m.0jz0c4 | m.0pcn9p9
 relations: film.directed_by
 
+┌─▶ 🟦 块入口 #1 基线块·首次建树 │ 通路=tupac shakur/substitute │ 结构必要=非必要
+│   分数: 仅本块 p=0.3468 │ 移除后整体 p=0.5174 │ (case pF=0.5484)
+└───────────────────────────────────────────────────────────────────
 ────── [10] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: m.02vb3h0 | m.02vcpnk | m.02vcykh | m.0j_81z | m.0js_kj | m.0jyn86 | m.0jz0c4 | m.0pcn9p9
@@ -2627,6 +2699,9 @@ tool: retrieve_subgraph
 center: Kirk M. Petruccelli
 relations: film.directed_by | director.film
 
+┌─▶ 🟩 块入口 #2 层操作·effective │ 通路=tupac shakur/substitute │ 结构必要=非必要
+│   分数: 仅本块 p=0.4397 │ 移除后整体 p=0.5291 │ (case pF=0.5484)
+└───────────────────────────────────────────────────────────────────
 ────── [17] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Kirk M. Petruccelli
@@ -3060,6 +3135,9 @@ tool: retrieve_subgraph
 center: Ethiopian birr
 relations: location.country.currency_used | finance.currency.countries_used
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=ethiopian birr/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.4056 │ 移除后整体 p=0.8492 │ (case pF=0.8635)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Ethiopian birr
@@ -3106,6 +3184,9 @@ tool: retrieve_subgraph
 center: Ethiopia
 relations: government.politician.government_positions_held | government.government.government_for
 
+┌─▶ 🟩 块入口 #1 层操作·effective │ 通路=ethiopian birr/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.8492 │ 移除后整体 p=0.4428 │ (case pF=0.8635)
+└───────────────────────────────────────────────────────────────────
 ────── [9] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Ethiopian birr  (sequence root; this layer applies to the frontier: Ethiopia)
@@ -3295,6 +3376,9 @@ tool: retrieve_subgraph
 center: Brad Stevens
 relations: basketball.basketball_team.head_coach | sports.sports_team.coaches | sports.sports_team_coach.teams_coached
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=brad stevens/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.0543 │ 移除后整体 p=0.2932 │ (case pF=0.3129)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Brad Stevens
@@ -3370,6 +3454,9 @@ tool: retrieve_subgraph
 center: Boston Celtics | Butler Bulldogs men's basketball
 relations: sports.sports_team.championships | sports.sports_championship_event.champion
 
+┌─▶ 🟩 块入口 #1 层操作·effective │ 通路=brad stevens/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.2944 │ 移除后整体 p=0.0546 │ (case pF=0.3129)
+└───────────────────────────────────────────────────────────────────
 ────── [9] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Brad Stevens  (sequence root; this layer applies to the frontier: Assistant Coach | Boston Celtics | Butler Bulldogs men's basketball | Head coach | To)
@@ -3572,6 +3659,9 @@ center: Randy Jackson
 relations: artist.concert_tours
 ```
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=randy jackson/substitute │ 结构必要=非必要
+│   分数: 仅本块 p=0.0013 │ 移除后整体 p=0.0778 │ (case pF=0.1780)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 triples: (empty)
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
@@ -3615,6 +3705,9 @@ center: Eclipse Tour
 relations: artist.concert_tours | group_membership.group
 ```
 
+┌─▶ 🟦 块入口 #1 基线块·首次建树 │ 通路=eclipse tour/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.1477 │ 移除后整体 p=0.1245 │ (case pF=0.1780)
+└───────────────────────────────────────────────────────────────────
 ────── [9] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Eclipse Tour
@@ -3702,6 +3795,9 @@ center: Randy Jackson
 relations: group_member.instruments_played | instrument.instrumentalists
 ```
 
+┌─▶ 🟩 块入口 #2 层操作·effective │ 通路=randy jackson/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.1030 │ 移除后整体 p=0.2050 │ (case pF=0.1780)
+└───────────────────────────────────────────────────────────────────
 ────── [13] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Randy Jackson
@@ -3785,6 +3881,9 @@ center: Eclipse Tour
 relations: artist.track | performance_role.guest_performances | featured_artist.recordings | album.supporting_tours
 ```
 
+┌─▶ 🟨 块入口 #3 层操作·redundant_irr │ 通路=eclipse tour/substitute │ 结构必要=非必要
+│   分数: 仅本块 p=0.0013 │ 移除后整体 p=0.1789 │ (case pF=0.1780)
+└───────────────────────────────────────────────────────────────────
 ────── [17] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Eclipse Tour  (sequence root; this layer applies to the frontier: Journey)
@@ -3938,6 +4037,9 @@ center: Tupac Shakur | Kirk M. Petruccelli
 relations: film.actor.film | film.directed_by
 ```
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=tupac shakur/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.6786 │ 移除后整体 p=0.5573 │ (case pF=0.5137)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Tupac Shakur | Kirk M. Petruccelli
@@ -4123,6 +4225,9 @@ relations: film.director.film | film.film_crewmember.films_crewed | film.film_jo
 ★[13] 命中GOLD: Poetic Justice
    > CANDIDATES (?movie): [Poetic Justice]
 
+┌─▶ 🟩 块入口 #1 层操作·effective │ 通路=kirk m petruccelli/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.5437 │ 移除后整体 p=0.6751 │ (case pF=0.5137)
+└───────────────────────────────────────────────────────────────────
 ────── [14] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Kirk M. Petruccelli
@@ -4321,6 +4426,9 @@ tool: retrieve_subgraph
 center: Tempus Unbound
 relations: fictional_setting.universe
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=tempus unbound/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.6415 │ 移除后整体 p=0.3626 │ (case pF=0.3998)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Tempus Unbound
@@ -4393,6 +4501,9 @@ tool: retrieve_subgraph
 center: ?setting
 relations: location.location.partially_contained_by | location.location.containedby | location.location.primarily_containedby
 
+┌─▶ 🟩 块入口 #1 层操作·effective │ 通路=tempus unbound/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.4362 │ 移除后整体 p=0.4820 │ (case pF=0.3998)
+└───────────────────────────────────────────────────────────────────
 ────── [9] TOOL (retrieve_subgraph)                                                       ──────
 triples:
 entities: Tempus Unbound | Beyond Sanctuary | Citadel of Lemuria | Meridian | Pinnacle House | Sandia | The Sacred Band of Stepsons universe | Battleplain of Chaeronea | Free Nisibis | Peace Falls | Tyse | Wizardwall | Abarsis Valley | City at the Edge of Time | Nisibis | Theban Cadmea | Meridian battleplain | liminal  (sequence root; this layer applies to the frontier: Kansas | Lemuria | Long Island | New York City)
@@ -4533,6 +4644,9 @@ tool: retrieve_subgraph
 center: Missouri River
 relations: location.location.partially_contains | location.location.partially_contained_by
 
+┌─▶ 🟦 块入口 #2 基线块·首次建树 │ 通路=missouri river/substitute │ 结构必要=必要
+│   分数: 仅本块 p=0.3018 │ 移除后整体 p=0.6874 │ (case pF=0.3998)
+└───────────────────────────────────────────────────────────────────
 ────── [13] TOOL (retrieve_subgraph)                                                      ──────
 triples:
 entities: Missouri River
@@ -4748,6 +4862,9 @@ relations: location.location.containedby | base.aareas.schema.earth.sovereign_do
 sg: sg1
 ```
 
+┌─▶ 🟦 块入口 #0 基线块·首次建树 │ 通路=falkland islands/substitute │ 结构必要=非必要
+│   分数: 仅本块 p=0.0387 │ 移除后整体 p=0.0038 │ (case pF=0.0069)
+└───────────────────────────────────────────────────────────────────
 ────── [5] TOOL (retrieve_subgraph)                                                       ──────
 fact_id: sg1
 triples:
@@ -4828,6 +4945,9 @@ relations: location.location.time_zones
 sg: sg2
 ```
 
+┌─▶ 🟦 块入口 #1 基线块·首次建树 │ 通路=falkland islands/substitute │ 结构必要=非必要
+│   分数: 仅本块 p=0.0108 │ 移除后整体 p=0.0162 │ (case pF=0.0069)
+└───────────────────────────────────────────────────────────────────
 ────── [9] TOOL (retrieve_subgraph)                                                       ──────
 fact_id: sg2
 triples:
@@ -4920,6 +5040,9 @@ relations: location.location.containedby | location.location.primarily_contained
 sg: sg3
 ```
 
+┌─▶ 🟨 块入口 #2 层操作·redundant_irr │ 通路=united kingdom/unreached │ 结构必要=n/a
+│   分数: 仅本块 p=3.86e-06 │ 移除后整体 p=0.0106 │ (case pF=0.0069)
+└───────────────────────────────────────────────────────────────────
 ────── [13] TOOL (retrieve_subgraph)                                                      ──────
 fact_id: sg3
 triples:

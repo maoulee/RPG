@@ -47,12 +47,13 @@ def dump_case(f, c, dist, rec, gold_disp, probs=None):
     phis = phi_by_idx(c, dist)
     ops_by_idx = {o["idx"]: o for o in c["ops"]}
     blocks_by_idx = {b["idx"]: b for b in c.get("blocks", [])}
-    block_list = c.get("blocks", [])
+    block_seq = {b["idx"]: n for n, b in enumerate(c.get("blocks", []))}
     pm = {}
     if probs:
-        pm = {block_list[int(i)]["idx"]: m for i, m in
+        _idx_list = list(block_seq)        # block idx values in order
+        pm = {_idx_list[int(i)]: m for i, m in
               (probs.get("modules") or {}).items()
-              if int(i) < len(block_list)}
+              if int(i) < len(_idx_list)}
     d_str = lambda x: "∞" if x == float("inf") else str(x)
     nec_str = lambda b: {
         "yes": "必要(删后断)", "no": "非必要(删后通)",
@@ -79,6 +80,40 @@ def dump_case(f, c, dist, rec, gold_disp, probs=None):
     for i, m in enumerate(tr):
         role = m["role"].upper()
         name = m.get("name")
+        # ── BLOCK ENTRY BANNER (user request 2026-09-18): color-coded at
+        # the message where each scored block ENTERS the trajectory, with
+        # its probabilities inline — 🟦 baseline (first tree) / 🟩 layer
+        # op judged effective / 🟨 layer op judged redundant / 🟪 anomaly
+        # (empty delivery or unreached-pathway effective).
+        if i in blocks_by_idx:
+            b = blocks_by_idx[i]
+            mo = pm.get(i) or {}
+            is_base = not b.get("is_op")
+            cls = mo.get("cls", "?")
+            pw = (b.get("pathway") or "?")[:20]
+            verdict = b.get("pathway_verdict", "?")
+            if is_base:
+                icon, kind = "🟦", "基线块·首次建树"
+            elif cls == "redundant_dup" or cls == "redundant_irr":
+                icon, kind = "🟨", f"层操作·{cls}"
+            elif (b.get("_delta") is not None and len(b.get("_delta") or ()) == 0
+                  and mo.get("N") == 0.0) or verdict == "unreached":
+                icon, kind = "🟪", f"层操作·{cls}·{'空交付' if mo.get('N') == 0.0 else '通路未达'}"
+            else:
+                icon, kind = "🟩", f"层操作·{cls}"
+            def _bp(x):
+                if not isinstance(x, (int, float)):
+                    return "?"
+                return f"{x:.2e}" if (abs(x) < 1e-3 and x != 0) else f"{x:.4f}"
+            nec = {"yes": "必要", "no": "非必要", "n/a": "n/a"}.get(
+                b.get("necessary", "?"), "?")
+            f.write(f"┌─▶ {icon} 块入口 #{block_seq.get(b['idx'], '?')}"
+                    f" {kind} │ 通路={pw}/{verdict} │ 结构必要={nec}\n")
+            f.write(f"│   分数: 仅本块 p={_bp(mo.get('p_alone'))}"
+                    f" │ 移除后整体 p={_bp(mo.get('p_minus'))}"
+                    f" │ (case pF={_bp(probs.get('pF')) if probs else '?'})\n")
+            f.write(f"└──────────────────────────────────────────────"
+                    f"─────────────────────\n")
         head = f"────── [{i}] {role}" + (f" ({name})" if name else "") \
             + " " * max(0, 60 - len(str(i)) - len(role)) + "──────"
         f.write(head + "\n")
