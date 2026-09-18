@@ -16,6 +16,7 @@ Usage:
 import ast
 import collections
 import json
+import os
 import sys
 
 sys.path.insert(0, "scripts")
@@ -156,8 +157,14 @@ def main():
     for a in argv:
         if a == "--out":
             out = argv[argv.index(a) + 1]
-        if a == "--pick":
-            pick = argv[argv.index(a) + 1].split(",")
+    if a == "--pick":
+        pick = argv[argv.index(a) + 1].split(",")
+    if os.environ.get("PICK_ALL_SCORED") == "1":
+        # every scored trajectory (specs/layer_op_probs_*.json) — the audit set
+        pick = [f"{k.rsplit('|s', 1)[0]}:{k.rsplit('|s', 1)[1]}"
+                for k in json.load(open(
+                    os.environ.get("PROBS_JSON",
+                                   "specs/layer_op_probs_2026-09-17.json")))]
     ops, cases = annotate(path)
     from annotate_layer_ops import mark_break_points, mark_necessity
     import pickle
@@ -189,7 +196,6 @@ def main():
     # probability family (teacher-forcing p0/pF/p⁻/p_alone per module) when
     # available — produced by scripts/score_layer_op_probs.py
     probs_all = {}
-    import os
     _pj = os.environ.get("PROBS_JSON",
                          "specs/layer_op_probs_2026-09-17.json")
     if os.path.exists(_pj):
