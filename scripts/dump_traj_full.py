@@ -90,37 +90,32 @@ def dump_case(f, c, dist, rec, gold_disp, probs=None):
             f.write(f"★[{i}] 命中GOLD: {disp}\n")
             for ql in qlines:
                 f.write(f"   > {ql[:240]}\n")
-        # phi/annotation blocks after sg deliveries
+        # phi/annotation blocks after sg deliveries — CORE PROBABILITY VIEW
+        # (user ruling 2026-09-18): structure-necessity + p0/pF + this
+        # module's standalone prob + the overall prob with it REMOVED.
+        # d/l/f/N/g/lineage stay in the JSON, not the line.
         pstr = ""
         if i in pm:
             m = pm[i]
-            def _r(x):
-                return f"{x:+.4f}" if isinstance(x, (int, float)) else "?"
-            pstr = (f"  概率 d={_r(m.get('d'))} l(移除伤害)={_r(m.get('l'))}"
-                    f" f(独立)={_r(m.get('f'))} N={m.get('N')}"
-                    f" g={'首达' if m.get('g') else '-'}"
-                    f" 台阶={'是' if m.get('lineage') else 'no'}"
-                    f" ⇒ 概率档={m.get('cls')}")
+            def _p(x):
+                if not isinstance(x, (int, float)):
+                    return "?"
+                return f"{x:.2e}" if (abs(x) < 1e-3 and x != 0) \
+                    else f"{x:.4f}"
+            cls = m.get("cls", "?")
+            pstr = (f"  [p_alone={_p(m.get('p_alone'))}"
+                    f" p_removed={_p(m.get('p_minus'))}"
+                    f" 档={cls}]")
         if i in ops_by_idx:
             o = ops_by_idx[i]
-            before, after, _ = phis.get(i, (float("inf"), float("inf"), None))
-            adv = "推进" if after < before else \
-                  ("覆盖gold" if o["p_gain"] > 0 else "未推进")
             b = blocks_by_idx.get(i, {})
-            f.write(f"◆[{i}] 层操作: φ {d_str(before)}→{d_str(after)} "
-                    f"({adv})  cov_gain={o['p_gain']}  width={o['width']} "
-                    f"used={o['used']}  gold={o['gold_hit']}  "
-                    f"通路={b.get('pathway', '?')[:16]}"
+            f.write(f"◆[{i}] 层操作: 通路={b.get('pathway', '?')[:16]}"
                     f"/{b.get('pathway_verdict', '?')}  "
                     f"结构必要={nec_str(b)}{pstr}\n")
         elif i in blocks_by_idx and blocks_by_idx[i].get("is_op") is False:
-            before, after, b = phis[i]
+            b = blocks_by_idx[i]
             gh = b.get("gold_here") or ()
-            adv = "推进" if after < before else \
-                  ("覆盖gold" if gh else "未推进")
-            f.write(f"◆[{i}] 基线块(首次建树): "
-                    f"φ {d_str(before)}→{d_str(after)} ({adv})  "
-                    f"gold={'有' if gh else '无'}  "
+            f.write(f"◆[{i}] 基线块: gold={'有' if gh else '无'}  "
                     f"通路={b.get('pathway', '?')[:16]}"
                     f"/{b.get('pathway_verdict', '?')}  "
                     f"结构必要={nec_str(b)}{pstr}\n")

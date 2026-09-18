@@ -198,11 +198,11 @@ def score_case(rec, c, ti):
         else:
             cls = "redundant_irr"
         out["modules"][str(i)] = {
-            "d": None if d is None else round(d, 4),
-            "l": None if l is None else round(l, 4),
-            "f": None if f is None else round(f, 4),
-            "p_minus": None if pl is None else round(pl, 4),
-            "p_alone": None if pa is None else round(pa, 4),
+            "d": None if d is None else float(f"{d:.4g}"),
+            "l": None if l is None else float(f"{l:.4g}"),
+            "f": None if f is None else float(f"{f:.4g}"),
+            "p_minus": None if pl is None else float(f"{pl:.4g}"),
+            "p_alone": None if pa is None else float(f"{pa:.4g}"),
             "g": gfirst[i], "N": round(novelties[i], 3),
             "lineage": lineage[i], "cls": cls,
         }
