@@ -1,5 +1,26 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-18 评价体系 v5 从零构建(specs/evaluation_system_v5.md,用户裁定集)
+- **方向变更**:停止修补 v1.5/v4——从核心理念另立体系。v1.5 审计
+  证据(irr 误标 4/5/台阶救 harmful/迷失链全绿)是动机不是部分。
+- **公理**:行为与答案脱钩(pF=独立检索优势);语境路径=declared
+  step 关系链本身(层链已实例化,**无需另做语义过滤**);树架构下
+  行为=关系层更新,层链=step 关系序列;冗余(重复检索已由内容)与
+  无关(未误导)分家。
+- **七层**: L0 链命中(harness 判完成集∩gold/绑定域)→L1 反事实
+  必要性→L2 联合测试(joint−max>噪声底⇒互补均有效,**信贷=½独立
+  +½联合增量**——修订 §10.8 满额裁定)→L3 概率(d/l,首现归属)→
+  L4 查重(resolved 关系集键——_sg_served 教训)→L5 无关-无害→
+  **L6 断链定位=关系序列对齐**(最佳路径层链 vs 断链层链逐跳比较,
+  最长公共前缀后第一个分歧层=break-point,附分歧层关系对照;
+  基准三来源:本轨迹 reached 链/oracle 链(诊断专用,不违展示基准)/
+  成功兄弟链)。
+- **标记集**:块级 necessary/complementary/effective-prob/redundant/
+  irrelevant-harmless/break-point;通路 reached/unreached+断链步;
+  case p0/pF/Δ。**退役信号**:f/lineage/φ/N(仅 L4 内部)。
+- **待裁定的边界 case**(spec §五):含金噪声/空交付块/概率倒挂/
+  记忆天花板/部分重叠通路(L2-L4 边界)。冻结前不实施。
+
 ### 2026-09-15 十补:GTE 排序根因 = last-2 截断丢失域前缀(b3c44e1 已修)
 - **用户问题**:"嵌入不是跟人类语义对齐了吗,为什么 border→adjoins
   排 #11?" — 分解实验给了决定性答案:
