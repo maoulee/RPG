@@ -10100,6 +10100,10 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - 坑:json 序列化把 modules 键变 str,读取处 int()。
 
 ### 2026-09-18 逐 case 概率审计(5a5b11b):specs/prob_audit_per_case_2026-09-18.md
+- **轨迹原文 dump 配套**(335f086):specs/prob_audit_trajs_2026-09-18.md
+  (12 条打分轨迹逐消息原文,scripts/dump_traj_full.py 加
+  PICK_ALL_SCORED=1)——与逐 case 报告对照审:报告给信号读数,
+  dump 给行为上下文(调用前后环境返回/★gold 命中行/◆概率标注)。
 - 13 轨迹全量: 每条 p0/pF/Δ + 每行为 N/f/d/l/g/lin/p⁻/p_alone + 调用
   原文。**冗余核查: dup 3/3 全对(N=0.00-0.18 真重复); irr 1/5 对
   (1797 mod2 查问题不要的维度), 4 错全是 N=0.48-0.90 新颖探索**
