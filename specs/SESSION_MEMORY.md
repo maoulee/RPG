@@ -1,5 +1,22 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-19 重建 lane license 对齐修复(e9a10fd/e03bdfc):1379 空渲染根因
+- **根因**:finalize 的 license path-admission(_keep_* 4887)要求路径
+  **最后一跳=提交关系**(或端点 CVT)才把节点入 lic——旧引擎的 pe paths
+  止于提交关系边(CVT 落点);重建器最初把 CVT 穿透边也放链上(last=
+  穿透关系∉提交集)→整链被 license 拒→渲染空(1379 块#0 三元组全消失
+  的机制)。
+- **修复**(对齐用户裁定"CVT 展开是渲染层的事"):_rebuild_paths 标记
+  passthrough 边;链的**模式跳止于最后提交关系边**(paths/nodes 用
+  hop 部分),穿透边只进 triples、穿透命名终点进 candidates——CVT
+  渲染时头/尾内联展开(m.xxx [organization: Freemasonry] ✓)。
+- **验证**:1379 块#0 完整恢复(6 异构多跳+CVT 内联);153 绿;
+  144 条 67s;pattern-lines 76→295。**已知残留待审**:某消息 122 条
+  模式(计数泄漏——confirmed keys 多或旧分支);42 条空 sg 渲染
+  (direct 步分支,21 块#0 型)。
+- **重放性能链**(用户问"为何慢"):GTE 真调用+批窗+walk——重建 lane
+  后 walk 已毫秒级,67s 全 144 条主为 GTE+轮次开销。
+
 ### 2026-09-19 重建式实例化落地(1751eb1/25a3f45):机制对齐完成
 - **机制定稿**(specs/mechanism_alignment_2026-09-19.md):三层分立——
   模式层(CVT 抽象超节点,枚举/排序/选择,毫秒级)/重建层(沿选中模式
