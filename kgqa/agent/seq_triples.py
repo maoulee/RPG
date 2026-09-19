@@ -82,11 +82,35 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
         for _pk in _pats:
             _selected.add(tuple(str(ctx.rels[_r]) for _r in _pk))
     _selected_c = {_collapse_rt(k) for k in _selected}
-    _selected_terms = ({k[-1] for k in _selected if k} |
-                       {str(r) for r in (treq.get("rel_names") or [])})
+    # ADMISSION TERMINALS (user audit 2026-09-19, 567 specimen: 39 patterns
+    # rendered for 4 submitted relations — design cap is direct + 3 per
+    # terminal). Two tightenings restore the designed count:
+    #  (1) branch-(b) admission accepts only SUBMITTED relations as legal
+    #      terminals — bridges ride the walk but may not mint render
+    #      sections (rel_names carries them; attr_expansion keys are the
+    #      model's own submission);
+    #  (2) branch-(b) admits at most 3 walked tuples PER TERMINAL,
+    #      mirroring the B-phase quota the selection already enforces.
+    #      Overflow tuples drop through to the environment edge block.
+    _ae_keys = list((treq.get("attr_expansion") or {}).keys())
+    _submitted_names = ({str(k) for k in _ae_keys} or
+                        {str(r) for r in (treq.get("rel_names") or [])})
+    _admit_terms = ({k[-1] for k in _selected if k} | _submitted_names)
+    # GLOBAL per-terminal budget: selected patterns SPEND the terminal's
+    # 3-slot quota (user design: ≤3 multi-hop per terminal in TOTAL —
+    # the B-phase quota is per (center, terminal), so a multi-center call
+    # stacks; display enforces the per-terminal total). Pre-fill is itself
+    # capped at 3 so over-quota selected sets still leave branch (a) room
+    # to show the sorted-first representatives.
+    ADMIT_PER_TERM = 3
+    _admit_count = {}
+    for k in _selected:
+        if k and _admit_count.get(k[-1], 0) < ADMIT_PER_TERM:
+            _admit_count[k[-1]] = _admit_count.get(k[-1], 0) + 1
     _shown = []
-    for rt in sorted(groups, key=_pkey):
-        _rtc = _collapse_rt(rt)
+    _a_seen = set()      # collapse-key dedup: one raw representative per
+    for rt in sorted(groups, key=_pkey):   # SELECTED pattern (variants of
+        _rtc = _collapse_rt(rt)            # the same collapsed key merged)
         # ACTUAL-PATH GROUNDED ADMISSION (user ruling 2026-09-15): the
         # walked tuple is the ground truth — entity+adjoins alone may not
         # reach co2 while entity+adjoins+adjoins (CVT in/out) exactly hits
@@ -95,8 +119,23 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
         # is a SECTION when it completes a submitted relation as its actual
         # terminal (bounded depth), or matches a declared key exactly /
         # collapsed. The declared key is intent; the actual path is truth.
-        if (rt in _selected or _rtc in _selected_c
-                or (rt[-1] in _selected_terms and len(rt) <= 4)):
+        if rt in _selected or _rtc in _selected_c:
+            if _rtc in _a_seen:
+                continue            # collapse-variant of an already-shown
+            # GLOBAL TERMINAL BUDGET covers selected patterns too: the
+            # B-phase quota is per (CENTER, terminal) — a multi-center call
+            # stacks 3×N per terminal (Colorado-River specimen: 9/terminal
+            # through 3 centers). Display enforces the per-terminal total.
+            _term = rt[-1]
+            if _admit_count.get(_term, 0) >= ADMIT_PER_TERM:
+                continue
+            _admit_count[_term] = _admit_count.get(_term, 0) + 1
+            _a_seen.add(_rtc)       # selected pattern — merge to one rep
+            _shown.append(rt)
+            continue
+        if (rt[-1] in _admit_terms and len(rt) <= 4
+                and _admit_count.get(rt[-1], 0) < ADMIT_PER_TERM):
+            _admit_count[rt[-1]] = _admit_count.get(rt[-1], 0) + 1
             _shown.append(rt)
             continue
         if len(_rtc) == 1 and _short_r(_rtc[0]) in _sub_sh:

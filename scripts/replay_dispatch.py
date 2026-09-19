@@ -50,6 +50,11 @@ from kgqa.core.utils import PHASE_TIMES
 os.environ.setdefault("WALK_BATCH_WINDOW", "1.0")
 os.environ.setdefault("SEQ_PROMPT", "V21")
 os.environ.setdefault("DISPATCH_CONCURRENCY", "64")
+# STANDING STACK ENVS: the recorded runs (v06_aligned etc.) ran with the
+# SEQ_MULTISTEP stack on — without these the replay silently takes the
+# legacy render lane and every comparison is meaningless
+os.environ.setdefault("SEQ_MULTISTEP", "1")
+os.environ.setdefault("SEQ_RENDER_V38", "1")
 
 
 def _load_recorded(path):

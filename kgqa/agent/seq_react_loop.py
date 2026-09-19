@@ -1248,14 +1248,21 @@ class SeqReactCase:
             _tried = sorted(set(_tried))[:12]
             # reset conversation → [system, question+anchors]
             self.messages = self.messages[:2]
-            # reset the state machine and every accumulated case store
             self.state = SeqAgentState()
+            # reset every accumulated case store.
+            # TYPE-DISPATCHED reset (user audit 2026-09-19, 1379-s1 crash
+            # family): walk_seen_entities/walk_extra are LIST-typed ctx
+            # fields (seq_tools.py:4942/5178 init them as []) — resetting
+            # them to {} made the first post-restart retrieve_subgraph
+            # crash at the ledger append (seq_tools.py:4950) and persist.
             for f in ("var_bindings", "declared_facts", "fact_bindings",
                       "fact_vars", "var_joins", "closed_facts",
-                      "fact_evidence", "fact_evidence_seq",
-                      "walk_seen_entities", "walk_extra"):
+                      "fact_evidence", "fact_evidence_seq"):
                 if hasattr(self.ctx, f):
                     setattr(self.ctx, f, {})
+            for f in ("walk_seen_entities", "walk_extra"):
+                if hasattr(self.ctx, f):
+                    setattr(self.ctx, f, [])
             if hasattr(self.ctx, "accumulated_triples"):
                 self.ctx.accumulated_triples = set()
             for f in ("cvt_binding_flag", "cvt_empty_var", "join_flag",

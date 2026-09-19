@@ -3830,6 +3830,14 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     # forward validation enforces path consistency and reach stops needing
     # bridges-as-termini.
     _multistep = {}
+    # UNCONDITIONAL INIT (crash fix 2026-09-19): the return at the end of
+    # _sg_prepare references these unconditionally; they used to be born
+    # inside the SEQ_MULTISTEP block, so SEQ_MULTISTEP=0 (e.g. replay
+    # without the standing env) raised UnboundLocalError on EVERY sg call.
+    _seq_echo = ""
+    _cont_compare = False
+    _cont_frontier = {}
+    _layer_action = ""
     if centers and os.environ.get("SEQ_MULTISTEP", "0") == "1":
         try:
             from kgqa.traversal.pattern_walk import get_pattern_index
@@ -3872,7 +3880,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             # when several trees contain the center: one whose frontier
             # makes a submitted relation feasible, then the deepest.
             _declared = {}
-            _seq_echo = ""
+            _seq_echo = ""      # (re-initialized at function scope — see above)
             _cont_compare = False
             _cont_frontier = {}
             _layer_action = ""
@@ -4168,8 +4176,15 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
     if not patterns:
         return None
     # ORDERING: (hops, name) — length first, semantics second (B phase);
-    # support never influences selection
-    ranked = sorted(patterns, key=lambda p: (len(p), p))[:max(topk, 0) or None]
+    # support never influences selection.
+    # ENUMERATION CEILING (user audit 2026-09-19): topk=0 (semantic mode)
+    # used to become [:None] — the FULL enumeration returned, and when the
+    # B-phase selection failed (its exception was swallowed) every
+    # enumerated pattern walked and rendered (567: 39 sections for 4
+    # submitted relations). Cap the semantic-mode candidate pool at 60 so
+    # selection failure degrades gracefully instead of exploding.
+    _cap = max(topk, 0) or 60
+    ranked = sorted(patterns, key=lambda p: (len(p), p))[:_cap]
     out = {p: tuple(frozenset([r]) for r in p) for p in ranked}
     return out
 
@@ -4305,7 +4320,16 @@ async def _sg_execute(treq, ctx, session):
                         _sel.setdefault(_ci, {})[_pk] = _v
             treq["multistep"] = _mseq = _sel
         except Exception:
-            pass
+            # SELECTION-FAILURE FALLBACK (user audit 2026-09-19): swallowing
+            # the error left derive's UNBOUNDED enumeration (topk=0 under
+            # SEQ_PAT_SEMANTIC) as treq["multistep"] — a hub case then
+            # rendered every enumerated pattern. Fall back to length-first
+            # top-3, the quota the selection was supposed to enforce.
+            _fb = {}
+            for _ci, _pats in (treq.get("multistep") or {}).items():
+                for _pk in sorted(_pats, key=lambda k: (len(k), k))[:3]:
+                    _fb.setdefault(_ci, {})[_pk] = _pats[_pk]
+            treq["multistep"] = _fb
         if os.environ.get("SEQ_DEBUG_CHAIN", "0") == "1":
             import sys as _sys
             for _ci, _pats in (treq.get("multistep") or {}).items():

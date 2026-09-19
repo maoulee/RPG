@@ -94,15 +94,61 @@ def _lme(vs):
     return m + math.log(sum(math.exp(x - m) for x in vs) / len(vs))
 
 
+def evidence_text(msg_content):
+    """EVIDENCE-ONLY extraction (user ruling 2026-09-19: strip the
+    per-call INSTRUCTION content from module text — the model's reasoning
+    rules are injected ONCE as the system prefix, mirroring
+    seq_advantage.build_messages; note/relation_expansion lines are tool
+    instructions, not evidence). NOTE ORDER: in the two-layer render the
+    `▸ patterns:` INDEX line and the `entities:` root-echo line come
+    BEFORE the evidence blocks — skip (not break) so the block region
+    survives; the region ends at the first true note line."""
+    out, in_blocks = [], False
+    for line in msg_content.split("\n"):
+        if line.startswith("triples:"):
+            in_blocks = True
+            continue
+        if not in_blocks:
+            continue
+        if line.startswith(("▸ patterns:", "entities:")):
+            continue                # index/echo lines — skip, keep going
+        if line.startswith(("note:", "anchor_sequence:", "layer_action:",
+                            "candidates:", "relation_expansion:")):
+            break
+        out.append(line)
+    return "\n".join(out)
+
+
+_RULES_CACHE = {}
+
+
+def rules_prefix():
+    """The agent's own reasoning rules, injected BEFORE the evidence — the
+    established IG method (build_messages: system = SEQ_AGENTS truncated
+    to sys_cap=8000). Question+evidence alone under-scores: without the
+    rules the reader does not know the task's answer format."""
+    p = _RULES_CACHE.get("p")
+    if p is None:
+        try:
+            src = open("kgqa/agent/SEQ_AGENTS_V21.md", encoding="utf-8").read()
+            p = src[:8000]
+        except OSError:
+            p = ""
+        _RULES_CACHE["p"] = p
+    return p
+
+
 def score_case(rec, c, ti):
     q = rec.get("question", "")
+    rules = rules_prefix()
     gold_list = sorted(set(str(g) for g in rec["_gold_list"]
                            if str(g).strip())) or ["unknown"]
     if len(gold_list) > MAX_ENTITIES:
         rng = random.Random(1234 + ti)
         gold_list = sorted(rng.sample(gold_list, MAX_ENTITIES))
     blocks = c.get("blocks", [])
-    texts = [trunc(rec["trajectory"][b["idx"]]["content"]) for b in blocks]
+    texts = [trunc(evidence_text(rec["trajectory"][b["idx"]]["content"]))
+             for b in blocks]
     # novelty N (v1.5 semantics): fraction of this module's displayed edges
     # that are FIRST deliveries
     seen = set()
@@ -141,21 +187,21 @@ def score_case(rec, c, ti):
     pairs, meta = [], []
     all_txt = "\n\n".join(t for t in texts if t)
     for g in gold_list:
-        pairs.append((f"Question: {q}", g)); meta.append(("V0", None))
-        pairs.append((f"Question: {q}\n\nEvidence:\n{all_txt}", g))
+        pairs.append((f"{rules}\n\nQuestion: {q}", g)); meta.append(("V0", None))
+        pairs.append((f"{rules}\n\nQuestion: {q}\n\nEvidence:\n{all_txt}", g))
         meta.append(("VF", None))
         acc = ""
         for i, t in enumerate(texts):
             acc = (acc + "\n\n" + t).strip() if t else acc
-            pairs.append((f"Question: {q}\n\nEvidence:\n{acc}", g))
+            pairs.append((f"{rules}\n\nQuestion: {q}\n\nEvidence:\n{acc}", g))
             meta.append(("Vseq", i))
         for i, t in enumerate(texts):
             minus = "\n\n".join(x for j, x in enumerate(texts) if j != i and x)
-            prefix = (f"Question: {q}\n\nEvidence:\n{minus}" if minus
-                      else f"Question: {q}")
+            prefix = (f"{rules}\n\nQuestion: {q}\n\nEvidence:\n{minus}" if minus
+                      else f"{rules}\n\nQuestion: {q}")
             pairs.append((prefix, g)); meta.append(("Vloo", i))
             if t:
-                pairs.append((f"Question: {q}\n\nEvidence:\n{t}", g))
+                pairs.append((f"{rules}\n\nQuestion: {q}\n\nEvidence:\n{t}", g))
                 meta.append(("Valone", i))
     with cf.ThreadPoolExecutor(8) as ex:
         vals = list(ex.map(lambda p: gold_logprob(*p), pairs))
