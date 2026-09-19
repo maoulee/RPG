@@ -1,5 +1,21 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-19 渲染理念定稿:选中路径重建器(9d53b94,用户裁定)
+- **理念**(用户陈述):路径是第一公民——先游走出模式路径,渲染=基于
+  固定路径逐跳重建三元组记录(压缩形式只是记录格式);**准入预算=
+  选择层控制机制**(选中符合要求的完整路径),不是症状补丁;
+  **走完未选中的路径一律不渲染**(无 environment 兜底);只渲染选中
+  路径上符合整体路径需求的实体;**CVT 渲染机制保留(作答关键)**。
+- **bridge 语义修正**(同一裁定):bridge=衔接职责(h 的多 t 承担下一跳
+  头实体的责任),是路径**中间的跳**,永远不是终点——旧实现
+  SEQ_BRIDGE_TERMINAL 把 bridge 装进合法终点集是理念违背。
+- **实施**(seq_triples.py):_shown 只留 selected/collapse-匹配+1-hop
+  direct(全局 per-terminal 预算保持);branch-b(终点匹配准入)删除;
+  env_triples 置空(未选中不渲染);CVT 属性内联不动。
+- **验证**:153 绿;36 重放 0 崩溃、pattern max 19、每 terminal≤3
+  零违规、567 msg=6 条、答案级保真(answer≠0)。
+- 48×3 全量对比 0.7177 仍待跑(渲染行为变化的最终权威判定)。
+
 ### 2026-09-19 用户轨迹审核四问题修复(1c126bd):153 绿+36 重放验证
 - **A1 dispatch 崩溃(真 bug 根因)**:restart 重置块把 list 型
   walk_seen_entities/walk_extra 重置成 {}(seq_react_loop.py:1253+)
@@ -10216,3 +10232,14 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   台阶⇒概率档。标本:21-[9] d=+.437 l=+.458 f=+.501(核心模块);
   567-[5] l=−.028(移除反升,噪声);1379 各块 lineage 台阶有效、
   末块 irr;2209 per-entity 修正后 p0=.042→pF=.314。
+
+### 2026-09-19 磁盘清理(用户批准 A/B/C1,/zhaoshu 92G→63G,配额 100G)
+- **已删**: ①五个训练的 checkpoint-N 恢复目录(v15/{200,232} v2h/113
+  v16/180 v14/79 comb_r2/286,deepspeed optimizer 状态 ~10.1G)——各训练
+  顶层最终 adapter 保留,**断点续训能力已不存在**;②tmp/ 旧代中间产物
+  ~2.2G(v7b/v9/v10adv/v12adv + ig_v15*/adv_v15*/seq_train_v15final);
+  ③llm/Qwen3.5-9B-comb500_r1 合并模型 17G——可由 base +
+  checkpoint/comb_r2 adapter(139M)重新合并再生。r2 当前轮(ig_r2*/
+  adv_r2*/seq_train_r2final)与 v2h/v14 中间文件保留。
+- **未动**: data/(14G)、reports/(3.1G,可复现但暂留)、.pnpm-store/node/
+  _data_archive 等仓库外小项、root/.zcode db.sqlite(334M,持续增长)。
