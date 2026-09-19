@@ -11,7 +11,7 @@ sg 调用数: 旧 6 / 新 6
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Franz Liszt  |  relations: organization.organization_membership.member | organization.organization_member.member_of
 旧: 模式 9 · 证据块 3 · 2907 字符
-新: 模式 2 · 证据块 1 · 1760 字符
+新: 模式 0 · 证据块 0 · 1512 字符
 
 【旧渲染】
 ```
@@ -37,10 +37,6 @@ relation_expansion: {'organization.organization_membership.member': {'direct': [
 ```
 triples:
 entities: Franz Liszt
-▸ patterns: organization_member.member_of | organization_membership.member
-── Life of Franz Liszt ──
-    --organization_member.member_of--> m.0cr70y2 [organization: Freemasonry]
-    m.0cr70y2 --organization_membership.member--> Life of Franz Liszt
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.organization_membership.member': {'direct': ['organization.organization_membership.member'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
@@ -49,7 +45,7 @@ relation_expansion: {'organization.organization_membership.member': {'direct': [
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: Franz Liszt  |  relations: organization.organization.founders | organization.organization_founder.organizations_founded | people.person.employment
 旧: 模式 13 · 证据块 3 · 3909 字符
-新: 模式 4 · 证据块 4 · 2977 字符
+新: 模式 0 · 证据块 0 · 2293 字符
 
 【旧渲染】
 ```
@@ -79,17 +75,6 @@ layer_action: extend
 ```
 triples:
 entities: Franz Liszt  (sequence root; this layer applies to the frontier: Life of Franz Liszt)
-▸ patterns: fictional_character.based_on | organization.founders | organization_founder.organizations_founded | person.employment_history
-── Franz Liszt ──
-    --fictional_character.based_on--> Life of Franz Liszt
-── Life of Franz Liszt ──
-    --person.employment_history--> m.04kp4ft [company: Franz Liszt Academy of Music, Budapest]
-    --organization_founder.organizations_founded--> Franz Liszt Academy of Music, Budapest
-    Franz Liszt Academy of Music, Budapest --organization.founders--> Life of Franz Liszt
-── Cosima Von Buelow ──
-    --fictional_character.based_on--> Cosima Wagner
-── Fryderyk Chopin ──
-    Frédéric Chopin --fictional_character.based_on--> Fryderyk Chopin
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_founder.organizations_founded': {'direct': ['organization.organization_founder.organizations_founded'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'people.person.employment_history': {'direct': ['people.person.employment_history'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
@@ -100,7 +85,7 @@ layer_action: update layer 1 (replaced ganization.organization_member.member_of,
 --------------------------------------------------------------------------------------------
 ### 块 #2 调用: center: Franz Liszt  |  relations: people.person.religion | organization.organization.founders | organization.organization_founder.organizations_founded
 旧: 模式 15 · 证据块 6 · 4243 字符
-新: 模式 5 · 证据块 7 · 3398 字符
+新: 模式 0 · 证据块 0 · 2213 字符
 
 【旧渲染】
 ```
@@ -137,23 +122,6 @@ relation_expansion: {'people.person.religion': {'direct': ['people.person.religi
 ```
 triples:
 entities: Franz Liszt  (sequence root; this layer applies to the frontier: Life of Franz Liszt)
-▸ patterns: fictional_character.based_on | organization.founders | organization_founder.organizations_founded | person.religion | person.religion ⭢ person.religion
-── Franz Liszt ──
-    --fictional_character.based_on--> Life of Franz Liszt
-── Catholicism ──
-    Alojz Gradnik | Anton Bruckner | Antonio Salieri | Antonio Vivaldi | Antonín Dvořák | Carl Czerny | Charles Baudelaire | Claudio Monteverdi | Cosima Wagner | Eddie Van Halen | Francis Poulenc | Franz Schubert …(+9) (to answer with ALL of them, include "#Alojz Gradnik::religion" as one answer entity) --person.religion--> Catholicism
-── Life of Franz Liszt ──
-    --organization_founder.organizations_founded--> Franz Liszt Academy of Music, Budapest
-    Franz Liszt Academy of Music, Budapest --organization.founders--> Life of Franz Liszt
-── Cosima Wagner ──
-    --person.religion--> Protestantism
-    Cosima Von Buelow --fictional_character.based_on--> Cosima Wagner
-── Judaism ──
-    Charles-Valentin Alkan | George Cukor | Heinrich Heine --person.religion--> Judaism
-── Fryderyk Chopin ──
-    Frédéric Chopin --fictional_character.based_on--> Fryderyk Chopin
-── Heinrich Heine ──
-    --person.religion--> Christianity
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'people.person.religion': {'direct': ['people.person.religion'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_founder.organizations_founded': {'direct': ['organization.organization_founder.organizations_founded'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
@@ -164,7 +132,7 @@ layer_action: update layer 1 (replaced people.person.employment_history)
 --------------------------------------------------------------------------------------------
 ### 块 #3 调用: center: Franz Liszt  |  relations: people.profession.people_with_this_profession | organization.organization_member.member_of
 旧: 模式 10 · 证据块 3 · 3456 字符
-新: 模式 3 · 证据块 5 · 2794 字符
+新: 模式 0 · 证据块 0 · 2134 字符
 
 【旧渲染】
 ```
@@ -191,18 +159,6 @@ layer_action: extend
 ```
 triples:
 entities: Franz Liszt  (sequence root; this layer applies to the frontier: Life of Franz Liszt)
-▸ patterns: fictional_character.based_on | organization_member.member_of | profession.people_with_this_profession
-── Franz Liszt ──
-    --fictional_character.based_on--> Life of Franz Liszt
-── Life of Franz Liszt ──
-    --organization_member.member_of--> m.0cr70y2 [organization: Freemasonry]
-    Virtuoso --profession.people_with_this_profession--> Life of Franz Liszt
-── Virtuoso ──
-    --profession.people_with_this_profession--> Arcadi Volodos | Niccolò Paganini | Paolo Girolamo Besozzi
-── Cosima Von Buelow ──
-    --fictional_character.based_on--> Cosima Wagner
-── Fryderyk Chopin ──
-    Frédéric Chopin --fictional_character.based_on--> Fryderyk Chopin
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'people.profession.people_with_this_profession': {'direct': ['people.profession.people_with_this_profession'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
@@ -213,7 +169,7 @@ layer_action: update layer 1 (replaced ganization_founder.organizations_founded,
 --------------------------------------------------------------------------------------------
 ### 块 #4 调用: center: Franz Liszt  |  relations: organization.organization_member.member_of | organization.organization_membership.member | organization.organization_fo
 旧: [错误响应] {"error": "dispatch_retrieve_subgraph: 'dict' object has no attribute 'append'"}
-新: 模式 4 · 证据块 4 · 2961 字符
+新: 模式 0 · 证据块 0 · 2302 字符
 
 【旧渲染】
 ```
@@ -223,17 +179,6 @@ layer_action: update layer 1 (replaced ganization_founder.organizations_founded,
 ```
 triples:
 entities: Franz Liszt  (sequence root; this layer applies to the frontier: Life of Franz Liszt)
-▸ patterns: fictional_character.based_on | organization_founder.organizations_founded | organization_member.member_of | organization_membership.member
-── Franz Liszt ──
-    --fictional_character.based_on--> Life of Franz Liszt
-── Life of Franz Liszt ──
-    --organization_member.member_of--> m.0cr70y2 [organization: Freemasonry]
-    --organization_founder.organizations_founded--> Franz Liszt Academy of Music, Budapest
-    m.0cr70y2 --organization_membership.member--> Life of Franz Liszt
-── Cosima Von Buelow ──
-    --fictional_character.based_on--> Cosima Wagner
-── Fryderyk Chopin ──
-    Frédéric Chopin --fictional_character.based_on--> Fryderyk Chopin
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_membership.member': {'direct': ['organization.organization_membership.member'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_founder.organizations_founded': {'direct': ['organization.organization_founder.organizations_founded'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
@@ -244,7 +189,7 @@ layer_action: update layer 1 (replaced e.profession.people_with_this_profession)
 --------------------------------------------------------------------------------------------
 ### 块 #5 调用: center: Franz Liszt  |  relations: organization.organization_founder.organizations_founded | organization.organization.founders | organization.organizatio
 旧: [错误响应] {"error": "dispatch_retrieve_subgraph: 'dict' object has no attribute 'append'"}
-新: 模式 5 · 证据块 4 · 3216 字符
+新: 模式 0 · 证据块 0 · 2443 字符
 
 【旧渲染】
 ```
@@ -254,18 +199,6 @@ layer_action: update layer 1 (replaced e.profession.people_with_this_profession)
 ```
 triples:
 entities: Franz Liszt  (sequence root; this layer applies to the frontier: Life of Franz Liszt)
-▸ patterns: fictional_character.based_on | organization.founders | organization_founder.organizations_founded | organization_member.member_of | organization_membership.member
-── Franz Liszt ──
-    --fictional_character.based_on--> Life of Franz Liszt
-── Life of Franz Liszt ──
-    --organization_member.member_of--> m.0cr70y2 [organization: Freemasonry]
-    --organization_founder.organizations_founded--> Franz Liszt Academy of Music, Budapest
-    Franz Liszt Academy of Music, Budapest --organization.founders--> Life of Franz Liszt
-    m.0cr70y2 --organization_membership.member--> Life of Franz Liszt
-── Cosima Von Buelow ──
-    --fictional_character.based_on--> Cosima Wagner
-── Fryderyk Chopin ──
-    Frédéric Chopin --fictional_character.based_on--> Fryderyk Chopin
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.organization_founder.organizations_founded': {'direct': ['organization.organization_founder.organizations_founded'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_membership.member': {'direct': ['organization.organization_membership.member'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
@@ -282,7 +215,7 @@ sg 调用数: 旧 6 / 新 6
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Franz Liszt  |  relations: organization.founders | organization_founder.organizations_founded | organization_member.member_of
 旧: 模式 13 · 证据块 3 · 3461 字符
-新: 模式 3 · 证据块 1 · 2045 字符
+新: 模式 6 · 证据块 2 · 2473 字符
 
 【旧渲染】
 ```
@@ -310,9 +243,12 @@ relation_expansion: {'organization.founders': {'direct': ['organization.organiza
 ```
 triples:
 entities: Franz Liszt
-▸ patterns: organization.founders | organization_founder.organizations_founded | organization_member.member_of
+▸ patterns: topic.image ⭢ organization.founders | topic.image ⭢ organization_founder.organizations_founded | fictional_character.based_on ⭢ organization.founders | fictional_character.based_on ⭢ organization_founder.organizations_founded | person_in_fiction.representations_in_fiction ⭢ organization.founders | person_in_fiction.representations_in_fiction ⭢ organization_founder.organizations_founded
+── Franz Liszt ──
+    --fictional_character.based_on--> Life of Franz Liszt
+    Life of Franz Liszt --topic.image--> Franz Liszt
+    Life of Franz Liszt --person_in_fiction.representations_in_fiction--> Franz Liszt
 ── Life of Franz Liszt ──
-    --organization_member.member_of--> m.0cr70y2 [organization: Freemasonry]
     --organization_founder.organizations_founded--> Franz Liszt Academy of Music, Budapest
     Franz Liszt Academy of Music, Budapest --organization.founders--> Life of Franz Liszt
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
@@ -323,7 +259,7 @@ relation_expansion: {'organization.founders': {'direct': ['organization.organiza
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: Freemasonry | Franz Liszt Academy of Music, Budapest  |  relations: organization.membership_organization.members | business.employment_tenure.company
 旧: 模式 4 · 证据块 3 · 2835 字符
-新: 模式 1 · 证据块 1 · 2010 字符
+新: 模式 0 · 证据块 0 · 1615 字符
 
 【旧渲染】
 ```
@@ -348,12 +284,7 @@ relation_expansion: {'business.employment_tenure.company': {'direct': ['business
 ```
 【新渲染】
 ```
-triples:
-entities: Freemasonry | Franz Liszt Academy of Music, Budapest
-▸ patterns: membership_organization.members
-── Freemasonry ──
-    --membership_organization.members--> m.0cr70y2 [member: Life of Franz Liszt]
-note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
+triples: (empty)
 note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that entity's edges — ?org has 2 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?org or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'business.employment_tenure.company': {'direct': ['business.employment_tenure.company'], 'bridge': ['education.educational_institution_campus.educational_institution']}}
 ```
@@ -361,7 +292,7 @@ relation_expansion: {'business.employment_tenure.company': {'direct': ['business
 --------------------------------------------------------------------------------------------
 ### 块 #2 调用: center: Freemasonry | Franz Liszt Academy of Music, Budapest  |  relations: organization.membership_organization.members | organization.organization_membership.member | organization.organization_
 旧: 模式 22 · 证据块 3 · 5063 字符
-新: 模式 6 · 证据块 3 · 3722 字符
+新: 模式 0 · 证据块 0 · 2926 字符
 
 【旧渲染】
 ```
@@ -391,17 +322,6 @@ note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that enti
 ```
 triples:
 entities: Freemasonry | Franz Liszt Academy of Music, Budapest  (sequence root; this layer applies to the frontier: Life of Franz Liszt)
-▸ patterns: employer.employees | employment_tenure.company | membership_organization.members | organization.founders | organization_membership.organization | organization_membership.member
-── Franz Liszt Academy of Music, Budapest ──
-    --employer.employees--> m.04kp4ft [person: Life of Franz Liszt] | m.0w1vp7h
-    --organization.founders--> Life of Franz Liszt
-    m.04kp4ft --employment_tenure.company--> Franz Liszt Academy of Music, Budapest
-    m.0w1vp7h --employment_tenure.company--> Franz Liszt Academy of Music, Budapest
-── Freemasonry ──
-    --membership_organization.members--> m.0cr70y2 [member: Life of Franz Liszt]
-    m.0cr70y2 --organization_membership.organization--> Freemasonry
-── Life of Franz Liszt ──
-    m.0cr70y2 --organization_membership.member--> Life of Franz Liszt
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that entity's edges — ?org has 2 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?org or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.organization_membership.member': {'direct': ['organization.organization_membership.member'], 'bridge': ['business.employment_tenure.company', 'organization.organization.founders', 'organization.organization_membership.organization']}, 'business.employment_tenure.company': {'direct': ['business.employment_tenure.company'], 'bridge': ['education.educational_institution_campus.educational_institution']}, 'business.employer.employees': {'direct': ['business.employer.employees'], 'bridge': ['education.educational_institution_campus.educational_institution']}}
@@ -412,7 +332,7 @@ layer_action: update layer 1 (replaced none)
 --------------------------------------------------------------------------------------------
 ### 块 #3 调用: center: Freemasonry | Franz Liszt Academy of Music, Budapest  |  relations: organization.organization_type.organizations_of_this_type | organization.organization.organization_type | organization.
 旧: 模式 16 · 证据块 5 · 4582 字符
-新: 模式 4 · 证据块 2 · 2771 字符
+新: 模式 20 · 证据块 5 · 5351 字符
 
 【旧渲染】
 ```
@@ -446,22 +366,34 @@ note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that enti
 ```
 triples:
 entities: Freemasonry | Franz Liszt Academy of Music, Budapest  (sequence root; this layer applies to the frontier: Life of Franz Liszt)
-▸ patterns: organization.organization_type | organization_sector.organizations_in_this_sector | organization_type.organizations_of_this_type | religion.is_part_of
-── ABRSM ──
-    --organization.organization_type--> Classical music
-    Classical music --organization_sector.organizations_in_this_sector--> ABRSM
-    Classical music --organization_type.organizations_of_this_type--> ABRSM
+▸ patterns: organization.founders ⭢ artist.genre ⭢ organization.organization_type | organization.founders ⭢ artist.genre ⭢ organization_sector.organizations_in_this_sector | organization.founders ⭢ artist.genre ⭢ organization_type.organizations_of_this_type | organization.founders ⭢ person.religion ⭢ religion.is_part_of | organization_founder.organizations_founded ⭢ artist.genre ⭢ organization.organization_type | organization_founder.organizations_founded ⭢ artist.genre ⭢ organization_sector.organizations_in_this_sector | organization_founder.organizations_founded ⭢ artist.genre ⭢ organization_type.organizations_of_this_type | organization_founder.organizations_founded ⭢ person.religion ⭢ religion.is_part_of | namesake.named_after ⭢ artist.genre ⭢ organization.organization_type | namesake.named_after ⭢ artist.genre ⭢ organization_sector.organizations_in_this_sector | namesake.named_after ⭢ artist.genre ⭢ organization_type.organizations_of_this_type | employment_tenure.company ⭢ employment_tenure.person ⭢ person.religion ⭢ religion.is_part_of | membership_organization.members ⭢ organization_membership.member ⭢ artist.genre ⭢ organization.organization_type | membership_organization.members ⭢ organization_membership.member ⭢ artist.genre ⭢ organization_sector.organizations_in_this_sector | membership_organization.members ⭢ organization_membership.member ⭢ artist.genre ⭢ organization_type.organizations_of_this_type | membership_organization.members ⭢ organization_membership.member ⭢ person.religion ⭢ religion.is_part_of | organization_membership.organization ⭢ organization_membership.member ⭢ artist.genre ⭢ organization.organization_type | organization_membership.organization ⭢ organization_membership.member ⭢ artist.genre ⭢ organization_sector.organizations_in_this_sector | organization_membership.organization ⭢ organization_membership.member ⭢ artist.genre ⭢ organization_type.organizations_of_this_type | organization_membership.organization ⭢ organization_membership.member ⭢ person.religion ⭢ religion.is_part_of
+── Franz Liszt Academy of Music, Budapest ──
+    --organization.founders--> Life of Franz Liszt
+    --namesake.named_after--> Life of Franz Liszt
+    m.04kp4ft --employment_tenure.company--> Franz Liszt Academy of Music, Budapest
+    Life of Franz Liszt --organization_founder.organizations_founded--> Franz Liszt Academy of Music, Budapest
+── Freemasonry ──
+    --membership_organization.members--> m.0cr70y2
+    m.0cr70y2 --organization_membership.organization--> Freemasonry
+── Life of Franz Liszt ──
+    --artist.genre--> Classical music
+    --person.religion--> Catholicism
+    m.0cr70y2 --organization_membership.member--> Life of Franz Liszt
+    m.04kp4ft --employment_tenure.person--> Life of Franz Liszt
+── Classical music ──
+    --organization_sector.organizations_in_this_sector--> ABRSM
+    --organization_type.organizations_of_this_type--> ABRSM
+    ABRSM --organization.organization_type--> Classical music
 ── Catholicism ──
     --religion.is_part_of--> Christianity
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
-note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that entity's edges — ?org has 2 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?org or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
-layer_action: update layer 1 (replaced stitution_campus.educational_institution, business.employer.employees, business.employment_tenure.company, nization.membership_organization.members, organization.organization.founders, anization.organization_membership.member, ion.organization_membership.organization)
+note: ⚠ Passing only 'Freemasonry' narrows the relation pool to just that entity's edges — ?org has 2 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?org or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #4 调用: center: ?org  |  relations: organization.organization_membership.organization | organization.organization_member.member_of | organization.organizat
 旧: 模式 16 · 证据块 3 · 4380 字符
-新: 模式 4 · 证据块 3 · 2966 字符
+新: 模式 0 · 证据块 0 · 2126 字符
 
 【旧渲染】
 ```
@@ -489,18 +421,7 @@ relation_expansion: {'organization.organization_member.member_of': {'direct': ['
 ```
 【新渲染】
 ```
-triples:
-entities: Freemasonry | Franz Liszt Academy of Music, Budapest
-▸ patterns: employment_tenure.company | organization.founders | organization_membership.organization | organization_member.member_of
-── Franz Liszt Academy of Music, Budapest ──
-    --organization.founders--> Life of Franz Liszt
-    m.04kp4ft --employment_tenure.company--> Franz Liszt Academy of Music, Budapest
-    m.0w1vp7h --employment_tenure.company--> Franz Liszt Academy of Music, Budapest
-── Freemasonry ──
-    m.0cr70y2 --organization_membership.organization--> Freemasonry
-── Life of Franz Liszt ──
-    --organization_member.member_of--> m.0cr70y2 [member: Life of Franz Liszt]
-note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
+triples: (empty)
 note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['business.employment_tenure.company', 'organization.organization.founders', 'organization.organization_membership.organization']}, 'organization.organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['business.employment_tenure.company', 'education.educational_institution_campus.educational_institution', 'organization.organization_membership.organization']}}
 anchor_sequence: Freemasonry ⭢ organization.organization_type | organization_membership.organization | organization_sector.organizations_in_this_sector | organization_type.organizations_of_this_type | religion.is_part_of (0)
@@ -510,7 +431,7 @@ layer_action: extend
 --------------------------------------------------------------------------------------------
 ### 块 #5 调用: center: Franz Liszt  |  relations: organization.organization.founders | organization.organization_founder.organizations_founded | organization.organizatio
 旧: 模式 17 · 证据块 3 · 4183 字符
-新: 模式 5 · 证据块 4 · 3216 字符
+新: 模式 0 · 证据块 0 · 2443 字符
 
 【旧渲染】
 ```
@@ -538,18 +459,6 @@ relation_expansion: {'organization.organization.founders': {'direct': ['organiza
 ```
 triples:
 entities: Franz Liszt  (sequence root; this layer applies to the frontier: Life of Franz Liszt)
-▸ patterns: fictional_character.based_on | organization.founders | organization_founder.organizations_founded | organization_member.member_of | organization_membership.member
-── Franz Liszt ──
-    --fictional_character.based_on--> Life of Franz Liszt
-── Life of Franz Liszt ──
-    --organization_member.member_of--> m.0cr70y2 [organization: Freemasonry]
-    --organization_founder.organizations_founded--> Franz Liszt Academy of Music, Budapest
-    Franz Liszt Academy of Music, Budapest --organization.founders--> Life of Franz Liszt
-    m.0cr70y2 --organization_membership.member--> Life of Franz Liszt
-── Cosima Von Buelow ──
-    --fictional_character.based_on--> Cosima Wagner
-── Fryderyk Chopin ──
-    Frédéric Chopin --fictional_character.based_on--> Fryderyk Chopin
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'organization.organization.founders': {'direct': ['organization.organization.founders'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_founder.organizations_founded': {'direct': ['organization.organization_founder.organizations_founded'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_member.member_of': {'direct': ['organization.organization_member.member_of'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'organization.organization_membership.member': {'direct': ['organization.organization_membership.member'], 'bridge': ['fictional_universe.fictional_character.based_on']}}
@@ -566,7 +475,7 @@ sg 调用数: 旧 3 / 新 3
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Siege of Vicksburg  |  relations: military_conflict.combatants | military_person.participated_in_conflicts | military_conflict.military_personnel_involve
 旧: 模式 11 · 证据块 10 · 7839 字符
-新: 模式 0 · 证据块 0 · 1891 字符
+新: 模式 19 · 证据块 10 · 11484 字符
 
 【旧渲染】
 ```
@@ -601,15 +510,28 @@ entities: Siege of Vicksburg
 ```
 triples:
 entities: Siege of Vicksburg
-note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
-note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
-relation_expansion: {'military_conflict.combatants': {'direct': ['military.military_conflict.combatants'], 'bridge': ['time.event.included_in_event']}, 'military_person.participated_in_conflicts': {'direct': ['military.military_person.participated_in_conflicts'], 'bridge': ['base.culturalevent.event.entity_involved', 'military.military_command.military_conflict', 'military.military_conflict.commanders', 'military.military_conflict.military_personnel_involved', 'time.event.included_in_event']}, 'military_conflict.military_personnel_involved': {'direct': ['military.military_conflict.military_personnel_involved'], 'bridge': ['military.military_command.military_conflict', 'military.military_person.participated_in_conflicts']}}
+▸ patterns: military_conflict.military_personnel_involved ⭢ military_person.participated_in_conflicts | military_person.participated_in_conflicts ⭢ event.entity_involved | military_person.participated_in_conflicts ⭢ military_conflict.military_personnel_involved | event.includes_event ⭢ event.included_in_event | battle.military_units_involved_in_this_conflict ⭢ military_unit.conflicts_participated_in ⭢ event.included_in_event | military_unit.conflicts_participated_in ⭢ battle.military_units_involved_in_this_conflict ⭢ event.included_in_event | military_command.military_conflict ⭢ military_command.military_commander ⭢ military_conflict.military_personnel_involved | military_command.military_conflict ⭢ military_command.military_commander ⭢ military_person.participated_in_conflicts | military_command.military_conflict ⭢ military_commander.military_commands ⭢ military_person.participated_in_conflicts | military_conflict.combatants ⭢ military_combatant_group.combatants ⭢ event.entity_involved | military_conflict.commanders ⭢ military_command.military_combatant ⭢ event.entity_involved | military_conflict.commanders ⭢ military_command.military_commander ⭢ event.entity_involved | military_conflict.commanders ⭢ military_command.military_commander ⭢ military_conflict.military_personnel_involved | military_conflict.commanders ⭢ military_command.military_commander ⭢ military_person.participated_in_conflicts | military_conflict.commanders ⭢ military_commander.military_commands ⭢ event.entity_involved | military_conflict.commanders ⭢ military_commander.military_commands ⭢ military_person.participated_in_conflicts | military_command.military_conflict ⭢ military_command.military_combatant ⭢ military_combatant_group.combatants ⭢ military_conflict.combatants | military_conflict.combatants ⭢ military_combatant_group.combatants ⭢ military_combatant_group.combatants ⭢ military_conflict.combatants | military_conflict.commanders ⭢ military_command.military_combatant ⭢ military_combatant_group.combatants ⭢ military_conflict.combatants
+── Siege of Vicksburg ──
+    --military_conflict.combatants--> m.049y2pc | m.04fvcs7
+    --military_conflict.commanders--> m.049y2lz [military_combatant: Union] | m.049y2m5 [military_combatant: Confederate States of America; military_commander: John C. Pemberton]
+    --military_conflict.military_personnel_involved--> Carter L. Stevenson | David Farragut | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Seth Barton | Ulysses S. Grant | William F. Draper
+    --battle.military_units_involved_in_this_conflict--> 17th Louisiana Infantry Regiment | 31st Louisiana Infantry Regiment
+    17th Louisiana Infantry Regiment --military_unit.conflicts_participated_in--> Siege of Vicksburg
+    31st Louisiana Infantry Regiment --military_unit.conflicts_participated_in--> Siege of Vicksburg
+    Grant's Operations Against Vicksburg --event.includes_event--> Siege of Vicksburg
+    m.049y2lz --military_command.military_conflict--> Siege of Vicksburg
+    m.049y2m5 --military_command.military_conflict--> Siege of Vicksburg
+    Carter L. Stevenson | David Farragut | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Seth Barton | Ulysses S. Grant | William F. Draper --military_person.participated_in_conflicts--> Siege of Vicksburg
+── Confederate States of America ──
+    m.03z98d_ --military_combatant_group.combatants--> Confederate States of America
+    m.049y2pc --military_combatant_group.combatants--> Confederate States of America
+    American Civil War | Atlanta Campaign | Battle of Arkansas Post | Battle of Big Black River Bridge | Battle of Chickasaw Bayou | Battle of Fort Donelson | Battle of Fort Henry | Battle of Globe Tavern | Battle of Goodrich's Landing | Battle of Grand Gulf | Battle of Helena | Battle of Iuka …(+18) (to answer with ALL of them, include "#American Civil War::entity_involved" as one answer entity) --
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner | William F. Draper  |  relations: deceased_person.place_of_death | place_of_interment.interred_here | person.place_of_birth
 旧: 模式 23 · 证据块 9 · 8330 字符
-新: 模式 15 · 证据块 10 · 11156 字符
+新: 模式 5 · 证据块 7 · 4905 字符
 
 【旧渲染】
 ```
@@ -651,43 +573,33 @@ entities: Siege of Vicksburg  (sequence root; this layer applies to the frontier
 ```
 triples:
 entities: Siege of Vicksburg  (sequence root; this layer applies to the frontier: American Civil War | Carter L. Stevenson | Confederate States of America | David Farragut | Grant's Operations Against Vicksburg | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John C. Pemberton | John S. Bowen | Peter Joseph Osterhaus)
-▸ patterns: topic.image | event.entity_involved ⭢ pet_owner.pets_owned | event.entity_involved ⭢ pet_ownership.owner | event.entity_involved ⭢ topic.image | pet_owner.pets_owned | pet_ownership.owner | location.people_born_here | deceased_person.place_of_burial | deceased_person.place_of_death | person.children | person.place_of_birth | person.places_lived | place_lived.person | place_of_interment.interred_here | namesake.named_after
+▸ patterns: event.entity_involved ⭢ topic.image | event.entity_involved ⭢ pet_owner.pets_owned ⭢ pet_owner.pets_owned | event.entity_involved ⭢ pet_owner.pets_owned ⭢ pet_ownership.owner | event.entity_involved ⭢ pet_ownership.owner ⭢ pet_owner.pets_owned | event.entity_involved ⭢ pet_ownership.owner ⭢ pet_ownership.owner
 ── Siege of Vicksburg ──
-    --event.entity_involved--> Ulysses S. Grant | Confederate States of America | John C. Pemberton | Union
-    --topic.image--> Battle of Vicksburg, Kurz and Allison
+    --event.entity_involved--> Confederate States of America | John C. Pemberton | Ulysses S. Grant | Union
 ── Ulysses S. Grant ──
-    --person.children--> Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.
     --topic.image--> GrantBirthplace | Ulysses Grant 1870-1880
-    --pet_owner.pets_owned--> m.05k6cbt [owner: Jesse Root Grant] | m.05k6ddj [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6dn_ [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6drm [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6dyy [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6f3h [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6ffg [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6flg [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6fr0 [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6ft8 [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6fyl [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.]
-    --person.place_of_birth--> Point Pleasant
-    --deceased_person.place_of_burial--> General Grant National Memorial
-    --deceased_person.place_of_death--> Wilton
-    --person.places_lived--> m.03pj1vh [location: Ohio] | m.04hxfk6
-    General Grant National Memorial --place_of_interment.interred_here--> Ulysses S. Grant
-    Grant | Grant Avenue | Grant City | Grant Cottage | Grant County | Grant Parish | Grant Park | Grants Pass | Jim Walsh | U.S. Grant Hotel | Ulysses | Ulysses S. Grant Memorial …(+1) (to answer with ALL of them, include "#Grant::named_after" as one answer entity) --namesake.named_after--> Ulysses S. Grant
-    m.05k6cbt | m.05k6ddj | m.05k6dn_ | m.05k6drm | m.05k6dyy | m.05k6f3h | m.05k6ffg | m.05k6flg | m.05k6fr0 | m.05k6ft8 | m.05k6fyl --pet_ownership.owner--> Ulysses S. Grant
-    Point Pleasant --location.people_born_here--> Ulysses S. Grant
-    m.03pj1vh --place_lived.person--> Ulysses S. Grant
-    m.04hxfk6 --place_lived.person--> Ulysses S. Grant
-── David Farragut ──
-    --topic.image--> Admiral David Farragut | Admiral David Farragut (1801–1870) - collodion, LC-BH82-4054 restored
-    --namesake.named_after--> David Porter
-    --person.place_of_birth--> Farragut
-    --deceased_person.place_of_burial--> Woodlawn Cemetery
-    --deceased_person.place_of_death--> Portsmouth
-    --person.places_lived--> m.03prc7s
-    David Porter --person.children--> David Farragut
-    Farragut | Farragut Career Academy | Farragut High School | Farragut Square --namesake.named_after--> David Farragut
-    Farragut --location.people_born_here--> David Farragut
-    m.03prc7s --place_lived.person--> David Farragut
-── James B. McPherson ──
- 
+    --pet_owner.pets_owned--> m.05k6ddj [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6cbt
+    m.05k6cbt --pet_ownership.owner--> Ulysses S. Grant
+    m.05k6ddj --pet_ownership.owner--> Ulysses S. Grant
+── Union ──
+    --topic.image--> USA Map 1864 including Civil War Divisions | United States 1860-1870
+── Confederate States of America ──
+    --topic.image--> CSAlocation
+── John C. Pemberton ──
+    --topic.image--> JCPembertonBLY
+── Ellen Wrenshall Grant ──
+    m.05k6ddj --pet_ownership.owner--> Ellen Wrenshall Grant
+── Frederick Dent Grant ──
+    --pet_owner.pets_owned--> m.05k6ddj [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.]
+note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
+note: ⚠ Passing only 'Carter L. Stevenson' narrows the relation pool to just that entity's edges — ?participant has 13 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?participant or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
+relation_expansion: {'deceased_person.place_of_death': {'direct': ['people.deceased_person.place_of_death'], 'bridge': ['common.topic.image', 'fictional_universe.fictional_character.based_on', 'government.us_president.vice_president', 'people.person.places_lived']}, 'place_of_interment.interred_here': {'direct': ['people.place_of_interment.interred_here'], 'bridge': ['base.famouspets.pet_owner.pets_owned', 'base.famouspets.pet_ownership.owner', 'common.topic.image', 'fictional_universe.fictional_character.based_on', 'people.deceased_person.place_of_burial', 'people.person.children']}, 'person.place_
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #2 调用: center: Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner | William F. Draper  |  relations: deceased_person.cause_of_death | deceased_person.place_of_death | person.place_of_birth | place_of_interment.interred_h
 旧: 模式 15 · 证据块 9 · 7343 字符
-新: 模式 13 · 证据块 9 · 9774 字符
+新: 模式 5 · 证据块 7 · 5128 字符
 
 【旧渲染】
 ```
@@ -741,45 +653,27 @@ entities: Siege of Vicksburg  (sequence root; this layer applies to the frontier
 ```
 triples:
 entities: Siege of Vicksburg  (sequence root; this layer applies to the frontier: Admiral David Farragut | Admiral David Farragut (1801–1870) - collodion, LC-BH82-4054 restored | American Civil War Montage 2 | Atlanta | Berlin | Bloomingburg | Brady-GeneralMcPherson | Breckinridge County | CLStevenson | CSAlocation | Caroline County | Civil War - Gettysburg)
-▸ patterns: event.entity_involved ⭢ pet_owner.pets_owned | event.entity_involved ⭢ pet_ownership.owner | event.entity_involved ⭢ topic.image | pet_owner.pets_owned | pet_ownership.owner | topic.image | us_president.vice_president | location.people_born_here | deceased_person.place_of_burial | deceased_person.place_of_death | person.place_of_birth | person.places_lived | place_lived.person
+▸ patterns: event.entity_involved ⭢ topic.image | event.entity_involved ⭢ pet_owner.pets_owned ⭢ pet_owner.pets_owned | event.entity_involved ⭢ pet_owner.pets_owned ⭢ pet_ownership.owner | event.entity_involved ⭢ pet_ownership.owner ⭢ pet_owner.pets_owned | event.entity_involved ⭢ pet_ownership.owner ⭢ pet_ownership.owner
 ── Siege of Vicksburg ──
-    --event.entity_involved--> Ulysses S. Grant | Confederate States of America | John C. Pemberton | Union
+    --event.entity_involved--> Confederate States of America | John C. Pemberton | Ulysses S. Grant | Union
 ── Ulysses S. Grant ──
     --topic.image--> GrantBirthplace | Ulysses Grant 1870-1880
-    --pet_owner.pets_owned--> m.05k6cbt [owner: Jesse Root Grant] | m.05k6ddj [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6dn_ [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6drm [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6dyy [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6f3h [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6ffg [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6flg [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6fr0 [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6ft8 [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6fyl [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.]
-    --person.place_of_birth--> Point Pleasant
-    --deceased_person.place_of_burial--> General Grant National Memorial
-    --deceased_person.place_of_death--> Wilton
-    --person.places_lived--> m.03pj1vh [location: Ohio] | m.04hxfk6
-    --us_president.vice_president--> Henry Wilson | Schuyler Colfax
-    m.05k6cbt | m.05k6ddj | m.05k6dn_ | m.05k6drm | m.05k6dyy | m.05k6f3h | m.05k6ffg | m.05k6flg | m.05k6fr0 | m.05k6ft8 | m.05k6fyl --pet_ownership.owner--> Ulysses S. Grant
-    Point Pleasant --location.people_born_here--> Ulysses S. Grant
-    m.03pj1vh --place_lived.person--> Ulysses S. Grant
-    m.04hxfk6 --place_lived.person--> Ulysses S. Grant
-── David Farragut ──
-    --topic.image--> Admiral David Farragut | Admiral David Farragut (1801–1870) - collodion, LC-BH82-4054 restored
-    --person.place_of_birth--> Farragut
-    --deceased_person.place_of_burial--> Woodlawn Cemetery
-    --deceased_person.place_of_death--> Portsmouth
-    --person.places_lived--> m.03prc7s
-    Farragut --location.people_born_here--> David Farragut
-    m.03prc7s --place_lived.person--> David Farragut
-── Peter Joseph Osterhaus ──
-    --topic.image--> Peter J Osterhaus
-    --person.place_of_birth--> Koblenz
-    --deceased_person.place_of_burial--> Berlin
-    --deceased_person.place_of_death--> Duisburg
-    --person.places_lived--> m.03pk3n7 | m.04hgzp_ [location: Koblenz]
-    m.03pk3n7 --place_lived.person--> Peter Joseph Osterhaus
-    m.04hgzp_ --place_lived.person--> Peter Joseph Osterhaus
-── James B. McPherson ──
-    --topic.image--> Brady-GeneralMcPherson
-    --person.place_of_birth--> Clyde
-    --deceased_person.place_of_burial--> Fort McPherson National Cemetery
-    --deceased_person.place_of_death--> Atlanta
-    --person.places_lived--> m.03pj0kp [location: Ohio]
-    Clyde --location.people_born_here--> James B. McPherson
-    m.03pj0kp --place_lived.person--> J
+    --pet_owner.pets_owned--> m.05k6ddj [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.] | m.05k6cbt
+    m.05k6cbt --pet_ownership.owner--> Ulysses S. Grant
+    m.05k6ddj --pet_ownership.owner--> Ulysses S. Grant
+── Union ──
+    --topic.image--> USA Map 1864 including Civil War Divisions | United States 1860-1870
+── Confederate States of America ──
+    --topic.image--> CSAlocation
+── John C. Pemberton ──
+    --topic.image--> JCPembertonBLY
+── Ellen Wrenshall Grant ──
+    m.05k6ddj --pet_ownership.owner--> Ellen Wrenshall Grant
+── Frederick Dent Grant ──
+    --pet_owner.pets_owned--> m.05k6ddj [owner: Ellen Wrenshall Grant | Frederick Dent Grant | Jesse Root Grant | Ulysses S. Grant Jr.]
+note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
+note: ⚠ Passing only 'Carter L. Stevenson' narrows the relation pool to just that entity's edges — ?participant has 13 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?participant or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
+relation_expansion: {'deceased_person.cause_of_death': {'direct': ['people.deceased_person.cause_of_death'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'deceased_person.place_of_death': {'direct': ['people.deceased_person.place_of_death'], 'bridge': ['common.topic.image', 'fictional_universe.fictional_character.based_on', 'government.us_president.vice_president', 'people.person.places_lived']}, 'person.place_of_birth': {'direct': ['people.person.place_of_birth'], 'bridge': ['common.topic.image', 'fictional_universe.fictional_character.based_on', 'location.location.p
 ```
 
 
@@ -791,7 +685,7 @@ sg 调用数: 旧 3 / 新 3
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Tempus Unbound  |  relations: fictional_setting.universe
 旧: 模式 10 · 证据块 6 · 4045 字符
-新: 模式 4 · 证据块 8 · 4552 字符
+新: 模式 12 · 证据块 8 · 4974 字符
 
 【旧渲染】
 ```
@@ -825,39 +719,46 @@ relation_expansion: {'fictional_setting.universe': {'direct': ['fictional_univer
 ```
 triples:
 entities: Tempus Unbound
-▸ patterns: fictional_setting.works_set_here | fictional_universe.works_set_here | fictional_setting.works_set_here ⭢ fictional_setting.works_set_here | fictional_universe.works_set_here ⭢ fictional_universe.works_set_here
+▸ patterns: location_in_fiction.works_set_here ⭢ written_work.next_in_series | location_in_fiction.works_set_here ⭢ fictional_setting.universe | literary_series.fictional_universe ⭢ written_work.next_in_series | literary_series.fictional_universe ⭢ work_of_fiction.setting | fictional_character.appears_in_these_fictional_universes ⭢ work_of_fiction.setting | fictional_object.featured_in_fictional_universe ⭢ location_in_fiction.works_set_here | fictional_object.featured_in_fictional_universe ⭢ fictional_setting.universe | fictional_object.featured_in_fictional_universe ⭢ work_of_fiction.setting | fictional_setting.universe ⭢ location_in_fiction.works_set_here | fictional_setting.works_set_here ⭢ location_in_fiction.works_set_here | fictional_setting.works_set_here ⭢ written_work.next_in_series | fictional_setting.works_set_here ⭢ fictional_setting.universe
 ── Tempus Unbound ──
-    --fictional_universe.works_set_here--> Tempus Unbound
-    Beyond Sanctuary | Citadel of Lemuria | Kansas | Lemuria | Lemurian citadel | Lemurian windows into any place or time | Long Island | Manhattan | Mari, Syria | Meridian | New York | Pinnacle House …(+3) (to answer with ALL of them, include "#Beyond Sanctuary::works_set_here" as one answer entity) --fictional_setting.works_set_here--> Tempus Unbound
-── Beyond Sanctuary ──
-    --fictional_setting.works_set_here--> Beyond Sanctuary | Beyond Wizardwall | Beyond the Veil | Storm Seed | Tempus With His Right Side Companion Niko | The Sacred Band | Wars don’t bring lasting peace, only lasting death.
-    Bandara | Bandaran island chain | Black Nisibis | Downwind | Free Nisibis | Meridian | Nisibis | Peace Falls | Ranke | Sanctuary | The Misty Isles | The Sacred Band of Stepsons universe …(+4) (to answer with ALL of them, include "#Bandara::works_set_here" as one answer entity) --fictional_setting.works_set_here--> Beyond Sanctuary
+    Faun --fictional_character.appears_in_these_fictional_universes--> Tempus Unbound
+    Lemurian citadel --fictional_object.featured_in_fictional_universe--> Tempus Unbound
+    Lemurian windows into any place or time --fictional_object.featured_in_fictional_universe--> Tempus Unbound
+    The Sacred Band --literary_series.fictional_universe--> Tempus Unbound
+    Lemuria --fictional_setting.universe--> Tempus Unbound
+    Beyond Sanctuary | Lemuria | Meridian | Storm Seed --location_in_fiction.works_set_here--> Tempus Unbound
 ── The Sacred Band ──
-    Abarsis Valley | Abarsis's Overlook | Bandara | Bandaran island chain | Battleplain of Chaeronea | Beyond Overlook | Chaeronea | Citadel of Lemuria | Downwind | Free Nisibis | Lemuria | Lemurian citadel …(+8) (to answer with ALL of them, include "#Abarsis Valley::works_set_here" as one answer entity) --fictional_setting.works_set_here--> The Sacred Band
-── The Sacred Band of Stepsons universe ──
-    --fictional_universe.works_set_here--> A Better Class of Enemy | A Man and His God | An End to Dreaming | Beyond Wizardwall | Beyond the Veil | City at the Edge of Time | Dream Lord | High Moon | Pillar of Fire | Power Play | Red Light, Love Light | Sanctuary is for Lovers | Soul of the City | Storm Season | Storm Seed | Tempus With His Right Side Companion Niko
-── Storm Seed ──
-    --fictional_setting.works_set_here--> Storm Seed
-    Citadel of Lemuria | City at the Edge of Time | Lemuria | Lemurian citadel | Lemurian windows into any place or time | Moriland | Pinnacle House | Prison beneath the sea | Sandia | Sea at the edge of time | Shaga | liminal --fictional_setting.works_set_here--> Storm Seed
-── City at the Edge of Time ──
-    --fictional_setting.works_set_here--> City at the Edge of Time
-    Lemuria --fictional_setting.works_set_here--> City at the Edge of Time
-    liminal --fictional_setting.works_set_here--> City at the Edge of Time
+    --written_work.next_in_series--> Wars don’t bring lasting peace, only lasting death.
+    --work_of_fiction.setting--> Abarsis Valley | Abarsis's Overlook | Bandara | Bandaran island chain | Battleplain of Chaeronea | Beyond Overlook | Beyond Sanctuary | Chaeronea | Citadel of Lemuria | Downwind | Free Nisibis | Lemuria | Lemurian citadel | Lemurian windows into any place or time | Meridian battleplain | Mygdonia | Nisibis | Peace Falls | Pinnacle House | Rankan Mageguild | Ratfall | Sanctuary | Stepsons' barracks | The Misty Isles | Theban Cadmea | Tyse | liminal | warrior-monk academy
+    Storm Seed --written_work.next_in_series--> The Sacred Band
+    Beyond Sanctuary | Lemuria | Lemurian citadel --location_in_fiction.works_set_here--> The Sacred Band
+── Beyond Sanctuary ──
+    --written_work.next_in_series--> Beyond the Veil
+    --fictional_setting.universe--> The Sacred Band of Stepsons universe | Thieves' World fictional shared universe
+    --location_in_fiction.works_set_here--> Beyond Wizardwall | Beyond the Veil
+    An End to Dreaming --written_work.next_in_series--> Beyond Sanctuary
+    Black Nisibis | Citadel | Free Nisibis | Nisibis | Rankan Mageguild | Wizardwall --location_in_fiction.works_set_here--> Beyond Sanctuary
+── Lemuria ──
+    --fictional_setting.universe--> Sacred Band of Stepsons | The Sacred Band of Stepsons universe | Thieves' World fictional shared universe
+    --location_in_fiction.works_set_here--> Storm Seed
+── Lemurian citadel ──
+    --fictional_setting.universe--> The Sacred Band of Stepsons universe
+    --location_in_fiction.works_set_here--> Storm Seed
+    Storm Seed --work_of_fiction.setting--> Lemurian citadel
+── Faun ──
+    --work_of_fiction.setting--> Desert | Pinnacle House | Sandia
+── Lemurian windows into any place or time ──
+    --fictional_setting.universe--> Thieves' World fictional shared universe
 ── Meridian ──
-    --fictional_setting.works_set_here--> An End to Dreaming | Beyond Wizardwall | Tempus With His Right Side Companion Niko
-── Pinnacle House ──
-    --fictional_setting.works_set_here--> Faun
-    Desert --fictional_setting.works_set_here--> Faun
-    Long Island --fictional_setting.works_set_here--> The Great Gatsby
-    Sandia --fictional_setting.works_set_here--> Faun
+    --location_in_fiction.works_set_here--> An End to Dreaming | Tempus With His Right Side Companion Niko
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
-note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph
+note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Den
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: ?setting  |  relations: location.location.partially_contained_by | location.location.containedby | location.location.primarily_containedby
 旧: 模式 73 · 证据块 9 · 14567 字符
-新: 模式 19 · 证据块 10 · 10521 字符
+新: 模式 31 · 证据块 10 · 10715 字符
 
 【旧渲染】
 ```
@@ -868,43 +769,31 @@ entities: Tempus Unbound | Beyond Sanctuary | Citadel of Lemuria | Meridian | Pi
 【新渲染】
 ```
 triples:
-entities: Tempus Unbound | Battleplain of Chaeronea | Free Nisibis | Peace Falls | Tyse | Wizardwall | Abarsis Valley | Theban Cadmea | Meridian battleplain | Rankan Mageguild | Ratfall | Mygdonia  (sequence root; this layer applies to the frontier: Beyond Sanctuary | Citadel | Citadel of Lemuria | City at the Edge of Time | Egypt | Kansas | Lemuria | Lemurian citadel | Lemurian windows into any place or time | Long Island | Manhattan | Mari, Syria)
-▸ patterns: location_in_fiction.universe | location.contains | location_in_fiction.universe ⭢ location_in_fiction.universe | location_in_fiction.works_set_here ⭢ location_in_fiction.universe | location_in_fiction.universe ⭢ location_in_fiction.universe ⭢ location_in_fiction.universe | administrative_area.administrative_parent | government_position_held.district_represented | political_district.representatives | location.partially_contained_by | location.partially_containedby | location.partially_contains | location.partiallycontains | location.primarily_containedby | partial_containment_relationship.partially_contained_by | administrative_area.administrative_parent ⭢ administrative_area.administrative_parent | location.partially_containedby ⭢ location.partially_containedby | location.partially_contains ⭢ location.partially_contains | location.partially_containedby ⭢ location.partially_containedby ⭢ location.partially_containedby | location.partially_contains ⭢ location.partially_contains ⭢ location.partially_contains
-── Tempus Unbound ──
-    Citadel | Egypt | Lemuria | Lemurian citadel | Pinnacle House | Sea at the edge of time | Storm Seed --location_in_fiction.works_set_here--> Tempus Unbound
-── Wizardwall ──
-    --location_in_fiction.universe--> The Sacred Band of Stepsons universe | Thieves' World fictional shared universe
-    Nusaybin --location.contains--> Wizardwall
-── Battleplain of Chaeronea ──
-    --location_in_fiction.universe--> The Sacred Band of Stepsons universe
-    Chaeronea --location.contains--> Battleplain of Chaeronea
+entities: Tempus Unbound | Battleplain of Chaeronea | Free Nisibis | Peace Falls | Tyse | Wizardwall | Abarsis Valley | Theban Cadmea | Meridian battleplain  (sequence root; this layer applies to the frontier: Beyond Sanctuary | Citadel | Citadel of Lemuria | City at the Edge of Time | Egypt | Kansas | Lemuria | Lemurian citadel | Lemurian windows into any place or time | Long Island | Manhattan | Mari, Syria)
+▸ patterns: location_in_fiction.contained_by ⭢ location_in_fiction.contains | location_in_fiction.contains ⭢ location.containedby | location_in_fiction.works_set_here ⭢ location_in_fiction.contains | written_work.next_in_series ⭢ location_in_fiction.contains | fictional_setting.contained_by ⭢ location_in_fiction.contains | fictional_setting.contained_by ⭢ location.containedby | fictional_setting.contains ⭢ location_in_fiction.contains | fictional_setting.contains ⭢ location.containedby | fictional_setting.setting_type ⭢ location_in_fiction.contains | type_of_fictional_setting.settings ⭢ location_in_fiction.contains | mythology.referenced_location_s ⭢ location_in_mythology.mythology ⭢ location.containedby | event_in_fiction.location ⭢ location_in_fiction.events ⭢ administrative_area.administrative_parent | event_in_fiction.location ⭢ location_in_fiction.events ⭢ location.containedby | event_in_fiction.location ⭢ event_in_fiction.location ⭢ location.containedby | event_in_fiction.location ⭢ fictional_setting.events ⭢ location.containedby | location_in_fiction.contained_by ⭢ location_in_fiction.contains ⭢ administrative_area.administrative_parent | location_in_fiction.contained_by ⭢ location_in_fiction.representation_of_real_location ⭢ administrative_area.administrative_parent | location_in_fiction.languages ⭢ fictional_setting.languages ⭢ location.containedby | location_in_fiction.universe ⭢ fictional_setting.universe ⭢ administrative_area.administrative_parent | location_in_fiction.universe ⭢ fictional_setting.universe ⭢ location.containedby | location_in_fiction.universe ⭢ fictional_universe.locations ⭢ administrative_area.administrative_parent | location_in_fiction.universe ⭢ fictional_universe.locations ⭢ location.containedby | fictional_language.where_spoken ⭢ human_language.region ⭢ location.containedby | fictional_setting.universe ⭢ location_in_fiction.universe ⭢ location_in_fiction.contains | fictional_setting.universe ⭢ fictional_universe.locations ⭢ administrative_area.administrative_parent | fictional_setting.universe ⭢ fictional_universe.locations ⭢ location.containedby | event_in_fiction.location ⭢ location_in_fiction.events ⭢ location.partiallycontains ⭢ location.partially_contained_by | location_in_fiction.contained_by ⭢ location_in_fiction.representation_of_real_location ⭢ location.partiallycontains ⭢ location.partially_contained_by | location_in_fiction.universe ⭢ fictional_setting.universe ⭢ location.partiallycontains ⭢ location.partially_contained_by | location_in_fiction.universe ⭢ fictional_universe.locations ⭢ location.partiallycontains ⭢ location.partially_contained_by | fictional_setting.universe ⭢ fictional_universe.locations ⭢ location.partiallycontains ⭢ location.partially_contained_by
 ── Free Nisibis ──
-    --location_in_fiction.universe--> The Sacred Band of Stepsons universe
-    --location_in_fiction.works_set_here--> Beyond Sanctuary
-── Rankan Mageguild ──
-    --location_in_fiction.universe--> The Sacred Band of Stepsons universe
-    --location_in_fiction.works_set_here--> Beyond Sanctuary
-── Ratfall ──
-    --location_in_fiction.universe--> The Sacred Band of Stepsons universe | Thieves' World fictional shared universe
-── Meridian battleplain ──
-    --location_in_fiction.universe--> The Sacred Band of Stepsons universe
+    --fictional_setting.contained_by--> Nisibis
+    --fictional_setting.contains--> Stepsons' barracks
+    Nisibis --location_in_fiction.contains--> Free Nisibis
+    Wizard Wars --event_in_fiction.location--> Free Nisibis
 ── Theban Cadmea ──
+    --location_in_fiction.languages--> Ancient Greek
+    --fictional_setting.setting_type--> Ancient city-state
     --location_in_fiction.universe--> The Sacred Band of Stepsons universe
-── Tyse ──
-    --location_in_fiction.universe--> The Sacred Band of Stepsons universe
-── Kansas ──
-    --administrative_area.administrative_parent--> United States of America
-    --location.contains--> g.120_f_8w | g.120_rrtl | g.120jr2z0 | g.120kh6kk
-    --location.partially_contains--> Arikaree River | Arkansas River | Big Blue River | Blue River | Cimarron River | Kansas River | Little Osage River | Marais des Cygnes River | Marmaton River | Missouri River | Neosho River | Ozarks | Republican River | Salt Fork Arkansas River | Smoky Hill River | Solomon River | Spring River | Verdigris River
-    --location.partiallycontains--> m.0wg90t8 | m.0wg90tf | m.0wg90tm | m.0wg90ts | m.0wg90ty | m.0wg90v2 | m.0wg90vm | m.0wg90w4 | m.0wg90wp | m.0wg90ww | m.0wg90x0 | m.0wg90x5 | m.0wg90xb | m.0wg90xh | m.0wg90xn | m.0wjpmb0
-    --political_district.representatives--> m.010d12r0 [jurisdiction_of_office: United States of America] | m.05kdhfp [jurisdiction_of_office: United States of America] | m.05kgzyh [jurisdiction_of_office: United States of America] | m.0gm5dzf [jurisdiction_of_office: United States of America]
-    Ford County | Geary County | Gove County | Graham County | Grant County | Gray County | Greeley County | Greenwood County | Hamilton County | Harper County | Harvey County | Haskell County …(+43) (to ans
+    Ancient city-state --type_of_fictional_setting.settings--> Theban Cadmea
+── Wizardwall ──
+    --fictional_setting.contained_by--> Nisibis
+    Nisibis --fictional_setting.contains--> Wizardwall
+    Wizard Wars --event_in_fiction.location--> Wizardwall
+    Beyond Sanctuary Series --mythology.referenced_location_s--> Wizardwall
+── Abarsis Valley ──
+    --fictional_s
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #2 调用: center: Missouri River  |  relations: location.location.partially_contains | location.location.partially_contained_by
 旧: 模式 10 · 证据块 10 · 6149 字符
-新: 模式 9 · 证据块 9 · 6940 字符
+新: 模式 9 · 证据块 6 · 4722 字符
 
 【旧渲染】
 ```
@@ -971,43 +860,27 @@ entities: Missouri River
 ```
 triples:
 entities: Tempus Unbound  (sequence root; this layer applies to the frontier: Africa | Amarna | Amityville | Ancient Egypt | Ancient Mari | Ancient city-state | Arikaree River | Arkansas River | Atchison County | Azehur | Babylon | Baldwin)
-▸ patterns: river.mouth | location.containedby | location.partially_contained_by | location.partially_containedby | location.partially_contains | partial_containment_relationship.partially_contains | location.containedby ⭢ location.containedby | location.partially_containedby ⭢ location.partially_containedby | location.partially_contains ⭢ location.partially_contains
-── Mississippi River ──
-    --location.containedby--> North America | United States of America
-    --location.partially_contained_by--> m.0wg9009 | m.0wg906q
-    --location.partially_containedby--> Arkansas | Illinois | Iowa | Kentucky | Louisiana | Minnesota | Mississippi | Missouri | Tennessee | Wisconsin
-    Lower Mississippi River --location.containedby--> Mississippi River
-    Arkansas River --river.mouth--> Mississippi River
-    Arkansas | Illinois | Iowa | Kentucky | Louisiana | Minnesota | Mississippi | Missouri | Tennessee | Wisconsin | m.0wg9009 | m.0wg906q --location.partially_contains--> Mississippi River
-── Arkansas River ──
-    --location.containedby--> North America | United States of America
-    --location.partially_contained_by--> m.0wg90tf
-    --location.partially_containedby--> Arkansas | Kansas
-    Cimarron River --river.mouth--> Arkansas River
-    Neosho River --river.mouth--> Arkansas River
-    Arkansas | Kansas | m.0wg90tf --location.partially_contains--> Arkansas River
-── Cimarron River ──
-    --location.containedby--> North America | United States of America
-    --location.partially_contained_by--> m.0wg90ty
-    --location.partially_containedby--> Kansas
-    Kansas --location.partially_contains--> Cimarron River
-    m.0wg90ty --partial_containment_relationship.partially_contains--> Cimarron River
-── Neosho River ──
-    --location.containedby--> North America | United States of America
-    --location.partially_contained_by--> m.0wjpmb0
-    --location.partially_containedby--> Kansas
-    Kansas --location.partially_contains--> Neosho River
-    m.0wjpmb0 --partial_containment_relationship.partially_contains--> Neosho River
+▸ patterns: fictional_setting.universe ⭢ location.containedby | fictional_setting.universe ⭢ location.partially_containedby | fictional_setting.universe ⭢ location.partially_contains | fictional_setting.works_set_here ⭢ location.containedby | fictional_setting.works_set_here ⭢ location.partially_containedby | fictional_setting.works_set_here ⭢ location.partially_contains | work_of_fiction.setting ⭢ location.containedby | work_of_fiction.setting ⭢ location.partially_containedby | work_of_fiction.setting ⭢ location.partially_contains
+── Tempus Unbound ──
+    --work_of_fiction.setting--> Kansas | Long Island | Manhattan | New York
+    Kansas | Long Island | New York City --fictional_setting.universe--> Tempus Unbound
+    Kansas | Long Island | Manhattan | New York --fictional_setting.works_set_here--> Tempus Unbound
 ── Kansas ──
     --location.containedby--> Contiguous United States | Midwestern United States | United States of America | West North Central States
-    --location.partially_contains--> Arikaree River | Big Blue River | Blue River | Kansas River | Little Osage River | Marais des Cygnes River | Marmaton River | Missouri River | Ozarks | Republican River | Salt Fork Arkansas River | Smoky Hill River | Solomon River | Spring River | Verdigris River
+    --location.partially_contains--> Arikaree River | Arkansas River | Big Blue River | Blue River | Cimarron River | Kansas River | Little Osage River | Marais des Cygnes River | Marmaton River | Missouri River | Neosho River | Ozarks | Republican River | Salt Fork Arkansas River | Smoky Hill River | Solomon River | Spring River | Verdigris River
     Atchison County | Chautauqua County | Cheyenne County | Clark County | Clay County | Cloud County | Coffey County | Comanche County | Crawford County | Decatur County | Dickinson County | Doniphan County …(+66) (to answer with ALL of them, include "#Atchison County::containedby" as one answer entity) --location.containedby--> Kansas
-    Arikaree River | Big Blue River | Blue River | Kansas River | Little Osage River | Marais des Cygnes River | Marmaton River | Missouri River | Ozarks | Republican River | Salt Fork Arkansas River | Smoky Hill River …(+3) (to answer with ALL of them, include "#Arikaree River::partially_containedby" as one answer entity) --location.partially_containedby--> Kansas
-── North America ──
-    --location.partially_contains--> United States of America | United States, with Territories
-    Antigua and Barbuda | Arikaree River | Bahamas | Barbados | Belize | Big Blue River | Big Sioux River | Blue River | Bois de Sioux River | Canada | Chariton River | Contiguous United States …(+6) (to answer with ALL of them, include "#Antigua and Barbuda::containedby" as one answer entity) --location.containedby--> North America
-    United States of America --location.partially_containedby--> North America
-    United States, w
+    Arikaree River | Arkansas River | Big Blue River | Blue River | Cimarron River | Kansas River | Little Osage River | Marais des Cygnes River | Marmaton River | Missouri River | Neosho River | Ozarks …(+6) (to answer with ALL of them, include "#Arikaree River::partially_containedby" as one answer entity) --location.partially_containedby--> Kansas
+── Long Island ──
+    --location.containedby--> New York
+    Amityville | Babylon | Baldwin | Bay Shore | Bellmore | Bethpage | Dix Hills | Five Towns College | Floral Park | Garden City | Glen Cove | Hempstead …(+22) (to answer with ALL of them, include "#Amityville::containedby" as one answer entity) --location.containedby--> Long Island
+── New York ──
+    Metropolitan Museum of Art --location.containedby--> New York
+── Manhattan ──
+    --location.containedby--> New York City
+── New York City ──
+    Metropolitan Museum of Art --location.containedby--> New York City
+note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — rea
 ```
 
 
@@ -1019,7 +892,7 @@ sg 调用数: 旧 4 / 新 4
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Randy Jackson  |  relations: artist.concert_tours
 旧: 模式 0 · 证据块 0 · 1107 字符
-新: 模式 1 · 证据块 1 · 1482 字符
+新: 模式 2 · 证据块 2 · 1821 字符
 
 【旧渲染】
 ```
@@ -1031,9 +904,14 @@ relation_expansion: {'artist.concert_tours': {'direct': ['music.artist.concert_t
 ```
 triples:
 entities: Randy Jackson
-▸ patterns: artist.concert_tours
+▸ patterns: group_member.membership ⭢ musical_group.member ⭢ artist.concert_tours | group_membership.member ⭢ group_membership.group ⭢ artist.concert_tours
+── Randy Jackson ──
+    --group_member.membership--> g.11b6btynmz
+    m.01vxjq8 --group_membership.member--> Randy Jackson
 ── Journey ──
     --artist.concert_tours--> Eclipse Tour | Escape Tour | Frontiers Tour | Raised on Radio Tour | Revelation Tour
+    --musical_group.member--> g.11b6btynmz
+    m.01vxjq8 --group_membership.group--> Journey
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'artist.concert_tours': {'direct': ['music.artist.concert_tours'], 'bridge': ['music.group_member.membership', 'music.group_membership.member']}}
@@ -1042,7 +920,7 @@ relation_expansion: {'artist.concert_tours': {'direct': ['music.artist.concert_t
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: Eclipse Tour  |  relations: artist.concert_tours | group_membership.group
 旧: 模式 12 · 证据块 9 · 4410 字符
-新: 模式 3 · 证据块 2 · 1895 字符
+新: 模式 3 · 证据块 2 · 1867 字符
 
 【旧渲染】
 ```
@@ -1084,12 +962,14 @@ note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails
 ```
 triples:
 entities: Eclipse Tour
-▸ patterns: concert_tour.artist | concert_tour.artist ⭢ concert_tour.artist | group_membership.group
+▸ patterns: concert_tour.artist ⭢ artist.concert_tours | album.supporting_tours ⭢ album.artist ⭢ artist.concert_tours | album.supporting_tours ⭢ artist.album ⭢ artist.concert_tours
 ── Eclipse Tour ──
     --concert_tour.artist--> Journey
+    Eclipse --album.supporting_tours--> Eclipse Tour
 ── Journey ──
-    Raised on Radio Tour --concert_tour.artist--> Journey
-    m.010j_yzn | m.010jvpfy | m.01tbtvb | m.01tf0q1 | m.01tz9k6 | m.01v_qs5 | m.01vxjq8 | m.01wgt4x | m.01whmnm | m.01wmlt1 | m.04hcpx3 | m.05nn6x0 …(+11) (to answer with ALL of them, include "#m.010j_yzn::group" as one answer entity) --group_membership.group--> Journey
+    --artist.album--> Eclipse
+    --artist.concert_tours--> Escape Tour | Frontiers Tour | Raised on Radio Tour | Revelation Tour
+    Eclipse --album.artist--> Journey
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'artist.concert_tours': {'direct': ['music.artist.concert_tours'], 'bridge': ['music.concert_tour.artist']}, 'group_membership.group': {'direct': ['music.group_membership.group'], 'bridge': ['music.concert_tour.artist']}}
@@ -1098,7 +978,7 @@ relation_expansion: {'artist.concert_tours': {'direct': ['music.artist.concert_t
 --------------------------------------------------------------------------------------------
 ### 块 #2 调用: center: Randy Jackson  |  relations: group_member.instruments_played | instrument.instrumentalists
 旧: 模式 6 · 证据块 6 · 3703 字符
-新: 模式 6 · 证据块 9 · 5067 字符
+新: 模式 0 · 证据块 0 · 2404 字符
 
 【旧渲染】
 ```
@@ -1137,48 +1017,17 @@ layer_action: extend
 ```
 triples:
 entities: Randy Jackson  (sequence root; this layer applies to the frontier: Bass guitar | Breakfast Club | Group | Journey | Member | Methods of Mayhem | Period (end) | Period (start) | The Sign | Verdine White & Randy Jackson | Vocals | 1985-08:00)
-▸ patterns: group_member.instruments_played | group_member.membership | group_membership.member | track_contribution.contributor | topic.image | instrument.instrumentalists
-── Randy Jackson ──
-    --group_member.instruments_played--> Bass guitar | Keyboard
-    --group_member.membership--> g.11b6btynmz | m.01vxjq8 [end: 1987-08:00; group: Journey; role: Bass guitar | Vocals; start: 1985-08:00] | m.01vxjqg [group: Verdine White & Randy Jackson] | m.040rysf [group: Breakfast Club; has_value: Period (end) | Period (start); role: Bass guitar] | m.043dm0_ [group: Methods of Mayhem] | m.0ggf17l [group: The Sign]
-    m.010mrzsl | m.010n9k6l | m.011wxrc3 --track_contribution.contributor--> Randy Jackson
-    m.01vxjq8 | m.01vxjqg | m.040rysf | m.043dm0_ | m.0ggf17l --group_membership.member--> Randy Jackson
-── Bass guitar ──
-    --topic.image--> A Mexican Fender Jazz Bass (front and back views) | A sunburst-colored Fender Precision Bass | Martin EB18 Bass Guitar in flight case
-    --instrument.instrumentalists--> Gunnar H. Thomsen | Yu~ki | g.121qgg1g
-    Jonathan Cain --group_member.instruments_played--> Bass guitar
-    Paul Lee --group_member.instruments_played--> Bass guitar
-── Vocals ──
-    --instrument.instrumentalists--> Benjamin Booker | James Swaim | Mitali Mukherjee | Stephen Melton | g.11ksgk_85 | g.12hhgp2nt
-    Stephen Melton --group_member.instruments_played--> Vocals
-── Jonathan Cain ──
-    --group_member.instruments_played--> Guitar
-    --group_member.membership--> g.11b6bwf1m9 | m.01tz9k6 [group: Journey; has_no_value: Period (end); role: Guitar | Keyboard]
-    m.01tz9k6 --group_membership.member--> Jonathan Cain
-── Mariah Carey ──
-    m.010_tr_s | m.0110cfj_ | m.0110cjn7 | m.011wxc3h --track_contribution.contributor--> Mariah Carey
-── Neal Schon ──
-    --group_member.instruments_played--> Guitar
-    --group_member.membership--> g.11b6bfd9cl | m.01tf0q1 [group: Journey; has_no_value: Period (end); role: Vocals]
-    m.01tf0q1 --group_membership.member--> Neal Schon
-── Rob Bacon ──
-    m.010nc7ct --track_contribution.contributor--> Rob Bacon
-── Trey Lorenz ──
-    m.011wx7md --track_contribution.contributor--> Trey Lorenz
-── Guitar ──
-    Alan Motley --group_member.instruments_played--> Guitar
-    Stephen Melton --group_member.instruments_played--> Guitar
-    Hard rock --topic.image--> Who - 1975
-    Journey --topic.image--> Journey in 2002: Steve Augeri, Jonathan Cain, Ross Valory, Deen Castronovo, and Neal Schon | Journey live in Minneapolis, Minnesota on September 16, 2008. Photo by Matt Becker
-    Rock music --topic.image--> Elvis Presley in 1957 | Jimi Hendrix burning his guitar at the Monterey Pop Festival
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdi
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
+relation_expansion: {'group_member.instruments_played': {'direct': ['music.group_member.instruments_played'], 'bridge': ['common.topic.image', 'music.group_member.membership', 'music.group_membership.member', 'music.track_contribution.contributor']}, 'instrument.instrumentalists': {'direct': ['music.instrument.instrumentalists'], 'bridge': ['music.group_member.instruments_played', 'music.group_member.membership', 'music.group_membership.member', 'music.track_contribution.contributor']}}
+anchor_sequence: Randy Jackson ⭢ topic.image | group_member.instruments_played | group_member.membership | group_membership.member | instrument.instrumentalists | track_contribution.contributor (14)
+layer_action: update layer 1 (replaced music.artist.concert_tours)
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #3 调用: center: Eclipse Tour  |  relations: artist.track | performance_role.guest_performances | featured_artist.recordings | album.supporting_tours
 旧: 模式 7 · 证据块 4 · 2979 字符
-新: 模式 3 · 证据块 3 · 2497 字符
+新: 模式 0 · 证据块 0 · 2081 字符
 
 【旧渲染】
 ```
@@ -1210,15 +1059,6 @@ layer_action: update layer 1 (replaced music.artist.concert_tours, music.group_m
 ```
 triples:
 entities: Eclipse Tour  (sequence root; this layer applies to the frontier: Journey)
-▸ patterns: album.supporting_tours | concert_tour.artist | featured_artist.recordings
-── Eclipse Tour ──
-    --concert_tour.artist--> Journey
-    Eclipse --album.supporting_tours--> Eclipse Tour
-── Journey ──
-    --featured_artist.recordings--> Going Down Alone
-    Raised on Radio Tour --concert_tour.artist--> Journey
-── Raised on Radio Tour ──
-    Raised on Radio --album.supporting_tours--> Raised on Radio Tour
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'artist.track': {'direct': ['artist.track'], 'bridge': []}, 'performance_role.guest_performances': {'direct': ['performance_role.guest_performances'], 'bridge': []}, 'featured_artist.recordings': {'direct': ['music.featured_artist.recordings'], 'bridge': ['music.concert_tour.artist']}, 'album.supporting_tours': {'direct': ['music.album.supporting_tours'], 'bridge': []}}
@@ -1235,7 +1075,7 @@ sg 调用数: 旧 2 / 新 2
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Ethiopian birr  |  relations: location.country.currency_used | finance.currency.countries_used
 旧: 模式 2 · 证据块 1 · 1332 字符
-新: 模式 2 · 证据块 1 · 1332 字符
+新: 模式 0 · 证据块 0 · 1154 字符
 
 【旧渲染】
 ```
@@ -1252,10 +1092,6 @@ note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails
 ```
 triples:
 entities: Ethiopian birr
-▸ patterns: currency.countries_used | country.currency_used
-── Ethiopian birr ──
-    --currency.countries_used--> Ethiopia
-    Ethiopia --country.currency_used--> Ethiopian birr
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 ```
@@ -1263,7 +1099,7 @@ note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: Ethiopia  |  relations: government.politician.government_positions_held | government.government.government_for
 旧: 模式 11 · 证据块 6 · 4518 字符
-新: 模式 8 · 证据块 4 · 4217 字符
+新: 模式 3 · 证据块 4 · 2934 字符
 
 【旧渲染】
 ```
@@ -1301,22 +1137,23 @@ note: SEQUENCE EXTENSION applied to several frontier members — the new layer's
 ```
 triples:
 entities: Ethiopian birr  (sequence root; this layer applies to the frontier: Ethiopia)
-▸ patterns: currency.countries_used ⭢ government.government_for | currency.countries_used ⭢ government_position_held.jurisdiction_of_office | currency.countries_used ⭢ governmental_jurisdiction.governing_officials | government.government_for | government_position_held.jurisdiction_of_office | governmental_jurisdiction.governing_officials | politician.government_positions_held | person.nationality
+▸ patterns: currency.countries_used ⭢ government.government_for | currency.countries_used ⭢ government_position_held.jurisdiction_of_office ⭢ politician.government_positions_held | currency.countries_used ⭢ governmental_jurisdiction.governing_officials ⭢ politician.government_positions_held
 ── Ethiopian birr ──
     --currency.countries_used--> Ethiopia
 ── Ethiopia ──
-    --governmental_jurisdiction.governing_officials--> m.010g4d59 | m.010g4dpz | m.010g4fwg | m.010g4gn8 [basic_title: Prime minister] | m.010g4h86 | m.010g4hmc [basic_title: Prime minister] | m.010g4j4k [basic_title: Prime minister] | m.010g5f9p [basic_title: Prime minister] | m.010g5q86 [basic_title: Prime minister] | m.010pzwzw [office_holder: Haile Selassie] | m.0clv82n [basic_title: Prime minister] | m.0j5r5mg | m.0kmspfs [governmental_body: House of Peoples' Representatives] | m.0l0j1hv | m.0l0j4x3 | m.0n1nqyj [basic_title: Prime minister; from: 2012-09-21-08:00; has_no_value: To; office_holder: Hailemariam Desalegn; office_position_or_title: Prime Minister of Ethiopia] | m.0r47zs7 | m.0wzwgtk [governmental_body: House of Peoples' Representatives] | m.0y4w972
+    --governmental_jurisdiction.governing_officials--> m.010pzwzw [office_holder: Haile Selassie] | m.0l0j4x3
     Government of Ethiopia --government.government_for--> Ethiopia
-    m.010g4d59 | m.010g4dpz | m.010g4fwg | m.010g4gn8 | m.010g4h86 | m.010g4hmc | m.010g4j4k | m.010g5f9p | m.010g5q86 | m.010pzwzw | m.0clv82n | m.0j5r5mg …(+7) (to answer with ALL of them, include "#m.010g4d59::jurisdiction_of_office" as one answer entity) --government_position_held.jurisdiction_of_office--> Ethiopia
-    Baeda Maryam I | Demetros | Gebre Krestos | Gigar | Haile Selassie | Hailemariam Desalegn | Tekle Giyorgis I | Tekle Haymanot II --person.nationality--> Ethiopia
-── Hailemariam Desalegn ──
-    --politician.government_positions_held--> m.0l0j4x3 | m.0n1nqyj [basic_title: Prime minister; from: 2012-09-21-08:00; has_no_value: To; office_holder: Hailemariam Desalegn; office_position_or_title: Prime Minister of Ethiopia]
+    m.010pzwzw --government_position_held.jurisdiction_of_office--> Ethiopia
+    m.0l0j4x3 --government_position_held.jurisdiction_of_office--> Ethiopia
 ── Haile Selassie ──
     --politician.government_positions_held--> m.010pzwzw [office_holder: Haile Selassie]
+── Hailemariam Desalegn ──
+    --politician.government_positions_held--> m.0l0j4x3
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'government.politician.government_positions_held': {'direct': ['government.politician.government_positions_held'], 'bridge': ['government.government_position_held.jurisdiction_of_office', 'government.governmental_jurisdiction.governing_officials', 'people.person.nationality']}}
-anchor_sequence: Ethiopian birr ⭢ curren
+anchor_sequence: Ethiopian birr ⭢ currency.countries_used | country.currency_used (1) ⭢ government.government_for | government_position_held.jurisdiction_of_office | governmental_jurisdiction.governing_officials | person.nationality (0)
+layer_action: extend
 ```
 
 
@@ -1328,7 +1165,7 @@ sg 调用数: 旧 2 / 新 2
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Brad Stevens  |  relations: basketball.basketball_team.head_coach | sports.sports_team.coaches | sports.sports_team_coach.teams_coached
 旧: 模式 13 · 证据块 7 · 4604 字符
-新: 模式 3 · 证据块 3 · 2332 字符
+新: 模式 6 · 证据块 2 · 2719 字符
 
 【旧渲染】
 ```
@@ -1373,14 +1210,14 @@ note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails
 ```
 triples:
 entities: Brad Stevens
-▸ patterns: basketball_coach.previous_teams | sports_team_coach_tenure.coach | sports_team.coaches
+▸ patterns: basketball_historical_coach_position.coach ⭢ basketball_historical_coach_position.team ⭢ basketball_coach.team | basketball_historical_coach_position.coach ⭢ basketball_historical_coach_position.team ⭢ basketball_team.head_coach | sports_team_coach.teams_coached ⭢ sports_team_coach_tenure.team ⭢ basketball_coach.team | sports_team_coach.teams_coached ⭢ sports_team_coach_tenure.team ⭢ basketball_team.head_coach | sports_team_coach_tenure.coach ⭢ sports_team_coach_tenure.team ⭢ basketball_coach.team | sports_team_coach_tenure.coach ⭢ sports_team_coach_tenure.team ⭢ basketball_team.head_coach
 ── Brad Stevens ──
-    --basketball_coach.previous_teams--> m.0wfd2k7 [team: Butler Bulldogs men's basketball]
-    m.0w3_qv3 | m.0w48285 | m.0w4828t --sports_team_coach_tenure.coach--> Brad Stevens
-── Boston Celtics ──
-    --sports_team.coaches--> m.0w1g5hx [position: Coach] | m.0w3_qv3 [has_no_value: To; position: Head coach; team: Boston Celtics]
+    --sports_team_coach.teams_coached--> m.0w48285 [position: Assistant Coach]
+    m.0w48285 --sports_team_coach_tenure.coach--> Brad Stevens
+    m.0wfd2k7 --basketball_historical_coach_position.coach--> Brad Stevens
 ── Butler Bulldogs men's basketball ──
-    --sports_team.coaches--> m.0w48285 [position: Assistant Coach; team: Butler Bulldogs men's basketball] | m.0w4828t [position: Head coach; team: Butler Bulldogs men's basketball]
+    --basketball_team.head_coach--> Brandon Miller
+    Brandon Miller | m.0w48285 | m.0wfd2k7 --basketball_historical_coach_position.team--> Butler Bulldogs men's basketball
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'basketball.basketball_team.head_coach': {'direct': ['basketball.basketball_team.head_coach'], 'bridge': ['basketball.basketball_coach.previous_teams', 'sports.sports_team_coach.teams_coached', 'sports.sports_team_coach_tenure.coach']}, 'sports.sports_team.coaches': {'direct': ['sports.sports_team.coaches'], 'bridge': ['basketball.basketball_coach.previous_teams', 'basketball.basketball_coach.team', 'sports.sports_team_coach.teams_coached', 'sports.sports_team_coach_tenure.coach']}}
@@ -1389,7 +1226,7 @@ relation_expansion: {'basketball.basketball_team.head_coach': {'direct': ['baske
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: Boston Celtics | Butler Bulldogs men's basketball  |  relations: sports.sports_team.championships | sports.sports_championship_event.champion
 旧: 模式 4 · 证据块 2 · 3082 字符
-新: 模式 4 · 证据块 2 · 3182 字符
+新: 模式 3 · 证据块 2 · 3247 字符
 
 【旧渲染】
 ```
@@ -1411,9 +1248,10 @@ layer_action: extend
 ```
 triples:
 entities: Brad Stevens  (sequence root; this layer applies to the frontier: Assistant Coach | Boston Celtics | Butler Bulldogs men's basketball | Head coach | To)
-▸ patterns: basketball_coach.team ⭢ sports_championship_event.champion | basketball_coach.team ⭢ sports_team.championships | sports_championship_event.champion | sports_team.championships
+▸ patterns: basketball_coach.team ⭢ sports_championship_event.champion | basketball_coach.team ⭢ sports_team.championships | basketball_team.head_coach ⭢ sports_championship_event.champion
 ── Brad Stevens ──
     --basketball_coach.team--> Boston Celtics
+    Boston Celtics --basketball_team.head_coach--> Brad Stevens
 ── Boston Celtics ──
     --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 2008 NBA Finals
     1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) (to answer with ALL of them, include "#1957 NBA Finals::champion" as one answer entity) --sports_championship_event.champion--> Boston Celtics
@@ -1432,7 +1270,7 @@ sg 调用数: 旧 3 / 新 3
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Falkland Islands  |  relations: location.location.containedby | base.aareas.schema.earth.sovereign_domain.sovereign_state | base.aareas.schema.administ
 旧: 模式 18 · 证据块 6 · 5521 字符
-新: 模式 5 · 证据块 3 · 3138 字符
+新: 模式 18 · 证据块 5 · 5715 字符
 
 【旧渲染】
 ```
@@ -1473,26 +1311,41 @@ note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails
 fact_id: sg1
 triples:
 entities: Falkland Islands
-▸ patterns: government_position_held.jurisdiction_of_office | administrative_division_capital_relationship.administrative_division | administrative_area_type.sovereignty | sovereign_domain.sovereign_state | administrative_division.country
+▸ patterns: administrative_area.administrative_children ⭢ administrative_area_type.sovereignty | administrative_area.administrative_children ⭢ sovereign_domain.sovereign_state | island.island_group ⭢ administrative_area.administrative_area_type | island.island_group ⭢ administrative_division.first_level_division_of | island.island_group ⭢ location.containedby | island.island_group ⭢ location.contains | island_group.islands_in_group ⭢ administrative_area.administrative_area_type | island_group.islands_in_group ⭢ administrative_division.first_level_division_of | island_group.islands_in_group ⭢ location.containedby | island_group.islands_in_group ⭢ location.contains | country.first_level_divisions ⭢ administrative_area_type.sovereignty | country.first_level_divisions ⭢ sovereign_domain.sovereign_state | country.first_level_divisions ⭢ administrative_division.first_level_division_of | location.containedby ⭢ administrative_area.administrative_area_type | location.containedby ⭢ administrative_area_type.sovereignty | location.containedby ⭢ sovereign_domain.sovereign_state | government_position_held.jurisdiction_of_office ⭢ political_district.representatives ⭢ location.containedby | government_position_held.jurisdiction_of_office ⭢ political_district.representatives ⭢ location.contains
 ── Falkland Islands ──
-    m.0j_97ls --administrative_division_capital_relationship.administrative_division--> Falkland Islands
-    m.010wxphf | m.010wxs9y | m.09jy10q | m.0zbfy6d --government_position_held.jurisdiction_of_office--> Falkland Islands
+    --location.containedby--> United Kingdom, with Dependencies and Territories
+    --island_group.islands_in_group--> South Georgia and the South Sandwich Islands | East Falkland
+    United Kingdom, with Dependencies and Territories --administrative_area.administrative_children--> Falkland Islands
+    United Kingdom, with Dependencies and Territories --country.first_level_divisions--> Falkland Islands
+    East Falkland --island.island_group--> Falkland Islands
+    South Georgia and the South Sandwich Islands --island.island_group--> Falkland Islands
+    m.0zbfy6d --government_position_held.jurisdiction_of_office--> Falkland Islands
 ── United Kingdom, with Dependencies and Territories ──
+    --administrative_area.administrative_area_type--> Sovereign domain
     --sovereign_domain.sovereign_state--> United Kingdom
-    Anguilla | Montserrat | Pitcairn Islands | Turks and Caicos Islands --administrative_division.country--> United Kingdom, with Dependencies and Territories
+    South Georgia and the South Sandwich Islands --location.containedby--> United Kingdom, with Dependencies and Territories
+    Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat …(+4) (to answer with ALL of them, include "#Akrotiri and Dhekelia::first_level_division_of" as one answer entity) --administrative_division.first_level_division_of--> United Kingdom, with Dependencies and Territories
     UK crown dependency --administrative_area_type.sovereignty--> United Kingdom, with Dependencies and Territories
     UK overseas territory --administrative_area_type.sovereignty--> United Kingdom, with Dependencies and Territories
-── United Kingdom ──
-    South Georgia and the South Sandwich Islands --administrative_division.country--> United Kingdom
+── South Georgia and the South Sandwich Islands ──
+    --administrative_area.administrative_area_type--> UK overseas territory
+    --location.containedby--> Americas
+    Americas --location.contains--> South Georgia and the South Sandwich Islands
+── East Falkland ──
+    --location.containedby--> Atlantic Ocean
+    --location.contains--> Stanley
+    Stanley --location.containedby--> East Falkland
+    Atlantic Ocean --location.contains--> East Falkland
+── Stanley ──
+    --political_district.representatives--> m.0zbfy6d [basic_title: Member of the Legislative Assembly; district_represented: Stanley; governmental_body: Legislative Assembly of the Falkland Islands; has_no_value: Appointed By (if Position is Appointed) | To; office_holder: Michael Poole]
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
-note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
-relation_expansion: {'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['geography.island_group.islands_in_group', 'government.government_position_held.jurisdiction_of_office', 'location.administrative_division.country', 'location.administrative_division_capital_relationship.administrative_division', 'location.location.contains']}, 'base.aareas.schema.earth.sovereign_domain.sovereign_state': {'direct': ['base.aareas.schema.earth.sovereign_domain.sovereign_state'], 'bridge': ['location.administrative_division.first_level_division_of']}, 'base.aareas.schema.administrative_area_type.sovereignty': {'direct': ['base.aareas.schema.administrative_area_type.sovereignty'], 'bridge': ['base.aareas.schema.administrative_area.administrative_area_type', 'location.administrative_division.first_level_division_of']}}
+note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: United Kingdom  |  relations: location.location.time_zones
 旧: 模式 11 · 证据块 10 · 6177 字符
-新: 模式 2 · 证据块 10 · 4192 字符
+新: 模式 3 · 证据块 5 · 2419 字符
 
 【旧渲染】
 ```
@@ -1531,46 +1384,29 @@ entities: United Kingdom
 fact_id: sg2
 triples:
 entities: United Kingdom
-▸ patterns: administrative_division.country | location.time_zones
+▸ patterns: administrative_division.country ⭢ location.time_zones | sovereign_domain.sovereign_state ⭢ location.partially_containedby ⭢ location.time_zones | sovereign_domain.sovereign_state ⭢ location.partially_contains ⭢ location.time_zones
 ── United Kingdom ──
-    Gibraltar | Isle of Man | Jersey | South Georgia and the South Sandwich Islands | Wales --administrative_division.country--> United Kingdom
-── South America ──
-    --location.time_zones--> Amazon Time Zone | Argentina Time Zone | Bolivia Time Zone | Brasília Time Zone | Chile Time Zone | Colombia Time Zone | Ecuador Time Zone | Falkland Islands Time Zone | Fernando de Noronha Time Zone | French Guiana Time Zone | Guyana Time Zone | Paraguay Time Zone | Peru Time Zone | Suriname Time Zone | Uruguay Time Zone | Venezuela Time Zone
-── Atlantic Time Zone ──
-    Bermuda | Bonaire | British Virgin Islands | Canada | Curaçao | Greater Antilles | Kingdom of the Netherlands | Leeward Islands | Sint Maarten | Trinidad and Tobago | United States Virgin Islands | United States of America …(+1) (to answer with ALL of them, include "#Bermuda::time_zones" as one answer entity) --location.time_zones--> Atlantic Time Zone
-── United States of America ──
-    --location.time_zones--> Alaska Time Zone | Central Time Zone | Eastern Time Zone | Hawaii-Aleutian Time Zone | Mountain Time Zone | Pacific Time Zone | Samoa Time Zone
-    Guam --administrative_division.country--> United States of America
-    Marshall Islands --administrative_division.country--> United States of America
-── Eastern Caribbean Time Zone ──
-    Anguilla | Antigua and Barbuda | Barbados | Dominica | Grenada | Montserrat | Saint Kitts and Nevis | Saint Lucia | Saint Vincent and the Grenadines --location.time_zones--> Eastern Caribbean Time Zone
-── Canada ──
-    --location.time_zones--> Central Time Zone | Eastern Time Zone | Mountain Time Zone | Newfoundland Time Zone | Pacific Time Zone
-── Central Time Zone ──
-    Belize --location.time_zones--> Central Time Zone
-    Honduras --location.time_zones--> Central Time Zone
-── Eastern Time Zone ──
-    Bahamas --location.time_zones--> Eastern Time Zone
-    Lucayan Archipelago --location.time_zones--> Eastern Time Zone
+    South Georgia and the South Sandwich Islands --administrative_division.country--> United Kingdom
+    United Kingdom, with Dependencies and Territories --sovereign_domain.sovereign_state--> United Kingdom
 ── United Kingdom, with Dependencies and Territories ──
-    Anguilla | Montserrat | Pitcairn Islands | Turks and Caicos Islands --administrative_division.country--> United Kingdom, with Dependencies and Territories
-── Falkland Islands Time Zone ──
-    Falkland Islands --location.time_zones--> Falkland Islands Time Zone
-    Stanley --location.time_zones--> Falkland Islands Time Zone
-    American Samoa --location.time_zones--> Samoa Time Zone
-    Argentina --location.time_zones--> Argentina Time Zone
-    Aruba --administrative_division.country--> Kingdom of the Netherlands
-    Curaçao --administrative_division.country--> Kingdom of the Netherlands
-    Guyana --location.time_zones--> Guyana Time Zone
-    South Georgia and the South Sandwich Islands --location.time_zones--> South Georgia and the South Sandwich Islands Time Zone
+    --location.partially_containedby--> Greater Antilles | Lucayan Archipelago
+    Greater Antilles --location.partially_contains--> United Kingdom, with Dependencies and Territories
+    Lucayan Archipelago --location.partially_contains--> United Kingdom, with Dependencies and Territories
+── Greater Antilles ──
+    --location.time_zones--> Atlantic Time Zone
+── Lucayan Archipelago ──
+    --location.time_zones--> Eastern Time Zone
+── South Georgia and the South Sandwich Islands ──
+    --location.time_zones--> South Georgia and the South Sandwich Islands Time Zone
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
-note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pic
+note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
+relation_expansion: {'location.location.time_zones': {'direct': ['location.location.time_zones'], 'bridge': ['location.administrative_division.country']}}
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #2 调用: center: United Kingdom  |  relations: location.location.containedby | location.location.primarily_containedby | location.location.partially_containedby | bas
 旧: 模式 16 · 证据块 7 · 5208 字符
-新: 模式 7 · 证据块 7 · 5811 字符
+新: 模式 0 · 证据块 0 · 2463 字符
 
 【旧渲染】
 ```
@@ -1612,42 +1448,11 @@ note: SEQUENCE EXTENSION applied to several frontier members — the new layer's
 fact_id: sg3
 triples:
 entities: United Kingdom  (sequence root; this layer applies to the frontier: Gibraltar | Isle of Man | Jersey | South Georgia and the South Sandwich Islands | Wales)
-▸ patterns: administrative_area.administrative_children | sovereign_domain.sovereign_state | administrative_division.country | location.containedby | location.partially_containedby | location.containedby ⭢ location.containedby | location.containedby ⭢ location.containedby ⭢ location.containedby
-── United Kingdom ──
-    --administrative_area.administrative_children--> Wales
-    --location.containedby--> United Kingdom, with Dependencies and Territories | Western Europe
-    United Kingdom, with Dependencies and Territories --administrative_area.administrative_children--> United Kingdom
-    Guernsey --location.containedby--> United Kingdom
-    Wales --location.containedby--> United Kingdom
-    Gibraltar | Isle of Man | Jersey | South Georgia and the South Sandwich Islands | Wales --administrative_division.country--> United Kingdom
-    United Kingdom, with Dependencies and Territories --sovereign_domain.sovereign_state--> United Kingdom
-── United Kingdom, with Dependencies and Territories ──
-    --administrative_area.administrative_children--> Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Falkland Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat | Pitcairn Islands | Saint Helena, Ascension and Tristan da Cunha | South Georgia and the South Sandwich Islands | Turks and Caicos Islands
-    --location.partially_containedby--> Altitude | Atlantic Ocean | Cyprus | English Channel | Greater Antilles | Iberian Peninsula | Indian Ocean | Irish Sea | Leeward Islands | Lucayan Archipelago | Pacific Ocean | Virgin Islands | Western Europe
-    Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Falkland Islands | Gibraltar | Guernsey | Isle of Man | Jersey …(+7) (to answer with ALL of them, include "#Akrotiri and Dhekelia::containedby" as one answer entity) --location.containedby--> United Kingdom, with Dependencies and Territories
-    Anguilla | Montserrat | Pitcairn Islands | Turks and Caicos Islands --administrative_division.country--> United Kingdom, with Dependencies and Territories
-    Normandy --location.partially_containedby--> United Kingdom, with Dependencies and Territories
-── Anguilla ──
-    --location.containedby--> Caribbean | Caribbean Sea | Leeward Islands
-── Turks and Caicos Islands ──
-    --location.containedby--> Americas | Lucayan Archipelago | North America
-── Isle of Man ──
-    --location.containedby--> British Isles
-── Pitcairn Islands ──
-    --location.containedby--> Pacific Ocean
-── Western Europe ──
-    Ireland --location.containedby--> Western Europe
-    Kingdom of the Netherlands --location.containedby--> Western Europe
-    Aruba --administrative_division.country--> Kingdom of the Netherlands
-    Belize --location.containedby--> Central America | Latin America
-    Bonaire --location.containedby--> Netherlands
-    Curaçao --administrative_division.country--> Kingdom of the Netherlands
-    Guam --administrative_division.country--> United States of America
-    Marshall Islands --administrative_division.country--> United States of America
-    Navassa Island --location.containedby--> United States of America
-    Saint Helena --location.containedby--> Atlantic Ocean
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not ans
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
+relation_expansion: {'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['base.aareas.schema.administrative_area.administrative_children', 'location.administrative_division.country']}, 'location.location.primarily_containedby': {'direct': ['location.location.primarily_containedby'], 'bridge': ['location.location.containedby']}, 'location.location.partially_containedby': {'direct': ['location.location.partially_containedby'], 'bridge': ['base.aareas.schema.administrative_area.administrative_children', 'location.location.containedby']}}
+anchor_sequence: United Kingdom ⭢ administrative_area.administrative_children | sovereign_domain.sovereign_state | administrative_division.country | location.containedby | location.partially_containedby | location.primarily_containedby (5)
+layer_action: update layer 1 (replaced location.location.time_zones)
 ```
 
 
@@ -1659,7 +1464,7 @@ sg 调用数: 旧 2 / 新 2
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Tupac Shakur | Kirk M. Petruccelli  |  relations: film.actor.film | film.directed_by
 旧: 模式 19 · 证据块 9 · 7920 字符
-新: 模式 4 · 证据块 10 · 7996 字符
+新: 模式 26 · 证据块 10 · 7262 字符
 
 【旧渲染】
 ```
@@ -1699,23 +1504,27 @@ entities: Tupac Shakur | Kirk M. Petruccelli
 ```
 triples:
 entities: Tupac Shakur | Kirk M. Petruccelli
-▸ patterns: award_nominee.award_nominations | film_subject.films | award_nominee.award_nominations ⭢ award_nominee.award_nominations | film.directed_by
+▸ patterns: film.film_art_direction_by ⭢ film.directed_by | film.film_art_direction_by ⭢ film.film_production_design_by | film.film_art_direction_by ⭢ producer.releases_produced | film.film_production_design_by ⭢ film.directed_by | film_art_director.films_art_directed ⭢ producer.releases_produced | film_production_designer.films_production_designed ⭢ film.directed_by | producer.releases_produced ⭢ film.directed_by | producer.releases_produced ⭢ film.film_production_design_by | award_nomination.award_nominee ⭢ award_nominated_work.award_nominations ⭢ film.directed_by | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ film.directed_by | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.directed_by | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.film_production_design_by | award_nominee.award_nominations ⭢ award_nominee.award_nominations ⭢ film.directed_by | actor.film ⭢ performance.film ⭢ producer.releases_produced | film.film_art_direction_by ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee | film.film_production_design_by ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee | film.film_production_design_by ⭢ award_nominated_work.award_nominations ⭢ award_nominee.award_nominations | film_production_designer.films_production_designed ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee | film_production_designer.films_production_designed ⭢ award_nominated_work.award_nominations ⭢ award_nominee.award_nominations | performance.actor ⭢ film.starring ⭢ film.film_production_design_by | performance.actor ⭢ performance.film ⭢ producer.releases_produced | producer.releases_produced ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee | actor.film ⭢ film.starring ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee | film.film_art_direction_by ⭢ producer.releases_produced ⭢ award_nomination.award_nominee ⭢ award_nomination.award_nominee | film.film_art_direction_by ⭢ producer.releases_produced ⭢ award_nomination.award_nominee ⭢ award_nominee.award_nominations | performance.actor ⭢ film.starring ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee
 ── Tupac Shakur ──
-    --award_nominee.award_nominations--> m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; ceremony: 26th NAACP Image Awards; nominated_for: Poetic Justice] | m.0j_l784 [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: Roger Troutman | Tupac Shakur; ceremony: 39th Annual Grammy Awards; nominated_for: California Love (album version)] | m.0j_l78n [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: Tupac Shakur; ceremony: 39th Annual Grammy Awards; nominated_for: How Do U Want It] | m.0j_l7hc [award: Grammy Award for Best Rap Album; ceremony: 39th Annual Grammy Awards; nominated_for: All Eyez on Me] | m.0j_pbc9 [award: Grammy Award for Best Rap Solo Performance; ceremony: 42nd Annual Grammy Awards; nominated_for: Changes] | m.0lyw79d [award: Grammy Award for Best Rap Album; ceremony: 38th Annual Grammy Awards; nominated_for: Me Against the World] | m.0m0q4k7 [award: MTV Video Music Award for Best Rap Video; ceremony: 1999 MTV Video Music Awards; nominated_for: Changes] | m.0m3g28_ [award: MTV Video Music Award for Best Editing; ceremony: 1999 MTV Video Music Awards; nominated_for: Changes] | m.0mv8gv3 [award: MTV Video Music Award for Best Rap Video; award_nominee: Roger Troutman | Tupac Shakur; ceremony: 1996 MTV Video Music Awards; nominated_for: California Love] | m.0mw779x [award: MTV Video Music Award for Best Rap Video; award_nominee: Tupac Shakur; ceremony: 2003 MTV Video Music Awards; nominated_for: Thugz Mansion] | m.0ndlnz1 [award: Grammy Award for Best Rap Solo Performance; ceremony: 38th Annual Grammy Awards; nominated_for: Dear Mama] | m.0nf_zwj [award: American Music Award for Favorite Rap/Hip-Hop Artist; ceremony: American Music Awards of 1997; has_no_value: Nominated work] | m.0z3jy75 [award: Echo Award for Best Hip Hop/Urban Artist (International); ceremony: 2002 Echo Awards; nominated_for: Until the End of Time] | m.0z40pgn [award: Echo Award for Best International Rock/Pop Male Artist; ceremony: 2000 Echo Awards; nominated_for: Greatest Hits] | m.0z86_19 [award: Soul Train Music Award for Best R&B/Soul or Rap Music Video; award_nominee: Tupac Shakur; ceremony: 1997 Soul Train Music Awards; nominated_for: How Do You Want It] | m.0z86s6n [award: Soul Train Music Award for Best R&B/Soul Album of the Year; ceremony: 1997 Soul Train Music Awards; nominated_for: All Eyez on Me] | m.0z8n4b0 [award: Soul Train Music Award for Best Rap Album; ceremony: 1996 Soul Train Music Awards; nominated_for: Me Against the World] | m.0zbm8s5 [award: American Music Award for Favorite Rap/Hip-Hop Artist; ceremony: American Music Awards of 1994; has_no_value: Nominated work] | m.0zmwnw5 [award: Billboard Music Award for Top R&B Artist; ceremony: 1997 Billboard Music Awards; has_no_value: Nominated work]
-    --film_subject.films--> Biggie & Tupac | Tupac: Hip Hop Genius
+    --award_nominee.award_nominations--> m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; ceremony: 26th NAACP Image Awards; nominated_for: Poetic Justice] | m.0j_l784 [award: Grammy Award for Best Rap Performance by a Duo or Group; ceremony: 39th Annual Grammy Awards; nominated_for: California Love (album version)]
+    --actor.film--> m.0jyn86 [character: Det. Rodriguez] | m.02vb3h0 [character: Lucky; film: Poetic Justice]
+    --producer.releases_produced--> Poetic Justice
+    m.02vb3h0 --performance.actor--> Tupac Shakur
+    m.0jyn86 --performance.actor--> Tupac Shakur
+    m.0_tln3r | m.0j_l784 | m.0j_l78n | m.0mw779x --award_nomination.award_nominee--> Tupac Shakur
 ── Kirk M. Petruccelli ──
-    --award_nominee.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot]
-── Dr. Dre ──
-    --award_nominee.award_nominations--> m.0j_l784 [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: Roger Troutman | Tupac Shakur; ceremony: 39th Annual Grammy Awards; nominated_for: California Love (album version)] | m.0mv8gv3 [award: MTV Video Music Award for Best Rap Video; award_nominee: Roger Troutman | Tupac Shakur; ceremony: 1996 MTV Video Music Awards; nominated_for: California Love]
-    Murder Was the Case --film.directed_by--> Dr. Dre
-── K-Ci & JoJo ──
-    --award_nominee.award_nominations--> m.0j_l78n [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: Tupac Shakur; cerem
+    --film_art_director.films_art_directed--> Poetic Justice
+    --film_production_designer.films_production_designed--> 3 Ninjas | Bullhead | Ghost Rider | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Last Castle | The Librarian: Quest for the Spear | The Patriot | The Thirteenth Floor | White House Down
+    And the Earth Did Not Swallow Him | Philadelphia Experiment II | Poetic Justice --film.film_art_direction_by--> Kirk M. Petruccelli
+    3 Ninjas | Bullhead | Ghost Rider | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Last Castle | The Librarian: Quest for the Spear | The Patriot | The Thirteenth Floor | White House Down --film.film_production_design_by--> Kirk M. Petruccelli
+── Poetic Justice ──
+    --award_nominated_work.award_nominations--> m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; ceremony: 26th NAACP Image Awar
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: Kirk M. Petruccelli  |  relations: film.director.film | film.film_crewmember.films_crewed | film.film_job.films_with_this_crew_job
 旧: 模式 11 · 证据块 10 · 5468 字符
-新: 模式 9 · 证据块 10 · 7997 字符
+新: 模式 0 · 证据块 0 · 2899 字符
 
 【旧渲染】
 ```
@@ -1765,32 +1574,11 @@ note: SEQUENCE EXTENSION applied to several frontier members — the new layer's
 ```
 triples:
 entities: Kirk M. Petruccelli  (sequence root; this layer applies to the frontier: 3 Ninjas | ADG Excellence in Production Design Awards - Period or Fantasy Film | Anaconda | Art Directors Guild Awards 2000 | Barry Chusid | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider)
-▸ patterns: award_nominee.award_nominations | film.film_production_design_by | film_art_director.films_art_directed | film_crewmember.films_crewed | film_production_designer.films_production_designed | marriage.spouse | person.profession | director.film | film_job.films_with_this_crew_job
-── Kirk M. Petruccelli ──
-    --award_nominee.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot]
-    --film_art_director.films_art_directed--> And the Earth Did Not Swallow Him | Philadelphia Experiment II | Poetic Justice
-    --film_crewmember.films_crewed--> m.0pcv8vs [film: The Ambulance; film_crew_role: Set decorator second]
-    --film_production_designer.films_production_designed--> 3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hulk | The Last Castle | The Librarian: Quest for the Spear | The Patriot | The Thirteenth Floor | When in Rome | Where the Day Takes You | White House Down | Zookeeper
-    --person.profession--> Film Art Director | Production Designer
-    3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hulk …(+8) (to answer with ALL of them, include "#3 Ninjas::film_production_design_by" as one answer entity) --film.film_production_design_by--> Kirk M. Petruccelli
-    m.0n8j4gn --marriage.spouse--> Kirk M. Petruccelli
-── Barry Chusid ──
-    --award_nominee.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot]
-    --film_art_director.films_art_directed--> Blade | Mystery Men
-── Beate Eisele ──
-    m.0n8j4gn --marriage.spouse--> Beate Eisele
-── Actor ──
-    50 Cent | Akon | Ashanti | Bad Azz | Benzino | Big Pun | Bizzy Bone | Bun B | Chris Brown | Christopher Young | Daz Dillinger | Dean Devlin …(+42) (to answer with ALL of them, include "#50 Cent::profession" as one answer entity) --person.profession--> Actor
-── Rapper ──
-    50 Cent | Akon | Bad Azz | Benzino | Big Pun | Bizzy Bone | Bun B | C-BO | Chris Brown | Daz Dillinger | Dr. Dre | E-40 …(+30) (to answer with ALL of them, include "#50 Cent::profession" as one answer entity) --person.profession--> Rapper
-── Record producer ──
-    Akon | Ashanti | Benzino | Boys Noize | Bun B | Chris Brown | DJ Mister Cee | Daz Dillinger | Dr. Dre | Eminem | Funkmaster Flex | Ice Cube …(+25) (to answer with ALL of them, include "#Akon::profession" as one answer entity) --person.profession--> Record producer
-── Screenwriter ──
-    50 Cent | Avi Arad | Chris Brown | David S. Goyer | Dean Devlin | Ice Cube | Jack Epps, Jr. | Jada Pinkett Smith | James Vanderbilt | Kevin James | Laeta Kalogridis | Lawrence Gordon …(+16) (to answer with ALL of them, include "#50 Cent::profession" as one answer entity) --person.profession--> Screenwriter
-── Songwriter ──
-    50 Cent | Akon | Bun B | Chris Brown | Daz Dillinger | Dr. Dre | Eminem | Ice Cube | Ja Rule | Jay-Z | Jayceon Terrell Taylor | Johnny \"J\" …(+13) (to answer with ALL of them, include "#50 Cent::profession" as one answer entity) --person.profession--> Songwriter
-── Writer ──
-    Daniel F. Galouye | David S. Goyer | Mark Frost | Mike Richardson | Mindy M
+note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
+relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_nominee.award_nominations', 'film.film.film_production_design_by', 'film.film_art_director.films_art_directed', 'film.film_production_designer.films_production_designed']}, 'film.film_crewmember.films_crewed': {'direct': ['film.film_crewmember.films_crewed'], 'bridge': ['people.marriage.spouse']}, 'film.film_job.films_with_this_crew_job': {'direct': ['film.film_job.films_with_this_crew_job'], 'bridge': ['film.film_crewmember.films_crewed', 'people.person.profession']}}
+anchor_sequence: Kirk M. Petruccelli ⭢ award_nominee.award_nominations | director.film | film.film_production_design_by | film_art_director.films_art_directed | film_crewmember.films_crewed | film_job.films_with_this_crew_job | film_production_designer.films_production_designed | marriage.spouse | person.profession (25)
+layer_action: update layer 1 (replaced film.film.directed_by, award.award_nomination.award_nominee, music.producer.releases_produced, film.actor.film, on_in_fiction.representations_in_fiction, film.film_subject.films)
 ```
 
 
@@ -1802,7 +1590,7 @@ sg 调用数: 旧 3 / 新 3
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Tupac Shakur | Kirk M. Petruccelli  |  relations: actor.film | film.starring | director.film | film.directed_by
 旧: 模式 36 · 证据块 10 · 10865 字符
-新: 模式 8 · 证据块 10 · 10275 字符
+新: 模式 41 · 证据块 10 · 10640 字符
 
 【旧渲染】
 ```
@@ -1832,23 +1620,21 @@ entities: Tupac Shakur | Kirk M. Petruccelli
 ```
 triples:
 entities: Tupac Shakur | Kirk M. Petruccelli
-▸ patterns: award_nominee.award_nominations | actor.film | film_subject.films | performance.actor | award_nominee.award_nominations ⭢ award_nominee.award_nominations | director.film | film.directed_by | film.starring
+▸ patterns: film.film_art_direction_by ⭢ director.film | film.film_art_direction_by ⭢ film.directed_by | film.film_art_direction_by ⭢ film.film_production_design_by | film.film_art_direction_by ⭢ producer.releases_produced | film.film_production_design_by ⭢ director.film | film.film_production_design_by ⭢ film.directed_by | film.film_production_design_by ⭢ film_art_director.films_art_directed | film.subjects ⭢ director.film | film_art_director.films_art_directed ⭢ producer.releases_produced | film_production_designer.films_production_designed ⭢ director.film | film_production_designer.films_production_designed ⭢ film.directed_by | film_production_designer.films_production_designed ⭢ film_art_director.films_art_directed | producer.releases_produced ⭢ director.film | producer.releases_produced ⭢ film.directed_by | producer.releases_produced ⭢ film.film_production_design_by | producer.releases_produced ⭢ film_art_director.films_art_directed | award_nomination.award_nominee ⭢ award_nominated_work.award_nominations ⭢ film.directed_by | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ film.directed_by | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.directed_by | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.film_production_design_by | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film_art_director.films_art_directed | award_nominee.award_nominations ⭢ award_nominee.award_nominations ⭢ film.directed_by | actor.film ⭢ performance.film ⭢ producer.releases_produced | film.film_art_direction_by ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee | film.film_art_direction_by ⭢ film.starring ⭢ actor.film | film.film_production_design_by ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee | film.film_production_design_by ⭢ award_nominated_work.award_nominations ⭢ award_nominee.award_nominations | film.film_production_design_by ⭢ film.starring ⭢ actor.film | film_production_designer.films_production_designed ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee | film_production_designer.films_production_designed ⭢ award_nominated_work.award_nominations ⭢ award_nominee.award_nominations | film_production_designer.films_production_designed ⭢ film.starring ⭢ actor.film | performance.actor ⭢ film.starring ⭢ director.film | performance.actor ⭢ film.starring ⭢ film.film_production_design_by | performance.actor ⭢ film.starring ⭢ film_art_director.films_art_directed | performance.actor ⭢ performance.film ⭢ producer.releases_produced | producer.releases_produced ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee | producer.releases_produced ⭢ film.starring ⭢ actor.film | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.starring ⭢ actor.film | actor.film ⭢ film.starring ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee | performance.actor ⭢ film.starring ⭢ award_nominated_work.award_nominations ⭢ award_nomination.award_nominee | performance.actor ⭢ film.starring ⭢ film.starring ⭢ actor.film
 ── Tupac Shakur ──
-    --award_nominee.award_nominations--> m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; ceremony: 26th NAACP Image Awards; nominated_for: Poetic Justice] | m.0j_l784 [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: Roger Troutman | Tupac Shakur; ceremony: 39th Annual Grammy Awards; nominated_for: California Love (album version)] | m.0j_l78n [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: Tupac Shakur; ceremony: 39th Annual Grammy Awards; nominated_for: How Do U Want It] | m.0j_l7hc [award: Grammy Award for Best Rap Album; ceremony: 39th Annual Grammy Awards; nominated_for: All Eyez on Me] | m.0j_pbc9 [award: Grammy Award for Best Rap Solo Performance; ceremony: 42nd Annual Grammy Awards; nominated_for: Changes] | m.0lyw79d [award: Grammy Award for Best Rap Album; ceremony: 38th Annual Grammy Awards; nominated_for: Me Against the World] | m.0m0q4k7 [award: MTV Video Music Award for Best Rap Video; ceremony: 1999 MTV Video Music Awards; nominated_for: Changes] | m.0m3g28_ [award: MTV Video Music Award for Best Editing; ceremony: 1999 MTV Video Music Awards; nominated_for: Changes] | m.0mv8gv3 [award: MTV Video Music Award for Best Rap Video; award_nominee: Roger Troutman | Tupac Shakur; ceremony: 1996 MTV Video Music Awards; nominated_for: California Love] | m.0mw779x [award: MTV Video Music Award for Best Rap Video; award_nominee: Tupac Shakur; ceremony: 2003 MTV Video Music Awards; nominated_for: Thugz Mansion] | m.0ndlnz1 [award: Grammy Award for Best Rap Solo Performance; ceremony: 38th Annual Grammy Awards; nominated_for: Dear Mama] | m.0nf_zwj [award: American Music Award for Favorite Rap/Hip-Hop Artist; ceremony: American Music Awards of 1997; has_no_value: Nominated work] | m.0z3jy75 [award: Echo Award for Best Hip Hop/Urban Artist (International); ceremony: 2002 Echo Awards; nominated_for: Until the End of Time] | m.0z40pgn [award: Echo Award for Best International Rock/Pop Male Artist; ceremony: 2000 Echo Awards; nominated_for: Greatest Hits] | m.0z86_19 [award: Soul Train Music Award for Best R&B/Soul or Rap Music Video; award_nominee: Tupac Shakur; ceremony: 1997 Soul Train Music Awards; nominated_for: How Do You Want It] | m.0z86s6n [award: Soul Train Music Award for Best R&B/Soul Album of the Year; ceremony: 1997 Soul Train Music Awards; nominated_for: All Eyez on Me] | m.0z8n4b0 [award: Soul Train Music Award for Best Rap Album; ceremony: 1996 Soul Train Music Awards; nominated_for: Me Against the World] | m.0zbm8s5 [award: American Music Award for Favorite Rap/Hip-Hop Artist; ceremony: American Music Awards of 1994; has_no_value: Nominated work] | m.0zmwnw5 [award: Billboard Music Award for Top R&B Artist; ceremony: 1997 Billboard Music Awards; has_no_value: Nominated work]
-    --actor.film--> m.02vb3h0 [character: Lucky] | m.02vcpnk [character: Tank] | m.02vcykh [character: Digital Underground member] | m.0j_81z [character: Bishop] | m.0js_kj [character: Birdie] | m.0jyn86 [character: Det. Rodriguez] | m.0jz0c4 [character: Ezekiel 'Spoon' Whitmore] | m.0pcn9p9 [character: Sniper]
-    --film_subject.films--> Biggie & Tupac | Tupac: Hip Hop Genius
-    m.02vb3h0 | m.02vcpnk | m.02vcykh | m.0j_81z | m.0js_kj | m.0jyn86 | m.0jz0c4 | m.0pcn9p9 --performance.actor--> Tupac Shakur
-── Kirk M. Petruccelli ──
-    --award_nominee.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot]
-── The Thirteenth Floor ──
-    --film.directed_by--> Josef Rusnak
-    --film.starring--> m.022qlz3 | m.022qlz9 | m.022qlzh | m.022qlzp | m.022qlzw | m.0cr
+    --award_nominee.award_nominations--> m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; ceremony: 26th NAACP Image Awards; nominated_for: Poetic Justice] | m.0j_l784 [award: Grammy Award for Best Rap Performance by a Duo or Group; ceremony: 39th Annual Grammy Awards; nominated_for: California Love (album version)]
+    --actor.film--> m.0jyn86 [character: Det. Rodriguez] | m.02vb3h0 [actor: Tupac Shakur; character: Lucky]
+    --producer.releases_produced--> Poetic Justice
+    m.02vb3h0 | m.0jyn86 | m.0pcn9p9 --performance.actor--> Tupac Shakur
+    m.0_tln3r --award_nomination.award_nominee--> Tupac Shakur
+    m.0j_l784 --award_nomination.award_nominee--> Tupac Shakur
+    Tupac: Hip Hop Genius --film.subjects--
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: m.02vb3h0 | m.02vcpnk | m.02vcykh | m.0j_81z | m.0js_kj | m.0jyn86 | m.0jz0c4 | m.0pcn9p9  |  relations: film.directed_by
 旧: 模式 6 · 证据块 10 · 3996 字符
-新: 模式 1 · 证据块 3 · 1748 字符
+新: 模式 12 · 证据块 7 · 3677 字符
 
 【旧渲染】
 ```
@@ -1898,13 +1684,28 @@ relation_expansion: {'film.directed_by': {'direct': ['film.film.directed_by'], '
 ```
 triples:
 entities: m.02vb3h0 | m.02vcpnk | m.02vcykh | m.0j_81z | m.0js_kj | m.0jyn86 | m.0jz0c4 | m.0pcn9p9
-▸ patterns: film.directed_by
-── Charlotte Lewin ──
-    Tupac: Hip Hop Genius --film.directed_by--> Charlotte Lewin
-── Dr. Dre ──
-    Murder Was the Case --film.directed_by--> Dr. Dre
-── John Singleton ──
-    Poetic Justice --film.directed_by--> John Singleton
+▸ patterns: film.starring ⭢ film.directed_by | performance.film ⭢ film.directed_by | actor.film ⭢ producer.releases_produced ⭢ film.directed_by | performance.actor ⭢ film_subject.films ⭢ film.directed_by | performance.actor ⭢ producer.releases_produced ⭢ film.directed_by | performance.film ⭢ film.starring ⭢ actor.film | actor.film ⭢ producer.releases_produced ⭢ film.starring ⭢ actor.film | actor.film ⭢ producer.releases_produced ⭢ film.starring ⭢ film_character.portrayed_in_films | actor.film ⭢ producer.releases_produced ⭢ film.starring ⭢ performance.character | performance.actor ⭢ producer.releases_produced ⭢ film.starring ⭢ actor.film | performance.actor ⭢ producer.releases_produced ⭢ film.starring ⭢ film_character.portrayed_in_films | performance.actor ⭢ producer.releases_produced ⭢ film.starring ⭢ performance.character
+── Tupac Shakur ──
+    --actor.film--> m.02vcpnk [character: Tank] | m.02vcykh [character: Digital Underground member] | m.0j_81z [character: Bishop] | m.0js_kj [character: Birdie] | m.0jyn86 [character: Det. Rodriguez] | m.0jz0c4 [character: Ezekiel 'Spoon' Whitmore] | m.02vb3h0 [actor: Tupac Shakur; character: Lucky] | m.0pcn9p9 [actor: Tupac Shakur; character: Sniper]
+    --film_subject.films--> Tupac: Hip Hop Genius
+    --producer.releases_produced--> Poetic Justice | Gang Related
+    m.02vb3h0 | m.02vcpnk | m.02vcykh | m.0j_81z | m.0js_kj | m.0jyn86 | m.0jz0c4 | m.0pcn9p9 --performance.actor--> Tupac Shakur
+── Poetic Justice ──
+    --film.directed_by--> John Singleton
+    --film.starring--> m.02vb3h0 [actor: Tupac Shakur; character: Lucky] | m.02vckpm [actor: Janet Jackson]
+    m.02vb3h0 --performance.film--> Poetic Justice
+── Murder Was the Case ──
+    --film.directed_by--> Dr. Dre
+    --film.starring--> m.0pcn9p9 [actor: Tupac Shakur; character: Sniper]
+    m.0pcn9p9 --performance.film--> Murder Was the Case
+── Gang Related ──
+    --film.starring--> m.0jyn86 [character: Det. Rodriguez]
+── Tupac: Hip Hop Genius ──
+    --film.directed_by--> Charlotte Lewin
+── Det. Rodriguez ──
+    --film_character.portrayed_in_films--> m.0jyn86 [character: Det. Rodriguez]
+── Janet Jackson ──
+    --actor.film--> m.02vckpm [actor: Janet Jackson]
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['film.film.starring']}}
@@ -1913,7 +1714,7 @@ relation_expansion: {'film.directed_by': {'direct': ['film.film.directed_by'], '
 --------------------------------------------------------------------------------------------
 ### 块 #2 调用: center: Kirk M. Petruccelli  |  relations: film.directed_by | director.film
 旧: 模式 11 · 证据块 7 · 5228 字符
-新: 模式 7 · 证据块 8 · 6685 字符
+新: 模式 0 · 证据块 0 · 2857 字符
 
 【旧渲染】
 ```
@@ -1969,46 +1770,11 @@ note: SEQUENCE EXTENSION applied to several frontier members — the new layer's
 ```
 triples:
 entities: Kirk M. Petruccelli  (sequence root; this layer applies to the frontier: 3 Ninjas | ADG Excellence in Production Design Awards - Period or Fantasy Film | Anaconda | And the Earth Did Not Swallow Him | Art Directors Guild Awards 2000 | Barry Chusid | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life)
-▸ patterns: award_nominee.award_nominations | film.film_art_direction_by | film.film_production_design_by | film_art_director.films_art_directed | film_production_designer.films_production_designed | director.film | film.directed_by
-── Kirk M. Petruccelli ──
-    --award_nominee.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot]
-    --film_art_director.films_art_directed--> And the Earth Did Not Swallow Him | Philadelphia Experiment II | Poetic Justice
-    --film_production_designer.films_production_designed--> 3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hulk | The Last Castle | The Librarian: Quest for the Spear | The Patriot | The Thirteenth Floor | When in Rome | Where the Day Takes You | White House Down | Zookeeper
-    And the Earth Did Not Swallow Him | Philadelphia Experiment II | Poetic Justice --film.film_art_direction_by--> Kirk M. Petruccelli
-    3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hulk …(+8) (to answer with ALL of them, include "#3 Ninjas::film_production_design_by" as one answer entity) --film.film_production_design_by--> Kirk M. Petruccelli
-── Barry Chusid ──
-    --award_nominee.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot]
-    --film_art_director.films_art_directed--> Blade | The Patriot
-    Blade --film.film_art_direction_by--> Barry Chusid
-    The Patriot --film.film_art_direction_by--> Barry Chusid
-── Lara Croft: Tomb Raider ──
-    --film.directed_by--> Simon West
-    --film.film_art_direction_by--> John Fenner
-    Simon West --director.film--> Lara Croft: Tomb Raider
-    John C. Hill --film_art_director.films_art_directed--> Lara Croft: Tomb Raider
-    John Fenner --film_art_director.films_art_directed--> Lara Croft: Tomb Raider
-── 3 Ninjas ──
-    --film.film_art_direction_by--> Greg J. Grande | Ken Kirchner
-    Greg J. Grande --film_art_director.films_art_directed--> 3 Ninjas
-    Ken Kirchner --film_art_director.films_art_directed--> 3 Ninjas
-── Lara Croft Tomb Raider: The Cradle of Life ──
-    --film.film_art_direction_by--> John C. Hill | John Fenner
-    John C. Hill --film_art_director.films_art_directed--> Lara Croft Tomb Raider: The Cradle of Life
-    John Fenner --film_art_director.films_art_directed--> Lara Croft Tomb Raider: The Cradle of Life
-── Poetic Justice ──
-    --film.directed_by--> John Singleton
-    --film.film_production_design_by--> Keith Brian Burns
-    John Singleton --director.film--> Poetic Justice
-    Keith Brian Burns --film_production_designer.films_production_designed--> Poetic Justice
-── Fantastic Four: Rise of the Silver Surfer ──
-    --film.film_art_direction_by--> Sandi Tanaka
-    Sandi Tanaka --film_art_director.films_art_directed--> Fantastic Four: Rise of the Silver Surfer
-── Ghost Rider ──
-    --film.directed_by--> Mark Steven Johnson
-    Mark Steven Johnson --director.film--> Ghost Rider
-    Daniel T. Dorrance --film_art_director.films_art_directed--> The Incredible Hulk
-    Lawrence A. Hubbs --film_art_director.films_art_directed--> The Last Castle
- 
+note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
+relation_expansion: {'film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['award.award_nominee.award_nominations', 'film.film.film_art_direction_by', 'film.film.film_production_design_by', 'film.film_art_director.films_art_directed', 'film.film_production_designer.films_production_designed']}, 'director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_nominee.award_nominations', 'film.film.film_production_design_by', 'film.film_art_director.films_art_directed', 'film.film_production_designer.films_production_designed']}}
+anchor_sequence: Kirk M. Petruccelli ⭢ award_nominee.award_nominations | director.film | film.directed_by | film.film_art_direction_by | film.film_production_design_by | film_art_director.films_art_directed | film_production_designer.films_production_designed (28)
+layer_action: update layer 1 (replaced film.performance.actor, film.film.starring, award.award_nomination.award_nominee, music.producer.releases_produced, film.actor.film, on_in_fiction.representations_in_fiction, film.film_subject.films)
 ```
 
 
@@ -2020,7 +1786,7 @@ sg 调用数: 旧 3 / 新 3
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Ron Howard  |  relations: film.director.film | film.film.directed_by
 旧: 模式 15 · 证据块 10 · 4925 字符
-新: 模式 4 · 证据块 10 · 18215 字符
+新: 模式 9 · 证据块 10 · 7370 字符
 
 【旧渲染】
 ```
@@ -2075,15 +1841,37 @@ note: triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails
 ```
 triples:
 entities: Ron Howard
-▸ patterns: award_nominee.award_nominations | producer.film | award_nominee.award_nominations ⭢ award_nominee.award_nominations | producer.film ⭢ producer.film
+▸ patterns: director.film ⭢ producer.films_executive_produced | film.directed_by ⭢ producer.films_executive_produced | film.executive_produced_by ⭢ director.film | film.executive_produced_by ⭢ film.directed_by | film.produced_by ⭢ film.directed_by | film.written_by ⭢ producer.films_executive_produced | film.directed_by ⭢ award_nominated_work.award_nominations ⭢ award_nominee.award_nominations | film.executive_produced_by ⭢ award_nominated_work.award_nominations ⭢ award_nominee.award_nominations | film.produced_by ⭢ award_nominated_work.award_nominations ⭢ award_nominee.award_nominations
 ── Ron Howard ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Director; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Eric Fellner | Ron Howard; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.07zqyp3 [award: BAFTA Award for Best Direction; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Ron Howard; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lby3g [award: BAFTA Award for Best Film; award_nominee: Eric Fellner | Ron Howard | Tim Bevan; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.090dj60 [ceremony: 34th Golden Globe Awards; nominated_for: The Shootist] | m.090y4n1 [ceremony: 35th Golden Globe Awards; nominated_for: Happy Days] | m.095h15z [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 53rd Golden Globe Awards; nominated_for: Apollo 13] | m.095h1h2 [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 59th Golden Globe Awards; nominated_for: A Beautiful Mind] | m.095h1tj [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 66th Golden Globe Awards; nominated_for: Frost/Nixon] | m.09k3n_p [award: Critics' Choice Movie Award for Best Director; ceremony: 11th Critics' Choice Awards; nominated_for: Cinderella Man] | m.09k3nwh [award: Critics' Choice Movie Award for Best Director; ceremony: 14th Critics' Choice Awards; nominated_for: Frost/Nixon] | m.09k3p5_ [award: Critics' Choice Movie Award for Best Director; ceremony: 7th Critics' Choice Awards; nominated_for: A Beautiful Mind] | m.09sc2mb [ceremony: 61st Directors Guild of America Awards; nominated_for: Frost/Nixon] | m.09sc2vl [ceremony: 54th Directors Guild of America Awards; nominated_for: A Beautiful Mind] | m.09tjrrf [award: Satellite Award for Best Director; ceremony: 13th Satellite Awards; nominated_for: Frost/Nixon] | m.09z78wm [award: Golden Raspberry Award for Worst Director; ceremony: 27th Golden Raspberry Awards; nominated_for: The Da Vinci Code] | m.0b6b2xw [ceremony: 48th Directors Guild of America Awards; nominated_for: Apollo 13] | m.0b6b38g [ceremony: 38th Directors Guild of America Awards; nominated_for: Cocoon] | m.0gkjjsg [award: Saturn Award for Best Director; nominated_for: Splash] | m.0glkp4v [award: Golden Bear; nominated_for: The Missing] | m.0k1j58y [award_nominee: Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill | Jacqui Deegan; ceremony: 39th Daytime Emmy Awards; nominated_for: Curious George] | m.0lmtm8f [award_nominee: Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill | Jacqui Deegan; ceremony: 38th Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0ltshlx [award_nominee: Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill | Jacqui Deegan; ceremony: 37th Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0lv464x [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Br
+    --director.film--> A Beautiful Mind | Angels & Demons | Backdraft | Cotton Candy | EDtv | Frost/Nixon | In the Heart of the Sea | Jay-Z: Made in America | Presidential Reunion | Rush | The Dark Tower | The Dilemma | Willow
+    A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cotton Candy | EDtv | Frost/Nixon | In the Heart of the Sea | Jay-Z: Made in America | Presidential Reunion | Rush | The Dark Tower …(+2) (to answer with ALL of them, include "#A Beautiful Mind::directed_by" as one answer entity) --film.directed_by--> Ron Howard
+    Arrested Development | Leo and Loree | The 'Burbs --film.executive_produced_by--> Ron Howard
+    A Beautiful Mind | Beyond the Mat | Changeling | Clean and Sober | Closet Land | Curious George | The 'Burbs | The Alamo | The Lost Symbol --film.produced_by--> Ron Howard
+    Cotton Candy --film.written_by--> Ron Howard
+── Arrested Development ──
+    --award_nominated_work.award_nominations--> m.0lv464x [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Brian Grazer | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz; ceremony: 56th Primetime Emmy Awards] | m.0lv467q [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Brian Grazer | Chuck Tatham | David Nevins | Dean Lorey | Jim Vallely | John Amodeo; ceremony: 58th Primetime Emmy Awards] | m.0lv4ffs [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Brad Copeland | Brian Grazer | Chuck Martin | David Nevins | Jim Vallely; ceremony: 57th Primetime Emmy Awards] | m.0zgtpgn [award_nominee: Alia Shawkat | David Cross | Henry Winkler | Isla Fisher | Jason Bateman | Jeffrey Tambor; ceremony: 20th Screen Actors Guild Awards] | m.0zxzdbd [award_nominee: Brian Grazer | Dean Lorey | Jim Vallely | John Foy | Mitchell Hurwitz | Richard A. Rosenstock; ceremony: Producers Guild of America Awards 2013]
+    --film.directed_by--> Mitchell Hurwitz
+    Mitchell Hurwitz --director.film--> Arrested Development
+── A Beautiful Mind ──
+    --award_nominated_work.award_nominations--> m.05brffw [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Ron Howard; ceremony: 74th Academy Awards]
+    Karen Kehela --producer.films_executive_produced--> A Beautiful Mind
+    Todd Hallowell --producer.films_executive_produced--> A Beautiful Mind
+── Willow ──
+    --award_nominated_work.award_nominations--> m.0yfbbn9 [award: Hugo Award for Best Dramatic Presentation; award_nominee: Bob Dolman | George Lucas | Ron Howard; ceremony: 1989 Hugo Awards]
+    George Lucas --producer.films_executive_produced--> Willow
+── Beyond the Mat ──
+    --award_nominated_work.award_nominations--> m.09sfcdl [award_nominee: Barry W. Blaustein]
+    --film.directed_by--> Barry W. Blaustein
+── Curious George ──
+    --award_nominated_work.award_nominations--> m.010g1d9b [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro; ceremony: 41st Daytime Creative Arts Emmy Awards] | m.0m_1x_7 [award_nominee: Brian Grazer | Bruce Akiyama | Carol Greenwald | David Kirschner | Dean Criswell | Ellen Cockrill; ceremony: 34th Daytime Creative Arts Emmy Awards]
+── Apollo 13 ──
+    --award_nominated_work.award_nominations--> m.0ycq_cj [award: Hugo Award for Best Dramatic Presentation; award_no
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: ?film  |  relations: film.release_date_s | film.film_regional_release_date.film
 旧: 模式 10 · 证据块 10 · 7872 字符
-新: 模式 6 · 证据块 10 · 6203 字符
+新: (无 sg 响应)
 
 【旧渲染】
 ```
@@ -2120,48 +1908,13 @@ entities: Ron Howard | Clean and Sober | Closet Land | The 'Burbs | Changeling  
 ```
 【新渲染】
 ```
-triples:
-entities: Ron Howard | Radha Bharadwaj | Joe Dante | John Lee Hancock | Mark Romanek | Jake Szymanski | Jerry Paris  (sequence root; this layer applies to the frontier: 11th Critics' Choice Awards | 13th Satellite Awards | 14th Critics' Choice Awards | 18th Satellite Awards | 1986 Hugo Awards | 1989 Hugo Awards | 1996 Hugo Awards | 2005 ESPY Awards | 20th Screen Actors Guild Awards | 21st People's Choice Awards | 27th Golden Raspberry Awards | 34th Daytime Creative Arts Emmy Awards)
-▸ patterns: topic.image | actor.film | director.film | director.film ⭢ director.film | film.release_date_s | film_regional_release_date.film
-── Ron Howard ──
-    --director.film--> m.011lncw2 [character: Johnny] | m.03k_qjq [character: Eddie Corbett] | m.03l70c7 [character: Steve] | m.04hvctr [character: Sam Freeman] | m.04j34jd [character: Hoover Niebold] | m.06z_4g2 [character: Bobby Wilson] | m.0772sry [character: Les] | m.09hzncv [character: Tom Colonic; special_performance_type: Voice] | m.0b_v1cm [character: Lee Mackie] | m.0c05st8 [character: Leon Cybulkowski] | m.0cg88x1 | m.0crsz0w [character: Andy] | m.0dgl0dq [character: Ned De Vries] | m.0gds6st [character: Huckleberry Finn] | m.0gz5dg6 [character: Man at Gouverners Ball #2; special_performance_type: Uncredited] | m.0gz5dgj [character: Whoville Townsperson; special_performance_type: Uncredited] | m.0gz5dqr [special_performance_type: Uncredited] | m.0gz5dr6 [special_performance_type: Uncredited] | m.0gz5drn [character: Opie Taylor] | m.0gz5ds2 [special_performance_type: Uncredited] | m.0gz5fch [character: Virgil Tanner] | m.0gz5fdc [character: Billy Rhinelander] | m.0h0_dj6 | m.0jtdhv [character: Steve] | m.0k5zg7 [character: Winthrop Paroo] | m.0k6fz5 [character: Gillom Rogers] | m.0k7rl9 [character: Genius] | m.0ncdn_5 | m.0z9nq_h [character: Richie Cunningham; special_performance_type: Archive Footage] | A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | Grand Theft Auto | Presidential Reunion | The Lost Symbol
-    --topic.image--> Ron Howard | Ronhoward
-── Jerry Paris ──
-    --director.film--> m.0s918hy | Leo and Loree
-── Jake Szymanski ──
-    --director.film--> Presidential Reunion
-── Joe Dante ──
-    --director.film--> The 'Burbs
-── John Lee Hancock ──
-    --director.film--> The Alamo
-── Mark Romanek ──
-    --director.film--> The Lost Symbol
-── Radha Bharadwaj ──
-    --director.film--> Closet Land
-── Gung Ho ──
-    --topic.image--> Poster from the Motion Picture
-    --film.release_date_s--> m.0j585bd | m.0jsp0xb [film_release_region: United States of America] | m.0v3n_55 | m.0v3n___ | m.0v3n_dl | m.0v3n_lr | m.0v3n_s3 | m.0v3nycj [film_release_region: Australia] | m.0v3nylt | m.0v3nysd | m.0v3nyzf [film_release_region: Netherlands] | m.0v3nzrz | m.0v3nzz7
-    m.0j585bd | m.0jsp0xb | m.0v3n_55 | m.0v3n___ | m.0v3n_dl | m.0v3n_lr | m.0v3n_s3 | m.0v3nycj | m.0v3nylt | m.0v3nysd | m.0v3nyzf | m.0v3nzrz …(+1) (to answer with ALL of them, include "#m.0j585bd::film" as one answer entity) --film_regional_release_date.film--> Gung Ho
-── Jean Speegle Howard ──
-    --actor.film--> m.0g98clr | m.0h06l4j | m.0ltdz9f | m.0pd4nv0 | m.0pdj4_v | m.0pxkst5 | m.0v35wy_ | m.0v_2j96 | m.0w14sdp
-── Clean and Sober ──
-    --film.release_date_s--> m.0gl9mxs | m.0j57t1s | m.0j5945z
-    Glenn Gordon Caron | m.0gl9mxs | m.0j57t1s | m.0j5945z --director.film--> Clean and Sober
-    Barry W. Blaustein --director.film--> Beyond the Mat
-    Clint Eastwood --director.film--> Changeling | J. Edgar
-    Cocoon --topic.image--> Cocoon
-    EDtv --topic.image--> EdTV
-    George Lucas --director.film--> American Graffiti
-    Mitchell Hurwitz --director.film--> Arrested Development
-    The 'Burbs --topic.image--> The 'Burbs
-    The Paper --topic.image--> The Paper
-note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracke
+(无)
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #2 调用: center: A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | Rush | Splash | The Da Vinci Code | The Dark Tower | The Dilemma | The Lost Symbol | The Missing | The Paper | Willow | Clean and Sober | Closet Land | The 'Burbs | Changeling  |  relations: film.release_date_s
 旧: 模式 10 · 证据块 10 · 7942 字符
-新: 模式 1 · 证据块 10 · 3189 字符
+新: 模式 3 · 证据块 3 · 2376 字符
 
 【旧渲染】
 ```
@@ -2207,27 +1960,16 @@ entities: Ron Howard | Clean and Sober | Closet Land | The 'Burbs | Changeling
 ```
 triples:
 entities: Ron Howard
-▸ patterns: film.release_date_s
+▸ patterns: film.directed_by ⭢ topic.image | film.executive_produced_by ⭢ topic.image | film.produced_by ⭢ topic.image
+── Ron Howard ──
+    EDtv --film.directed_by--> Ron Howard
+    Gung Ho --film.directed_by--> Ron Howard
+    Gung Ho --film.executive_produced_by--> Ron Howard
+    EDtv --film.produced_by--> Ron Howard
+── EDtv ──
+    --topic.image--> EdTV
 ── Gung Ho ──
-    --film.release_date_s--> m.0j585bd | m.0jsp0xb [film_release_region: United States of America] | m.0v3n_55 | m.0v3n___ | m.0v3n_dl | m.0v3n_lr | m.0v3n_s3 | m.0v3nycj [film_release_region: Australia] | m.0v3nylt | m.0v3nysd | m.0v3nyzf [film_release_region: Netherlands] | m.0v3nzrz | m.0v3nzz7
-── Clean and Sober ──
-    --film.release_date_s--> m.0gl9mxs | m.0j57t1s | m.0j5945z
-── Far and Away ──
-    --film.release_date_s--> m.0gl8xq2 | m.0j58rfq | m.0j58xjd
-── Jay-Z: Made in America ──
-    --film.release_date_s--> m.0zw34_y [film_release_region: Canada] | m.0zw34xn [film_regional_debut_venue: 2013 Toronto International Film Festival] | m.0zw355k [film_release_region: United States of America]
-── Night Shift ──
-    --film.release_date_s--> m.0j57m44 | m.0j5891_ | m.0j594ml
-── Beyond the Mat ──
-    --film.release_date_s--> m.0gl8q74 | m.0j56jmn
-── The 'Burbs ──
-    --film.release_date_s--> m.0j587l8 | m.0jsp5pk [film_release_region: United States of America]
-── Closet Land ──
-    --film.release_date_s--> m.0j568g3
-── Cocoon ──
-    --film.release_date_s--> m.0j568bc
-── Cotton Candy ──
-    --film.release_date_s--> m.0ryb30f [film_release_region: United States of America]
+    --topic.image--> Poster from the Motion Picture
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: ⚠ Passing only 'A Beautiful Mind' narrows the relation pool to just that entity's edges — ?film has 33 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?film or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'film.release_date_s': {'direct': ['film.film.release_date_s'], 'bridge': ['common.topic.image', 'film.film.soundtrack', 'music.soundtrack.film']}}
@@ -2243,7 +1985,7 @@ sg 调用数: 旧 6 / 新 6
 --------------------------------------------------------------------------------------------
 ### 块 #0 调用: center: Ron Howard  |  relations: film.director.film | film.film.directed_by | film.produced_by | film.producer.films_executive_produced
 旧: 模式 39 · 证据块 10 · 10636 字符
-新: 模式 6 · 证据块 10 · 18850 字符
+新: 模式 20 · 证据块 10 · 9729 字符
 
 【旧渲染】
 ```
@@ -2269,15 +2011,23 @@ entities: Ron Howard
 ```
 triples:
 entities: Ron Howard
-▸ patterns: award_nominee.award_nominations | producer.film | writer.film | award_nominee.award_nominations ⭢ award_nominee.award_nominations | producer.film ⭢ producer.film | writer.film ⭢ writer.film
+▸ patterns: film.executive_produced_by ⭢ director.film | award_honor.award_winner ⭢ award_honor.honored_for ⭢ film.produced_by | award_honor.award_winner ⭢ award_honor.honored_for ⭢ producer.films_executive_produced | award_honor.award_winner ⭢ award_winner.awards_won ⭢ film.produced_by | award_honor.award_winner ⭢ award_winner.awards_won ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominated_work.award_nominations ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nomination.nominated_for ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ producer.films_executive_produced | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ producer.films_executive_produced | award_nominee.award_nominations ⭢ award_nomination.award_nominee ⭢ film.produced_by | award_nominee.award_nominations ⭢ award_nomination.nominated_for ⭢ film.produced_by | award_nominee.award_nominations ⭢ award_nomination.nominated_for ⭢ producer.films_executive_produced | award_nominee.award_nominations ⭢ award_nominee.award_nominations ⭢ film.directed_by | award_nominee.award_nominations ⭢ award_nominee.award_nominations ⭢ film.produced_by | award_nominee.award_nominations ⭢ award_nominee.award_nominations ⭢ producer.films_executive_produced | award_winner.awards_won ⭢ award_honor.honored_for ⭢ film.produced_by | award_winner.awards_won ⭢ award_winner.awards_won ⭢ film.produced_by | director.film ⭢ award_nominated_work.award_nominations ⭢ award_nominee.award_nominations | film.executive_produced_by ⭢ award_nominated_work.award_nominations ⭢ award_nominee.award_nominations | actor.film ⭢ film.starring ⭢ award_nominated_work.award_nominations ⭢ award_nominee.award_nominations
 ── Ron Howard ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Director; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Eric Fellner | Ron Howard; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.07zqyp3 [award: BAFTA Award for Best Direction; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Ron Howard; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lby3g [award: BAFTA Award for Best Film; award_nominee: Eric Fellner | Ron Howard | Tim Bevan; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.090dj60 [ceremony: 34th Golden Globe Awards; nominated_for: The Shootist] | m.090y4n1 [ceremony: 35th Golden Globe Awards; nominated_for: Happy Days] | m.095h15z [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 53rd Golden Globe Awards; nominated_for: Apollo 13] | m.095h1h2 [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 59th Golden Globe Awards; nominated_for: A Beautiful Mind] | m.095h1tj [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 66th Golden Globe Awards; nominated_for: Frost/Nixon] | m.09k3n_p [award: Critics' Choice Movie Award for Best Director; ceremony: 11th Critics' Choice Awards; nominated_for: Cinderella Man] | m.09k3nwh [award: Critics' Choice Movie Award for Best Director; ceremony: 14th Critics' Choice Awards; nominated_for: Frost/Nixon] | m.09k3p5_ [award: Critics' Choice Movie Award for Best Director; ceremony: 7th Critics' Choice Awards; nominated_for: A Beautiful Mind] | m.09sc2mb [ceremony: 61st Directors Guild of America Awards; nominated_for: Frost/Nixon] | m.09sc2vl [ceremony: 54th Directors Guild of America Awards; nominated_for: A Beautiful Mind] | m.09tjrrf [award: Satellite Award for Best Director; ceremony: 13th Satellite Awards; nominated_for: Frost/Nixon] | m.09z78wm [award: Golden Raspberry Award for Worst Director; ceremony: 27th Golden Raspberry Awards; nominated_for: The Da Vinci Code] | m.0b6b2xw [ceremony: 48th Directors Guild of America Awards; nominated_for: Apollo 13] | m.0b6b38g [ceremony: 38th Directors Guild of America Awards; nominated_for: Cocoon] | m.0gkjjsg [award: Saturn Award for Best Director; nominated_for: Splash] | m.0glkp4v [award: Golden Bear; nominated_for: The Missing] | m.0k1j58y [award_nominee: Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill | Jacqui Deegan; ceremony: 39th Daytime Emmy Awards; nominated_for: Curious George] | m.0lmtm8f [award_nominee: Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill | Jacqui Deegan; ceremony: 38th Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0ltshlx [award_nominee: Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill | Jacqui Deegan; ceremony: 37th Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0lv464x [award: Primetime Emmy Award for Ou
+    --award_nominee.award_nominations--> m.0gkjjsg [award: Saturn Award for Best Director; nominated_for: Splash] | m.0v4_x4x [award: Primetime Emmy Award for Outstanding Children's Program; ceremony: 34th Primetime Emmy Awards; nominated_for: Through the Magic Pyramid] | m.09z78wm [award: Golden Raspberry Award for Worst Director; ceremony: 27th Golden Raspberry Awards] | m.0lv464x [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Brian Grazer | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz; ceremony: 56th Primetime Emmy Awards] | m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards] | m.0yfbbn9 [award: Hugo Award for Best Dramatic Presentation; ceremony: 1989 Hugo Awards; nominated_for: Willow] | m.010g1d9b [ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George]
+    --award_winner.awards_won--> m.04kcph9 [award: Primetime Emmy Award for Outstanding Comedy Series; ceremony: 56th Primetime Emmy Awards] | m.03mlppw [award: Academy Award for Best Picture; ceremony: 74th Academy Awards]
+    --actor.film--> A Beautiful Mind | Apollo 13 | Willow | m.0gz5dg6 [character: Man at Gouverners Ball #2; special_performance_type: Uncredited]
+    m.010g1d9b | m.05bkyhb | m.09z78wm | m.0gkjjsg | m.0yfbbn9 --award_nomination.award_nominee--> Ron Howard
+    m.03mlppw --award_honor.award_winner--> Ron Howard
+    m.04kcph9 --award_honor.award_winner--> Ron Howard
+    Arrested Development | Leo and Loree | The 'Burbs --film.executive_produced_by--> Ron Howard
+── Arrested Development ──
+    --award_nominated_work.award_nominations--> m.0lv464x [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Brian Grazer | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz; ceremony: 56th Primetime Emmy Awards] | m.0lv467q [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Brian Grazer | Chuck Tatham | David Nevins | Dean Lorey | Jim Vallely | John Amodeo; ceremony: 58th Primetime Emmy Awards] | m.0lv4ffs [award: Primetime Emmy Award for Outstanding Comedy Series; awar
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #1 调用: center: A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | Rush | Splash | The Da Vinci Code | The Dark Tower | The Dilemma | The Lost Symbol | The Missing | The Paper | Willow | Clean and Sober | Closet Land | The 'Burbs | Changeling | J. Edgar | Arrested Development | Leo and Loree  |  relations: film.film_subject.films | film.film.subjects
 旧: 模式 17 · 证据块 7 · 4956 字符
-新: 模式 2 · 证据块 8 · 3731 字符
+新: 模式 3 · 证据块 6 · 4207 字符
 
 【旧渲染】
 ```
@@ -2322,35 +2072,35 @@ note: ⚠ Passing only 'A Beautiful Mind' narrows the relation pool to just that
 ```
 triples:
 entities: Ron Howard  (sequence root; this layer applies to the frontier: 11th Critics' Choice Awards | 13th Satellite Awards | 14th Critics' Choice Awards | 18th Satellite Awards | 1986 Hugo Awards | 1989 Hugo Awards | 1996 Hugo Awards | 2005 ESPY Awards | 20th Screen Actors Guild Awards | 21st People's Choice Awards | 27th Golden Raspberry Awards | 34th Daytime Creative Arts Emmy Awards)
-▸ patterns: film.genre | adapted_work.adaptations
-── The 'Burbs ──
-    --film.genre--> Black comedy | Comedy | Cult film | Horror | Horror comedy | Thriller
-── Backdraft ──
-    --film.genre--> Action Film | Crime Fiction | Drama | Mystery | Thriller
-── Closet Land ──
-    --film.genre--> Drama | Dystopia | Indie film | Political drama | Psychological thriller
-── Comedy ──
-    Arrested Development | Gung Ho | Leo and Loree --film.genre--> Comedy
+▸ patterns: award_honor.award_winner ⭢ award_honor.honored_for ⭢ film.genre | award_honor.award_winner ⭢ award_winning_work.awards_won ⭢ film.genre | award_honor.award_winner ⭢ award_winning_work.awards_won ⭢ film.sequel
+── Ron Howard ──
+    m.03mlppw | m.04kcph9 | m.09dyymh | m.0jyzxxs | m.0lts_jr --award_honor.award_winner--> Ron Howard
+── A Beautiful Mind ──
+    --film.genre--> Biographical film | Documentary film | Drama | Historical period drama | Psychological thriller | Romance Film
+    m.03mlppw --award_honor.honored_for--> A Beautiful Mind
+── Cocoon ──
+    --award_winning_work.awards_won--> m.0jyzxxs [award: Saturn Award for Best Director; honored_for: Cocoon]
+    --film.genre--> Film adaptation | Science Fiction
+── Curious George ──
+    --award_winning_work.awards_won--> m.0lts_jr [ceremony: 37th Daytime Creative Arts Emmy Awards; honored_for: Curious George]
+    --film.genre--> Family
+    --film.sequel--> Curious George 2: Follow That Monkey!
+── Apollo 13 ──
+    --award_winning_work.awards_won--> m.09dyymh [ceremony: 48th Directors Guild of America Awards; honored_for: Apollo 13]
+    --film.genre--> Adventure Film
 ── Arrested Development ──
-    --adapted_work.adaptations--> Arrested Development
-── Drama ──
-    Gung Ho --film.genre--> Drama
-── Leo and Loree ──
-    --film.genre--> Romance Film
-── The Lost Symbol ──
-    --adapted_work.adaptations--> The Lost Symbol
-    The Dark Tower VII: The Dark Tower --adapted_work.adaptations--> The Dark Tower
+    --film.genre--> Comedy
+    m.04kcph9 --award_honor.honored_for--> Arrested Development
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: ⚠ Passing only 'A Beautiful Mind' narrows the relation pool to just that entity's edges — ?movie has 37 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?movie or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 relation_expansion: {'film.film_subject.films': {'direct': ['film.film_subject.films'], 'bridge': ['film.film.genre', 'film.film.sequel', 'media_common.adapted_work.adaptations', 'media_common.netflix_title.netflix_genres']}, 'film.film.subjects': {'direct': ['film.film.subjects'], 'bridge': ['film.film.genre', 'film.film.sequel', 'media_common.adapted_work.adaptations', 'media_common.netflix_title.netflix_genres']}}
-anchor_sequence: Ron Howard ⭢ award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | film.produced_by | producer.film | producer.films_executive_produced | writer.film (236) ⭢ film.genre | film.sequel | film.subjects | film_subject.films | adapted_work.adaptations | netflix_title.netflix_genres (0)
-layer_action: extend
+anchor_sequence: Ron Howard ⭢ award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | film.produced_by | producer.
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #2 调用: center: A Beautiful Mind  |  relations: film.film_subject.films | film.film.subjects
 旧: 模式 3 · 证据块 5 · 2550 字符
-新: 模式 1 · 证据块 4 · 2085 字符
+新: 模式 3 · 证据块 6 · 2655 字符
 
 【旧渲染】
 ```
@@ -2380,15 +2130,23 @@ layer_action: repeat
 ```
 triples:
 entities: Ron Howard
-▸ patterns: film_subject.films
+▸ patterns: film.directed_by ⭢ film_subject.films | film.produced_by ⭢ film_subject.films | personal_film_appearance.person ⭢ personal_film_appearance.film ⭢ film_subject.films
+── Ron Howard ──
+    EDtv --film.directed_by--> Ron Howard
+    The Lost Symbol --film.directed_by--> Ron Howard
+    m.0gz61x3 --personal_film_appearance.person--> Ron Howard
+    Clean and Sober | Closet Land | EDtv | The Lost Symbol --film.produced_by--> Ron Howard
+── EDtv ──
+    Television --film_subject.films--> EDtv
+── The Lost Symbol ──
+    Freemasonry --film_subject.films--> The Lost Symbol
 ── Clean and Sober ──
     Substance abuse --film_subject.films--> Clean and Sober
 ── Closet Land ──
     Pedophilia --film_subject.films--> Closet Land
-── EDtv ──
-    Television --film_subject.films--> EDtv
-── Freemasonry ──
-    --film_subject.films--> The Lost Symbol
+── The Independent ──
+    m.0gz61x3 --personal_film_appearance.film--> The Independent
+    Indie film --film_subject.films--> The Independent
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
 note: ⚠ Passing only 'A Beautiful Mind' narrows the relation pool to just that entity's edges — ?movie has 37 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?movie or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
 layer_action: repeat
@@ -2397,7 +2155,7 @@ layer_action: repeat
 --------------------------------------------------------------------------------------------
 ### 块 #3 调用: center: A Beautiful Mind  |  relations: film.film_story_contributor.film_story_credits | film.film.story_by
 旧: 模式 5 · 证据块 8 · 5384 字符
-新: 模式 7 · 证据块 10 · 13914 字符
+新: 模式 0 · 证据块 0 · 2859 字符
 
 【旧渲染】
 ```
@@ -2448,26 +2206,17 @@ note: ⚠ Passing only 'A Beautiful Mind' narrows the relation pool to just that
 ```
 【新渲染】
 ```
-triples:
-entities: Ron Howard  (sequence root; this layer applies to the frontier: 20th Century Period Pieces | Action Comedies | Action Comedy | Action Film | Action/Adventure | Adventure Film | Ages 11-12 | Biographical Dramas | Biographical film | Black comedy | Book Characters | Boxing)
-▸ patterns: film.produced_by | producer.film | award_honor.award_winner ⭢ award_honor.honored_for | award_honor.honored_for | award_nominated_work.award_nominations | award_nomination.nominated_for | award_winning_work.awards_won
-── Ron Howard ──
-    --producer.film--> Clean and Sober | The Da Vinci Code | The Missing
-    m.03mlppw | m.03mlsw7 | m.04kcph9 | m.08pc389 | m.09dyy55 | m.09dyymh | m.09k3ns1 | m.0jyzxxs | m.0lts_jr | m.0mvjqsr | m.0mwh6d0 | m.0swwvgm --award_honor.award_winner--> Ron Howard
-    Clean and Sober | The Da Vinci Code | The Missing --film.produced_by--> Ron Howard
-── A Beautiful Mind ──
-    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; award_nominee: Ron Howard; ceremony: 74th Academy Awards] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Ron Howard; ceremony: 74th Academy Awards] | m.07zqyxh [award: BAFTA Award for Best Direction; award_nominee: Ron Howard; ceremony: 55th British Academy Film Awards] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer | Ron Howard; ceremony: 55th British Academy Film Awards] | m.095h1h2 [award: Golden Globe Award for Best Director - Motion Picture; award_nominee: Ron Howard; ceremony: 59th Golden Globe Awards] | m.09k3p5_ [award: Critics' Choice Movie Award for Best Director; award_nominee: Ron Howard; ceremony: 7th Critics' Choice Awards] | m.09sc2vl [award_nominee: Ron Howard; ceremony: 54th Directors Guild of America Awards] | m.0nbbh6b [award: Australian Film Institute Award for Best Foreign Film; award_nominee: Brian Grazer | Ron Howard; ceremony: 44th Australian Film Institute Awards]
-    --award_winning_work.awards_won--> m.03mlppw [award: Academy Award for Best Picture; ceremony: 74th Academy Awards] | m.03mlsw7 [award: Academy Award for Best Director; ceremony: 74th Academy Awards] | m.09dyy55 [ceremony: 54th Directors Guild of America Awards] | m.09k3ns1 [award: Critics' Choice Movie Award for Best Director; ceremony: 7th Critics' Choice Awards]
-    m.03mlppw | m.03mlsw7 | m.09dyy55 | m.09k3ns1 --award_honor.honored_for--> A Beautiful Mind
-    m.05bkyhb | m.05brffw | m.07zqyxh | m.08lbx1t | m.095h1h2 | m.09k3p5_ | m.09sc2vl | m.0nbbh6b --award_nomination.nominated_for--> A Beautiful Mind
-── Arrested Development ──
-    --award_nominated_work.award_nominations--> m.0lv464x [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Brian Grazer | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz; ceremony: 56th Primetime Emmy Awards] | m.0lv467q [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Brian Grazer | Chuck Tatham | David Nevins | Dean Lorey | Jim Vallely | John Amodeo; ceremony: 58th Primetime Emmy Awards] | m.0lv4ffs [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Brad Copeland | Brian Grazer | Chuck Martin | David Nevins | Jim Vallely; ceremony: 57th Primetime Emmy Awards] | m.0n4htv8 [award_nominee: Brian Grazer | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz | Richard A. Rosenstock; ceremony: Producers Guild of America Awards 2004] | m.0n4kzq9 [award_nominee: Brian Grazer | Chuck Martin | David Nevins | Jim Vallely | John Amodeo | Mitchell Hurwitz; ceremony: Producers Guild of America Awards 2005] | m.0n4psbw [award_nominee: Brian Grazer | David Nevins | Dean Lorey | Jim Vallely | John Amodeo | Mitchell Hurwitz; ceremony: Producers Guild of America Awards 2006] | m.0zgtpgn [award_nominee: Alia Shawkat | David Cross | Henry Winkler | Isla Fisher | Jason Bateman | Jeffrey Tambor; ceremony: 20th Screen Actors Guild Awards] | m.0zxzd
+triples: (empty)
+note: ⚠ Passing only 'A Beautiful Mind' narrows the relation pool to just that entity's edges — ?movie has 37 candidates whose relations may differ. For full-frontier relation discovery, pass the variable ?movie or ALL relevant entities together. A single literal is fine when the tree continuation handles it (the system walks from the root regardless). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
+relation_expansion: {'film.film_story_contributor.film_story_credits': {'direct': ['film.film_story_contributor.film_story_credits'], 'bridge': ['award.award_honor.honored_for', 'award.award_nominated_work.award_nominations', 'award.award_nomination.nominated_for', 'award.award_winning_work.awards_won', 'film.film.produced_by', 'film.producer.film']}, 'film.film.story_by': {'direct': ['film.film.story_by'], 'bridge': ['award.award_honor.honored_for', 'award.award_nominated_work.award_nominations', 'award.award_nomination.nominated_for', 'award.award_winning_work.awards_won', 'film.film.produced_by', 'film.producer.film']}}
+anchor_sequence: Ron Howard ⭢ award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | film.produced_by | producer.film | producer.films_executive_produced | writer.film (236) ⭢ award_honor.honored_for | award_nominated_work.award_nominations | award_nomination.nominated_for | award_winning_work.awards_won | film.produced_by | film.story_by | film_story_contributor.film_story_credits | producer.film (73)
+layer_action: update layer 2 (replaced film.film.subjects, edia_common.netflix_title.netflix_genres, film.film.genre, film.film_subject.films, film.film.sequel, media_common.adapted_work.adaptations)
 ```
 
 --------------------------------------------------------------------------------------------
 ### 块 #4 调用: center: Child prodigy  |  relations: film.film_subject.films | film.film.subjects
 旧: 模式 3 · 证据块 2 · 1541 字符
-新: 模式 2 · 证据块 2 · 1504 字符
+新: 模式 1 · 证据块 2 · 1445 字符
 
 【旧渲染】
 ```
@@ -2487,10 +2236,9 @@ relation_expansion: {'film.film.subjects': {'direct': ['film.film.subjects'], 'b
 ```
 triples:
 entities: Child prodigy
-▸ patterns: film.subjects | film_subject.films
+▸ patterns: film_subject.films ⭢ film.subjects
 ── Child prodigy ──
     --film_subject.films--> Village of the Giants
-    Village of the Giants --film.subjects--> Child prodigy
 ── Village of the Giants ──
     --film.subjects--> Giant
 note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
@@ -2501,7 +2249,7 @@ relation_expansion: {'film.film.subjects': {'direct': ['film.film.subjects'], 'b
 --------------------------------------------------------------------------------------------
 ### 块 #5 调用: center: Village of the Giants  |  relations: film.director.film | film.film.directed_by | film.produced_by | film.producer.films_executive_produced
 旧: 模式 24 · 证据块 10 · 7718 字符
-新: 模式 13 · 证据块 10 · 7838 字符
+新: 模式 3 · 证据块 2 · 2807 字符
 
 【旧渲染】
 ```
@@ -2546,42 +2294,17 @@ entities: Child prodigy  (sequence root; this layer applies to the frontier: Vil
 ```
 triples:
 entities: Child prodigy  (sequence root; this layer applies to the frontier: Village of the Giants)
-▸ patterns: film.subjects ⭢ director.film | film.subjects ⭢ film.directed_by | film.subjects ⭢ film.prequel | director.film | film.directed_by | film.prequel | film.produced_by | film.starring | film_story_contributor.film_story_credits | performance.film | producer.films_executive_produced | director.film ⭢ director.film | film_story_contributor.film_story_credits ⭢ film_story_contributor.film_story_credits
+▸ patterns: film.subjects ⭢ director.film | film.subjects ⭢ film.directed_by | film.subjects ⭢ film.prequel
 ── Child prodigy ──
     Village of the Giants --film.subjects--> Child prodigy
 ── Village of the Giants ──
     --film.directed_by--> Bert I. Gordon
-    --film.starring--> m.02vbct8 | m.02vbp6p [actor: Rance Howard] | m.02vbpfx | m.02vbpy5 | m.02vbxc4 | m.02vc637 | m.02vd155 | m.02vdcc7 | m.03l9s4y | m.045p3fq [special_performance_type: Uncredited] | m.0gkckfy | m.0gkclg6 | m.0k7rl4 | m.0k7rl9 [actor: Ron Howard; character: Genius] | m.0k7rlg | m.0k7rlm
-    Bert I. Gordon | m.02vbct8 | m.02vbp6p | m.02vbpfx | m.02vbpy5 | m.02vbxc4 | m.02vc637 | m.02vd155 | m.02vdcc7 | m.03l9s4y | m.045p3fq | m.0gkckfy …(+5) (to answer with ALL of them, include "#Bert I. Gordon::film" as one answer entity) --director.film--> Village of the Giants
-    Bert I. Gordon --film_story_contributor.film_story_credits--> Village of the Giants
-    H. G. Wells --film_story_contributor.film_story_credits--> Village of the Giants
+    Bert I. Gordon --director.film--> Village of the Giants
     The Food of the Gods --film.prequel--> Village of the Giants
-── Ron Howard ──
-    --director.film--> A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion
-    --film_story_contributor.film_story_credits--> Far and Away | Parenthood
-    --producer.films_executive_produced--> Arrested Development | Gung Ho | Leo and Loree | The 'Burbs
-    A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto …(+7) (to answer with ALL of them, include "#A Beautiful Mind::directed_by" as one answer entity) --film.directed_by--> Ron Howard
-    A Beautiful Mind | Angels & Demons | Beyond the Mat | Changeling | Cinderella Man | Clean and Sober | Closet Land | Cowboys & Aliens | Curious George | Curious George 2: Follow That Monkey! | Dr. Seuss' How the Grinch Stole Christmas | EDtv …(+5) (to answer with ALL of them, include "#A Beautiful Mind::produced_by" as one answer entity) --film.produced_by--> Ron Howard
-── Jay-Z: Made in America ──
-    Diane Weyermann | Erica Huggins | Jay-Z | Jeffrey Skoll | Jon Kamen | Paul Chibe | Sidney Beaumont | Steve Stoute --producer.films_executive_produced--> Jay-Z: Made in America
-── Todd Hallowell ──
-    --producer.films_executive_produced--> Angels & Demons | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Frost/Nixon | Ransom | The Alamo | The Da Vinci Code | The Dilemma
-── Frost/Nixon ──
-    Peter Morgan --film_story_contributor.film_story_credits--> Frost/Nixon
-    Karen Kehela --producer.films_executive_produced--> Frost/Nixon
-    Peter Morgan --producer.films_executive_produced--> Frost/Nixon
-── Angels & Demons ──
-    Dan Brown --producer.films_executive_produced--> Angels & Demons
-── Bert I. Gordon ──
-    --director.film--> The Food of the Gods
-    The Food of the Gods --film.directed_by--> Bert I. Gordon
-── Far and Away ──
-    Bob Dolman --film_story_contributor.film_story_credits--> Far and Away
-── George Lucas ──
-    --director.film--> American Graffiti
-    --film_story_contributor.film_story_credits--> Willow
-    --producer.films_executive_produced--> More American Graffiti | Willow
-    American Graffiti --film.directed_by--> George Lucas
-    Adam McKay --producer.films_executive_produced--
+note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' merges tails; m.xxx [key: value] shows a CVT's attributes inline. Compare blocks by bracketed values to discriminate candidates.
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and commit the discriminated one(s), never the whole frontier roster. Mid-chain entities are HOPS, not answers. triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or 'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound entities whose ATTRIBUTES are the event's content. EXAMPLE: 'm.0abc --performance.character--> Denver | --performance.actor--> Jon Favreau' means 'a performance event where the character Denver was played by Jon Favreau'. Event nodes are NEVER answer candidates and NEVER variable bindings — answer and bind with the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). Discriminator attributes (dates, incumbent) appear as their own edges — read them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence its pattern paths justify — an edge may legitimately reappear across subgraphs with its complete tail set. Pick the next center FROM these triples.
+relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['film.film.prequel', 'film.film_story_contributor.film_story_credits', 'film.performance.film', 'type.object.name']}, 'film.film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['film.film.prequel', 'film.film_story_contributor.film_story_credits', 'film.performance.film', 'type.object.name']}, 'film.produced_by': {'direct': ['film.film.produced_by'], 'bridge': ['film.film.starring', 'film.performance.film', 'type.object.name']}, 'film.producer.films_executive_produced': {'direct': ['film.producer.films_executive_produced'], 'bridge': ['film.performance.film']}}
+anchor_sequence: Child prodigy ⭢ film.subjects | film_subject.films (1) ⭢ director.film | film.directed_by | film.prequel | film.produced_by | film.starring | film_story_contributor.film_story_credits | performance.film | object.name (0)
+layer_action: extend
 ```
 
