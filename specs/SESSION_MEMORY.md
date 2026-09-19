@@ -1,5 +1,41 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-19 用户轨迹审核四问题修复(1c126bd):153 绿+36 重放验证
+- **A1 dispatch 崩溃(真 bug 根因)**:restart 重置块把 list 型
+  walk_seen_entities/walk_extra 重置成 {}(seq_react_loop.py:1253+)
+  →restart 后首调 seq_tools.py:4950 append 崩且永续(1379-s1 两次
+  崩溃根因)。修复:按字段类型分派(list→[]/dict→{})。
+- **附带修出第二个 UnboundLocal**:_sg_prepare 的 _seq_echo 等四变量
+  初始化在 SEQ_MULTISTEP 块内、return 在块外无条件引用——
+  SEQ_MULTISTEP=0 环境(如重放没带站立 env)时每次 sg 调用全崩。
+  修复:初始化上移到块外。**重放陷阱**:replay_dispatch 必须带站立
+  env(SEQ_MULTISTEP=1 + SEQ_RENDER_V38=1),否则走 legacy 渲染,
+  对比无意义——已 setdefault 进脚本。
+- **A2 模式数量恢复设计上限**(溯源结论:设计=direct+3/terminal,
+  567 实际 39):三层修复——①渲染准入全局 per-terminal 预算 ≤3
+  (**含 selected**:B 相 quota 是 per(center,terminal),多中心调用
+  叠到 9/terminal——Colorado River 标本;预填也 cap 3 防全拒;
+  **坑:ADMIT_PER_TERM 必须在预填前定义**,UnboundLocal 全灭 pattern
+  行一次);②准入终点集只认提交关系(attr_expansion keys——bridge
+  参与游走不作渲染段合法终点);③collapse 变体去重(同一 selected
+  的多 raw 变体只显示一个代表);derive 语义模式枚举 cap 60 +
+  B 相选择失败 fallback top3(原 except:pass 会放全量)。
+- **A3 逃生口**:rows 渲染器 …(+N) 行(出边 _TAIL_CAP 与入边
+  _HEAD_CAP 两处)补 #name::rel 答案扩展提示(对齐 legacy 惯例)。
+- **验证**:153 绿;36 条重放 0 崩溃、max 23 patterns、每 terminal
+  ≤3 零违规、答案级保真(answer≠0)、逃生口 52 处。567 msg5
+  39→个位数。
+- **B1 打分口径**:system 注入 SEQ_AGENTS 规则(截断 8000,对齐
+  seq_advantage.build_messages)+模块文本只用证据块区域。**提取
+  顺序坑**:`▸ patterns:`/`entities:` 行在证据块**之前**——break
+  会截空全部证据(首轮打分崩塌的根因),必须 skip 不 break。
+  重打分 13 条读数健康(567 .015→.654;2784-s2 .013→.511;
+  21 .42→.83),2784-s2 mod2 修正为 redundant_dup。
+- **B2 v5 spec**:空交付→环境修复项;概率倒挂→per-entity 已解决;
+  L2 落定(通路各自连通+有信息⇒单独判定,联合降诊断);打分口径
+  入档。含金噪声(567-[5])仍 open。
+- 48×3 全量对比 0.7177 待跑(行为改动 A2/A3+B1 需全量判定)。
+
 ### 2026-09-18 评价体系 v5 从零构建(specs/evaluation_system_v5.md,用户裁定集)
 - **方向变更**:停止修补 v1.5/v4——从核心理念另立体系。v1.5 审计
   证据(irr 误标 4/5/台阶救 harmful/迷失链全绿)是动机不是部分。
