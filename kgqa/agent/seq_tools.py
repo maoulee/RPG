@@ -4189,6 +4189,164 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
     return out
 
 
+# ───────────────── RECONSTRUCTION LANE (user ruling 2026-09-19) ─────────────────
+# The pattern layer has ALREADY searched (enumerate → rank → select); the
+# instance layer must RECONSTRUCT, not search again: walk each selected
+# pattern hop by hop deterministically, keep only THROUGH chains (an
+# h-r1-neighbor that cannot continue r2 is not on the path), CVT landings
+# pass through their edges (the CVT stays on the chain so the renderer can
+# inline its attributes), no beam, no witness collection.
+
+_REBUILD_BUDGET = 400          # per-hop breadth flood control (hub safety)
+
+
+def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
+    """Deterministic through-chain reconstruction for ONE selected pattern.
+
+    hops: tuple of frozensets (rel idxs) — one per pattern hop (a plain
+    direct step is a single hop with the full submitted rel set).
+    Returns (chains, edges): chains = [{"nodes": [idx...],
+    "edges": [(h_idx, rel_idx, t_idx)...]}] — nodes include CVT mids,
+    edges include CVT pass-through edges with their real relations;
+    edges = the union of directed triples. Only chains reaching the LAST
+    hop survive."""
+    from kgqa.agent.tools import _full_adj
+    adj_all = _full_adj(ctx)
+    n = len(ctx.ents)
+    parents = {}                        # node -> (prev, rel_idx) first-hit
+    level = {start_idx}
+    for hop in hops:
+        nxt, found = set(), False
+        for u in sorted(level):
+            for r in sorted(hop):
+                f, rv = ix.fwd.get(r, {}), ix.rev.get(r, {})
+                for v in sorted(set(f.get(u, ())) | set(rv.get(u, ()))):
+                    if not (0 <= v < n) or v == start_idx:
+                        continue
+                    if _cvt_like_name(ctx.ents[v]):
+                        # pass through ALL the CVT's edges to NAMED nodes
+                        # (the CVT itself stays on the chain as a node)
+                        if v not in parents:
+                            parents[v] = (u, r)
+                        for r2, w in adj_all[v]:
+                            if 0 <= w < n and not _cvt_like_name(ctx.ents[w]) \
+                                    and w not in parents and w != start_idx:
+                                parents[w] = (v, r2)
+                                nxt.add(w)
+                                found = True
+                    elif v not in parents:
+                        parents[v] = (u, r)
+                        nxt.add(v)
+                        found = True
+        if not found:
+            return [], set()
+        if len(nxt) > budget:
+            nxt = set(sorted(nxt)[:budget])
+        level = nxt
+    # backtrack every final-level node to the start (chains share prefixes
+    # through the parent DAG; each end yields its own chain)
+    chains, edge_set = [], set()
+    for end in sorted(level)[:budget]:
+        nodes, rev_edges = [end], []
+        node = end
+        while node != start_idx:
+            prev, rel = parents.get(node, (None, None))
+            if prev is None:
+                break                    # orphan (budget-severed) — drop
+            rev_edges.append((prev, rel, node))
+            nodes.append(prev)
+            node = prev
+        if node != start_idx or len(rev_edges) != sum(1 for _ in rev_edges):
+            continue
+        nodes.reverse()
+        edges = list(reversed(rev_edges))
+        if not edges:
+            continue
+        chains.append({"nodes": nodes, "edges": edges})
+        for e in edges:
+            edge_set.add(e)
+    return chains, edge_set
+
+
+def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
+    """Rebuild pe_list directly from the SELECTED patterns (no search lane,
+    no PG completeness block). Also archives treq["confirmed"] =
+    {(center_idx, pattern-name-tuple): [chain...]} — the render layer reads
+    this instead of re-inferring the pattern↔path mapping by name matching
+    (the old mismatch that killed heterogeneous multi-hop sections)."""
+    from kgqa.stages.formatting import PatternEvidence
+    from kgqa.traversal.pattern_walk import get_pattern_index
+    ix = get_pattern_index(ctx)
+    confirmed = {}
+    out = []
+    for (_cn, _ci) in treq["centers"]:
+        combined = {}
+        if not (0 <= _ci < len(ctx.ents)):
+            out.append({})
+            continue
+        # (a) multi-hop selected patterns — reconstruct per pattern key
+        for _pk, _seq in (_mseq.get(_ci) or {}).items():
+            if len(_pk) <= 1:
+                continue
+            chains, edges = _rebuild_paths(ctx, ix, _ci, _seq)
+            if not chains:
+                continue
+            names = tuple(str(ctx.rels[r]) for r in _pk)
+            label = " ⭢ ".join(
+                ".".join(str(ctx.rels[r]).rsplit(".", 2)[-2:])
+                for r in _pk)
+            triples = sorted(
+                (str(ctx.ents[h]), str(ctx.rels[r]), str(ctx.ents[t]))
+                for (h, r, t) in edges)
+            paths = [{"nodes": [str(ctx.ents[i]) for i in ch["nodes"]],
+                      "relations": [str(ctx.rels[r])
+                                    for (_h, r, _t) in ch["edges"]]}
+                     for ch in chains]
+            combined[label] = PatternEvidence(
+                label, label,
+                sorted({str(ctx.ents[ch["nodes"][-1]]) for ch in chains}),
+                triples, {"paths": paths})
+            confirmed[( _ci, names)] = chains
+        # (b) plain-direct step: the submitted rel set for ONE hop from the
+        # tree FRONTIER members (continuation) or the center itself — the
+        # same targeting rule the old _ms_steps used
+        _fr = (treq.get("cont_frontier") or {}).get(_ci)
+        starts = [i for i in (_fr or [_ci]) if 0 <= i < len(ctx.ents)]
+        hop = frozenset(treq["rel_idxs"])
+        _direct_agg = {}                # rel_idx -> [chains...] (merged)
+        for _si in starts:
+            chains, edges = _rebuild_paths(ctx, ix, _si, (hop,))
+            if not chains:
+                continue
+            for ch in chains:
+                (_h, _r, _t) = ch["edges"][0]
+                _direct_agg.setdefault(_r, []).append(ch)
+        for _r, _chains in _direct_agg.items():
+            _edge_set = set()
+            for ch in _chains:
+                for e in ch["edges"]:
+                    _edge_set.add(e)
+            lbl = ".".join(str(ctx.rels[_r]).rsplit(".", 2)[-2:])
+            triples = sorted(
+                (str(ctx.ents[h2]), str(ctx.rels[r2]), str(ctx.ents[t2]))
+                for (h2, r2, t2) in _edge_set)
+            paths = [{"nodes": [str(ctx.ents[i]) for i in c["nodes"]],
+                      "relations": [str(ctx.rels[r2])
+                                    for (_h2, r2, _t2) in c["edges"]]}
+                     for c in _chains]
+            combined[lbl] = PatternEvidence(
+                lbl, lbl,
+                sorted({str(ctx.ents[c["nodes"][-1]]) for c in _chains}),
+                triples, {"paths": paths})
+            for _si in starts:
+                _k = (_si, (str(ctx.rels[_r]),))
+                if confirmed.get(_k):
+                    confirmed[_k] = _chains
+        out.append(combined)
+    treq["confirmed"] = confirmed
+    return out
+
+
 async def _sg_execute(treq, ctx, session):
     """B段: entity-name correction (GTE) when a bad name was flagged — with
     candidates the turn ends with the correction result; otherwise (and when
@@ -4406,27 +4564,28 @@ async def _sg_execute(treq, ctx, session):
                   _ms_map[_ci] = 1
       if _ms_steps:
           _steps = _ms_steps
-    with phase_timer("walk"):
-        pe_list = await _run_walk_packed(ctx, _steps)
-    # merge multi-pattern pe back per-center (concatenate pattern dicts)
-    if _mseq and _ms_map:
-        _merged, _idx = [], 0
-        for _cn, _ci in treq["centers"]:
-            _n = _ms_map.get(_ci, 1)
-            _combined = {}
-            for _pe in pe_list[_idx:_idx + _n]:
-                if isinstance(_pe, dict):
-                    _combined.update(_pe)
-            if os.environ.get("SEQ_DEBUG_CHAIN", "0") == "1":
-                import sys as _sys
-                for _k, _v in _combined.items():
-                    _np = len((getattr(_v, "tree_data", None) or {}).get("paths", []) or [])
-                    if _np or len(str(_k)) > 2:
-                        print(f"[CHAIN-WALK] center={str(ctx.ents[_ci])[:20]!r} "
-                              f"pat={_k} paths={_np}", file=_sys.stderr, flush=True)
-            _merged.append(_combined if _combined else {})
-            _idx += _n
-        pe_list = _merged
+    if os.environ.get("SEQ_REBUILD", "1") == "1":
+        # RECONSTRUCTION LANE (user ruling 2026-09-19): the pattern layer
+        # already searched; rebuild the selected patterns' through-chains
+        # deterministically (no beam lane, no PG completeness block) and
+        # archive treq["confirmed"] for the renderer.
+        with phase_timer("walk"):
+            pe_list = _rebuild_pe_list(ctx, treq, _mseq, _ms_map)
+    else:
+        with phase_timer("walk"):
+            pe_list = await _run_walk_packed(ctx, _steps)
+        # merge multi-pattern pe back per-center (concatenate pattern dicts)
+        if _mseq and _ms_map:
+            _merged, _idx = [], 0
+            for _cn, _ci in treq["centers"]:
+                _n = _ms_map.get(_ci, 1)
+                _combined = {}
+                for _pe in pe_list[_idx:_idx + _n]:
+                    if isinstance(_pe, dict):
+                        _combined.update(_pe)
+                _merged.append(_combined if _combined else {})
+                _idx += _n
+            pe_list = _merged
     # PATTERN-COMPLETENESS GUARANTEE (user ruling 2026-09-13: the walk runs
     # on the reconstructed PATTERN graph — pattern branches are few, and
     # ENTITY-layer caps (beam / per-branch / support-path limits) must never
@@ -4434,7 +4593,10 @@ async def _sg_execute(treq, ctx, session):
     # pattern is instantiated EXHAUSTIVELY from the pattern index (bounded
     # only by a generous per-pattern budget; display caps apply later in the
     # render) and any hop the capped walk missed joins the pe paths.
-    if _mseq and _ms_map:
+    # [2026-09-19: reconstruction lane already rebuilds every selected
+    #  pattern exhaustively-with-budget — this block only runs on the old
+    #  search lane, and is DELETED on the rebuild lane per user ruling]
+    if _mseq and _ms_map and os.environ.get("SEQ_REBUILD", "1") != "1":
         try:
             from kgqa.traversal.pattern_walk import get_pattern_index as _gpi2
             from kgqa.stages.formatting import PatternEvidence as _PE

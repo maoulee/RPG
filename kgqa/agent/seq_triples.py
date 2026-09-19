@@ -107,10 +107,44 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
     for k in _selected:
         if k and _admit_count.get(k[-1], 0) < ADMIT_PER_TERM:
             _admit_count[k[-1]] = _admit_count.get(k[-1], 0) + 1
+    # RECONSTRUCTION LANE (user ruling 2026-09-19): treq["confirmed"] maps
+    # each selected pattern key to its reconstructed THROUGH-chains; a
+    # walked tuple renders iff it is one of those chains' ACTUAL rel
+    # sequences (CVT pass-through hops included) — no name-form matching,
+    # the mismatch that used to kill heterogeneous multi-hop sections.
+    # Budget counts per selected KEY (B-phase quota already bounded the
+    # key set; this is the display-side control point).
+    _confirmed = treq.get("confirmed")
+    _rt_of_key = {}
+    if _confirmed:
+        for (_ci, _names), _chains in _confirmed.items():
+            _s = _rt_of_key.setdefault(_names, set())
+            for _ch in _chains:
+                _rel_t = tuple(str(ctx.rels[_r])
+                               for (_h, _r, _t) in _ch["edges"])
+                if _rel_t:
+                    _s.add(_rel_t)
+    _key_count = {}
     _shown = []
     _a_seen = set()      # collapse-key dedup: one raw representative per
     for rt in sorted(groups, key=_pkey):   # SELECTED pattern (variants of
         _rtc = _collapse_rt(rt)            # the same collapsed key merged)
+        if _confirmed is not None:
+            # reconstruction lane: render only the confirmed chains' actual
+            # sequences of a selected key; 1-hop submitted-directs ride
+            # their own confirmed entries ((rel,) keys)
+            _owner = next((_k for _k, _rts in _rt_of_key.items()
+                           if rt in _rts), None)
+            if _owner is not None:
+                if _rtc in _a_seen:
+                    continue
+                if _key_count.get(_owner, 0) >= ADMIT_PER_TERM:
+                    continue
+                _key_count[_owner] = _key_count.get(_owner, 0) + 1
+                _a_seen.add(_rtc)
+                _shown.append(rt)
+                continue
+            continue                    # not on any confirmed path → nothing
         # SELECTED-PATH RECONSTRUCTION (user ruling 2026-09-19: the render
         # layer RECONSTRUCTS the chosen pattern paths — it makes NO display
         # decisions of its own. The admission budget IS the selection-layer
