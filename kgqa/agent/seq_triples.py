@@ -111,39 +111,33 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
     _a_seen = set()      # collapse-key dedup: one raw representative per
     for rt in sorted(groups, key=_pkey):   # SELECTED pattern (variants of
         _rtc = _collapse_rt(rt)            # the same collapsed key merged)
-        # ACTUAL-PATH GROUNDED ADMISSION (user ruling 2026-09-15): the
-        # walked tuple is the ground truth — entity+adjoins alone may not
-        # reach co2 while entity+adjoins+adjoins (CVT in/out) exactly hits
-        # it, and that doubled form is the real pattern, not noise to be
-        # collapsed away into an inconsistency with the declared key. A path
-        # is a SECTION when it completes a submitted relation as its actual
-        # terminal (bounded depth), or matches a declared key exactly /
-        # collapsed. The declared key is intent; the actual path is truth.
+        # SELECTED-PATH RECONSTRUCTION (user ruling 2026-09-19: the render
+        # layer RECONSTRUCTS the chosen pattern paths — it makes NO display
+        # decisions of its own. The admission budget IS the selection-layer
+        # control (it picks which complete paths qualify); walked-but-
+        # unselected paths render NOTHING (no environment fallback). CVT
+        # rendering mechanics are unchanged — they are answer-critical.)
+        # ACTUAL-PATH GROUNDED (2026-09-15): the walked tuple is the ground
+        # truth of a declared key — a collapse-equivalent walk of a selected
+        # pattern IS that selected path's actual form.
         if rt in _selected or _rtc in _selected_c:
             if _rtc in _a_seen:
                 continue            # collapse-variant of an already-shown
-            # GLOBAL TERMINAL BUDGET covers selected patterns too: the
-            # B-phase quota is per (CENTER, terminal) — a multi-center call
-            # stacks 3×N per terminal (Colorado-River specimen: 9/terminal
-            # through 3 centers). Display enforces the per-terminal total.
+            # GLOBAL TERMINAL BUDGET covers selected patterns: the B-phase
+            # quota is per (CENTER, terminal) — a multi-center call stacks
+            # 3×N per terminal (Colorado-River specimen). The budget keeps
+            # the selected SET itself within the per-terminal design count.
             _term = rt[-1]
             if _admit_count.get(_term, 0) >= ADMIT_PER_TERM:
                 continue
             _admit_count[_term] = _admit_count.get(_term, 0) + 1
-            _a_seen.add(_rtc)       # selected pattern — merge to one rep
-            _shown.append(rt)
-            continue
-        if (rt[-1] in _admit_terms and len(rt) <= 4
-                and _admit_count.get(rt[-1], 0) < ADMIT_PER_TERM):
-            _admit_count[rt[-1]] = _admit_count.get(rt[-1], 0) + 1
+            _a_seen.add(_rtc)
             _shown.append(rt)
             continue
         if len(_rtc) == 1 and _short_r(_rtc[0]) in _sub_sh:
             _shown.append(rt)      # 1-hop submitted-direct (CVT mids collapse)
             continue
-        if _env_cap <= 0:
-            continue
-        _env_cap -= 1
+        # walked but NOT selected → not rendered (user ruling 2026-09-19)
 
     patterns = []
     shown_edges = set()
@@ -194,7 +188,11 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
                            else (key[i], _short_r(relsn[i]), key[i + 1]))
     for e in edges:
         _edges.add(e)
-    env_triples = sorted(e for e in _edges if e not in shown_edges)
+    # WALKED-BUT-UNSELECTED edges render NOTHING (user ruling 2026-09-19:
+    # only the chosen paths' entities, meeting the whole-path requirement,
+    # are rendered — no environment fallback for unselected walks). The
+    # key stays for interface compatibility; downstream renders it empty.
+    env_triples = []
 
     return {"centers": [str(c) for c, _i in treq["centers"]],
             "frontier": [str(ctx.ents[i]) for i in (treq.get("cont_frontier") or {}).get(
