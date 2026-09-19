@@ -55,6 +55,11 @@ os.environ.setdefault("DISPATCH_CONCURRENCY", "64")
 # legacy render lane and every comparison is meaningless
 os.environ.setdefault("SEQ_MULTISTEP", "1")
 os.environ.setdefault("SEQ_RENDER_V38", "1")
+# walk lanes: the standing batch config multiplexes walks across worker
+# processes (WALK_POOL=3); without it the replay takes the legacy serial
+# lane — far slower on walk-heavy rounds (user catch 2026-09-19: ~5s/case
+# expected from a re-render)
+os.environ.setdefault("WALK_POOL", "3")
 
 
 def _load_recorded(path):
