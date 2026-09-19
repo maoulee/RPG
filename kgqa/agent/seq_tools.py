@@ -4213,7 +4213,7 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
     from kgqa.agent.tools import _full_adj
     adj_all = _full_adj(ctx)
     n = len(ctx.ents)
-    parents = {}                        # node -> (prev, rel_idx) first-hit
+    parents = {}                        # node -> (prev, rel_idx, passthru)
     level = {start_idx}
     for hop in hops:
         nxt, found = set(), False
@@ -4225,17 +4225,22 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
                         continue
                     if _cvt_like_name(ctx.ents[v]):
                         # pass through ALL the CVT's edges to NAMED nodes
-                        # (the CVT itself stays on the chain as a node)
+                        # (the CVT itself stays on the chain as a node);
+                        # passthrough edges are marked — they feed
+                        # triples/candidates but NOT the pattern hops of
+                        # the chain (license path-admission requires the
+                        # chain's last hop to be a submitted relation, and
+                        # the user ruling puts CVT expansion at render)
                         if v not in parents:
-                            parents[v] = (u, r)
+                            parents[v] = (u, r, False)
                         for r2, w in adj_all[v]:
                             if 0 <= w < n and not _cvt_like_name(ctx.ents[w]) \
                                     and w not in parents and w != start_idx:
-                                parents[w] = (v, r2)
+                                parents[w] = (v, r2, True)
                                 nxt.add(w)
                                 found = True
                     elif v not in parents:
-                        parents[v] = (u, r)
+                        parents[v] = (u, r, False)
                         nxt.add(v)
                         found = True
         if not found:
@@ -4250,20 +4255,31 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
         nodes, rev_edges = [end], []
         node = end
         while node != start_idx:
-            prev, rel = parents.get(node, (None, None))
-            if prev is None:
+            _par = parents.get(node)
+            if _par is None:
                 break                    # orphan (budget-severed) — drop
-            rev_edges.append((prev, rel, node))
+            prev, rel, _ps = _par
+            rev_edges.append((prev, rel, node, _ps))
             nodes.append(prev)
             node = prev
-        if node != start_idx or len(rev_edges) != sum(1 for _ in rev_edges):
+        if node != start_idx:
             continue
         nodes.reverse()
         edges = list(reversed(rev_edges))
         if not edges:
             continue
-        chains.append({"nodes": nodes, "edges": edges})
-        for e in edges:
+        # PATTERN HOPS end at the last submitted-relation edge: passthrough
+        # edges beyond it are expansion context (triples/candidates only)
+        _last_pat = max((i for i, e in enumerate(edges) if not e[3]),
+                        default=-1)
+        if _last_pat < 0:
+            continue
+        hops_edges = [(h, r, t) for (h, r, t, _ps) in edges[:_last_pat + 1]]
+        hop_nodes = [start_idx] + [t for (_h, _r, t) in hops_edges]
+        chains.append({"nodes": hop_nodes, "edges": hops_edges,
+                       "full_nodes": nodes, "full_edges":
+                       [(h, r, t) for (h, r, t, _ps) in edges]})
+        for e in [(h, r, t) for (h, r, t, _ps) in edges]:
             edge_set.add(e)
     return chains, edge_set
 
@@ -4298,14 +4314,20 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
             triples = sorted(
                 (str(ctx.ents[h]), str(ctx.rels[r]), str(ctx.ents[t]))
                 for (h, r, t) in edges)
+            # paths carry the PATTERN HOPS ONLY (ending at the submitted
+            # relation — license path-admission requires it); the CVT
+            # pass-through's named endpoints join candidates/triples (CVT
+            # expansion renders inline at the CVT node, per user ruling)
             paths = [{"nodes": [str(ctx.ents[i]) for i in ch["nodes"]],
                       "relations": [str(ctx.rels[r])
                                     for (_h, r, _t) in ch["edges"]]}
                      for ch in chains]
+            _cands = {str(ctx.ents[ch["full_nodes"][-1]])
+                      for ch in chains
+                      if not _cvt_like_name(
+                          str(ctx.ents[ch["full_nodes"][-1]]))}
             combined[label] = PatternEvidence(
-                label, label,
-                sorted({str(ctx.ents[ch["nodes"][-1]]) for ch in chains}),
-                triples, {"paths": paths})
+                label, label, sorted(_cands), triples, {"paths": paths})
             confirmed[( _ci, names)] = chains
         # (b) plain-direct step: the submitted rel set for ONE hop from the
         # tree FRONTIER members (continuation) or the center itself — the
