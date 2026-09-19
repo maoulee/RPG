@@ -1,5 +1,26 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-19 重建式实例化落地(1751eb1/25a3f45):机制对齐完成
+- **机制定稿**(specs/mechanism_alignment_2026-09-19.md):三层分立——
+  模式层(CVT 抽象超节点,枚举/排序/选择,毫秒级)/重建层(沿选中模式
+  确定性逐跳取道,CVT 落点穿透留链,只保贯通链——搜索已完毕,重建
+  不搜索)/渲染层(贯通链三元组逐跳渲染,头/尾 CVT 展开内联,只渲染
+  路径上的边——非路径邻居不渲染)。
+- **重建器** `_rebuild_paths`(seq_tools):parent-DAG 逐跳重建,
+  budget 400/跳防洪泛;`_rebuild_pe_list` 产 pe 兼容对象+
+  **treq["confirmed"] 归档**(selected key→贯通链——渲染直读实际
+  关系序列,不做名字匹配,异构多跳复活);渲染 confirmed 分支
+  (seq_triples:实际元组 ∈ confirmed 某 key 的链⇒渲染,预算按 key)。
+  SEQ_REBUILD=1 默认开;beam 搜索/logical_paths/PG 块在重建 lane 下
+  不跑(归档未删)。
+- **验证**:153 绿;36 条重放 **360s→25s(14×)**,全 144 条 67s;
+  零崩溃;567 块#0 39→**20 条异构多跳**(=设计公式 4direct+4×4,
+  executive_produced_by⭢director.film 等真实 CVT 穿透链);
+  21 块#1 11→3;答案级保真(answer≠3/144)。
+- **待审**:render_diff v3(specs/render_diff_2026-09-19.md)——
+  21 块#0 显示 0 模式标签(direct-only 渲染,证据 1154 字符在)——
+  direct 步 pattern 行缺失待查;48×3 全量对比 0.7177 仍待跑。
+
 ### 2026-09-19 渲染理念定稿:选中路径重建器(9d53b94,用户裁定)
 - **理念**(用户陈述):路径是第一公民——先游走出模式路径,渲染=基于
   固定路径逐跳重建三元组记录(压缩形式只是记录格式);**准入预算=
