@@ -3377,6 +3377,97 @@ def _tree_positions(ctx, ix, anchor_idx, chains):
             "leaf_pats": leaf_pats, "mid_pats": mid_pats, "joins": joins}
 
 
+def _command_skeletons(ctx, ix, root_idx, steps, terminals, cmd_rels,
+                       cap=60):
+    """COMPLETE command patterns (user spec 2026-09-20): one relation from
+    each EARLIER step, in step order, with at most one BRIDGE connector hop
+    between consecutive steps (structural relations the command doesn't
+    name — fictional_character.based_on). Command relations never serve as
+    bridges (a later step must not re-walk an earlier step's relation) and
+    no relation repeats on a pattern. Beam over (pattern, node-set) states,
+    deterministic, node sets capped for feasibility purposes only — the
+    rebuild lane remains the ground truth on instantiations."""
+    from kgqa.agent.tools import _full_adj
+    adj = _full_adj(ctx)
+    n = len(ctx.ents)
+    cmd = set(cmd_rels)
+
+    def _nodes(cur, rels):
+        out = set()
+        for r in rels:
+            f, rv = ix.fwd.get(r, {}), ix.rev.get(r, {})
+            for e in cur:
+                out |= set(f.get(e, ())) | set(rv.get(e, ()))
+        return {x for x in out if 0 <= x < n and x != root_idx}
+
+    def _walkable(cur):
+        # CVT endpoints stay walkable (their OWN relations are legitimate
+        # next-hop edges, E4) plus one named expansion (inter-hop
+        # transparency); feasibility-only view, capped
+        exp = set(cur)
+        for x in cur:
+            if _cvt_like_name(ctx.ents[x]):
+                for _r2, w in (adj[x] if 0 <= x < len(adj) else ()):
+                    if 0 <= w < n and not _cvt_like_name(ctx.ents[w]) \
+                            and w != root_idx:
+                        exp.add(w)
+        return set(sorted(exp)[:200]) if len(exp) > 200 else exp
+
+    states = [((), {root_idx}, {root_idx})]
+    for rels_j in list(steps) + [set(terminals)]:
+        nxt = {}
+        for pat, cur, vis in states:
+            cur_c = _walkable(cur)
+            # one-hop neighbor map for the bridge slots: w -> {bridge rels}.
+            # EDGE-DRIVEN (no arbitrary bridge cap — a fixed [:N] slice of
+            # the feasible-relation set cut exactly the connector the
+            # command needed, 1379 block#3 specimen); every bridge that
+            # ENABLES a step relation is kept. PATH OCCUPANCY mirrors the
+            # rebuild's node exclusivity: a hop landing only on already-
+            # claimed nodes is no continuation (the employees round-trip
+            # back into Academy passed the old optimistic check and died at
+            # rebuild, wasting the top-ranked slot).
+            nbr = {}
+            for e in cur_c:
+                if not (0 <= e < len(adj)):
+                    continue
+                for b, w in adj[e]:
+                    if b in cmd or w == root_idx or w in vis \
+                            or not (0 <= w < n):
+                        continue
+                    nbr.setdefault(w, set()).add(b)
+            for r in sorted(rels_j):
+                f, rv = ix.fwd.get(r, {}), ix.rev.get(r, {})
+                ends = _nodes(cur_c, (r,)) - vis
+                if ends:
+                    _k = pat + (r,)
+                    if _k not in nxt:
+                        nxt[_k] = (_walkable(ends), vis | ends)
+                by_pat = {}
+                for w, bls in nbr.items():
+                    ends_w = (set(f.get(w, ())) | set(rv.get(w, ()))) - vis
+                    if not ends_w:
+                        continue
+                    for b in sorted(bls):
+                        _key = pat + (b, r)
+                        by_pat[_key] = by_pat.get(_key, set()) | ends_w
+                for _key, _ends in by_pat.items():
+                    if _key not in nxt:
+                        nxt[_key] = (_walkable(_ends), vis | _ends)
+        states = sorted(((p, c, v) for p, (c, v) in nxt.items()),
+                        key=lambda kv: (len(kv[0]), kv[0]))[:24]
+        if not states:
+            return {}
+    out = {}
+    for pat, _cur, _vis in states:
+        if len(set(pat)) != len(pat):
+            continue
+        out[pat] = tuple(frozenset([x]) for x in pat)
+        if len(out) >= cap:
+            break
+    return out
+
+
 def _cvt_like_name(n) -> bool:
     s = str(n)
     return s[:2] in ("m.", "g.") and len(s) > 4
@@ -3905,6 +3996,14 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                         _matched.add(_ri)
                         break
             _fam = _matched or set(rel_idxs)
+            # SUBMITTED-ONLY command table (user spec 2026-09-20: the
+            # command's steps are the MODEL's relations; BT1's auto-added
+            # bridges live in the walk pool but carry NO step — they stay
+            # usable as connectors and never trip the step-order filter)
+            _acmd = getattr(ctx, "anchor_cmd", None)
+            if _acmd is None:
+                _acmd = {}
+                ctx.anchor_cmd = _acmd
             # RELATION-SEQUENCE ACCUMULATION (SEQ_REL_SEQ, user ruling
             # 2026-09-15: DEFAULT-ON TREE CONTINUATION): accumulation is a
             # SYSTEM behavior, not a call form the model opts into. A call
@@ -3919,6 +4018,8 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             # when several trees contain the center: one whose frontier
             # makes a submitted relation feasible, then the deepest.
             _declared = {}
+            _cmd_steps = {}     # root idx → {rel_idx: step idx} — the B
+                                # phase's completeness ranking input
             _seq_echo = ""      # (re-initialized at function scope — see above)
             _cont_compare = False
             _cont_frontier = {}
@@ -3961,6 +4062,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                     if not _cands:
                         _ast[_ci] = [frozenset(rel_idxs)]    # new root
                         _tree_map[_ci] = ("new", _ci)
+                        _acmd[_ci] = {r: 1 for r in _fam}
                         continue
                     _cands.sort(key=lambda x: (x[0], x[1]), reverse=True)
                     _root_of[_ci] = _cands[0][2]
@@ -4012,89 +4114,62 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                     if _a in _starts and _layer_ops:
                         _old = set(_layers[0]) if _layers else set()
                         _ast[_a] = [frozenset(rel_idxs)]
+                        _acmd[_a] = {r: 1 for r in _fam}
                         _layer_action = "update layer 1 (replaced %s)" % (
                             ", ".join(str(ctx.rels[r])[-40:]
                                       for r in (_old - set(rel_idxs)))
                             or "none")
                         _tree_map[_a] = ("update", _a)
                     elif _layer_ops:
-                        # BRIDGE-TOLERANT EXTENSION (user catch 2026-09-20,
-                        # 1379 block#3): the new relations need not hang on
-                        # the picked leaf's OWN edges (organization_type
-                        # fires from Classical music, not from the orgs) —
-                        # enumerate from the leaf with terminal = a new
-                        # relation (a direct edge is the depth-1 special
-                        # case) and PREPEND the prefix that reaches the
-                        # anchor, so the composite still walks from the root.
-                        # SHALLOW-JOIN RESCUE: a derived pattern that
-                        # backtracks into the prefix's neighborhood (an
-                        # org's only continuation runs back through its
-                        # member CVT) dies on the prefix's consumed nodes —
-                        # the chain's INTERIOR nodes are anchors too, and
-                        # the same derivation joins forward cleanly one
-                        # level up. Anchors are consumed deepest-first (the
-                        # picked leaf stays the preferred join).
-                        _ext = {}
-                        _joins = _pos.get("joins") or {}
-                        _anchors = {}
-                        for _ci2 in _starts:
-                            _hits = list((_pos.get("leaf_pats") or {})
-                                         .get(_ci2) or [])
-                            _hits += list((_pos.get("mid_pats") or {})
-                                          .get(_ci2) or [])
-                            for _pat, _cut in _hits:
-                                if _ci2 not in _anchors \
-                                        or _cut > _anchors[_ci2][1]:
-                                    _anchors[_ci2] = (tuple(_pat[:_cut]),
-                                                      _cut)
-                                for _nd, _j in _joins.get(tuple(_pat), ()):
-                                    if _nd not in _anchors \
-                                            or _j > _anchors[_nd][1]:
-                                        _anchors[_nd] = (tuple(_pat[:_j]),
-                                                         _j)
-                        for _nd, (_pf, _d) in sorted(
-                                _anchors.items(),
-                                key=lambda kv: -kv[1][1])[:8]:
-                            # an anchor with no edges makes derive return
-                            # None (hop1 empty) — iterating it raised inside
-                            # this swallowed-try block and silently degraded
-                            # the WHOLE call to the plain direct step (the
-                            # walk-nothing regression family, 25+ calls)
-                            _der2 = _derive_multistep_seq(
-                                _ix, ctx, _nd, set(_new), topk=3) or {}
-                            for _p2 in _der2:
-                                _np = _pf + tuple(_p2)
-                                _ext[_np] = tuple(
-                                    frozenset([x]) for x in _np)
-                        # OUT-AND-BACK GUARD + length-first cap: a deep
-                        # anchor's derivation backtracks through the prefix's
-                        # neighborhood and mints monster composites with
-                        # REPEATED relations (...members ⭢ members...); a
-                        # repeated relation in a chain is out-and-back noise
-                        # in this domain. Short composites are the forward-
-                        # clean ones (shallow-join rescue) — they win the cap.
-                        _ext = {k: v for k, v in _ext.items()
-                                if len(set(k)) == len(k)}
-                        if len(_ext) > 12:
-                            _ext = {k: _ext[k] for k in sorted(
-                                _ext, key=lambda p: (len(p), p))[:12]}
-                        if os.environ.get("SEQ_DEBUG_TREE", "0") == "1":
-                            import sys as _sys
-                            print(f"[TREE] extend root={str(ctx.ents[_a])[:20]!r} "
-                                  f"anchors={sorted((str(ctx.ents[_n])[:16], _d) for _n, (_p, _d) in _anchors.items())[:8]} "
-                                  f"ext={[tuple(str(ctx.rels[_r]).rsplit('.', 2)[-2:] if _r < len(ctx.rels) else _r for _r in k) for k in list(_ext)[:8]]}",
-                                  file=_sys.stderr, flush=True)
+                        # COMMAND APPEND: the new relations are step k+1
+                        # (dedup already applied — a relation belongs to its
+                        # FIRST step; re-submission neither moves nor
+                        # re-adds it). The walk is a fresh COMMAND RE-WALK
+                        # (user spec 2026-09-20, state machine retired):
+                        # candidate pool = complete skeletons (one SUBMITTED
+                        # relation per earlier step, in order, ≤1 bridge
+                        # connector between steps) ∪ free derive from the
+                        # root (partial-completeness fallback). The B phase
+                        # ranks: step-completeness > length > semantic top-N;
+                        # step-order violations and repeated relations are
+                        # discarded there.
                         _ast[_a] = [frozenset(x) for x in _layers] + \
                             [frozenset(rel_idxs)]
                         _layer_action = "extend"
                         _tree_map[_a] = ("extend", _a)
-                        if _ext:
-                            _declared[_a] = _ext
+                        _acmd.setdefault(_a, {})
+                        for _r2 in _fam:
+                            # first occurrence wins (cross-step dedupe)
+                            _acmd[_a].setdefault(_r2, len(_ast[_a]))
+                        _steps_sub = []
+                        for _si2 in range(1, len(_layers) + 1):
+                            _rs = {r for r, s in _acmd[_a].items()
+                                   if s == _si2}
+                            if _rs:
+                                _steps_sub.append(_rs)
+                        _new_sub = {r for r in _fam if r in set(_new)}
+                        if not _new_sub:
+                            _new_sub = set(_new)
+                        _pool = _command_skeletons(
+                            ctx, _ix, _a, _steps_sub, _new_sub,
+                            set(_acmd[_a])) if _steps_sub else {}
+                        # derive returns None on an empty root adjacency —
+                        # `or {}` (a bare iteration raised inside this
+                        # swallowed-try block and degraded whole calls)
+                        _der3 = _derive_multistep_seq(
+                            _ix, ctx, _a, set(_new), topk=0) or {}
+                        for _k3, _v3 in _der3.items():
+                            _pool.setdefault(_k3, _v3)
+                        if _pool:
+                            _declared[_a] = _pool
                         # plain-direct lane targets the PICKED leaves (the
                         # per-member compare rows), never the root
                         _cont_frontier[_a] = sorted(set(_starts))[:12]
                     else:
                         continue
+                    # SUBMITTED-only step table for the B phase's
+                    # completeness ranking (auto-added bridges carry no step)
+                    _cmd_steps[_a] = dict(_acmd.get(_a) or {})
                     # SEQUENCE-STATE ECHO (compact, user catch 2026-09-20:
                     # full per-layer relation lists grew unreadable at 4+
                     # steps — the render header already carries root+frontier
@@ -4172,7 +4247,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             "prefix": _prefix, "var_name": _var_name, "multistep": _multistep,
             "anchor_seq": _seq_echo, "cont_compare": _cont_compare,
             "cont_frontier": _cont_frontier, "layer_action": _layer_action,
-            "tree_map": _tree_map,
+            "tree_map": _tree_map, "cmd_steps_by_root": _cmd_steps,
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
@@ -4353,6 +4428,7 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
     n = len(ctx.ents)
     parents = {}                        # node -> (prev, rel_idx, passthru)
     level = {start_idx}
+    _dbg = os.environ.get("SEQ_DEBUG_WALK", "0") == "1"
     for hop in hops:
         nxt, found = set(), False
         for u in sorted(level):
@@ -4395,6 +4471,13 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
                         nxt.add(v)
                         found = True
         if not found:
+            if _dbg:
+                import sys as _sys
+                _hl = "|".join(str(ctx.rels[r]).rsplit(".", 2)[-2:]
+                               for r in sorted(hop))
+                print(f"[WALK-DEAD] start={str(ctx.ents[start_idx])[:16]} "
+                      f"hop={_hl} level={len(level)}",
+                      file=_sys.stderr, flush=True)
             return [], set()
         if len(nxt) > budget:
             nxt = set(sorted(nxt)[:budget])
@@ -4481,7 +4564,12 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
         # shape) ride here too: a 1-layer chain IS one hop from the root —
         # the old len>1 guard dropped them entirely (block renders empty).
         for _pk, _seq in (_mseq.get(_ci) or {}).items():
-            chains, edges = _rebuild_paths(ctx, ix, _ci, _seq)
+            _cc = (treq.get("_rebuild_cache") or {}).get((_ci, _pk))
+            if _cc is not None:
+                chains = _cc
+                edges = {e for ch in chains for e in ch["full_edges"]}
+            else:
+                chains, edges = _rebuild_paths(ctx, ix, _ci, _seq)
             if not chains:
                 continue
             if _tm:
@@ -4684,22 +4772,75 @@ async def _sg_execute(treq, ctx, session):
                 _rank = {r.get("candidate"): i
                          for i, r in enumerate(_rows or [])}
             _sel = {}
-            _per_term = {}
-            # ranking = length first, then GTE semantics (user ruling
-            # 2026-09-13); 顺延 = walk down the ranking until the quota
-            # fills. QUOTA IS PER SUBMITTED TERMINAL RELATION (user ruling
-            # 2026-09-13, Charlie-Hunnam specimen: two submitted relations
-            # must EACH get their share — a per-center quota let one
-            # relation's patterns crowd the other out entirely)
-            for (_ci, _s) in sorted(
-                    _cmap,
-                    key=lambda k: (len(_cmap[k]), _rank.get(k[1], 999), k[1], k[0])):
-                _term = _cmap[(_ci, _s)][-1]     # terminal relation idx
-                n = _per_term.get((_ci, _term), 0)
-                if n >= 3:
+            # COMMAND-COMPLETENESS RANKING (user spec 2026-09-20): discard
+            # patterns with a repeated relation (paths never repeat a
+            # relation) and patterns whose step indices do not STRICTLY
+            # increase along the path (step2 before step1 is a semantic
+            # error, not a lower rank). Then per terminal relation:
+            # completeness (steps hit) > length > semantic fine-rank on the
+            # top-N; keep the top-K. QUOTA IS PER TERMINAL RELATION
+            # (user ruling 2026-09-13, Charlie-Hunnam specimen).
+            _cmd_by_root = treq.get("cmd_steps_by_root") or {}
+
+            def _completeness(pat, step_of):
+                if len(set(pat)) != len(pat):
+                    return None
+                seen = []
+                for r in pat:
+                    s = step_of.get(r)
+                    if s is not None:
+                        if seen and s <= seen[-1]:
+                            return None
+                        seen.append(s)
+                return len(seen)
+
+            _by_term = {}
+            for (_ci, _s) in _cmap:
+                _pat = _cmap[(_ci, _s)]
+                _c2 = _completeness(_pat, _cmd_by_root.get(_ci) or {})
+                if _c2 is None:
                     continue
-                _per_term[(_ci, _term)] = n + 1
-                _sel.setdefault(_ci, {})[_cmap[(_ci, _s)]] = _mseq[_ci][_cmap[(_ci, _s)]]
+                _by_term.setdefault((_ci, _pat[-1]), []).append(
+                    (_c2, len(_pat), _rank.get(_s, 999), _pat))
+            for (_ci, _term), _rows in _by_term.items():
+                _rows.sort(key=lambda x: (-x[0], x[1], x[3]))
+                _shortlist = _rows[:6]        # top-N by completeness+length
+                _shortlist.sort(key=lambda x: (-x[0], x[1], x[2]))
+                # REBUILD IS THE FINAL GATE (1379 block#3 specimen): the
+                # skeleton's feasibility check is optimistic (path-occupancy
+                # approximated); a pattern that instantiates to NOTHING is
+                # not "前 面 " at any rank — skip it and let the next row
+                # take the slot, or the whole call errors with dead
+                # top-ranked patterns while viable partials sat unselected
+                _rc = treq.setdefault("_rebuild_cache", {})
+                _alive = 0
+                from kgqa.traversal.pattern_walk import \
+                    get_pattern_index as _gpi3
+                _ix3 = _gpi3(ctx)
+
+                def _try_row(_row):
+                    _c2, _ln, _rk2, _pat = _row
+                    _key = (_ci, _pat)
+                    if _key not in _rc:
+                        _rc[_key] = _rebuild_paths(
+                            ctx, _ix3, _ci, _mseq[_ci][_pat])[0]
+                    if _rc[_key]:
+                        _sel.setdefault(_ci, {})[_pat] = _mseq[_ci][_pat]
+                        return 1
+                    return 0
+
+                for _row in _shortlist:
+                    if _alive >= 3:
+                        break
+                    _alive += _try_row(_row)
+                if not _alive:
+                    # the whole semantic shortlist instantiates to nothing —
+                    # walk the remaining rows in completeness+length order
+                    # (dead patterns hold no rank at any tier)
+                    for _row in _rows[6:]:
+                        if _alive >= 3:
+                            break
+                        _alive += _try_row(_row)
             # 1-hop direct patterns always survive (first-class, no quota)
             for _ci, _pats in _mseq.items():
                 for _pk, _v in _pats.items():

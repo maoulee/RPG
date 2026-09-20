@@ -1,5 +1,30 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 命令重走模型(用户三轮裁定,延长状态机退役):完整性排序+重建终闸
+- **用户规格(定稿)**:子图调用=对**完整命令**的修正重走——center 只定
+  新关系的归属步(根起点⇒整包替换 step1;上一步链终点⇒追加下一步;跨步
+  去重,关系属其首步);路径排序:**步序严格递增**(step2 先于 step1=
+  语义错误直接丢弃)>**完整性**(覆盖步数)>**长短**>**语义细排**
+  (top-N 内),每关系 top-K;路径不得重复关系(硬规则);BT1 自动加的
+  桥不带步(可自由作连接,不触步序过滤)。
+- **实施**:`_command_skeletons` 完整骨架枚举(每前步取一 SUBMITTED
+  关系、步间≤1 桥、**路径占用跟踪**对齐重建节点独占、桥**边驱动**无
+  任意帽——固定[:10]帽曾切掉关键桥致骨架空);`ctx.anchor_cmd` 步表
+  只记模型提交关系;候选池=骨架∪derive(部分完整性后备);B 相重写为
+  per-terminal 完整性>长短>语义 top3,**重建为终闸**(死链任何名次
+  不占位;shortlist 全死沿全排序下探;重建结果缓存传渲染复用)。
+- **调试设施(永久)**:SEQ_DEBUG_TREE(树/吞点异常栈)、SEQ_DEBUG_WALK
+  (重建逐跳死点)。本轮四枚雷全记录:derive None 迭代 TypeError 被吞
+  →整调用退化(25+ walk_nothing 家族);桥[:10]任意帽;骨架乐观可行
+  性 vs 重建独占;shortlist 全死不 fallback。
+- **验证**:155 绿;144 重放 33s;**answer≠3/144 不变**;walk_nothing 3、
+  empty 2、pat 343、extend 149;**1379 s1 四块全绿**:块#1 完整组合链
+  置顶(based_on桥⭢member_of[step1]⭢members[step2] 等,第二任职
+  m.0w1vp7h 复活),块#3 出活链(based_on⭢artist.genre⭢org_type;6 跳
+  完整骨架在该切片节点独占下真实不可实例化——诚实回退不报错)。
+  审核 specs/render_diff_2026-09-20.md。链树 pass(90a219a/ddb365b)的
+  extend 状态机已删;anchor_chains 保留仅供 center 匹配定步属。
+
 ### 2026-09-20 链树修补三轮(user 三连发现):桥容忍延长/None 守卫/重复关系守卫+渲染瘦身+重放提速
 - **user 发现 1(1379 块#3,step1 关系没进模式)**:extend 声明原为叶上直接
   可行性检查——新关系(org_type 族)不挂叶自身边(挂 Classical music 上)
