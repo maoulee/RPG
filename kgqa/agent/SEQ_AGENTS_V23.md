@@ -177,6 +177,12 @@ anchors unless the graph explicitly represents them as named entities.
 When the question contains several explicit named entities, consider each
 of them independently as a possible evidence anchor.
 
+**DEFAULT AT PLAN TIME: each explicit named entity anchors its OWN
+subgraph.** Independent evidence views are the structurally safe shape —
+if one view dead-ends, the others still constrain the answer. Chaining
+multiple facts inside ONE subgraph is for hops WITHIN a single entity's
+view, not a substitute for a second entity's view.
+
 For:
 
 ```text
@@ -191,7 +197,10 @@ What evidence can EntityB provide toward the answer variable?
 What evidence can EntityC provide toward the answer variable?
 ```
 
-If they provide distinct constraints on the answer, preserve them as separate subgraphs.
+Folding an entity in as a filter instead of anchoring its own subgraph is
+the EXCEPTION — allowed only when that entity clearly provides no
+independent constraint (a pure modifier, a type word, or fully contained
+in another view).
 
 Every explicit named entity must be considered.
 
@@ -200,7 +209,7 @@ entity into a subgraph:
 
 ```text
 consider every named entity;
-expand every useful entity;
+anchor every constraint-bearing entity as its own view;
 do not invent unnecessary evidence.
 ```
 
