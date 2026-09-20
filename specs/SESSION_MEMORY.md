@@ -1,5 +1,27 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 1379 语义审计(user 假设证实):zh 挂载反向钉死/关系选中忠实执行错误语义/对抗锻造错误提交
+- 标本 1379(gold=**Priest**,问职业) s1 完整轨迹含 reasoning 全文:
+  **specs/audit_1379_semantics_2026-09-20.md**。
+- **发现1(语义层)**:zh 重述"宗教组织领导职务是什么？"把 career 钉成
+  职务读法,且挂载措辞是**"以这一版语义为准"**(seq_react_loop 640-654)
+  ——模型 MSG0/6 原文引用并服从,两次 plan 全锚 ?religious_leadership_
+  position。**48 条 zh QC:5-6 条错位(~11%)**——1379(职业→职务)、
+  Trn-21(完全错题:问货币 gold 是人)、1812/2209(是否型 vs 实体型)、
+  1171(疑似)、2576(语病)。权威措辞 ⇒ 每条错位倾覆 3 sample。
+- **发现2(选中层)**:6 次 retrieve_relations 候选里**职业族反复出现**
+  (restart 后 person.religion #1、people_with_this_profession #5、
+  character_occupation),模型从未对其派发 subgraph——GTE 忠实排序
+  (错误)子问题,工具无罪。链条:zh→plan→子问题措辞→GTE→选中。
+- **发现3(对抗层)**:切片不存在的判别子(离职日期)→纯度环施压→模型
+  NONE(在其错误 plan 下理性正确)→ladder→restart(**重 plan 仍错——
+  对抗不触及语义层**)→workflow-order REJECTED 耗掉唯一 reject→
+  二拒强答**枚举错误变量绑定** ?org=[组织]→被迫提交 Freemasonry(f1=0)。
+  s0 叠 crash 家族、s2 拒绝尾巴无实体答案。
+- **规则修正提案(待用户裁定)**:a) zh 挂载措辞降级或先策展 QC;
+  b) 强制作答前绑定类型 vs plan answer_type 错位校验(允许一次回 plan);
+  c) plan 阶段 career/profession 问词双读法提示。
+
 ### 2026-09-20 48×3 终判:命令重走回归(-6.0pp)→已按预定授权回退(行为码回 790f6d5 态)
 - **判决定案**: cmd_rewalk 48×3 = **f1 0.6576 / hit 73.6%**(基准 0.7177/
   81.9%,−6.0pp/−8.3pp,远超 ±0.75pp run 方差)。54/144 变化;冒烟 2/2
