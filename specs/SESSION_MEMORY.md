@@ -1,5 +1,24 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 V2.3+环境修复 48×3 终判:回归 -14.7pp,尸检=持有绑定仍弃权(22/27)
+- **结果**: 0.5712/65.3%(基线 0.7177/81.9%),80/144 变化(↑30↓50),
+  turns 7.9→9.8,rejects 16→27。**1379 家族修复生效:0→(1.0,0.333,1.0)
+  Priest**(s1 部分分=多职业答案含 Priest)。
+- **尸检(决定性)**: NONE/empty 4→27(7×);**22/27 持有 answer-var 支持
+  绑定仍弃权**(1171: ?person=[Matt Sloan…]在手;576: ?country=[Belize…]
+  在手;均 17 轮打满二拒后仍 NONE),仅 5 条真零支持(合法 NONE)。
+  病理=V2.3 的 evidence-grounded 严格框架+§28b satisfice 措辞弱于 V21
+  的强调式("Partial support IS a submittable answer… even when a
+  discriminator cannot be verified")+§24 PASS/FAIL/UNKNOWN 检查表诱导
+  "UNKNOWN 挡提交"。模型把约束未验证当候选不足。
+- **次要因素**: zh 移除丢了泄漏分(1812/2209 重述含 gold,~6 轨迹);
+  turns+1.9 为约束验证消耗。
+- **修正方向(待放行再跑)**: §28b 升级为 V21 强调式 satisfice+明示
+  "持绑定弃权=协议违规;UNKNOWN 判别子永不挡提交";§24 加同义一句。
+  环境侧证据(answer≠3 重放门)排除环境为主因——嫌疑集中在提示措辞。
+- **教训(再犯)**: 多变量同时改(V21→V23 提示+全环境+去 zh)+单点冒烟
+  ≠终判;下轮改动后先 3-case×3 冒烟看 NONE 率再上 48×3。
+
 ### 2026-09-20 Wave3 裁定落地:zh 移除主实验/NONE 语义节/EXTEND 无 R 行回退
 - **zh 移除主实验(user 裁定:测试集本无中文)**:SEQ_ZH_QUESTION 不再进入
   站立 run env(代码保留为诊断设置);**纯英文避免语义问题已被 2×2 实验
