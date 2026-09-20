@@ -1,5 +1,29 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 V2.2 提示审核(user+codex 草案,tmp/SEQ_AGENTS_V22_draft.md):漂移未修复+6 项环境契约缺口
+- **实测**(probe_plan_drift SYSTEM_FILE=V2.2,48题):1379 仍漂
+  (answer=?role type=role,f1 仍"which religious organizations"——career
+  头名词始终未成 answer_type;1171 从 ?soldier→?person 部分改善)。
+  **行为劝诫(§1/§2"勿从最易检索短语开始")打不过结构性拉力——需要
+  P2' 头名词硬步 + 一个 career→profession 的 worked example**(现有
+  4 示例全是实体聚合型)。
+- **环境契约硬缺口(会真炸)**:①`✗ mismatch` env 不认(只认 empty/moot,
+  closed_facts 43-44)→事实在 env 侧仍 open→open-fact 禁答悬挂复发;
+  ②**ANSWER_ANALYSIS 阶段门**:env 注入文案(633)与正则(1509)按旧字段
+  名(BASE_CANDIDATES/REQUIREMENT_CHECK/...)门控,V2.2 §23 改名
+  BASE_BINDINGS/CONSTRAINT_CHECK→ANSWER_READY 不释放→答案被卡;
+  ③弃权路径未定义+删了 V21 satisfice 明文(partial support submittable)
+  →全 UNKNOWN 仍会自造 NONE;④环境干预词汇零覆盖且与"plan exactly
+  once/frozen/closed never reopened"三处直接矛盾(restart 必须重 plan/
+  PLAN EXTENDED 追加事实/ladder 要求重开已关事实);⑤zh 挂载"以这版
+  为准"vs V2.2"original question determines"权威打架(P5);⑥R 行删除
+  →PLAN EXTEND covering 锚退化(不炸,354-357 可选解析)。
+- **对齐良好项**:sg: 字段/borrowed-center/never-repeat-identical/§19
+  修复分级/§10 比较非事实/§21 答案变量早出/§22 UNKNOWN≠CONTRADICTED。
+- **落地顺序建议**:1. mismatch→empty(或 env 加 token);2. §23 与 env
+  门控两侧同步;3. 补弃权+satisfice 节;4. 补环境干预词汇表或先落
+  P1-P4;5. P2' 头名词步+career 示例;6. P5 zh 二选一。
+
 ### 2026-09-20 plan 漂移归因(对照实验)+弃权成因拆解(user 两问)
 - **Q1 为什么直接答对、plan 漂移——两股力,协议是独立充分因**:
   变体 C 实验(裸英文+SEQ_AGENTS_V21 协议,无 zh,scripts/probe_plan_drift.py,
