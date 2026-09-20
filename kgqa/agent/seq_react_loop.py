@@ -114,7 +114,11 @@ def _update_var_bindings(ctx, content: str) -> None:
     reference `?var` are expanded from this map (seq_tools._expand_entities).
     Closure declarations (`[fid ✗ empty|moot]`) are recorded in ctx.closed_facts —
     they bind nothing, but the harness (and later hints) can distinguish "fact
-    resolved" from "fact closed" from "fact still open"."""
+    resolved" from "fact closed" from "fact still open".
+    Wave-2 split (2026-09-20): fact_bindings/var_bindings are the LEDGER — the
+    retrieval record, only written on the ✓ path (fresh evidence); a no-new-
+    evidence narrowing writes ctx.answer_selection (the model's discrimination
+    layer) instead, never the ledger."""
     if not content:
         return
     vb = getattr(ctx, "var_bindings", None)
@@ -196,11 +200,19 @@ def _update_var_bindings(ctx, content: str) -> None:
                 # REFINEMENT (Belgium specimen, 2026-08-22): narrowing the
                 # standing set to a SUBSET is discrimination, not hallucination —
                 # the two-stage analysis may collapse [W-Europe|Europe|Eurasia|
-                # N-Hemisphere] to [Europe]. Accept and update the lock.
-                _fbind = getattr(ctx, "fact_bindings", None)
-                if _fbind is not None:
-                    _fbind[_fid_key] = list(parts)
-                vb[var] = list(parts)
+                # N-Hemisphere] to [Europe]. LEDGER vs SELECTION (Wave-2,
+                # 2026-09-20): fact_bindings/var_bindings are the RETRIEVAL
+                # RECORD — immutable absent fresh evidence (the ✓ path below
+                # is their only writer). The narrowed subset lands in
+                # ctx.answer_selection (dict var → list), the model's
+                # discrimination layer; the answer-stage hints (EVIDENCE
+                # COMMIT CANDIDATES, second-refusal basis) read it with the
+                # ledger as fallback. The old overwrite made a curated pick
+                # masquerade as what retrieval delivered.
+                _sel = getattr(ctx, "answer_selection", None)
+                if _sel is None:
+                    _sel = ctx.answer_selection = {}
+                _sel[var] = list(parts)
                 continue
             ctx.frozen_binding_flag = (_fid_key, parts[:8])
             ctx.halluc_binding_flag = None    # the whole declaration is rejected; one message
@@ -210,6 +222,13 @@ def _update_var_bindings(ctx, content: str) -> None:
         if parts:
             vb[var] = parts
             _decl[_fid_key] = _cur_seq    # (re)lock at the current evidence seq
+            # fresh evidence supersedes any discrimination recorded against
+            # the OLD evidence — this ✓ declaration is the new retrieval-
+            # driven pick; a later no-new-evidence narrowing re-populates the
+            # selection (LEDGER vs SELECTION, Wave-2)
+            _stale_sel = getattr(ctx, "answer_selection", None)
+            if _stale_sel:
+                _stale_sel.pop(var, None)
             # PATTERN-STATE (user design 2026-09-10): a variable declared from
             # this fact's subgraph carries THAT walk's node set — a later
             # single-?var retrieval continues over it as a prefix mask (the
@@ -262,11 +281,19 @@ def _update_var_bindings(ctx, content: str) -> None:
     # effective binding is the INTERSECTION, not the last declaration. Compute
     # it harness-side and expose via ctx.var_joins (injected as a system note
     # next turn) so the model never has to eyeball 40-item lists.
+    # Wave-2 (2026-09-20): the intersection runs over TOOL-SIDE CANDIDATE POOLS
+    # (ctx.fact_candidate_pool — seq_tools._sg_finalize records each walk's
+    # full entity enumeration per fid), not the model-declared fact_bindings:
+    # a checkpoint list is CURATED, so intersecting two curated lists conflates
+    # "the model listed representatives" with "the graph holds nothing
+    # shared". A fid with no recorded pool (pre-pool episode, errored walk)
+    # falls back to its declared fact_bindings.
     _fbind = getattr(ctx, "fact_bindings", None) or {}
     _fvars = getattr(ctx, "fact_vars", None) or {}
     if _fbind:
         from kgqa.core.utils import normalize as _nj
         from collections import defaultdict as _dj
+        _pool = getattr(ctx, "fact_candidate_pool", None) or {}
         _by_var = _dj(list)
         for _f, _v in _fvars.items():
             if _f in _fbind:
@@ -282,7 +309,7 @@ def _update_var_bindings(ctx, content: str) -> None:
             _orig = {}
             for _f in _fids:
                 _s, _o = set(), {}
-                for p in _fbind[_f]:
+                for p in (_pool.get(_f) or _fbind[_f]):
                     k = _nj(p)
                     _s.add(k); _o.setdefault(k, p)
                 _sets.append(_s); _orig.update(_o)
@@ -293,17 +320,14 @@ def _update_var_bindings(ctx, content: str) -> None:
             if _prev != _cur_join:
                 ctx.join_flag = (_v, _fids, _inter_orig)
             _joins[_v] = _cur_join
-            # EMPTY intersections are NOT enforced (Thundera specimen, 2026-08-19):
-            # a checkpoint declaration is a CURATED list, not a complete
-            # enumeration — sg1 may list only representative bindings while the
-            # gold sits in the un-listed remainder. Forcing vb=[] on an empty
-            # intersection converted four previously-perfect cases to empties.
-            # NON-empty enforcement REMOVED too (V2.1, 2026-08-22): missing
-            # evidence ≠ negative evidence — the join report informs, the
-            # answer stage decides under the support policy; the harness no
-            # longer hard-collapses bindings.
-            if _inter_orig:
-                pass    # support computed at EVIDENCE COMMIT; vb untouched
+            # NOT ENFORCED either way (Thundera specimen, 2026-08-19; V2.1,
+            # 2026-08-22): missing evidence ≠ negative evidence — and the pool
+            # join only enumerates what the SUBMITTED relations walked. The
+            # intersection is AUTHORITATIVE as displayed information (every
+            # walked constraint holds on exactly these entities) but ADVISORY
+            # as control flow: bindings are never force-collapsed; support is
+            # computed at EVIDENCE COMMIT and the answer stage decides under
+            # the support policy.
 
 
 def _parse_flat(content: str):
@@ -535,12 +559,15 @@ def reset_seq_episode_state(ctx) -> None:
     these via `getattr(...) or default`; loop.py's CaseContext declares
     subgraph_entities as a set). `restarted` is deliberately untouched — the
     none-verdict contract reads it to refuse a second restart."""
-    # dict-typed stores → {}
+    # dict-typed stores → {} (Wave-2 adds answer_selection — the model's
+    # discrimination layer — and fact_candidate_pool — the tool-side join
+    # source; both are episode-local like the ledger they annotate)
     for f in ("var_bindings", "declared_facts", "fact_bindings", "fact_vars",
               "var_joins", "closed_facts", "fact_evidence",
               "fact_evidence_seq", "_sg_served", "_qsim_hist", "_qsim_streak",
               "pattern_state", "fid_pattern", "anchor_seqs",
-              "anchor_seq_memo", "_fid_alias"):
+              "anchor_seq_memo", "_fid_alias",
+              "answer_selection", "fact_candidate_pool"):
         if hasattr(ctx, f):
             setattr(ctx, f, {})
     # list-typed stores → [] (walk_seen_entities/walk_extra MUST be lists —
@@ -673,7 +700,15 @@ class SeqReactCase:
         if not _by_var:
             return    # nothing committed to show — no analysis stage to gate
 
+        _sel = getattr(self.ctx, "answer_selection", None) or {}
+
         def _vals_for(_v, _fids):
+            # LEDGER vs SELECTION (Wave-2): the model's narrowed pick
+            # (answer_selection) leads the CANDIDATES display — it is the
+            # current discrimination; the join / fact_bindings ladder is the
+            # retrieval-record fallback for vars the model never narrowed.
+            if _sel.get(_v):
+                return list(_sel[_v])
             if _v in _joins and _joins[_v][1]:
                 return list(_joins[_v][1])
             _ordered = sorted(_fids)
@@ -1541,30 +1576,36 @@ class SeqReactCase:
             self.messages.append({"role": "user", "content": _hal_msg})
             self.ctx.trajectory.append({"role": "tool", "content": _hal_msg})
         # SYSTEM JOIN note: multiple subgraphs now bind the same variable — the
-        # harness intersected them. Tell the model the effective binding so it
-        # answers with the intersection, never one side's full list.
+        # harness intersected their TOOL-SIDE candidate pools (each walk's full
+        # entity enumeration, Wave-2). Tell the model the effective binding so
+        # it answers with the intersection, never one side's full list.
         jf = getattr(self.ctx, "join_flag", None)
         if jf:
             self.ctx.join_flag = None
             _var, _fids, _inter = jf
             if _inter:
-                _j_msg = (f"⌗ SYSTEM JOIN: {len(_fids)} subgraphs bind {_var} "
+                _j_msg = (f"⌗ SYSTEM JOIN over tool-side candidate pools: "
+                          f"{len(_fids)} subgraphs bind {_var} "
                           f"({', '.join(_fids)}) — EVERY constraint must hold. "
-                          f"{_var} = {' ∩ '.join(_fids)} = "
+                          f"{_var} = {' ∩ '.join(_fids)} (walk candidate pools) = "
                           f"[{' | '.join(_inter[:40])}]"
                           + (f" … ({len(_inter)} entities)" if len(_inter) > 40 else "")
-                          + ". Answer with THESE entities only — submitting one "
-                            "subgraph's unreduced list is a constraint violation.")
+                          + ". These are the entities present in BOTH sides' "
+                            "retrieved evidence — answer with THESE entities "
+                            "only; submitting one subgraph's unreduced list is "
+                            "a constraint violation.")
             else:
-                _j_msg = (f"⌗ SYSTEM JOIN: {len(_fids)} subgraphs bind {_var} "
+                _j_msg = (f"⌗ SYSTEM JOIN over tool-side candidate pools: "
+                          f"{len(_fids)} subgraphs bind {_var} "
                           f"({', '.join(_fids)}) — EVERY constraint must hold. "
-                          f"{_var} = {' ∩ '.join(_fids)} = EMPTY: the declared "
-                          "lists share NO entity. CAUTION before answering empty: "
-                          "a checkpoint list is CURATED, not exhaustive — if one "
-                          "side listed only representative bindings, the true "
-                          "answer may sit in its unlisted remainder. Re-examine "
-                          "both subgraphs' triples (or re-retrieve the weaker "
-                          "side) and answer by your own discrimination; do not "
+                          f"{_var} = {' ∩ '.join(_fids)} = EMPTY: the two walks' "
+                          "candidate pools share NO entity. CAUTION before "
+                          "answering empty: a pool only enumerates what the "
+                          "SUBMITTED relations walked — a missing or too-narrow "
+                          "relation set on either side can hide the shared "
+                          "entity. Re-examine both subgraphs' triples (or "
+                          "re-retrieve the weaker side with a broader relation "
+                          "set) and answer by your own discrimination; do not "
                           "dump one side's list.")
             self.messages.append({"role": "user", "content": _j_msg})
             self.ctx.trajectory.append({"role": "tool", "content": _j_msg})
@@ -1760,14 +1801,24 @@ class SeqReactCase:
                     # intermediate variable's list. Show the DECLARED answer
                     # variable's bindings (same read the VAR-MISMATCH guard
                     # uses); when it has none, say so and name the escape.
+                    # LEDGER vs SELECTION (Wave-2): the model's narrowed pick
+                    # (answer_selection) leads per var; the retrieval record
+                    # (fact_bindings) fills answer vars never discriminated.
                     _fb = getattr(self.ctx, "fact_bindings", None) or {}
                     _fv = getattr(self.ctx, "fact_vars", None) or {}
                     _av = [str(v) for v in
                            (getattr(self.state, "answer_var", None) or [])]
-                    _basis = "; ".join(
-                        f"{_fv[_f]}={list(_fb[_f])[:4]}"
-                        for _f in _fb if _f in _fv and _fb[_f]
-                        and str(_fv[_f]) in _av)
+                    _sel = getattr(self.ctx, "answer_selection", None) or {}
+                    _bparts = []
+                    for _v in _av:
+                        if _sel.get(_v):
+                            _bparts.append(f"{_v}={list(_sel[_v])[:4]}")
+                            continue
+                        for _f in _fb:
+                            if _f in _fv and str(_fv[_f]) == _v and _fb[_f]:
+                                _bparts.append(f"{_v}={list(_fb[_f])[:4]}")
+                                break
+                    _basis = "; ".join(_bparts)
                     self.ctx._analysis_pending = False
                     if _basis:
                         self._emit_tool_note(

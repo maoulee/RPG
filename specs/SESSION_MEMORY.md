@@ -1,5 +1,29 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 环境修复 Wave1+Wave2 落地(子智能体实施,门全过):1379 双采样 1.0
+- **Wave1(07ad9ff,Agent R 9项+T 4项并行,文件分界)**:EXTEND 双合法原因
+  (COVER_MISSING/ADD_ANCHOR_VIEW,gate+nudge 对齐);restart 统一
+  reset_seq_episode_state(16 漏清字段+q_entity 重播种+post-restart plan
+  闩——注:1379 标本实为二次重 plan 被拒,首次本就合法,闩锁按防御实现);
+  closure 枚举 empty|moot|mismatch|exhausted+未识别不再静默 ack(ack 分支
+  触发正则同步加宽);纯度环 (center,fid) 键+证据增量快照+off-by-one;
+  PLANNED ANSWER TYPE 降一致性提示;二拒只列 answer_var;prelink 去
+  ranked relations(锚排序 GTE 保留——另有 user ruling);zh 降"辅助参考,
+  冲突以原问为准";ANSWER_ANALYSIS 词汇按 SEQ_PROMPT 条件同步(V22/V23
+  →BASE_BINDINGS 族);越池/all-event 双旗标旁路全拆(sanitize→合法池,
+  空[])+括号别名事件节点捕获(`m.xxx (alias)` 全量);walk-nothing 改
+  NO_EVIDENCE 四层诊断;多实体措辞软化。
+- **Wave2(Agent L)**:fact_bindings=检索记录不可被无新证据收窄覆写,模型
+  收窄入 ctx.answer_selection(✓ 路径新证据会 supersede 陈旧 selection);
+  SYSTEM JOIN 改工具侧 ctx.fact_candidate_pool(_sg_finalize 写入,fid 经
+  fact_key_map 规范化防静默失配;缺池回退声明绑定;no-op 分支删除,仍
+  不强 collapse);_sg_served 缓存结果串(cap 4000,repeat 回 cached_evidence
+  字段,NO_EVIDENCE 返回也 mark served)。两 store 均入 restart 重置。
+- **验证门**:Wave1/2 各 153 绿;144 重放 answer≠3/144 不变;**1379×2:
+  Wave1 双 1.0 Priest(s1 11轮0拒),Wave2 双 1.0(s1 8轮0拒)——对照修复前
+  V2.2(s0 1.0/s1 0.0 事件节点滑门)**。
+- Wave3 待用户:zh 5-6 条修正 diff 过目;V2.3 定稿;48×3 终判放行。
+
 ### 2026-09-20 Codex 环境审计逐条验证(3×Explore):16 主张 15 确认 1 部分,4 处更糟
 - 验证报告 **specs/env_audit_verify_2026-09-20.md**(file:line+摘录)。
   要点:#1 PLAN EXTEND nudge 叫模型做的 gate 结构性拒绝(自败);#2 restart

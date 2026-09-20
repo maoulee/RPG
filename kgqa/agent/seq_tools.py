@@ -4026,17 +4026,26 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                 ctx._sg_served = _served
             _hit = _served.get(_sem_key)
             if _hit and os.environ.get("SEQ_SEM_IDEMPOTENT", "1") == "1":
-                return {"kind": "done", "result": _json_result({
+                # CACHED EVIDENCE (Wave-2, 2026-09-20): _sg_served stores the
+                # finalize RESULT STRING (capped, see _sg_finalize), so the
+                # repeat reply carries the earlier walk's evidence inline —
+                # the model can act without the pre-restart / earlier-turn
+                # context it may no longer hold.
+                _cached = (_hit if isinstance(_hit, str) else "")[:_SG_SERVED_CAP]
+                _rep = {
                     "evidence_repeat": True,
                     "note": ("This retrieval produces the SAME evidence as your "
                              "previous call (same walk root + same relations after "
                              "name resolution). Re-calling with different surface "
                              "forms (typed entities vs ?variable, short vs full "
                              "relation name) does not change the result. ACT on the "
-                             "evidence you already have: discriminate the candidates "
-                             "from the values/dates/symbols in the existing subgraph "
-                             "blocks, or pick a DIFFERENT relation / move to the next "
-                             "fact.")})}
+                             "evidence in cached_evidence below: discriminate the "
+                             "candidates from the values/dates/symbols in those "
+                             "subgraph blocks, or pick a DIFFERENT relation / move "
+                             "to the next fact.")}
+                if _cached:
+                    _rep["cached_evidence"] = _cached
+                return {"kind": "done", "result": _json_result(_rep)}
             for _cn, _ci in centers:
                 if not (0 <= _ci < len(ctx.ents)):
                     continue
@@ -5044,6 +5053,12 @@ def _display_license_filter(treq, bres, centers, all_triples, candidates):
     return kept_triples, kept_candidates, bres2
 
 
+_SG_SERVED_CAP = 4000        # cached finalize result per semantic walk key —
+                             # bounds _sg_served memory across an episode's
+                             # walks while keeping the repeat reply's
+                             # cached_evidence field self-sufficient
+
+
 def _sg_finalize(treq, bres, ctx) -> str:
     """C段: correction result render OR the post-walk CPU — per-center
     accumulation, CVT-neighbor pool seeding, canonicalization, record-centric
@@ -5076,14 +5091,20 @@ def _sg_finalize(treq, bres, ctx) -> str:
     skipped = treq["skipped"]
     prior_triples = treq["prior"]
     # SEMANTIC IDEMPOTENCE: mark this (center-set, relation-set) as served
-    # (see the check in _sg_prepare — same resolved walk returns cached note)
+    # (see the check in _sg_prepare — same resolved walk returns cached note).
+    # Wave-2 (2026-09-20): the mark is the finalize RESULT STRING (capped at
+    # _SG_SERVED_CAP), written at each return below — a repeat hit replays the
+    # cached evidence (cached_evidence field), not just the advice to re-read
+    # what the context may already have dropped.
     _sem_key = tuple(sorted((ci, frozenset(treq.get("rel_idxs") or ()))
                             for _n, ci in (treq.get("centers") or ())))
-    _served = getattr(ctx, "_sg_served", None)
-    if _served is None:
-        _served = {}
-        ctx._sg_served = _served
-    _served[_sem_key] = True
+
+    def _mark_served(_res_str: str) -> None:
+        _served = getattr(ctx, "_sg_served", None)
+        if _served is None:
+            _served = {}
+            ctx._sg_served = _served
+        _served[_sem_key] = _res_str[:_SG_SERVED_CAP]
     # per-center walk; accumulate evidence inline, collect PatternEvidence for the
     # cross-center merged display (one block per relation pattern, all roots under it)
     candidates, all_triples = [], []
@@ -5238,7 +5259,9 @@ def _sg_finalize(treq, bres, ctx) -> str:
                 "entities": entities, "relations": rel_names}
         if treq.get("attr_expansion"):
             _err["relation_expansion"] = treq["attr_expansion"]
-        return _json_result(_err)
+        _ne_str = _json_result(_err)
+        _mark_served(_ne_str)   # NO_EVIDENCE walks are served too — a repeat
+        return _ne_str          # replays the diagnosis instead of re-walking
 
     # ensure ALL tree-visible entities (incl CVT-attr entities pe.triples may miss) are answerable
     _collect_cvt_neighbors_to_pool(ctx)
@@ -5465,6 +5488,21 @@ def _sg_finalize(treq, bres, ctx) -> str:
     _fe[fid] = _fe.get(fid, set()) | \
         {_nz(c) for c in candidates if not is_cvt_like(c)} | \
         {_nz(x) for h, r, t in all_triples for x in (h, t) if not is_cvt_like(x)}
+    # TOOL-SIDE CANDIDATE POOL (Wave-2, 2026-09-20): the SYSTEM JOIN source.
+    # Same names the per-subgraph hallucination filter admits (candidates +
+    # triple endpoints, CVT records excluded) but kept in ORIGINAL casing and
+    # UNIONed across this fid's retrievals — the pool is the walk's full
+    # enumeration, never the model's curated checkpoint subset. Keyed through
+    # fact_key_map so `sg1.f2`-style call args land on the canonical fid the
+    # join reads (fact_bindings/fact_vars keys); a fid with no pool falls back
+    # to its declared bindings there.
+    _fcp = getattr(ctx, "fact_candidate_pool", None)
+    if _fcp is None:
+        _fcp = ctx.fact_candidate_pool = {}
+    _fid_c = (getattr(ctx, "fact_key_map", None) or {}).get(fid, fid)
+    _fcp[_fid_c] = (_fcp.get(_fid_c) or set()) | \
+        {str(c) for c in candidates if not is_cvt_like(c)} | \
+        {str(x) for h, r, t in all_triples for x in (h, t) if not is_cvt_like(x)}
     # retrieval sequence per fid (variable-freezing clock): each NEW subgraph
     # retrieval for this fid advances it; a frozen declaration may only be
     # replaced after the clock advanced (fresh evidence for the same fact).
@@ -5531,7 +5569,9 @@ def _sg_finalize(treq, bres, ctx) -> str:
         # walk over the binding set; this is the ranked pattern list the
         # witness chains below re-instantiate
         _res["pattern_paths"] = bres["pattern_display"]
-    return _json_result(_res)
+    _res_str = _json_result(_res)
+    _mark_served(_res_str)
+    return _res_str
 
 
 async def retrieve_subgraph(args: Dict[str, Any], ctx, session) -> str:
