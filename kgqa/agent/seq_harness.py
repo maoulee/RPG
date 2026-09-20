@@ -401,19 +401,28 @@ def validate(state: SeqAgentState, tool_calls, ready: bool = False,
             canon = norm_fact_key(state, sg)
             if sg and canon not in state.retrieved_fids:
                 state.retrieved_fids.append(canon)
-            # per-fact budget deviation detection: each sg gets 3 × n_facts retrieve calls
-            # (sg1.f2-style args are counted against their base group)
-            base_sg = sg.split(".")[0].strip() if sg else ""
-            if base_sg and base_sg in state.sg_plan:
-                state.sg_calls[base_sg] = state.sg_calls.get(base_sg, 0) + 1
-                budget = state.sg_budget(base_sg)
-                if state.sg_calls[base_sg] > budget:
-                    state.sg_done.add(base_sg)
-                    return (False, (f"Subgraph {base_sg} used {state.sg_calls[base_sg]} retrieval calls "
-                                    f"(budget {budget} = 3×{state.sg_plan[base_sg]} facts). It appears stuck — "
-                                    f"further retrieval for {base_sg} will be rejected. Answer NOW from the "
-                                    f"evidence already retrieved, or (only if other facts remain) call "
-                                    f"retrieve_relations for a DIFFERENT fact's center."),
+            # PER-CENTER RETRIEVAL BUDGET (user ruling 2026-09-20): count
+            # retrieve_subgraph calls by their DECLARED START ENTITY, not per
+            # subgraph — the model declares centers reliably (sg/fact ids are
+            # the format-fragile part), and chained single-tree plans
+            # legitimately need more probes inside one sg when an
+            # intermediate binding set is wide (567 specimen: the 28-film
+            # discrimination starved under the old 3×facts-per-sg cap; the
+            # cap fired 15× in the run). Cap: 4 calls per declared center;
+            # exhaustion blocks only THAT center, never the whole sg.
+            centers = args.get("center") or args.get("entities") or []
+            if isinstance(centers, str):
+                centers = [centers]
+            c0 = str(centers[0]).strip() if centers else ""
+            if c0:
+                key = f"center:{c0.lower()[:60]}"
+                state.sg_calls[key] = state.sg_calls.get(key, 0) + 1
+                if state.sg_calls[key] > 4:
+                    return (False, (f"Retrieval from center '{c0}' used {state.sg_calls[key]} calls "
+                                    f"(budget 4 per declared start entity). It appears stuck on this "
+                                    f"start entity — further retrieval FROM THIS CENTER will be "
+                                    f"rejected. Answer NOW from the evidence already retrieved, or "
+                                    f"continue retrieval from a DIFFERENT center."),
                             state)
             return (True, "", state)
         if name == "answer":

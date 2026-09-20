@@ -562,16 +562,19 @@ Never manually replace a multi-binding variable with one of its bindings.
 # 19. Checkpoints
 
 After every successful `retrieve_subgraph`, declare the bindings produced
-by the current fact:
+by the current fact — one markdown line per fact:
 
 ```text
-[sg1.f1 ✓] ?city = [Bellford | Eastmere]
+- sg1.f1 ✓ ?city = Bellford | Eastmere
+- sg1.f2 ✗ empty
 ```
 
-A checkpoint records ALL graph-supported bindings of that variable
-produced by the fact.
+Line shape: `- <fact id> <✓|✗> <?var = values | status>`.
 
-It does NOT mean "this is my final answer".
+Values are pipe-separated; a ✓ line lists ALL graph-supported bindings the
+fact produced.
+
+A checkpoint does NOT mean "this is my final answer".
 
 It does NOT mean "choose the most plausible binding".
 
@@ -638,31 +641,31 @@ resolved, closed-empty, closed-mismatch, closed-moot, closed-exhausted
 Resolved:
 
 ```text
-[sg1.f1 ✓] ?variable = [EntityA | EntityB]
+- sg1.f1 ✓ ?variable = EntityA | EntityB
 ```
 
 Empty:
 
 ```text
-[sg1.f1 ✗ empty]
+- sg1.f1 ✗ empty
 ```
 
 Mismatch:
 
 ```text
-[sg1.f1 ✗ mismatch]
+- sg1.f1 ✗ mismatch
 ```
 
 Moot:
 
 ```text
-[sg1.f1 ✗ moot]
+- sg1.f1 ✗ moot
 ```
 
 Exhausted (no advancing relation after repair):
 
 ```text
-[sg1.f1 ✗ exhausted]
+- sg1.f1 ✗ exhausted
 ```
 
 Several returned bindings do NOT mean failure.
@@ -714,7 +717,7 @@ Never repeat an identical deterministic query.
 If the evidence still does not instantiate the fact:
 
 ```text
-[sgN.fM ✗ mismatch]  or  [sgN.fM ✗ empty]
+- sgN.fM ✗ mismatch   or   - sgN.fM ✗ empty
 ```
 
 Close it and continue.
@@ -1086,7 +1089,7 @@ sg1.f2: ?sibling | which governmental positions did these people hold | ?positio
 Suppose:
 
 ```text
-[sg1.f1 ✓] ?sibling = [Elena Keller | Marcus Keller]
+- sg1.f1 ✓ ?sibling = Elena Keller | Marcus Keller
 ```
 
 Then the next fact processes both sibling bindings together.

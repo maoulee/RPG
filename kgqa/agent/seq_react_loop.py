@@ -34,14 +34,21 @@ from kgqa.agent.react_loop import parse_react_output, _to_tool_calls  # reuse ve
 
 _AGENT_DIR = Path(__file__).resolve().parent
 
-# Model checkpoint declaration: `[fid ✓] ?var = [v1 | v2 | ...]` (| -separated values,
-# the same separator as the tree display — avoids comma-in-entity-name collisions).
-# Later declarations override earlier ones (a fact may be re-resolved with tighter bindings).
+# Model checkpoint declaration — MD-LINE PRIMARY (user ruling 2026-09-20):
+#   - sg1.f1 ✓ ?var = v1 | v2 | v3
+#   - sg1.f2 ✗ empty
+# Models follow markdown far more reliably than bespoke bracket grammar (the
+# 2152 specimen burned 6 turns on bracket-format retries). The legacy bracket
+# forms (`[fid ✓] ?var = [v1 | v2]`, `[fid ✗ empty]`) remain accepted for
+# transition compatibility — old trajectories and tests still parse.
 _CKPT_RE = re.compile(r'\[[^\]]*?✓\]\s*(\?\w+)\s*=\s*\[([^\]]*)\]')
+_CKPT_RE_MD = re.compile(
+    r'(?:^|\n)\s*[-*]?\s*(?:sg\d+(?:\.f\d+)?|f\d+)\s*[✓✔]\s*(\?\w+)'
+    r'\s*=\s*\[?([^\]\n]*)')
 
 # Plan-contract v2 closure declarations (2026-08-21): a fact may be CLOSED without
-# bindings — `[fid ✗ empty]` (no advancing relation/content in the reachable pool)
-# or `[fid ✗ moot]` (the terminal variable was already bound by earlier evidence).
+# bindings — `✗ empty` (no advancing relation/content in the reachable pool)
+# or `✗ moot` (the terminal variable was already bound by earlier evidence).
 # Closures free the model from the complete-every-fact contract (the Ramble/VP
 # specimen looped 16 rounds on a dead-end fact and scored empty).
 # Wave-1 (2026-09-20): the status set is a CLOSED enumeration — `mismatch`
@@ -51,7 +58,12 @@ _CKPT_RE = re.compile(r'\[[^\]]*?✓\]\s*(\?\w+)\s*=\s*\[([^\]]*)\]')
 # parses. Anything outside the enumeration is NOT a closure (see the unknown-
 # closure warning at the checkpoint ack) — the old grammar silently dropped
 # free-text statuses and completion accounting kept the fact open.
+# MD-line closures (user ruling): `- sg1.f2 ✗ empty` accepted alongside the
+# bracket form.
 _CKPT_CLOSE_RE = re.compile(r'\[([^\]]*?)✗\s*(empty|moot|mismatch|exhausted)(?::[^\]]*)?\]')
+_CKPT_CLOSE_RE_MD = re.compile(
+    r'(?:^|\n)\s*[-*]?\s*((?:sg\d+(?:\.f\d+)?|f\d+))\s*✗\s*'
+    r'(empty|moot|mismatch|exhausted)(?::[^\n]*)?')
 
 
 def _canonical_decl_fid(ctx, raw: str, var: str) -> str:
@@ -129,8 +141,20 @@ def _update_var_bindings(ctx, content: str) -> None:
         ctx.closed_facts = cf = {}
     for m in _CKPT_CLOSE_RE.finditer(content):
         cf[_canonical_decl_fid(ctx, m.group(1), "")] = m.group(2)
+    for m in _CKPT_CLOSE_RE_MD.finditer(content):
+        cf[_canonical_decl_fid(ctx, m.group(1), "")] = m.group(2)
+    # unified ✓ entries: (fid_raw, var, vals) from BOTH grammars — the md
+    # line form carries its fid natively; the legacy bracket form re-extracts
+    # it below (the formats are line-disjoint, so no double-count)
+    _entries = []
     for m in _CKPT_RE.finditer(content):
-        var, vals = m.group(1), m.group(2)
+        fid_m = re.match(r"\[([^\]]*?)✓\]", m.group(0))
+        _entries.append(((fid_m.group(1) if fid_m else "").strip(),
+                         m.group(1), m.group(2)))
+    for m in _CKPT_RE_MD.finditer(content):
+        _entries.append((m.group(0).strip().lstrip("-* ").split()[0],
+                         m.group(1), m.group(2)))
+    for _fid_raw, var, vals in _entries:
         parts = [p.strip() for p in re.split(r'\s*\|\s*', vals) if p.strip()]
         # CVT-BINDING GUARD (2026-08-21, Angelina awards specimen): the model
         # bound raw m./g. event nodes as variable values. Events are records,
@@ -153,9 +177,7 @@ def _update_var_bindings(ctx, content: str) -> None:
         # retrieve_subgraph for that fid is rejected (the Costner specimen
         # mutated sg1.f1 at answer time). The lock opens only when fresh
         # evidence for the same fid arrives (fact_evidence_seq advanced).
-        fid_m = re.match(r"\[([^\]]*?)✓\]", m.group(0))
-        _fid_key = _canonical_decl_fid(
-            ctx, (fid_m.group(1) or "").strip() if fid_m else "", var)
+        _fid_key = _canonical_decl_fid(ctx, _fid_raw, var)
         if _all_cvt and _fid_key:
             # CVT-CHAIN DEADLOCK (Norwood specimen): every value was an
             # event — this variable can never bind, and a later fact
@@ -639,9 +661,9 @@ class SeqReactCase:
             f"returned to you — calling it again returns the same evidence and cannot advance the fact. "
             f"Act on the result you already have, choosing the branch that fits: (a) SELECT a structural "
             f"relation from the candidate_relations and call `retrieve_subgraph`; (b) if no relation "
-            f"advances this fact, CLOSE it — declare `[fid ✗ empty]` — and move to the next fact; "
+            f"advances this fact, CLOSE it — declare `- fid ✗ empty` — and move to the next fact; "
             f"(c) if the evidence you ALREADY have answers the question (earlier facts may have "
-            f"delivered the terminal variable — declare `[fid ✗ moot]` for the rest) — declare the "
+            f"delivered the terminal variable — declare `- fid ✗ moot` for the rest) — declare the "
             f"bindings and call `answer`. Do not re-call `{tool}` with the same arguments.")
 
     def state_aware_hint(self) -> str:
@@ -658,11 +680,12 @@ class SeqReactCase:
                     "fact — submit them TOGETHER in one retrieve_subgraph call. "
                     "Do NOT re-call retrieve_relations.\n")
         if last_tool == "retrieve_subgraph":
-            return ("You just retrieved a subgraph. Declare the checkpoint for the fact: "
-                    "`[fid ✓] ?var = [bindings]` if resolved; `[fid ✗ empty]` if the pool "
-                    "holds no advancing relation; `[fid ✗ moot]` if earlier evidence "
-            "already bound this fact's target. Then call retrieve_relations for the "
-            "next OPEN fact — or answer as soon as the QUESTION's variable is bound.\n")
+            return ("You just retrieved a subgraph. Declare the checkpoint as ONE "
+                    "markdown line per fact (fid, status, variable, values):\n"
+                    "- fid ✓ ?var = value1 | value2   (resolved)\n"
+                    "- fid ✗ empty | moot | mismatch | exhausted   (closed)\n"
+                    "Then call retrieve_relations for the next OPEN fact — or answer "
+                    "as soon as the QUESTION's variable is bound.\n")
         return ""
 
     def _maybe_inject_evidence_commit(self) -> None:
@@ -1368,6 +1391,7 @@ class SeqReactCase:
             # `plan` regardless of residual phase; cleared after the first
             # ACCEPTED plan (see the seq_validate site in _parse_prepare).
             self._post_restart_plan_ok = True
+            self._replan_used = False
             _lesson = (f"RESTART (the only one): your first attempt's verdict was "
                        f"NONE — nothing retrieved related to the answer"
                        + (f" ({diag})" if diag else "") + ".")
@@ -1652,7 +1676,9 @@ class SeqReactCase:
                 self.ctx.trajectory.append({"role": "tool", "content": "ANSWER_READY signal"})
                 self._last_tool_sig = None; self._tool_repeat = 0
                 return {"ret": "continue"}
-            elif re.search(r"\[[^\]]*[✓✗][^\]]*\]", raw_response):
+            elif (re.search(r"\[[^\]]*[✓✗][^\]]*\]", raw_response)
+                  or re.search(r"(?:^|\n)\s*[-*]?\s*(?:sg\d+(?:\.f\d+)?|f\d+)"
+                               r"\s*[✓✔✗]", raw_response)):
                 # checkpoint-only turn: the declarations were already merged by
                 # _update_var_operations above — acknowledge, don't scold.
                 # Wave-1: the old trigger `\[[^\]]*[✓✗]\]` matched only
@@ -1668,15 +1694,19 @@ class SeqReactCase:
                     f"{_v}=bound({len(_fbv[_f])})" if _fbv.get(_f)
                     else f"{_v}=unbound"
                     for _f, _v in list(_fvv.items())[:8])
-                # UNKNOWN CLOSURE GUARD (Wave-1): a ✗ bracket outside the
-                # closure grammar (`[f2 ✗ unresolved-after-repair]` & friends)
-                # binds nothing and closes nothing — a bare "Checkpoints
-                # recorded" ack let the model believe the fact was closed
-                # while completion accounting kept it open. Name the offending
-                # bracket and teach the enumeration instead.
-                _bad_close = [b for b in re.findall(r"\[[^\]]*✗[^\]]*\]",
-                                                    raw_response)
-                              if not _CKPT_CLOSE_RE.search(b)]
+                # UNKNOWN CLOSURE GUARD (Wave-1): a ✗ declaration outside the
+                # closure grammar (`[f2 ✗ unresolved-after-repair]` & friends,
+                # bracket or md form) binds nothing and closes nothing — a
+                # bare "Checkpoints recorded" ack let the model believe the
+                # fact was closed while completion accounting kept it open.
+                # Name the offending line and teach the enumeration instead.
+                _bad_close = [
+                    b for b in (re.findall(r"\[[^\]]*✗[^\]]*\]", raw_response)
+                                + [ln.strip() for ln in raw_response.splitlines()
+                                   if re.search(r"✗", ln)
+                                   and not ln.strip().startswith("[")])
+                    if not (_CKPT_CLOSE_RE.search(b)
+                            or _CKPT_CLOSE_RE_MD.search("\n" + b))]
                 fmt_nudge = ("Checkpoints recorded. "
                              + (f"Subgraph vars: {_vstat}\n" if _vstat else "")
                              + ("⚠ Unrecognized closure status NOT recorded: "
@@ -1684,7 +1714,7 @@ class SeqReactCase:
                                 + ". A ✗ closure must use one of the status "
                                 "words empty | moot | mismatch | exhausted "
                                 "(an optional `: reason` may follow), e.g. "
-                                "`[f2 ✗ empty]`.\n" if _bad_close else "")
+                                "`- sg1.f2 ✗ empty`.\n" if _bad_close else "")
                              + "Now emit your next tool call, "
                              "flat format (one key per line):\n"
                              "tool: retrieve_relations\ncenter: <entity or ?var>\n"
@@ -1785,52 +1815,76 @@ class SeqReactCase:
                     parsed_args["entities"] = []
                 else:
                     self.ctx._refusal_n = getattr(self.ctx, "_refusal_n", 0) + 1
-                    if self.ctx._refusal_n == 1:
+                    # USER RULING 2026-09-20 (reminder, not a verdict): a NONE
+                    # with an EMPTY answer-variable ledger is a legitimate
+                    # abstention — pass it, do NOT ladder. A NONE with
+                    # bindings gets ONE reminder in evidence framing (your
+                    # retrieval produced facts matching the question; an
+                    # imperfect answer beats an empty one) — never worded as
+                    # a system ruling on support (the old wording made the
+                    # model retract a correct §28b application).
+                    _fb0 = getattr(self.ctx, "fact_bindings", None) or {}
+                    _fv0 = getattr(self.ctx, "fact_vars", None) or {}
+                    _av0 = [str(v) for v in
+                            (getattr(self.state, "answer_var", None) or [])]
+                    _sel0 = getattr(self.ctx, "answer_selection", None) or {}
+                    def _basis_now():
+                        parts = []
+                        for _v in _av0:
+                            if _sel0.get(_v):
+                                parts.append(f"{_v}={list(_sel0[_v])[:4]}")
+                                continue
+                            for _f in _fb0:
+                                if _f in _fv0 and str(_fv0[_f]) == _v \
+                                        and _fb0[_f]:
+                                    parts.append(
+                                        f"{_v}={list(_fb0[_f])[:4]}")
+                                    break
+                        return "; ".join(parts)
+                    _basis = _basis_now()
+                    if not _basis and not any(_fb0.values()):
+                        # zero support anywhere: accept the abstention —
+                        # rewrite to an explicit empty answer and let the
+                        # answer tool record it (no ladder, no bounce)
+                        parsed_args = dict(parsed_args)
+                        parsed_args["entities"] = []
+                        parsed_args.pop("ANSWER", None)
+                    elif self.ctx._refusal_n == 1:
+                        _basis_disp = _basis or (
+                            "none yet (bindings of other variables may "
+                            "still advance the answer)")
                         self._emit_tool_note(
-                            "NONE → ladder: re-select relations; "
-                            "[explore ✗ none] restarts once\n"
-                            "You may fall back ONE level: re-select the weakest "
-                            "subgraph's relation set (curated relation lists are "
-                            "never exhaustive) and retrieve again. If nothing at "
-                            "all was answer-relevant, declare [explore ✗ none] "
-                            "to restart the case once.")
+                            "REMINDER (not a verdict — your own checkpoint "
+                            "ledger is the authority): your exploration "
+                            "RETRIEVED facts that match the question — the "
+                            "answer may be among them. An imperfect answer "
+                            "from evidence beats an empty one. Current "
+                            f"answer-variable bindings: {_basis_disp}. "
+                            "Re-select relations once if a "
+                            "missing discriminator could still be retrieved; "
+                            "otherwise answer from the current support.")
                         return {"ret": "continue"}
-                    # answer-variable bindings ONLY (Wave-1): dumping every
-                    # fact's variable invited the model to answer with some
-                    # intermediate variable's list. Show the DECLARED answer
-                    # variable's bindings (same read the VAR-MISMATCH guard
-                    # uses); when it has none, say so and name the escape.
-                    # LEDGER vs SELECTION (Wave-2): the model's narrowed pick
-                    # (answer_selection) leads per var; the retrieval record
-                    # (fact_bindings) fills answer vars never discriminated.
-                    _fb = getattr(self.ctx, "fact_bindings", None) or {}
-                    _fv = getattr(self.ctx, "fact_vars", None) or {}
-                    _av = [str(v) for v in
-                           (getattr(self.state, "answer_var", None) or [])]
-                    _sel = getattr(self.ctx, "answer_selection", None) or {}
-                    _bparts = []
-                    for _v in _av:
-                        if _sel.get(_v):
-                            _bparts.append(f"{_v}={list(_sel[_v])[:4]}")
-                            continue
-                        for _f in _fb:
-                            if _f in _fv and str(_fv[_f]) == _v and _fb[_f]:
-                                _bparts.append(f"{_v}={list(_fb[_f])[:4]}")
-                                break
-                    _basis = "; ".join(_bparts)
-                    self.ctx._analysis_pending = False
-                    if _basis:
-                        self._emit_tool_note(
-                            "Second refusal — answer from current support NOW "
-                            f"(bindings so far: {_basis}).")
                     else:
-                        self._emit_tool_note(
-                            "Second refusal — answer from current support NOW "
-                            f"(no bindings yet for the declared answer variable "
-                            f"{' / '.join(_av) or 'unset'} — submit the best "
-                            "graph-supported bindings from the evidence, or "
-                            "declare [explore ✗ none] to use the one restart).")
-                    return {"ret": "continue"}
+                        # SECOND REFUSAL: _basis was recomputed above from the
+                        # CURRENT ledger (fresh, not stale — audit P2: a stale
+                        # basis list was submitted verbatim as "the system's
+                        # pick"). Framing stays evidence-relative.
+                        self.ctx._analysis_pending = False
+                        if _basis:
+                            self._emit_tool_note(
+                                "Second refusal — answer from current support NOW. "
+                                "Your own ledger currently holds "
+                                f"{_basis} — an imperfect answer from these beats "
+                                "an empty one. (Reminder, not a ruling; your "
+                                "ledger is the authority.)")
+                        else:
+                            self._emit_tool_note(
+                                "Second refusal — answer from current support NOW "
+                                f"(no bindings yet for the declared answer variable "
+                                f"{' / '.join(_av0) or 'unset'} — submit the best "
+                                "graph-supported bindings from the evidence, or "
+                                "declare [explore ✗ none] to use the one restart).")
+                        return {"ret": "continue"}
             elif (isinstance(_ne, list) and _ne
                     and not getattr(self.ctx, "_varmismatch_retried", False)):
                 # VAR-MISMATCH GUARD (Stalin specimen, 2026-08-24): entities
@@ -1945,6 +1999,18 @@ class SeqReactCase:
         if (getattr(self, "_post_restart_plan_ok", False)
                 and tool_name in ("plan", "decompose")
                 and self.state.state != "INIT"):
+            self.state = SeqAgentState()
+            self.ctx.plan_declared = False
+        # ONE MID-CASE RE-PLAN (user ruling 2026-09-20): restructure after a
+        # dead-end is legitimate (2576 specimen: three re-plan attempts after
+        # closing a dead fact, all REJECTED, burned to the round cap) — allow
+        # exactly ONE re-plan per attempt beyond the initial plan; a second
+        # is rejected as before. Uses the same roll-back as the restart
+        # latch so both phase gates accept it.
+        elif (tool_name in ("plan", "decompose")
+                and self.state.state != "INIT"
+                and not getattr(self, "_replan_used", False)):
+            self._replan_used = True
             self.state = SeqAgentState()
             self.ctx.plan_declared = False
         ok, err, new_state = seq_validate(

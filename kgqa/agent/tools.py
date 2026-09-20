@@ -2157,9 +2157,12 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
                 ctx._answer_offpool_retried = True
                 return _json_result({
                     "error": (f"answer entities NOT in the retrieved evidence: {offpool}. "
-                              "Only answer with entities present in the expanded branches / "
-                              "candidate pool. Expand the relevant branches first, then "
-                              "re-call `answer` with entities from the evidence."),
+                              "The answer must COMPLETELY MATCH an entity retrieved in the "
+                              "evidence — use the full entity name exactly as it appears "
+                              "(a partial word or extracted fragment is not an entity). "
+                              "Entities in your retrieved evidence pool include: "
+                              f"{pool[:15]}. Pick from these or expand the relevant "
+                              "branches, then re-call `answer` with complete entity names."),
                     "offpool": offpool,
                     "candidate_pool": pool[:30],
                 })

@@ -232,13 +232,25 @@ def test_validate_retrieve_subgraph_appends_canonical_key():
 
 
 def test_validate_budget_counts_base_sg():
+    """Per-center budget (user ruling 2026-09-20): retrieve_subgraph calls
+    count against their DECLARED CENTER (start entity), not the sg id —
+    5 calls on one center exceed the 4-per-center cap and get rejected,
+    while the same call count spread across centers passes."""
     st = plan_a()
-    st.sg_plan["sg1"] = 1                 # budget = 3 calls
-    for sg_arg in ("sg1", "sg1.f2", "sg1", "sg1.f2", "sg1"):
-        validate(st, _call("retrieve_subgraph",
-                           {"center": ["OrgAlpha"], "relations": ["r"], "sg": sg_arg}))
-    assert st.sg_calls["sg1"] == 5        # both namespaces hit the same budget
-    assert "sg1" in st.sg_done            # 5 > 3 → budget-intercepted
+    st.sg_plan["sg1"] = 1
+    for sg_arg in ("sg1", "sg1.f2", "sg1", "sg1.f2"):
+        ok = validate(st, _call("retrieve_subgraph",
+                                {"center": ["OrgAlpha"], "relations": ["r"], "sg": sg_arg}))
+        assert ok[0]
+    assert st.sg_calls["center:orgalpha"] == 4
+    # 5th call from the same center → rejected (budget 4 per center)
+    ok = validate(st, _call("retrieve_subgraph",
+                            {"center": ["OrgAlpha"], "relations": ["r"], "sg": "sg1"}))
+    assert not ok[0] and "budget 4 per declared" in ok[1]
+    # a DIFFERENT center is unaffected
+    ok = validate(st, _call("retrieve_subgraph",
+                            {"center": ["Beta"], "relations": ["r"], "sg": "sg1"}))
+    assert ok[0]
 
 
 def test_validate_early_answer_reminder_gates():
@@ -382,10 +394,10 @@ def test_purity_detector_reachable(monkeypatch):
 
 
 def test_refusal_phrase_routes_ladder(monkeypatch):
-    """Refusal routing (user ruling 2026-08-25): FIRST refusal keeps the
-    model's go-back right (re-select ladder — never forced to answer);
-    SECOND refusal (re-selection produced nothing new) → answer from current
-    support with bindings shown."""
+    """Refusal routing (user ruling 2026-09-20): FIRST refusal with bindings
+    → evidence-framed REMINDER (never a verdict, never forced); SECOND
+    refusal → answer-now with the fresh answer-var basis; refusal with ZERO
+    bindings anywhere → accepted abstention (see test_none_answer_routes)."""
     rc = make_case(monkeypatch)
     turn(rc, PLAN_TURN)
     rc.state.retrieved_fids = ["f1", "f2"]
@@ -393,33 +405,39 @@ def test_refusal_phrase_routes_ladder(monkeypatch):
     rc.ctx.fact_bindings = {"f1": ["Alice"]}
     turn(rc, "tool: answer\nentities: [Unable to determine — date evidence unavailable]")
     msgs = [m.get("content") or "" for m in rc.messages]
-    assert any("fall back ONE level" in m for m in msgs)   # go-back right kept
+    rem = next(m for m in msgs if "REMINDER" in m)
+    assert "not a verdict" in rem and "?founder=['Alice']" in rem
     assert not any("answer NOW" in m for m in msgs)        # never forced on 1st
     assert rc.state.state == "RETRIEVE"
     out = turn(rc, "tool: answer\nentities: None")
     msgs = [m.get("content") or "" for m in rc.messages]
     sec = next(m for m in msgs if "Second refusal" in m)
-    assert "?founder=['Alice']" in sec                     # bindings as basis
+    assert "?founder=['Alice']" in sec                     # fresh basis
     assert rc.state.state == "RETRIEVE"
 
 
 def test_none_answer_routes_ladder(monkeypatch):
-    """Literal `entities: None` with EMPTY evidence → the re-select ladder;
-    after restart → converts to explicit empty and accepts."""
+    """Literal `entities: None` with ZERO bindings anywhere → a legitimate
+    abstention: ACCEPTED directly (user ruling 2026-09-20 — no ladder, no
+    bounce); after restart → explicit-empty contract unchanged."""
     rc = make_case(monkeypatch)
     turn(rc, PLAN_TURN)
-    rc.state.retrieved_fids = ["f1", "f2"]
-    rc.ctx.all_candidates = []          # no bindings, no pool → re-select arm
+    rc.state.retrieved_fids = ["f1", "f2", "f3"]
+    rc.ctx.all_candidates = []          # no bindings, no pool
     rc.ctx.fact_vars = {}
     rc.ctx.fact_bindings = {}
     out = turn(rc, "tool: answer\nentities: None")
-    msgs = [m.get("content") or "" for m in rc.messages]
-    assert any("fall back ONE level" in m for m in msgs)
-    assert rc.state.state == "RETRIEVE"           # not accepted, not dispatched
-    # second attempt after restart: explicit-empty contract
-    rc.ctx.restarted = True
-    out = turn(rc, "tool: answer\nentities: None")
-    assert rc.done is True                         # accepted as empty
+    assert rc.done is True              # accepted abstention, no ladder
+    # explicit-empty contract after restart still holds
+    rc2 = make_case(monkeypatch)
+    turn(rc2, PLAN_TURN)
+    rc2.state.retrieved_fids = ["f1", "f2", "f3"]
+    rc2.ctx.all_candidates = []
+    rc2.ctx.fact_vars = {}
+    rc2.ctx.fact_bindings = {}
+    rc2.ctx.restarted = True
+    out = turn(rc2, "tool: answer\nentities: None")
+    assert rc2.done is True
 
 
 def test_sg_var_status_in_checkpoint_ack(monkeypatch):
