@@ -44,7 +44,14 @@ _CKPT_RE = re.compile(r'\[[^\]]*?✓\]\s*(\?\w+)\s*=\s*\[([^\]]*)\]')
 # or `[fid ✗ moot]` (the terminal variable was already bound by earlier evidence).
 # Closures free the model from the complete-every-fact contract (the Ramble/VP
 # specimen looped 16 rounds on a dead-end fact and scored empty).
-_CKPT_CLOSE_RE = re.compile(r'\[([^\]]*?)✗\s*(empty|moot)\]')
+# Wave-1 (2026-09-20): the status set is a CLOSED enumeration — `mismatch`
+# (queried bindings never matched the fact's evidence) and `exhausted` (the
+# relation pool was tried out with nothing advancing) join empty/moot, and an
+# optional `: reason` suffix is tolerated so a motivated closure line still
+# parses. Anything outside the enumeration is NOT a closure (see the unknown-
+# closure warning at the checkpoint ack) — the old grammar silently dropped
+# free-text statuses and completion accounting kept the fact open.
+_CKPT_CLOSE_RE = re.compile(r'\[([^\]]*?)✗\s*(empty|moot|mismatch|exhausted)(?::[^\]]*)?\]')
 
 
 def _canonical_decl_fid(ctx, raw: str, var: str) -> str:
@@ -477,6 +484,24 @@ def seq_agents_md() -> str:
     return (_AGENT_DIR / "SEQ_AGENTS.md").read_text()
 
 
+def _answer_analysis_vocab() -> Tuple[str, str]:
+    """(field-list, leading field) of the two-stage ANSWER_ANALYSIS block,
+    synced to the ACTIVE prompt version the way seq_agents_md selects it
+    (Wave-1 vocabulary sync): V22/V23 teach BASE_BINDINGS / CONSTRAINT_CHECK /
+    FINAL_BINDINGS; the V21-lineage prompt teaches the legacy BASE_CANDIDATES /
+    REQUIREMENT_CHECK / COUNT_CONTRACT / PROVISIONAL_FINAL framing. Injecting
+    one version's field names while the system prompt teaches the other's
+    taught the model vocabulary its own prompt never defines. The literal
+    ANSWER_ANALYSIS header is identical in every version and the stage gate
+    matches the header only — the gate regex stays untouched."""
+    _p = os.environ.get("SEQ_PROMPT", "").upper()
+    if _p in ("V22", "V2.2", "V23", "V2.3"):
+        return ("(BASE_BINDINGS / CONSTRAINT_CHECK / FINAL_BINDINGS)",
+                "BASE_BINDINGS")
+    return ("(BASE_CANDIDATES / REQUIREMENT_CHECK / COUNT_CONTRACT / "
+            "PROVISIONAL_FINAL)", "BASE_CANDIDATES")
+
+
 _ZH_Q_CACHE: Dict[str, dict] = {}
 
 
@@ -495,6 +520,71 @@ def _zh_question_for(case_id: str) -> str:
             _ZH_Q_CACHE[path] = {}
     entry = _ZH_Q_CACHE[path].get(case_id) or {}
     return str(entry.get("zh") or "")
+
+
+def reset_seq_episode_state(ctx) -> None:
+    """Full episode-local reset for the ONE none-verdict restart (Wave-1,
+    2026-09-20). The restart block used to hand-maintain a field list and
+    silently missed every store added later — attempt-2 inherited attempt-1's
+    territory masks (fid_pattern/pattern_state), idempotence cache
+    (_sg_served), anchor bookkeeping (consumed_anchors/anchor_seqs) and
+    similarity streaks (_qsim_hist), so the "fresh" second attempt planned
+    differently but RETRIEVED against attempt-1's frozen world. Single source
+    of truth: every ctx field with episode lifetime resets HERE, each to the
+    exact type/value its init site declares (seq_tools.py lazily inits most of
+    these via `getattr(...) or default`; loop.py's CaseContext declares
+    subgraph_entities as a set). `restarted` is deliberately untouched — the
+    none-verdict contract reads it to refuse a second restart."""
+    # dict-typed stores → {}
+    for f in ("var_bindings", "declared_facts", "fact_bindings", "fact_vars",
+              "var_joins", "closed_facts", "fact_evidence",
+              "fact_evidence_seq", "_sg_served", "_qsim_hist", "_qsim_streak",
+              "pattern_state", "fid_pattern", "anchor_seqs",
+              "anchor_seq_memo", "_fid_alias"):
+        if hasattr(ctx, f):
+            setattr(ctx, f, {})
+    # list-typed stores → [] (walk_seen_entities/walk_extra MUST be lists —
+    # the 1379-s1 crash family reset them to {} and the ledger append died)
+    for f in ("walk_seen_entities", "walk_extra", "all_candidates",
+              "_ma_gate_unc"):
+        if hasattr(ctx, f):
+            setattr(ctx, f, [])
+    # set-typed stores → fresh set
+    if hasattr(ctx, "accumulated_triples"):
+        ctx.accumulated_triples = set()
+    if hasattr(ctx, "consumed_anchors"):    # seq_tools.py inits it as set()
+        ctx.consumed_anchors = set()
+    # tuple/payload flags → None (their consumers test truthiness)
+    for f in ("cvt_binding_flag", "cvt_empty_var", "join_flag",
+              "halluc_binding_flag", "frozen_binding_flag"):
+        if hasattr(ctx, f):
+            setattr(ctx, f, None)
+    # one-shot latches → False (getattr defaults in the loop/tools gates)
+    for f in ("plan_declared", "_ma_gate_fired", "_multi_tree_prompted",
+              "_answer_offpool_retried", "_answer_cvt_retried",
+              "_varmismatch_retried"):
+        if hasattr(ctx, f):
+            setattr(ctx, f, False)
+    # counters → 0
+    for f in ("_cvt_loop_n", "_refusal_n"):
+        if hasattr(ctx, f):
+            setattr(ctx, f, 0)
+    if hasattr(ctx, "plan_answer_type"):
+        ctx.plan_answer_type = ""
+    # two-stage flags (COMMIT-WIDENING): the fresh attempt re-enters
+    # retrieval — a stale ledger/analysis gate would dead-end it.
+    for f in ("_ledger_injected", "_analysis_pending", "_analysis_done"):
+        if hasattr(ctx, f):
+            setattr(ctx, f, False)
+    # subgraph_entities: fresh set RESEEDED from the question entities — the
+    # prelink seeding is what makes turn-0 anchor centers pass the center
+    # boundary; an empty set would reject fact-1 retrieval outright. Mirror
+    # of the prelink loop (same idx validity check, same add).
+    qe_idxs = ctx.sample.get("q_entity_id_list") or []
+    ctx.subgraph_entities = {
+        idx for idx in qe_idxs
+        if isinstance(idx, int) and 0 <= idx < len(getattr(ctx, "ents", None)
+                                                   or ())}
 
 
 class SeqReactCase:
@@ -632,9 +722,9 @@ class SeqReactCase:
                 "\n  COUNT CONTRACT: CASE A — any candidate fully supported → "
                 "submit ALL fully-supported; CASE B — none fully supported → "
                 "submit the single best-supported. Never mix full and partial."
-                "\n  Next: emit ANSWER_ANALYSIS (BASE_CANDIDATES / "
-                "REQUIREMENT_CHECK / COUNT_CONTRACT / PROVISIONAL_FINAL) — do "
-                "NOT call answer yet.")
+                "\n  Next: emit ANSWER_ANALYSIS "
+                + _answer_analysis_vocab()[0]
+                + " — do NOT call answer yet.")
         self.messages.append({"role": "user", "content": _led})
         self.ctx.trajectory.append({"role": "tool", "content": _led[:300]})
         self.ctx._analysis_pending = True
@@ -649,7 +739,13 @@ class SeqReactCase:
         # only — never the gold.
         zh = _zh_question_for(getattr(self.ctx, "case_id", "") or "")
         if zh:
-            q += f"\n(中文重述，以这一版语义为准 / Chinese restatement, treat as authoritative: {zh})"
+            # Wave-1 demotion: the restatement is a READING AID, not a second
+            # authority — "treat as authoritative" let a wrong zh pull the plan
+            # off the English question (V2.3 probe: bare 3/3 correct vs +zh
+            # 3/3 wrong on 1379). On conflict the English original prevails.
+            q += (f"\n(中文重述，辅助参考；与英文原问冲突时以原问为准 / Chinese "
+                  f"restatement for reference; on conflict the English original "
+                  f"prevails: {zh})")
         self.messages = [
             {"role": "system", "content": seq_agents_md()},
             {"role": "user", "content": q},
@@ -660,78 +756,48 @@ class SeqReactCase:
         question + 植入 ctx.subgraph_entities。解决模型抽取错实体名的问题（'Vienna,
         Austria'→'Vienna'；GTE 噪声 'National Anthem'→'Tiến Quân Ca'）。qentity 覆盖 100%、
         泄漏 2%、idx 100% 有效。
-        Plan-contract v2 (2026-08-21, user ruling B): 邻居关系样本按【原始问题】GTE 排序
-        （此前 sorted()[:3] 字母序在问题正轴上反向采样——Ron Howard 电影题采样出
-        award.*），锚点实体同样按问题相关性排序。注入语义限定为锚点参考，不覆盖问题
-        主语（Lala/Carmelo 标本：q_entity 与问题主语不符时，以问题为准）。"""
+        Plan-contract v2 (2026-08-21, user ruling B): 锚点实体按【原始问题】GTE 相关性
+        排序。注入语义限定为锚点参考，不覆盖问题主语（Lala/Carmelo 标本：q_entity 与
+        问题主语不符时，以问题为准）。
+        Wave-1 (2026-09-20): the per-entity question-ranked RELATION sample is
+        REMOVED — a pre-chewed neighbor shortlist competed with (and outranked)
+        the model's own question reading at plan time; the authoritative
+        relation set comes from retrieve_relations, never from the prompt."""
         ctx = self.ctx
         qe_names = ctx.sample.get("q_entity") or []
         qe_idxs = ctx.sample.get("q_entity_id_list") or []
         if not qe_names:
             return
         se = getattr(ctx, "subgraph_entities", None)
-        pairs = []
+        names = []
         for name, idx in zip(qe_names, qe_idxs):
             if not isinstance(idx, int) or not (0 <= idx < len(ctx.ents)):
                 continue
-            rel_ids = set()
-            for k in range(len(ctx.h_ids)):
-                if (ctx.h_ids[k] == idx or ctx.t_ids[k] == idx) and 0 <= ctx.r_ids[k] < len(ctx.rels):
-                    rel_ids.add(ctx.r_ids[k])
-            pairs.append((name, rel_ids))
+            names.append(name)
             if se is not None:
                 se.add(idx)
-        if not pairs:
+        if not names:
             return
-        # rank the anchors themselves against the ORIGINAL question (user ruling:
-        # 锚点与关系都按问题排序)
+        # rank the anchors themselves against the ORIGINAL question (user
+        # ruling: 锚点按问题排序)
         try:
             from kgqa.stages.stage2_entity import gte_retrieve
             from kgqa.core.utils import phase_timer
-            names_list = [n for n, _ in pairs]
             with phase_timer("gte"):   # prelink anchor ranking — phase-attributed
-                rows = await gte_retrieve(session, ctx.question, names_list,
-                                          candidate_texts=names_list, top_k=len(names_list))
+                rows = await gte_retrieve(session, ctx.question, names,
+                                          candidate_texts=names, top_k=len(names))
             if rows:
                 rank = {r.get("candidate"): i for i, r in enumerate(rows)}
-                pairs.sort(key=lambda p: rank.get(p[0], len(rank)))
+                names.sort(key=lambda n: rank.get(n, len(rank)))
         except Exception:
             pass   # keep dataset order — the names still anchor
-        out = []
-        for name, rel_ids in pairs:
-            top_rels: list = []
-            if session is not None and rel_ids:
-                try:
-                    # NOISE-FILTERED hint pool (Minister-of-State specimen, 2026-08-22):
-                    # the retrieval pool drops structural noise (_is_noisy_path_relation)
-                    # but the prelink hints ranked the RAW neighbor set —
-                    # common.topic.notable_for won the top-3 slot while the
-                    # semantically-right government.* relations sat unranked
-                    # behind it, misdirecting the plan. Align the hint pool
-                    # with the retrieval pool: same noise classes, both layers.
-                    from kgqa.traversal.path_utils import _is_noisy_path_relation as _noisy
-                    _clean = {i for i in rel_ids
-                              if 0 <= i < len(ctx.rels)
-                              and not _noisy(ctx.rels[i])}
-                    if not _clean:
-                        _clean = rel_ids
-                    from kgqa.agent.tools import _gte_for_triple
-                    ranked = await _gte_for_triple(
-                        ctx, session, name, ctx.question, "", pool_relids=_clean)
-                    top_rels = [ctx.rels[i] for i in ranked[:3]
-                                if 0 <= i < len(ctx.rels)]
-                except Exception:
-                    top_rels = []
-            out.append({"name": name, "neighbor_relations": top_rels})
-        lines = [f"  - {o['name']}" + (f" (question-ranked relations: {' | '.join(o['neighbor_relations'])})"
-                  if o['neighbor_relations'] else "") for o in out]
+        lines = [f"  - {name}" for name in names]
         self.messages[1]["content"] += (
             "\n\nQuestion entities (canonical graph names — use these spellings as your "
             "anchors when they match the entities the question names; an entity listed "
             "here that is NOT the question's subject is context, never a mandate to "
-            "pivot to it). The relations beside each are a QUESTION-RANKED sample of "
-            "that entity's neighbors — an anchor reference, not the retrieval pool: "
-            "the authoritative relation set always comes from retrieve_relations:\n"
+            "pivot to it). The authoritative relation set for each anchor comes from "
+            "retrieve_relations:\n"
             + "\n".join(lines))
 
     @property
@@ -741,11 +807,17 @@ class SeqReactCase:
     def allowed_tools_hint(self):
         hint = seq_allowed_hint(self.state)
         # plan-contract v2: keep the turn-0 question analysis in force — every hint
-        # that permits answering also restates the declared answer-type contract.
+        # that permits answering also restates the declared answer type. Wave-1
+        # demotion: the type word is a CONSISTENCY CHECK, not a filter — stated
+        # as a hard contract it licensed rejecting graph-backed bindings whose
+        # surface type word disagreed (the question remains the semantic
+        # authority).
         at = getattr(self.ctx, "plan_answer_type", "")
         if at and "answer" in hint:
-            hint += (f" ANSWER-TYPE CONTRACT: {at} — the final answer entities must be "
-                     f"of this type (the question asks for a {at}).")
+            hint += (f" PLANNED ANSWER TYPE: {at} — use it as a consistency "
+                     f"check when judging bindings; the original question "
+                     f"remains the semantic authority (the plan's type is a "
+                     f"hint, not a filter).")
         return hint
 
 
@@ -1251,38 +1323,24 @@ class SeqReactCase:
             # reset conversation → [system, question+anchors]
             self.messages = self.messages[:2]
             self.state = SeqAgentState()
-            # reset every accumulated case store.
-            # TYPE-DISPATCHED reset (user audit 2026-09-19, 1379-s1 crash
-            # family): walk_seen_entities/walk_extra are LIST-typed ctx
-            # fields (seq_tools.py:4942/5178 init them as []) — resetting
-            # them to {} made the first post-restart retrieve_subgraph
-            # crash at the ledger append (seq_tools.py:4950) and persist.
-            for f in ("var_bindings", "declared_facts", "fact_bindings",
-                      "fact_vars", "var_joins", "closed_facts",
-                      "fact_evidence", "fact_evidence_seq"):
-                if hasattr(self.ctx, f):
-                    setattr(self.ctx, f, {})
-            for f in ("walk_seen_entities", "walk_extra"):
-                if hasattr(self.ctx, f):
-                    setattr(self.ctx, f, [])
-            if hasattr(self.ctx, "accumulated_triples"):
-                self.ctx.accumulated_triples = set()
-            for f in ("cvt_binding_flag", "cvt_empty_var", "join_flag",
-                      "halluc_binding_flag", "frozen_binding_flag"):
-                if hasattr(self.ctx, f):
-                    setattr(self.ctx, f, None)
-            if hasattr(self.ctx, "plan_answer_type"):
-                self.ctx.plan_answer_type = ""
-            if hasattr(self.ctx, "plan_declared"):
-                self.ctx.plan_declared = False
-            # two-stage flags reset (COMMIT-WIDENING): the fresh attempt re-enters
-            # retrieval — a stale ledger/analysis gate would dead-end it.
-            self.ctx._ledger_injected = False
-            self.ctx._analysis_pending = False
-            self.ctx._analysis_done = False
+            # full episode-local reset (Wave-1): every ctx store with episode
+            # lifetime resets in ONE place — the old hand list silently missed
+            # later-added stores (territory masks, idempotence cache, anchor
+            # bookkeeping, similarity streaks), so attempt-2 retrieved against
+            # attempt-1's frozen world. subgraph_entities is RESEEDED from the
+            # question entities there, mirroring prelink's seeding.
+            reset_seq_episode_state(self.ctx)
             self._empty_answer_retried = False
             self._tool_repeat = 0
             self._last_tool_sig = None
+            # POST-RESTART PLAN LATCH (Wave-1, 1812 specimen): the restart
+            # lesson demands a DIFFERENT plan, but the phase gate rejects any
+            # `plan` call once the machine has left INIT — a first attempt-2
+            # plan that parses yet proves unusable dead-ends the re-plan. The
+            # latch makes the FIRST tool call of the fresh attempt legal as
+            # `plan` regardless of residual phase; cleared after the first
+            # ACCEPTED plan (see the seq_validate site in _parse_prepare).
+            self._post_restart_plan_ok = True
             _lesson = (f"RESTART (the only one): your first attempt's verdict was "
                        f"NONE — nothing retrieved related to the answer"
                        + (f" ({diag})" if diag else "") + ".")
@@ -1297,11 +1355,18 @@ class SeqReactCase:
                                         f"⌗ RESTART on none-verdict: {_lesson[:200]}"})
             return {"ret": "continue"}
         # PLAN EXTEND (V2.1, append-only): `[PLAN EXTEND]` + `covers: R2` +
-        # sgN.anchor/sgN.fM lines APPEND facts covering an UNPLANNED contract
-        # requirement. Validation: the requirement exists in the original
-        # contract and no current fact covers it; the anchor is a question
-        # entity or a bound variable. Successful earlier facts are never
-        # rewritten — extension is the ONLY topology change after freeze.
+        # sgN.anchor/sgN.fM lines APPEND facts covering a contract requirement.
+        # TWO legal reasons (Wave-1, 2026-09-20): (1) COVER_MISSING — the
+        # requirement exists in the original contract and no current fact
+        # covers it; (2) ADD_ANCHOR_VIEW — the requirement IS covered, but
+        # every new subgraph is anchored on a plan-declared entity that
+        # anchors NO covering fact for it: an independent evidence view on a
+        # DIFFERENT question entity (multi-entity questions whose second
+        # entity constrains the same requirement — previously rejected as
+        # "already covered", forcing the model into relation repair on the
+        # wrong side). The anchor must be a question entity or a bound
+        # variable. Successful earlier facts are never rewritten — extension
+        # is the ONLY topology change after freeze.
         _ext = re.search(r"\[PLAN EXTEND\]\s*\n(.*)", raw_response, re.S)
         if _ext:
             ext_body = _ext.group(1)
@@ -1311,13 +1376,31 @@ class SeqReactCase:
             _cov = getattr(self.state, "fact_covers", None) or {}
             _ents = set(self.state.entities or []) | set(
                 v for v in (getattr(self.ctx, "var_bindings", None) or {}))
+            _planned = {str(e).strip() for e in (self.state.entities or [])}
             new_sgs = re.findall(
                 r"(sg\d+)\.anchor:\s*(.+?)\n\1\.(f\d+):\s*(.+?)\n", ext_body)
             anchored_ok = all(a.strip() in _ents or a.strip().startswith("?")
                               for _, a, _, _ in new_sgs)
-            legal = (rid and rid in _reqs
-                     and rid not in (_cov.values() if _cov else ())
-                     and new_sgs and anchored_ok)
+            # entities already anchoring a covering fact for THIS rid: the
+            # declared anchor of every subgraph holding one (chains[i]
+            # parallels sg_facts insertion order at parse time), plus any
+            # covering fact's own entity head token
+            _cov_fids = {f for f, r in (_cov or {}).items() if r == rid}
+            _chains = list(getattr(self.state, "chains", None) or [])
+            _edges = getattr(self.state, "fact_edges", None) or {}
+            _serving = {str((_edges.get(f) or ("", ""))[0]).strip()
+                        for f in _cov_fids}
+            for _i, (_sg, _fids) in enumerate(
+                    (getattr(self.state, "sg_facts", None) or {}).items()):
+                if any(f in _cov_fids for f in _fids) and _i < len(_chains):
+                    _serving.add(str(_chains[_i].get("anchor") or "").strip())
+            _serving.discard("")
+            add_view_ok = bool(new_sgs) and all(
+                a.strip() in _planned and a.strip() not in _serving
+                for _, a, _, _ in new_sgs)
+            legal = (rid and rid in _reqs and new_sgs and anchored_ok
+                     and (rid not in (_cov.values() if _cov else ())
+                          or add_view_ok))
             if legal:
                 _new_tails = []
                 for sg_id, anchor, fnum, fact_line in new_sgs:
@@ -1362,17 +1445,24 @@ class SeqReactCase:
                 _covd = [f"{f}→{rv}" for f, rv in (_cov or {}).items()]
                 why = (f"requirement {rid} not in the original contract"
                        if rid and rid not in _reqs else
-                       f"requirement {rid} is ALREADY covered (facts: {_covd}) — "
-                       "extend only UNPLANNED requirements; if the evidence is "
-                       "insufficient, repair RELATIONS on the covering fact instead"
+                       (f"requirement {rid} is already covered (facts: {_covd}) "
+                        f"and the new subgraph is not an independent view — its "
+                        f"anchor must be a plan-declared entity that anchors NO "
+                        f"covering fact for {rid} (anchors already serving it: "
+                        f"{sorted(_serving) or 'none'})")
                        if rid in (_cov.values() if _cov else ()) else
                        "no valid sgN.anchor/sgN.fM block, or anchor is not a "
                        "question entity / bound variable")
                 self.messages.append({"role": "user", "content":
-                    f"REJECTED PLAN EXTEND: {why}. Extension must cover an "
-                    "UNPLANNED original requirement from a legal anchor."})
+                    f"REJECTED PLAN EXTEND: {why}. Extension is legal for one "
+                    "of two reasons: (1) COVER_MISSING — the requirement is in "
+                    "the contract but no current fact covers it; (2) "
+                    "ADD_ANCHOR_VIEW — it is covered, but the new subgraph is "
+                    "anchored on a DIFFERENT plan-declared entity, an "
+                    "independent evidence view on another question entity. "
+                    "Otherwise repair RELATIONS on the covering fact instead."})
                 self.ctx.trajectory.append({"role": "tool", "content":
-                    "REJECTED PLAN EXTEND: " + why})
+                                            "REJECTED PLAN EXTEND: " + why})
 
         # merge any checkpoint variable-bindings the model just declared, so the
         # dispatch below (and later turns) can expand `?var` in tool `entities`.
@@ -1522,20 +1612,39 @@ class SeqReactCase:
                 self.ctx.trajectory.append({"role": "tool", "content": "ANSWER_READY signal"})
                 self._last_tool_sig = None; self._tool_repeat = 0
                 return {"ret": "continue"}
-            elif re.search(r"\[[^\]]*[✓✗]\]", raw_response):
+            elif re.search(r"\[[^\]]*[✓✗][^\]]*\]", raw_response):
                 # checkpoint-only turn: the declarations were already merged by
                 # _update_var_operations above — acknowledge, don't scold.
-                # Var binding status rides along (ladder pack ②, 2026-08-24):
-                # information, never enforcement — vars link facts, binding
-                # is not forced.
+                # Wave-1: the old trigger `\[[^\]]*[✓✗]\]` matched only
+                # "[fid ✓]"-shaped brackets (marker flush with `]`) — ✗
+                # CLOSURE turns ("[f1 ✗ empty]") fell through to the generic
+                # "No `tool:` call found" scold; any bracket carrying ✓/✗ is a
+                # checkpoint turn. Var binding status rides along (ladder
+                # pack ②, 2026-08-24): information, never enforcement — vars
+                # link facts, binding is not forced.
                 _fbv = getattr(self.ctx, "fact_bindings", None) or {}
                 _fvv = getattr(self.ctx, "fact_vars", None) or {}
                 _vstat = "; ".join(
                     f"{_v}=bound({len(_fbv[_f])})" if _fbv.get(_f)
                     else f"{_v}=unbound"
                     for _f, _v in list(_fvv.items())[:8])
+                # UNKNOWN CLOSURE GUARD (Wave-1): a ✗ bracket outside the
+                # closure grammar (`[f2 ✗ unresolved-after-repair]` & friends)
+                # binds nothing and closes nothing — a bare "Checkpoints
+                # recorded" ack let the model believe the fact was closed
+                # while completion accounting kept it open. Name the offending
+                # bracket and teach the enumeration instead.
+                _bad_close = [b for b in re.findall(r"\[[^\]]*✗[^\]]*\]",
+                                                    raw_response)
+                              if not _CKPT_CLOSE_RE.search(b)]
                 fmt_nudge = ("Checkpoints recorded. "
                              + (f"Subgraph vars: {_vstat}\n" if _vstat else "")
+                             + ("⚠ Unrecognized closure status NOT recorded: "
+                                + "; ".join(_bad_close[:2])
+                                + ". A ✗ closure must use one of the status "
+                                "words empty | moot | mismatch | exhausted "
+                                "(an optional `: reason` may follow), e.g. "
+                                "`[f2 ✗ empty]`.\n" if _bad_close else "")
                              + "Now emit your next tool call, "
                              "flat format (one key per line):\n"
                              "tool: retrieve_relations\ncenter: <entity or ?var>\n"
@@ -1646,14 +1755,31 @@ class SeqReactCase:
                             "all was answer-relevant, declare [explore ✗ none] "
                             "to restart the case once.")
                         return {"ret": "continue"}
+                    # answer-variable bindings ONLY (Wave-1): dumping every
+                    # fact's variable invited the model to answer with some
+                    # intermediate variable's list. Show the DECLARED answer
+                    # variable's bindings (same read the VAR-MISMATCH guard
+                    # uses); when it has none, say so and name the escape.
                     _fb = getattr(self.ctx, "fact_bindings", None) or {}
                     _fv = getattr(self.ctx, "fact_vars", None) or {}
-                    _basis = "; ".join(f"{_fv[_f]}={list(_fb[_f])[:4]}"
-                                       for _f in _fb if _f in _fv and _fb[_f])
+                    _av = [str(v) for v in
+                           (getattr(self.state, "answer_var", None) or [])]
+                    _basis = "; ".join(
+                        f"{_fv[_f]}={list(_fb[_f])[:4]}"
+                        for _f in _fb if _f in _fv and _fb[_f]
+                        and str(_fv[_f]) in _av)
                     self.ctx._analysis_pending = False
-                    self._emit_tool_note(
-                        "Second refusal — answer from current support NOW "
-                        f"(bindings so far: {_basis or 'none'}).")
+                    if _basis:
+                        self._emit_tool_note(
+                            "Second refusal — answer from current support NOW "
+                            f"(bindings so far: {_basis}).")
+                    else:
+                        self._emit_tool_note(
+                            "Second refusal — answer from current support NOW "
+                            f"(no bindings yet for the declared answer variable "
+                            f"{' / '.join(_av) or 'unset'} — submit the best "
+                            "graph-supported bindings from the evidence, or "
+                            "declare [explore ✗ none] to use the one restart).")
                     return {"ret": "continue"}
             elif (isinstance(_ne, list) and _ne
                     and not getattr(self.ctx, "_varmismatch_retried", False)):
@@ -1706,7 +1832,12 @@ class SeqReactCase:
         if (tool_name == "answer" and _ans_entities
                 and getattr(self.ctx, "_analysis_pending", False)):
             self.ctx._analysis_pending = False
-            if re.search(r"ANSWER_ANALYSIS[\s\S]{0,600}BASE_CANDIDATES", raw_response):
+            # leading field is prompt-version aware (Wave-1 vocabulary sync):
+            # V22/V23 emit BASE_BINDINGS first — a hardcoded BASE_CANDIDATES
+            # probe never matched, so a compliant inline analysis was bounced
+            # into a redundant re-analysis turn
+            if re.search(rf"ANSWER_ANALYSIS[\s\S]{{0,600}}"
+                         + _answer_analysis_vocab()[1], raw_response):
                 # inline analysis satisfies the gate (baseline rule, 103/103
                 # passed): the model answered WITH its analysis block —
                 # accept it; re-analysis is where correct answers degrade
@@ -1715,8 +1846,9 @@ class SeqReactCase:
             else:
                 self.messages.append({"role": "user", "content":
                     "STAGE GATE: evidence is committed but not yet analyzed. "
-                    "Emit ANSWER_ANALYSIS now (BASE_CANDIDATES / REQUIREMENT_"
-                    "CHECK / COUNT_CONTRACT / PROVISIONAL_FINAL) — no answer call. "
+                    "Emit ANSWER_ANALYSIS now "
+                    + _answer_analysis_vocab()[0]
+                    + " — no answer call. "
                     "COUNT CONTRACT: CASE A = all fully-supported; CASE B = single "
                     "best-supported. The next turn will be ANSWER_READY."})
                 self.ctx.trajectory.append({"role": "tool", "content":
@@ -1753,6 +1885,18 @@ class SeqReactCase:
             # deferred: the gate's join search is GTE-ranked (async) — the
             # caller runs it BEFORE anything else; state never transitions
             return {"ret": "continue", "_gate_deferred": (tool_name, parsed_args)}
+        # POST-RESTART PLAN LATCH (Wave-1, 1812 specimen family): while the
+        # latch is live (set by the restart block), the fresh attempt's FIRST
+        # tool call may be `plan` regardless of residual phase — validate's
+        # RETRIEVE branch would otherwise kill it as "Wrong tool in the
+        # retrieve phase". Roll the machine (and the tool layer's
+        # immutability flag) back so both gates accept the re-plan; the latch
+        # clears right after the first ACCEPTED plan below.
+        if (getattr(self, "_post_restart_plan_ok", False)
+                and tool_name in ("plan", "decompose")
+                and self.state.state != "INIT"):
+            self.state = SeqAgentState()
+            self.ctx.plan_declared = False
         ok, err, new_state = seq_validate(
             self.state, _to_tool_calls(tool_name, parsed_args),
             ready=_ready, missing_facts=_missing)
@@ -1761,23 +1905,42 @@ class SeqReactCase:
             self.ctx.trajectory.append({"role": "tool", "content": f"REJECTED: {err}"})
             return {"ret": "continue"}
         self.state = new_state
+        if tool_name in ("plan", "decompose"):
+            self._post_restart_plan_ok = False
 
         # PURITY-LOOP DETECTOR (user ruling, 2026-08-22): the repeat-gate
         # only catches EXACT repeats — the purity pattern is SAME fact/center
         # queried with DIFFERENT wordings (Brad Stevens tenure: 4 rephrasings
-        # × 10 wasted turns). Track per-center question similarity; ≥3
-        # similar-intent queries → FORCED Stop-Rule reminder; ≥5 → the
-        # harness closes the fact itself (unresolved-after-repair).
+        # × 10 wasted turns). Track per-(center, fact) question similarity;
+        # ≥3 similar-intent queries → FORCED Stop-Rule reminder; ≥4 → the
+        # harness closes the fact itself (Wave-1 corrections: the key adds the
+        # FACT so two legal facts sharing a center no longer pool their
+        # queries; an evidence delta between similar queries resets the streak
+        # — a retrieval that ADVANCED the walk is progress, not purity; the
+        # closure fires at 4, matching the message).
         if tool_name == "retrieve_relations":
             from kgqa.core.utils import normalize as _qn
-            _key = _qn(str((parsed_args.get("center") or [""])[0]))[:60]
+            # fid first (Wave-1): the closure branch infers it AFTER counting
+            # — the streak key needs it BEFORE, or queries on two facts that
+            # share a center pool into one streak and close the wrong fact.
+            # Same inference as the closure below: explicit sg arg, else the
+            # newest fact never retrieved. "-" when nothing is inferable.
+            _fid = str(parsed_args.get("sg") or "") or next(
+                (f for f in reversed(self.state.fact_ids)
+                 if f not in self.state.retrieved_fids), "") or "-"
+            _key = (_qn(str((parsed_args.get("center") or [""])[0]))[:60], _fid)
             _qq = _qn(str(parsed_args.get("question") or ""))
             _hist = getattr(self.ctx, "_qsim_hist", None)
             if _hist is None:
                 _hist = {}; self.ctx._qsim_hist = _hist
+            # evidence snapshot at query time (Wave-1): triples + entity set
+            # the walk has banked — the delta between similar queries tells
+            # progress from purity
+            _snap = (len(getattr(self.ctx, "accumulated_triples", None) or ())
+                     + len(getattr(self.ctx, "subgraph_entities", None) or ()))
             _tok = frozenset(w for w in _qq.split() if len(w) >= 3)
             _sims = []
-            for q, t in _hist.get(_key, []):
+            for q, t, _ in _hist.get(_key, []):
                 if not _tok or not t:
                     continue
                 inter = len(_tok & t)
@@ -1787,10 +1950,18 @@ class SeqReactCase:
                 cont = inter / min(len(_tok), len(t))   # paraphrases keep
                 if jac >= 0.45 or cont >= 0.6:          # content words but
                     _sims.append(q)                     # swap wh/verbs
-            _hist.setdefault(_key, []).append((_qq, _tok))
-            # streak: consecutive queries on this center similar to a prior one
+            _prev = _hist.setdefault(_key, [])          # [] on a fresh key
+            _prev_snap = _prev[-1][2] if _prev else None
+            _prev.append((_qq, _tok, _snap))
+            # streak: consecutive similar queries on this (center, fact) —
+            # RESET (not count) when the walk banked evidence since the
+            # previous similar query: the re-wording retrieved something new,
+            # which is the opposite of the purity pattern
             _st = getattr(self.ctx, "_qsim_streak", None) or {}
-            _n = (_st.get(_key, 0) + 1) if _sims else 1
+            if _sims and _prev_snap is not None and _snap > _prev_snap:
+                _n = 0
+            else:
+                _n = (_st.get(_key, 0) + 1) if _sims else 1
             _st[_key] = _n
             self.ctx._qsim_streak = _st
             if _n == 3:
@@ -1800,19 +1971,19 @@ class SeqReactCase:
                     "purity pattern — apply the Stop Rule: continue ONLY if the "
                     "missing evidence could change WHICH NAMED ENTITY you "
                     "return. Otherwise close the fact "
-                    "`[fid ✗ unresolved-after-repair]` NOW and move on."})
+                    "`[fid ✗ mismatch]` NOW and move on."})
                 self.ctx.trajectory.append({"role": "tool", "content":
                     "⚠ purity-loop reminder (3rd similar query)"})
             elif _n >= 4:
-                _fid = str(parsed_args.get("sg") or "") or next(
-                    (f for f in reversed(self.state.fact_ids)
-                     if f not in self.state.retrieved_fids), "")
                 cf = getattr(self.ctx, "closed_facts", None)
-                if cf is not None and _fid:
+                if cf is not None and _fid != "-":
+                    # internal value kept verbatim (harness-side closure
+                    # marker); the DISPLAYED status is mismatch — the only
+                    # ✗ vocabulary the closure grammar recognizes (Wave-1)
                     cf[_fid] = "unresolved-after-repair"
                 self.messages.append({"role": "user", "content":
-                    f"⌗ HARNESS CLOSURE: [{_fid} ✗ unresolved-after-repair] — "
-                    "5 similar queries on the same center returned nothing new. "
+                    f"⌗ HARNESS CLOSURE: [{_fid} ✗ mismatch] — "
+                    "4 similar queries on the same center returned nothing new. "
                     "The fact is closed by the system. Move to the next open "
                     "fact or answer from the evidence you hold."})
                 self.ctx.trajectory.append({"role": "tool", "content":

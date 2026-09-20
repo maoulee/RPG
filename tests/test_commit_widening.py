@@ -372,7 +372,11 @@ def test_purity_detector_reachable(monkeypatch):
     for q in qs:
         out = turn(rc, f"tool: retrieve_relations\ncenter: OrgAlpha\nquestion: {q}")
         assert out == "continue"
-    assert len(getattr(rc.ctx, "_qsim_hist", {}).get("orgalpha", [])) == 3
+    # purity key is (center, fact_id) since the Wave-1 env fix — a bare
+    # center key pooled similar queries for DIFFERENT facts on one entity
+    hist = getattr(rc.ctx, "_qsim_hist", {})
+    org_counts = [len(l) for k, l in hist.items() if k[0] == "orgalpha"]
+    assert sum(org_counts) == 3
     assert any("3rd similarly-worded query" in (m.get("content") or "")
                for m in rc.messages)
 

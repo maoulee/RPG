@@ -2867,6 +2867,8 @@ def _do_seq_decompose(args: Dict[str, Any], ctx, session=None) -> str:
     # so the fact that filters on it discriminates nothing (single-candidate
     # binding + empty filter → satisficed wrong answer). One short nudge at
     # plan time (Arizona gate lesson: keep nudge text minimal).
+    # Wave-1: nudge text aligned with the dual PLAN EXTEND gate — extending is
+    # legal either to COVER_MISSING or to ADD_ANCHOR_VIEW, not only to cover.
     anchored = set()
     for fid in ctx.fact_ids:
         head = (ctx.fact_texts.get(fid, "").strip("()")
@@ -2891,8 +2893,12 @@ def _do_seq_decompose(args: Dict[str, Any], ctx, session=None) -> str:
                " | ".join(f"'{u}'" for u in unused[:3]) +
                " never anchors a fact — it can only filter. When its own "
                "roster/membership is the candidate pool, anchor a fact ON it "
-               "([PLAN EXTEND], covers the same requirement) and intersect; "
-               "anchored retrieval discriminates better than tail-filtering.")
+               "([PLAN EXTEND]) and intersect; anchored retrieval "
+               "discriminates better than tail-filtering. [PLAN EXTEND] is "
+               "legal for either reason: COVER_MISSING (the requirement is "
+               "not yet covered) or ADD_ANCHOR_VIEW (a second anchored "
+               "evidence view on a DIFFERENT declared question entity — "
+               "legal even when the requirement is already covered).")
     result = {
         "flow": flow, "entities": entities, "answer": args.get("answer", ""),
         "answer_type": str(args.get("answer_type", "") or "").strip(),
@@ -2909,11 +2915,12 @@ def _do_seq_decompose(args: Dict[str, Any], ctx, session=None) -> str:
                       "resolve it `[fid ✓] ?var = [v1 | v2, ...]`; close it EMPTY "
                       "`[fid ✗ empty]` when no candidate relation advances it; close it "
                       "MOOT `[fid ✗ moot]` when earlier evidence already bound its target. "
-                      "MULTI-TREE (question names SEVERAL entities): each declared "
-                      "entity anchors its OWN subgraph tree — walk them separately and "
-                      "let the system JOIN them (an entity reachable from both sides "
-                      "intersects the candidate sets); do NOT fold later requirements "
-                      "into one tree as filter layers. For later facts continuing the "
+                      "MULTI-TREE (question names SEVERAL entities): prefer a "
+                      "separate anchor view per entity when the entities provide "
+                      "independent constraints, and let the system JOIN them (an "
+                      "entity reachable from both sides intersects the candidate "
+                      "sets); an entity that adds no independent constraint does "
+                      "not need its own tree. For later facts continuing the "
                       "SAME tree, just pass the ANCHOR or any retrieved entity + the "
                       "new relation — the system walks the full chain from the root "
                       "automatically. Fact-1 center = the literal named anchor. "
@@ -5213,14 +5220,21 @@ def _sg_finalize(treq, bres, ctx) -> str:
         all_triples, candidates, bres = _display_license_filter(
             treq, bres, centers, all_triples, candidates)
     if not all_triples:
-        _err = {"error": "the walk reached nothing for these relations. "
-                "diagnosis: RELATION_MISMATCH — the fact is right but "
-                "these relations do not instantiate it in this graph. "
-                "Re-call retrieve_subgraph with OTHER candidate relations "
-                "you were shown; if none fits, re-call retrieve_relations "
-                "with a REWORDED question (same wording = same list). "
-                "Or, if only the center was wrong, borrow a center from "
-                "earlier evidence.",
+        # WALK-NOTHING (Wave-1): observation only — the old text asserted
+        # "the fact is right" (a verdict an empty walk cannot support) and
+        # jumped straight to relation substitution. Layered diagnosis,
+        # cheapest layer first: unused sibling relations → one reworded
+        # retrieve_relations → borrow a center from earlier evidence →
+        # close the fact as mismatched and continue.
+        _err = {"error": "NO_EVIDENCE: this center + relation selection "
+                "produced no advancing evidence. Diagnosis, cheapest layer "
+                "first: (1) unused sibling relations from your last "
+                "retrieve_relations output? retrieve_subgraph with those. "
+                "(2) else re-call retrieve_relations once with the same "
+                "question reworded. (3) else if only the center was wrong, "
+                "borrow a center from earlier evidence. (4) else the planned "
+                "fact itself may be off-target — close it as "
+                "[fid ✗ mismatch] and continue.",
                 "entities": entities, "relations": rel_names}
         if treq.get("attr_expansion"):
             _err["relation_expansion"] = treq["attr_expansion"]

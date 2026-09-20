@@ -2084,27 +2084,46 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
     entities = [e for e in entities if e]
     # MID-format entities can never be correct (gold is always display names);
     # evidence trees sometimes display raw mids (m.0h2z5vr) which the offpool
-    # check would otherwise pass — strip them outright.
+    # check would otherwise pass — strip them outright. ALIAS FORM (Wave-1,
+    # V2.2 specimen: the recorded final answer "m.0cr70y2 (Freemasonry)") —
+    # an event node written as '<mid> (<name>)' slipped the bare-mid strip,
+    # so a mid followed by an optional parenthetical/whitespace tail is
+    # stripped too: an event node is never a legal answer in any written form.
     import re as _re_mid
     _pre_mid_strip = entities
     entities = [e for e in entities
-                if not _re_mid.fullmatch(r"[mg]\.[0-9a-z_]{2,}", e.strip().lower())]
+                if not _re_mid.fullmatch(
+                    r"[mg]\.[0-9a-z_]{2,}(?:\s*\([^)]*\))?\s*",
+                    e.strip().lower())]
     # SYSTEM-LEVEL REJECTION (2026-08-21, Lauren/Kim specimens): a submission
     # consisting ENTIRELY of event-node mids was silently stripped to empty and
     # ACCEPTED as an empty answer — measured 34% of all empty answers. Reject
     # ONCE with the fix instruction (same one-shot semantics as the offpool
     # check); the retry with named attribute values passes normally.
-    if _pre_mid_strip and not entities and not getattr(ctx, "_answer_cvt_retried", False):
-        ctx._answer_cvt_retried = True
-        return _json_result({
-            "error": ("answer entities were ALL event nodes (m./g. ids). An event "
-                      "node is an abstract RECORD — it names no thing, so accepting "
-                      "it would score an EMPTY answer (see §7.5). The entities "
-                      "INSIDE each event's bracket are the world: re-call `answer` "
-                      "binding, per variable, the attribute entity whose KEY answers "
-                      "the question (award question → the award= value; residence → "
-                      "location=; who played → actor=; which film → film=)."),
-        })
+    # NO BYPASS (Wave-1): the retry flag used to gate the whole check, letting
+    # a SECOND all-event-node submission fall through and be recorded — that
+    # is how the alias-form specimen above reached llm_answer_preds. Hard
+    # invariant: answer ⊆ retrieved evidence, and an event node is never
+    # evidence. After the one corrective error, a further all-event-node
+    # submission falls through with only what survived the strip (possibly []).
+    if _pre_mid_strip and not entities:
+        if not getattr(ctx, "_answer_cvt_retried", False):
+            ctx._answer_cvt_retried = True
+            return _json_result({
+                "error": ("answer entities were ALL event nodes (m./g. ids — "
+                          "an id with a parenthetical name, e.g. "
+                          "'m.0cr70y2 (Freemasonry)', is still the event "
+                          "node: submit the named attribute itself). An event "
+                          "node is an abstract RECORD — it names no thing, so accepting "
+                          "it would score an EMPTY answer (see §7.5). The entities "
+                          "INSIDE each event's bracket are the world: re-call `answer` "
+                          "binding, per variable, the attribute entity whose KEY answers "
+                          "the question (award question → the award= value; residence → "
+                          "location=; who played → actor=; which film → film=)."),
+            })
+        # corrective error already spent and STILL all event nodes: accept the
+        # sanitized (possibly empty) list — event-node strings are never
+        # recorded as the answer.
     # branch-ref expansion must precede the offpool check: expanded entities are
     # graph-derived (always on-pool), the raw '#center|relation' string is not.
     entities = _expand_branch_refs(ctx, entities)
@@ -2113,9 +2132,14 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
     # Off-pool check: answer entities should come from the retrieved evidence.
     # If the model emits an entity NOT in the candidate pool, flag it ONCE (it
     # may be hallucinating or answering before expanding) and reject with the
-    # pool so it re-answers from evidence. A second attempt is accepted (the
-    # terminal answer is never blocked forever). candidate_hit (normalized
-    # substring + fuzzy) lets legitimate name variants pass.
+    # pool so it re-answers from evidence. NO BYPASS (Wave-1): the retry flag
+    # used to gate the whole check, letting a SECOND off-pool submission fall
+    # through and be recorded verbatim. Hard invariant: answer ⊆ retrieved
+    # evidence — a LATER off-pool submission is sanitized to its pool-hit
+    # entities (possibly []) and accepted; the terminal answer is never
+    # blocked forever, but off-pool entities are never recorded as it.
+    # candidate_hit (normalized substring + fuzzy) lets legitimate name
+    # variants pass.
     # LEGAL-ENTITY BASIS (user ruling 2026-09-08): the answer must be an
     # entity that APPEARED in the walk — not necessarily one the DISPLAY
     # showed. The license filter keeps out-of-license edges out of the
@@ -2126,18 +2150,22 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
     pool = list(getattr(ctx, "all_candidates", []) or [])
     pool += [e for e in (getattr(ctx, "walk_seen_entities", []) or [])
              if e not in pool]
-    if entities and pool and not getattr(ctx, "_answer_offpool_retried", False):
+    if entities and pool:
         offpool = [e for e in entities if not candidate_hit(pool, [e])]
         if offpool:
-            ctx._answer_offpool_retried = True
-            return _json_result({
-                "error": (f"answer entities NOT in the retrieved evidence: {offpool}. "
-                          "Only answer with entities present in the expanded branches / "
-                          "candidate pool. Expand the relevant branches first, then "
-                          "re-call `answer` with entities from the evidence."),
-                "offpool": offpool,
-                "candidate_pool": pool[:30],
-            })
+            if not getattr(ctx, "_answer_offpool_retried", False):
+                ctx._answer_offpool_retried = True
+                return _json_result({
+                    "error": (f"answer entities NOT in the retrieved evidence: {offpool}. "
+                              "Only answer with entities present in the expanded branches / "
+                              "candidate pool. Expand the relevant branches first, then "
+                              "re-call `answer` with entities from the evidence."),
+                    "offpool": offpool,
+                    "candidate_pool": pool[:30],
+                })
+            # corrective error already spent and STILL off-pool: sanitize —
+            # keep only the pool-hit entities (possibly []) and accept those.
+            entities = [e for e in entities if e not in offpool]
 
     ctx.llm_answer_preds = entities
     ctx.llm_answer_str = " | ".join(entities)
