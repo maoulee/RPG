@@ -1,5 +1,25 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 Codex 环境审计逐条验证(3×Explore):16 主张 15 确认 1 部分,4 处更糟
+- 验证报告 **specs/env_audit_verify_2026-09-20.md**(file:line+摘录)。
+  要点:#1 PLAN EXTEND nudge 叫模型做的 gate 结构性拒绝(自败);#2 restart
+  16 字段未清+池子跨轮增长;#3 _sg_served 只存 True+组合#2=证据没了还叫
+  模型用;**#4 更糟:未识别 closure 被静默 ack"Checkpoints recorded"+纯度环
+  教模型写 regex 解析不了的 unresolved-after-repair**;#5 部分(一次性
+  拦截+可 unchanged 重过,非强制);#6 join path BFS+GTE 注入;#7 pre-plan
+  每 q_entity 注入 top-3 ranked relations(1379 漂移同族);#9 q_entity=
+  数据集元数据,turn-0 即合法 center;**#10 更强:ANSWER-TYPE CONTRACT 从
+  all-retrieved 起每轮注入**;#11 二拒全量枚举(answer_var 过滤器就在旁边
+  没用);#12 越池二次直接接受(刻意);#13 无新证据 subset 覆写 ledger
+  (有幻觉过滤减轻);#14 join 双向不 enforce(非空分支字面 pass);#15 纯度环
+  off-by-one(>=4 关闭说"5")+key 仅 center+pre-dispatch 无证据检查;
+  #16 walk-nothing 全库唯一 diagnosis 且宣称"fact is right"。
+- **统一原则(双方合流)**:程序状态可证明→hard enforce;需要语义→最多
+  提醒。执行序:P0=EXTEND 双原因/restart 全重置/closure 枚举/越池永不
+  放行/zh 去权威/pre-plan 去 relations;P1=type 降 self-check/二拒只列
+  answer-var/纯度环 fact+delta/walk-zero 分层诊断/ledger 与 selection
+  分离/join 用工具池;P2=多实体软化/join-path 拆 ablation。
+
 ### 2026-09-20 V2.3 草案(按 user 十处设计)+plan 一致性 2×2 实验:zh 挂载=plan 漂移主因实锤
 - **V2.3**(kgqa/agent/SEQ_AGENTS_V23.md,SEQ_PROMPT=V23 已支持):按 user 设计
   重构——Stage A(语义槽三判,先于 KG 表示)/Stage B(实体证据,already-
