@@ -3339,6 +3339,41 @@ def _anchor_seq_layers(ctx) -> dict:
     return st
 
 
+def _tree_positions(ctx, ix, anchor_idx, chains):
+    """Match surface of one accumulated chain tree (leaf-semantics +
+    selection-surface rulings 2026-09-20): leaves = chain terminals ∪ the
+    terminal CVT's named attribute endpoints; mid = interior chain nodes
+    (re-work points). leaf_pats/mid_pats map node → [(pattern idx tuple,
+    cut)] where pattern[:cut] is the prefix REACHING the node (cut ==
+    len(pattern) for leaves). This is the same surface the render showed
+    the model — what the model picks, the system recognizes."""
+    from kgqa.agent.tools import _full_adj
+    adj = _full_adj(ctx)
+    n = len(ctx.ents)
+    leaves, mid = set(), set()
+    leaf_pats, mid_pats = {}, {}
+    for _pat, _chs in (chains or {}).items():
+        for ch in _chs:
+            nodes = ch.get("nodes") or []
+            if not nodes or nodes[0] != anchor_idx or len(nodes) < 2:
+                continue
+            pat = tuple(_pat)
+            for j, nd in enumerate(nodes[1:-1], 1):
+                mid.add(nd)
+                mid_pats.setdefault(nd, []).append((pat, j))
+            term = nodes[-1]
+            leaves.add(term)
+            leaf_pats.setdefault(term, []).append((pat, len(pat)))
+            if 0 <= term < n and _cvt_like_name(ctx.ents[term]):
+                for _r2, w in (adj[term] if 0 <= term < len(adj) else ()):
+                    if 0 <= w < n and not _cvt_like_name(ctx.ents[w]) \
+                            and w != anchor_idx:
+                        leaves.add(w)
+                        leaf_pats.setdefault(w, []).append((pat, len(pat)))
+    return {"leaves": leaves, "mid": mid,
+            "leaf_pats": leaf_pats, "mid_pats": mid_pats}
+
+
 def _cvt_like_name(n) -> bool:
     s = str(n)
     return s[:2] in ("m.", "g.") and len(s) > 4
@@ -3838,6 +3873,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     _cont_compare = False
     _cont_frontier = {}
     _layer_action = ""
+    _tree_map = {}
     if centers and os.environ.get("SEQ_MULTISTEP", "0") == "1":
         try:
             from kgqa.traversal.pattern_walk import get_pattern_index
@@ -3887,28 +3923,41 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             _layer_ops = os.environ.get("SEQ_LAYER_OPS", "1") == "1"
             if os.environ.get("SEQ_REL_SEQ", "1") == "1" and rel_idxs:
                 _ast = _anchor_seq_layers(ctx)
+                _chains_of = getattr(ctx, "anchor_chains", None) or {}
+                # CHAIN-TREE MATCHING (leaf-semantics + selection-surface
+                # rulings 2026-09-20, E1/E2 audit): the frontier truth is
+                # the accumulated SELECTED CHAINS' leaf set — the same
+                # surface the render showed the model. The retired layer-walk
+                # completions (_seq_completions: parallel one-hop union over
+                # the layer relation set) diverged from that surface — a
+                # bridged step's terminals (Academy/Freemasonry) never
+                # entered it, centers picked from the render matched
+                # nothing, and every continuation minted a new root.
+                _tree_map = {}
                 _root_of = {}
-                _center_layer = {}  # center_idx → layer k it belongs to
+                _pos_cache = {}
                 for _cn, _ci in centers:
                     if not (0 <= _ci < len(ctx.ents)):
                         continue
                     _cands = []
                     for _a, _l in _ast.items():
                         if _a == _ci:
-                            _cands.append((True, len(_l), _a))
-                            _center_layer[_ci] = 0  # the root itself
+                            _cands.append((3, len(_l), _a))   # the root itself
                             continue
-                        _comps = _seq_completions(ctx, _ix, _a, _l)
-                        for _lk, _s in enumerate(_comps):
-                            if _ci in _s:
-                                _center_layer[_ci] = _lk
-                                _fe = (_feasible_rels_one_hop(ctx, _comps[-1])
-                                       if len(_comps) > 1 else set())
-                                _hit = any(_r in _fe for _r in rel_idxs)
-                                _cands.append((_hit, len(_l), _a))
-                                break
+                        _pos = _pos_cache.get(_a)
+                        if _pos is None:
+                            _pos = _tree_positions(
+                                ctx, _ix, _a, _chains_of.get(_a) or {})
+                            _pos_cache[_a] = _pos
+                        if _ci in _pos["leaves"]:
+                            _fe = _feasible_rels_one_hop(ctx, _pos["leaves"])
+                            _hit = any(_r in _fe for _r in rel_idxs)
+                            _cands.append((2 if _hit else 1, len(_l), _a))
+                        elif _ci in _pos["mid"]:
+                            _cands.append((0, len(_l), _a))
                     if not _cands:
                         _ast[_ci] = [frozenset(rel_idxs)]    # new root
+                        _tree_map[_ci] = ("new", _ci)
                         continue
                     _cands.sort(key=lambda x: (x[0], x[1]), reverse=True)
                     _root_of[_ci] = _cands[0][2]
@@ -3936,74 +3985,73 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                         continue
                     if not _new:
                         continue                        # pure repeat → derive path
-
-                    # UPDATE vs EXTEND (user ruling 2026-09-15): the center's
-                    # POSITION in the tree determines the intent —
-                    #   center ∈ last layer's completions = model moving
-                    #     FORWARD → EXTEND (deepest-feasible append/join)
-                    #   center ∈ earlier layer (or is the root = layer 0) =
-                    #     model re-working that step → UPDATE: REPLACE the
-                    #     relations of the layer that FOLLOWS the center's
-                    #     layer, dropping old ones not in this submission
-                    _comps = _seq_completions(ctx, _ix, _a, _layers)
-                    _cl = min((_center_layer.get(_ci, len(_comps) - 1)
-                               for _ci in _root_of if _root_of[_ci] == _a),
-                              default=len(_comps) - 1)
-                    _is_extend = (_cl >= len(_comps) - 1)
-
-                    if not _is_extend and _layer_ops:
-                        # UPDATE (user ruling 2026-09-20): the step a
-                        # submission adjusts is decided by the subgraph's
-                        # ACTUAL START ENTITY (idx-level, ?var-expanded —
-                        # never text parsing): start == the prior round's
-                        # start (the root) ⇒ this optimizes the CURRENT
-                        # step — the whole submitted set replaces that
-                        # layer's relations (a next-step relation submitted
-                        # from the root, like person.religion here, is a
-                        # layer-1 ADJUSTMENT, not a new layer). Start on the
-                        # frontier ⇒ EXTEND (branch below). Root matching is
-                        # idx-level (_a == _ci / _ci in completion sets).
-                        _target = _cl  # layer index to replace (0-based)
-                        _old_layer = set(_layers[_target]) if _target < len(_layers) else set()
-                        _repl = set(rel_idxs)
-                        _layers_up = [set(l) for l in _layers]
-                        if _target < len(_layers_up):
-                            _layers_up[_target] = _repl
-                        else:
-                            _layers_up.append(_repl)
-                        _up = [frozenset(l) for l in _layers_up]
-                        _acts = {r: ("update:%d" % (_target + 1))
-                                 for r in rel_idxs}
-                        _layer_action = "update layer %d (replaced %s)" % (
-                            _target + 1,
+                    # STEP OWNERSHIP by match position (user ruling
+                    # 2026-09-20, chain-tree): start == the root ⇒ the model
+                    # re-works the chain from its start — UPDATE, layer 1
+                    # replaced by the whole submission and the DERIVE lane
+                    # re-enumerates from the root WITH bridges (the old
+                    # layer cross-product's parallel-union feasibility
+                    # dropped every bridged chain, audit E3). Start on the
+                    # chains (leaf or mid) ⇒ EXTEND: the new relations are
+                    # the NEXT step, declared as the matched chains' prefixes
+                    # extended by each feasible new relation — relations
+                    # that fire from no picked leaf declare nothing
+                    # (through-chain pruning, free).
+                    _starts = [_ci for _ci, _ra in _root_of.items()
+                               if _ra == _a]
+                    _pos = _pos_cache.get(_a) or {}
+                    if _a in _starts and _layer_ops:
+                        _old = set(_layers[0]) if _layers else set()
+                        _ast[_a] = [frozenset(rel_idxs)]
+                        _layer_action = "update layer 1 (replaced %s)" % (
                             ", ".join(str(ctx.rels[r])[-40:]
-                                      for r in (_old_layer - _repl)) or "none")
-                    else:
-                        # EXTEND: existing deepest-feasible classification
-                        _up, _acts, _comps2 = _classify_seq_submit(
-                            ctx, _ix, _a, _layers, _new)
+                                      for r in (_old - set(rel_idxs)))
+                            or "none")
+                        _tree_map[_a] = ("update", _a)
+                    elif _layer_ops:
+                        _ext = {}
+                        for _ci2 in _starts:
+                            _hits = list((_pos.get("leaf_pats") or {})
+                                         .get(_ci2) or [])
+                            _hits += list((_pos.get("mid_pats") or {})
+                                          .get(_ci2) or [])
+                            for _pat, _cut in _hits:
+                                for _r in _new:
+                                    _f2 = _ix.fwd.get(_r, {})
+                                    _rv2 = _ix.rev.get(_r, {})
+                                    if _f2.get(_ci2) or _rv2.get(_ci2):
+                                        _np = tuple(_pat[:_cut]) + (_r,)
+                                        _ext[_np] = tuple(
+                                            frozenset([x]) for x in _np)
+                        # combinatorics bound only — the B-phase per-terminal
+                        # quota is the semantic filter
+                        if len(_ext) > 12:
+                            _ext = {k: _ext[k] for k in sorted(
+                                _ext, key=lambda p: (len(p), p))[:12]}
+                        _ast[_a] = [frozenset(x) for x in _layers] + \
+                            [frozenset(rel_idxs)]
                         _layer_action = "extend"
-                    _ast[_a] = _up
-                    # FRONTIER for the plain direct step = the PRE-update
-                    # last layer's completions (the members the new relation
-                    # applies to), never the anchor itself.
-                    if len(_comps) > 1 and _comps[-1]:
-                        _fr = sorted(_comps[-1] - {_a})[:12]
-                        if _fr:
-                            _cont_frontier[_a] = _fr
-                    _pats_d = _patterns_from_layers(
-                        ctx, _ix, _a, _up, set(rel_idxs))
-                    if _pats_d:
-                        _declared[_a] = _pats_d
-                        _short = lambda ri: ".".join(
-                            str(ctx.rels[ri]).rsplit(".", 2)[-2:]) \
-                            if 0 <= ri < len(ctx.rels) else str(ri)
-                        _parts = [str(ctx.ents[_a])]
-                        for _li, _lay in enumerate(_up):
-                            _lbl = " | ".join(_short(r) for r in sorted(_lay))
-                            _cnt = len(_comps[_li + 1]) if _li + 1 < len(_comps) else 0
-                            _parts.append(f"{_lbl} ({_cnt})")
-                        _seq_echo = " ⭢ ".join(_parts)
+                        _tree_map[_a] = ("extend", _a)
+                        if _ext:
+                            _declared[_a] = _ext
+                        # plain-direct lane targets the PICKED leaves (the
+                        # per-member compare rows), never the root
+                        _cont_frontier[_a] = sorted(set(_starts))[:12]
+                    else:
+                        continue
+                    # SEQUENCE-STATE ECHO: accumulated layers + per-step
+                    # chain counts (per-layer completions retired with the
+                    # layer walk)
+                    _chs = _chains_of.get(_a) or {}
+                    _short = lambda ri: ".".join(
+                        str(ctx.rels[ri]).rsplit(".", 2)[-2:]) \
+                        if 0 <= ri < len(ctx.rels) else str(ri)
+                    _parts = [str(ctx.ents[_a])]
+                    for _li, _lay in enumerate(_ast[_a]):
+                        _lbl = " | ".join(_short(r) for r in sorted(_lay))
+                        _cnt = sum(1 for p in _chs if len(p) == _li + 1)
+                        _parts.append(f"{_lbl} ({_cnt})")
+                    _seq_echo = " ⭢ ".join(_parts)
             # SEMANTIC IDEMPOTENCE (user ruling 2026-09-15, trajectory
             # review): the model re-called the same walk with surface-
             # different args (typed roster → ?country → short rel name →
@@ -4061,6 +4109,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             "prefix": _prefix, "var_name": _var_name, "multistep": _multistep,
             "anchor_seq": _seq_echo, "cont_compare": _cont_compare,
             "cont_frontier": _cont_frontier, "layer_action": _layer_action,
+            "tree_map": _tree_map,
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
@@ -4093,6 +4142,7 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
 
     # local adjacency (center's 1-hop only, with CVT transparency)
     hop1 = defaultdict(set)          # rel_idx -> {named entity idxs reached}
+    hop1_cvt = defaultdict(set)      # rel_idx -> {cvt entity idxs landed on}
     # CVT transparency: a CVT 1-hop neighbor contributes ALL its named
     # neighbors (any relation, both directions — a performance CVT's actor
     # edge points BACK to the person while its film edge points forward,
@@ -4116,6 +4166,11 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
         for r, t2 in _adj_all[ci]:
             if 0 <= t2 < n and _icl(str(ctx.ents[t2])):
                 hop1[r].update(x for x in _behind(t2) if x != ci)
+                # the CVT landing itself (audit E4, supernode own-relations):
+                # the pattern's SECOND hop may hang on this CVT (m.04kp4ft
+                # carries employment_tenure.company itself) — folding to
+                # named endpoints dropped exactly those chains
+                hop1_cvt[r].add(t2)
             elif 0 <= t2 < n:
                 hop1[r].add(t2)
     if not hop1:
@@ -4155,6 +4210,16 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
 
     # depth 2: (r1, fam)
     for r1, reach in hop1.items():
+        # supernode own-relations (audit E4): fam's edges hanging on the
+        # CVT r1 LANDS ON — (employer.employees, employment_tenure.company)
+        # from the org side; the named-endpoint check below can never see
+        # these (the company edge is the CVT's, not any named node's)
+        for f in fams:
+            if f == r1:
+                continue
+            if any(cv in ix.fwd.get(f, {}) or cv in ix.rev.get(f, {})
+                   for cv in (hop1_cvt.get(r1) or ())):
+                patterns.add((r1, f))
         for node in reach:
             if not (0 <= node < n) or node == ci:
                 continue
@@ -4243,13 +4308,26 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
                         # the user ruling puts CVT expansion at render)
                         if v not in parents:
                             parents[v] = (u, r, False)
+                        # the CVT ALSO remains a walkable position — its OWN
+                        # relations are legitimate next-hop edges ((employees,
+                        # company)-type supernode chains, audit E4: the
+                        # second hop hangs on the CVT itself, not on a named
+                        # endpoint)
+                        nxt.add(v)
+                        found = True
                         for r2, w in adj_all[v]:
                             if 0 <= w < n and not _cvt_like_name(ctx.ents[w]) \
                                     and w not in parents and w != start_idx:
                                 parents[w] = (v, r2, True)
                                 nxt.add(w)
                                 found = True
-                    elif v not in parents:
+                    elif v not in parents or parents[v][2]:
+                        # a REAL pattern edge takes precedence over an
+                        # earlier passthrough parent: passthrough keeps the
+                        # node in the level as a walkable position (roster
+                        # hops start at the CVT's named endpoints), but when
+                        # the pattern's own relation lands here the chain
+                        # must backtrack through THAT edge
                         parents[v] = (u, r, False)
                         nxt.add(v)
                         found = True
@@ -4264,13 +4342,17 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
     for end in sorted(level)[:budget]:
         nodes, rev_edges = [end], []
         node = end
+        _seen = {end}
         while node != start_idx:
             _par = parents.get(node)
             if _par is None:
                 break                    # orphan (budget-severed) — drop
             prev, rel, _ps = _par
+            if prev in _seen or len(_seen) > 64:
+                break                    # parent cycle / runaway depth — drop
             rev_edges.append((prev, rel, node, _ps))
             nodes.append(prev)
+            _seen.add(prev)
             node = prev
         if node != start_idx:
             continue
@@ -4311,6 +4393,16 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
     _shown_triples = {(str(h), str(r), str(t))
                       for (h, r, t) in (getattr(ctx, "accumulated_triples",
                                                 None) or set())}
+    # CHAIN-STORE ACCUMULATION (chain-tree ruling 2026-09-20): raw (pre-
+    # delta-filter) chains persist per tree anchor — ctx.anchor_chains is
+    # the tree's match surface for later calls (_tree_positions). New-root
+    # and update calls REPLACE the tree's chains (whole-chain re-open);
+    # extend merges (prefix chains of earlier steps stay matchable).
+    _tmap = treq.get("tree_map") or {}
+    _chain_store = getattr(ctx, "anchor_chains", None)
+    if _chain_store is None:
+        _chain_store = {}
+        ctx.anchor_chains = _chain_store
     confirmed = {}
     out = []
     for (_cn, _ci) in treq["centers"]:
@@ -4318,6 +4410,9 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
         if not (0 <= _ci < len(ctx.ents)):
             out.append({})
             continue
+        _tm = _tmap.get(_ci)
+        if _tm and _tm[0] in ("new", "update"):
+            _chain_store[_tm[1]] = {}
         # (a) selected patterns — reconstruct per pattern key. SINGLE-LAYER
         # declared chains (pattern key len==1, the most common continuation
         # shape) ride here too: a 1-layer chain IS one hop from the root —
@@ -4326,6 +4421,8 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
             chains, edges = _rebuild_paths(ctx, ix, _ci, _seq)
             if not chains:
                 continue
+            if _tm:
+                _chain_store.setdefault(_tm[1], {})[_pk] = chains
             # RENDER DELTA: drop chains whose EVERY edge was already
             # displayed by a prior subgraph (all-old chains render nothing;
             # a chain with at least one new edge keeps — its rows carry the
@@ -4403,6 +4500,14 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
             # render budget through sheer key count); chains merge per rel
             _key = (_ci, (str(ctx.rels[_r]),))
             confirmed[_key] = list((confirmed.get(_key) or [])) + _chains
+        # direct-lane chains join the tree store only as STEP-1 shapes (new
+        # root / update re-open): an extend call's direct rows start at the
+        # picked leaf, not the tree root — not tree chains (the declared
+        # composites carry the extension)
+        if _tm and _direct_agg and _tm[0] in ("new", "update"):
+            _cst = _chain_store.setdefault(_tm[1], {})
+            for _r, _chs2 in _direct_agg.items():
+                _cst[(_r,)] = _chs2
         out.append(combined)
     treq["confirmed"] = confirmed
     return out

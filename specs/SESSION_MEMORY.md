@@ -1,5 +1,41 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 链树落地(实施完成,待用户审核渲染):判定读链叶集,层走对判定退役
+- **实施**(用户放行"先更新试试,不行就会退"):`ctx.anchor_chains`
+  {根→{模式idx元组:原始链}} 为树的新真相源。`_tree_positions`(seq_tools,
+  _anchor_seq_layers 后)产匹配面:叶=链终点∪终点CVT的命名属性端点,
+  mid=链中间节点;匹配按 root>叶>mid,可行关系偏好。EXTEND=命中链前缀×
+  新关系(可行性=从被挑实体 raw 边非空,上限12条,B相配额仍是语义过滤),
+  `_cont_frontier`=被挑叶(direct lane 逐成员行);UPDATE(根起点)=整链
+  重开——层1整包替换+derive 从根重枚举(桥回来了,religion 案例
+  topic.image⭢person.religion 复活);repeat 不动。`_rebuild_pe_list`
+  产 RAW(未过 delta 滤)链回写 anchor_chains(new/update 替换,extend 合并;
+  extend 的 direct-lane 行不进树——起点非根)。echo 层数计数改链数。
+  `_classify_seq_submit`/`_patterns_from_layers`/`_seq_completions` 从
+  活动路径退役(函数与测试保留;RR lane 2996 仍用 completions——独立工具,
+  下轮再看)。
+- **E4 一并落地**:derive hop1_cvt 记 CVT 落点,depth-2 增超节点自检
+  ((employer.employees,employment_tenure.company) 可枚举);
+  `_rebuild_paths` CVT 留在 nxt(自身关系=合法下一跳边)+**真实模式边
+  优先于穿透父记录**(穿透保 level 可走性,roster 跳从 CVT 命名端点出发)。
+- **修复中发现并修掉一个自旋**:E4a 使 parents 可成环(跨跳回访+穿透父
+  被真实边改写)→backtrack 死循环(1731 案例 wedge,faulthandler 定位
+  4345)。修:backtrack seen 集合+深度帽64,环链弃。**教训:改动 walk
+  图构造后必跑全量重放,单案例绿不够**(1379 绿而 1731 卡死)。
+- **验证**:155 测试绿(153+2 新:叶语义/CVT属性叶+超节点枚举重建);
+  144 重放 **71s**(基线 67s——非串行回归,WALK_POOL=3 常开;慢是上述
+  wedge,已修);**answer≠3/144 与基线一致**;pattern-lines 343(基线
+  331);empty-sg 1(基线5);max-seg 10(基线24);layer_action 分布
+  extend 150/update 15/repeat 22——命令链语义全面生效;2 个"crash"实为
+  answer 工具合法校验错误,零真崩溃。
+- **1379-s1 验收(块#1)**:layer_action=extend;头=`FL(sequence root;
+  frontier: Academy|Freemasonry)`;模式=完整组合链 `based_on⭢org_founded
+  ⭢company` 等;Academy 块含 step2 跳(m.04kp4ft|m.0w1vp7h --company-->
+  Academy);Freemasonry 块含 members;块#2 三层链 echo `FL⭢L1(1)⭢L2(9)
+  ⭢L3(5)`。s0 religion 更新块桥接链复活。审核文档
+  **specs/render_diff_2026-09-20.md**(12案例全量新旧对比)。
+- 回退点:整提交 git revert 即可(无新 env 开关)。
+
 ### 2026-09-20 审计定案:多关系提交连不成实际路径——四个断点(插桩重放证实)
 - 背景:用户问"5月前方法直接给完整链/step1-2-3 关系即可,为何现在
   多个关系给出后连不成实际路径"。旧方法见 docs/historical/
