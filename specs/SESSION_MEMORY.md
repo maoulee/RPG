@@ -1,5 +1,36 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 审计定案:多关系提交连不成实际路径——四个断点(插桩重放证实)
+- 背景:用户问"5月前方法直接给完整链/step1-2-3 关系即可,为何现在
+  多个关系给出后连不成实际路径"。旧方法见 docs/historical/
+  pipeline_prompts.txt:179-250(链是提交的一等公民)。插桩重放 1379
+  (探针 scripts/probe_chain_conn.py,gitignored;五点日志 COMPS/PFL/
+  chain-infeasible/DERIVE/SG;单案例配方=裁 mini results 文件重写
+  case_idx=0+RESULTS_ORDER=1,REPLAY_ONLY 与 ORDER 断言互斥)。
+- **E1 层=并联一跳,非串联链**(根因,`_trans_named_step` 3347):
+  提交关系{founders|org_founded|member_of}实际挂 depth2(LoFL 之上),
+  BT1 桥 based_on 与它们**同层并联**进 layer1——层走从 FL 一跳只达
+  {LoFL},目标关系从 FL 全空,**完成集永不含 Academy/Freemasonry**
+  (实测 COMPS: L0={FL}, L1={LoFL} 就断了)。
+- **E2 完成集断⇒center 匹配失败⇒新根**(3897-3911):块#1 center=
+  Academy|Freemasonry(step1 终点,天然 step2 锚)匹配不到任何树成员
+  →mint 两棵新单层树,`FL step1{...} step2{members,company}` 续接
+  语义在此死亡(实测块#1 后 ast 多出两棵新根树)。
+- **E3 层叉积要求每前缀沿层关系贯通**(`_patterns_from_layers` 3508/
+  `_chain_feasible` 3485):桥与目标同层并联⇒叉积表达不了"based_on
+  再 founders"——实测 `chain-infeasible FL⭢founders` 反复出现,PFL
+  只剩 len-1 直连。
+- **E4 CVT 折叠丢超节点自身关系**(derive hop1 4115-4120 折到命名
+  端点+depth-2 检查 4157):(employer.employees⭢employment_tenure.
+  company)这类"第二跳=CVT 自身关系"的 2 跳**枚举永缺**(实测 DERIVE
+  只有 len-3 旁路(employees,founders,company)与直连),B 相
+  length-first 只剩直连→渲染只剩孤立一跳(用户所见 employer.employees
+  "只有这一跳")。两跳分别在不同块以直连模式各自渲染,永不为一条链。
+- 修法仍指向 OPEN 项的模式链集层表示(E1-E3 一并解,E4 需枚举侧
+  保 CVT 自身关系)。重放保真 caveat:单案例 0/3 byte-identical
+  (33 vs 35 steps,录制基线是旧代码,s0 后段漂移)——不影响块#0-#2
+  机制证据(重放喂的是录制的提交序列,树状态为现码实测)。
+
 ### 2026-09-20 OPEN 设计项(最新,abdc3fe 基线上):子图=命令链修正(未结)
 - **用户裁定语义**:每个子图调用是对**整条命令链**的修正——
   块#0 定 step1={founders|org_founded|member_of};块#1(center=
