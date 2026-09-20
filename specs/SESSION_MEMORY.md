@@ -1,5 +1,27 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 弃权思考解剖(user 问"拒绝后为何还强答/不答"):三结局+核心认知错位
+- **12/12 持绑定弃权案例的轨迹终止在 Second refusal 消息上——模型连
+  "拒绝后强答"的机会都没有**:约束验证循环烧掉 ~15-16 轮,NONE 出现在
+  第 15-16 轮,ladder 两级惩罚无预算可耗,压力消息成为遗言。
+- **核心认知错位(2784 Tupac 标本,思考原文)**:模型逐字引用 §28b 后
+  **反转它**——"discriminators unknown → submit best bindings. HOWEVER
+  since ALL candidates FAIL the director constraint…there are no
+  CONFIRMED bindings → NONE"。两步错:①UNKNOWN→FAIL 等价化(Gang
+  Related 的导演"图里没查到"被当成"不满足约束"——absence of evidence
+  当 evidence of absence);②"confirmed"语义位移(§28b 的"no confirmed
+  fact supports ANY binding"被读成"约束确认过"而非"绑定已注册"——
+  措辞缺陷是我的)。567 标本另证:**用世界知识核验约束**("A Beautiful
+  Mind is about John Nash, not a child prodigy")否决图支持候选——
+  Factual Knowledge Boundary 被打分语境压过。
+- **三结局**:a)轮尽于压力消息(12);b)屈服强答=plausibility 挑选
+  (1379 旧型"Freemasonry has historical religious dimensions");c)真
+  零支持合法弃权(5)。
+- **修正**:§28b 删"confirmed"改"registered in the checkpoint ledger"+
+  硬句"UNKNOWN≠candidate failure;禁止 UNKNOWN→FAIL;持 answer-var
+  绑定交 NONE=协议违规";§24/§25 邻接互引;知识边界节加"约束核验仅用
+  图证据";(可选)ladder 提前于 ~12 轮触发防轮尽。
+
 ### 2026-09-20 V2.3+环境修复 48×3 终判:回归 -14.7pp,尸检=持有绑定仍弃权(22/27)
 - **结果**: 0.5712/65.3%(基线 0.7177/81.9%),80/144 变化(↑30↓50),
   turns 7.9→9.8,rejects 16→27。**1379 家族修复生效:0→(1.0,0.333,1.0)
