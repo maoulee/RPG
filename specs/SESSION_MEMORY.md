@@ -1,5 +1,21 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 续接族渲染修复(a95ec8a/e501eca):用户审核 4 连发现全收口
+- **单层 declared 链被多跳守卫全灭**(用户块#1 空渲染):续接调用
+  (update layer 1)的 pattern key len=1,被选择的 len>1 守卫+重建的
+  `len(_pk)<=1 continue` 双重跳过→多跳 pe 全无。修复:len1 也从根重建
+  (单层=根一跳)。**空 sg 渲染 42→1**。
+- **direct confirmed 键膨胀**:键按 frontier 成员×关系mint(49 成员×5
+  rel=245 键)→渲染预算穿漏(单消息 125 段,8 terminal)。修复:键按
+  关系聚合到 center;另加显示侧**总段上限 ADMIT_TOTAL=24**(多中心
+  mint 的最终防线)。max 125→24。
+- **note 合并精简**(用户"note 信息可否优化"):两条/消息(块格式
+  ~180c+三元组语法 ~1400c 含 EXAMPLE 长例)合并为一条 ~500c 紧凑
+  note(seq_rows._NOTE 置空,seq_tools 统一发射)。
+- 验证:153 绿;144 重放 67s;pattern-lines 336;fidelity 持平
+  (answer≠3/144)。**渲染残留:crashes 1、empty-sg 1**。
+- render_diff v5 已生成供用户再审(specs/render_diff_2026-09-19.md)。
+
 ### 2026-09-19 重建 lane license 对齐修复(e9a10fd/e03bdfc):1379 空渲染根因
 - **根因**:finalize 的 license path-admission(_keep_* 4887)要求路径
   **最后一跳=提交关系**(或端点 CVT)才把节点入 lic——旧引擎的 pe paths
