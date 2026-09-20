@@ -1,5 +1,25 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 对抗机制审计+直接问答测试:语义错读源头=挂载非模型;弃权-惩罚链缺陷定位
+- **直接问答测试**(48题×2变体,thinking_token_budget 2000/max 3000,
+  scripts/probe_direct_answer.py,tmp/direct_answer.json):裸英文 hit
+  14/48 vs +中文权威 15/48。**关键:1379 裸英文答 Pianist(读法=职业✓,
+  知识错)——管线职务错读非模型固有;挂中文重述后翻成"None(died 1886)"
+  弃权**。语义错读充分原因=重述内容错+权威措辞,零管线参与即复现。
+  **TRAP:vLLM 0.25.1(重建容器)下 chat_template_kwargs.thinking_budget
+  软提示失效(思考吞满 max_tokens,content 空)——用顶层
+  thinking_token_budget 硬帽(client.py 同款)**。
+- **对抗机制全量盘点**(specs/audit_adversarial_2026-09-20.md,fire=基线
+  144 实测):防幻觉族(CVT 剥离19/冻结拒绝5/幻觉拒绝/越池/全事件)方向
+  正确;**损伤链=NONE→ladder(5)→Second refusal(4,枚举错误 plan 的绑定)
+  →RESTART(1)→workflow-order REJECTED(1,restart 后首调 plan 被拒烧掉
+  唯一 n_reject)**——fire 低但命中即毁(1379 三样本全灭)。核心缺陷:
+  链上无一环触及 plan 语义;终点把错误变量绑定当唯一答案源。
+- **优化提案 P1-P5**(待裁定):P1 ladder 加语义逃生门(重读问题/回 plan,
+  career 类问词双读法提示);P2 强制作答前绑定类型 vs answer_type 校验;
+  P3 restart 后首调 plan 豁免;P4 纯度环分级(换措辞 vs 判别子不在图);
+  P5 zh 挂载治理(修5-6条+措辞降级)。
+
 ### 2026-09-20 1379 语义审计(user 假设证实):zh 挂载反向钉死/关系选中忠实执行错误语义/对抗锻造错误提交
 - 标本 1379(gold=**Priest**,问职业) s1 完整轨迹含 reasoning 全文:
   **specs/audit_1379_semantics_2026-09-20.md**。

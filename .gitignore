@@ -97,6 +97,7 @@ scripts/train_grpo.sh
 scripts/start_graph_server_branch.sh
 
 # One-off experiment / diagnostic scripts (process artifacts, not pipeline)
+scripts/probe_direct_answer.py
 scripts/probe_chain_conn.py
 scripts/aggregate_qa_mismatch.py
 scripts/analyze_select_behavior.py
