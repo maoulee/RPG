@@ -1,5 +1,32 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 plan 漂移归因(对照实验)+弃权成因拆解(user 两问)
+- **Q1 为什么直接答对、plan 漂移——两股力,协议是独立充分因**:
+  变体 C 实验(裸英文+SEQ_AGENTS_V21 协议,无 zh,scripts/probe_plan_drift.py,
+  tmp/plan_drift.json):**1379 仍漂**(answer=?organization type=organization,
+  f1"which religious organizations did this person lead")——1171 同漂
+  (?soldier,gold=配音演员)。三层结论:①直接模式=语言先验主导
+  (career→职业,Pianist)✓;②**plan 协议本身诱导漂移**:分解格式要求
+  "可检索的结构事实",模型把可检索性置于问法之上——头名词(career)
+  不可检索感→降格为变量注记,修饰从句(religious org)→升格为检索主体,
+  **"搜约束不搜答案"**;③zh 挂载非必要但**决定漂向+权威锁死**
+  ( MSG6 模型发现 1886/1993 时间矛盾仍被重述压回)。
+- **Q2 弃权≠找不到完美答案那么简单——两层**:
+  ①主因:**语义错读使"符合要求的支持集"为空**——satisfice="提交有支持
+  部分",模型忠实执行;错误读法下支持集=∅,NONE 是其正确输出
+  (末轮强答 Freemasonry 正是 satisfice 在错误读法下的产物)。
+  ②次因:协议内完美主义张力——MSG14 模型原文引用 satisfice 条款却没执行:
+  Stop-Rule 的 open-fact 禁答条款(f2 covers R1→可能改绑→禁答)+
+  REQUIREMENT_CHECK 模板把类型判别子当必检维度,UNRESOLVED→NONE;
+  satisfice 条款与 open-fact 条款在"判别子不可得"场景打架,模型取最保守。
+  ③**对抗根源=两侧对 NONE 的语义错位**:模型="按我的读法无支持",
+  环境 ladder="你没探够"→惩罚重探,从不问 WHY。
+- **提案升级**:P1'=逃生门先解析 ANSWER_ANALYSIS 的 REASON
+  ("missing evidence cannot be obtained"⇒路由语义重读而非关系重选);
+  P2'=plan 强制头名词声明步(answer_type 必须从问句头名词派生,
+  直接治协议漂移);REQUIREMENT_CHECK 模板加一行
+  "unobtainable discriminator ≠ requirement failure"消解条款冲突。
+
 ### 2026-09-20 对抗机制审计+直接问答测试:语义错读源头=挂载非模型;弃权-惩罚链缺陷定位
 - **直接问答测试**(48题×2变体,thinking_token_budget 2000/max 3000,
   scripts/probe_direct_answer.py,tmp/direct_answer.json):裸英文 hit
