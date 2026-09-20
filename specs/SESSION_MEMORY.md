@@ -1,5 +1,44 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 OPEN 设计项(最新,abdc3fe 基线上):子图=命令链修正(未结)
+- **用户裁定语义**:每个子图调用是对**整条命令链**的修正——
+  块#0 定 step1={founders|org_founded|member_of};块#1(center=
+  Academy|Freemasonry=step1 终点实体,提交 members|company)里
+  **未被 step1 使用的关系自动进 step2**,等价 `FL step1:{...}
+  step2:{members,company}` 从根直接游走组合链。
+- **根因(差距)**:树层完成集按"关系集一跳并集"计算——founders
+  的边挂 LoFL(FL 一跳不可达),完成集={LoFL...}**不含 Academy** →
+  块#1 center 匹配不到树成员 → 被当新根建新树,step2 语义全丢。
+- **两版试验均验证语义但已回退**(abdc3fe 基线:331 patterns/
+  5 empty/max 24/153 绿/fidelity 不变):
+  ①层内接力(完成集=一跳∪层内再一跳):s1 块#1 完美对齐(extend+
+  组合链 based_on⭢membership.member 跨 L1×L2)——但闭包语义炸宽
+  (empty 5→187);
+  ②derive 超节点折叠(CVT 一跳邻居自身关系=超节点关系,让
+  (employees,company) 型 2 跳可枚举)——同引回归,且回退残留的
+  `_cvt1` 未初始化行 NameError 在被吞 try 里令 _derive 整体崩
+  (**193-empty 大回归的真凶**,不是接力)。已清净。
+- **正确修法(待用户裁定后专门实施)**:树层表示从"裸关系集"
+  升级为"**选中模式链集**"——完成集自然=链终点(Academy ✓),
+  center 匹配、未用关系归 step2、组合链渲染全顺流而下。影响
+  anchor_seqs/classify/frontier/patterns 全链。
+- **另一个已确认的枚举缺陷(同轮)**:derive 的 CVT 穿透把超节点
+  折叠到命名节点时**丢超节点自身的关系**(company 边挂 m.04kp4ft
+  上,折叠到 LoFL 后 (employees,company) 枚举不出)——旧渲染的
+  多跳来自 beam 实际路径+branch-b 兜底,枚举从未含它们。随模式
+  链集表示一并修。
+
+### 2026-09-20 step 归属基准+渲染增量(434fe87,已入基线)
+- **step 归属=实际起点实体**(idx 级,含 ?var 展开——非文本解析;
+  用户裁定):起点==上一轮起点(根)⇒优化当前 step(整包替换该层
+  关系集——从根提交的下一 step 关系(religion)也是 layer-1 调整
+  不拆新层;classify 拆层方向试过已回退);起点==前沿实体⇒EXTEND。
+  树匹配现状已 idx 级(_a==_ci/_ci∈完成集)✓。
+- **渲染增量取代 2026-08-20 全量重渲染**:链全部边已被先前子图
+  展示(accumulated_triples 差分)⇒不渲染;含新边的链保留。
+  1379 块#2 标本:仅出 person.religion→Catholicism 新链。
+- 基线验证:153 绿;144 重放 67s;answer≠3/144。
+
 ### 2026-09-20 续接族渲染修复(a95ec8a/e501eca):用户审核 4 连发现全收口
 - **单层 declared 链被多跳守卫全灭**(用户块#1 空渲染):续接调用
   (update layer 1)的 pattern key len=1,被选择的 len>1 守卫+重建的
