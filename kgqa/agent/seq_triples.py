@@ -126,6 +126,11 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
                     _s.add(_rel_t)
     _key_count = {}
     _shown = []
+    # TOTAL display budget: multi-center calls mint one key-set per center
+    # (Tempus-Unbound specimen: 8 terminals × N centers = 125 sections).
+    # The per-key ≤3 keeps each pattern tight; the TOTAL cap keeps the
+    # whole render inside the selection-layer design count.
+    ADMIT_TOTAL = 24
     _a_seen = set()      # collapse-key dedup: one raw representative per
     for rt in sorted(groups, key=_pkey):   # SELECTED pattern (variants of
         _rtc = _collapse_rt(rt)            # the same collapsed key merged)
@@ -138,7 +143,8 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
             if _owner is not None:
                 if _rtc in _a_seen:
                     continue
-                if _key_count.get(_owner, 0) >= ADMIT_PER_TERM:
+                if _key_count.get(_owner, 0) >= ADMIT_PER_TERM \
+                        or len(_shown) >= ADMIT_TOTAL:
                     continue
                 _key_count[_owner] = _key_count.get(_owner, 0) + 1
                 _a_seen.add(_rtc)

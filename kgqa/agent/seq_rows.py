@@ -9,9 +9,10 @@ Two rules (user): ① related attributes together, ② no duplicate rendering.
 """
 from collections import defaultdict
 
-_NOTE = ("note: evidence blocks group triples by entity. 'h --rel--> t1 | t2' "
-         "merges tails; m.xxx [key: value] shows a CVT's attributes inline. "
-         "Compare blocks by bracketed values to discriminate candidates.")
+# NOTE CONSOLIDATED (user request 2026-09-20): the two per-message notes
+# (block-formatting + triple-grammar) merged into ONE compact note emitted
+# by seq_tools' result assembly; this renderer no longer appends its own.
+_NOTE = ""
 
 _TAIL_CAP = 40
 _HEAD_CAP = 12
@@ -185,5 +186,6 @@ def render_rows(store):
             shown = " | ".join(str(t) for t in ts_u[:_TAIL_CAP])
             L.append(f"    {h} --{r0}--> {shown}")
 
-    L.append(_NOTE)
+    if _NOTE:
+        L.append(_NOTE)
     return "\n".join(L)

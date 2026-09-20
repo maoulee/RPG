@@ -4300,10 +4300,11 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
         if not (0 <= _ci < len(ctx.ents)):
             out.append({})
             continue
-        # (a) multi-hop selected patterns — reconstruct per pattern key
+        # (a) selected patterns — reconstruct per pattern key. SINGLE-LAYER
+        # declared chains (pattern key len==1, the most common continuation
+        # shape) ride here too: a 1-layer chain IS one hop from the root —
+        # the old len>1 guard dropped them entirely (block renders empty).
         for _pk, _seq in (_mseq.get(_ci) or {}).items():
-            if len(_pk) <= 1:
-                continue
             chains, edges = _rebuild_paths(ctx, ix, _ci, _seq)
             if not chains:
                 continue
@@ -4360,10 +4361,11 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
                 lbl, lbl,
                 sorted({str(ctx.ents[c["nodes"][-1]]) for c in _chains}),
                 triples, {"paths": paths})
-            for _si in starts:
-                _k = (_si, (str(ctx.rels[_r]),))
-                if confirmed.get(_k):
-                    confirmed[_k] = _chains
+            # CONFIRMED KEY IS PER RELATION (not per frontier member — a
+            # 49-member frontier × 5 rels minted 245 keys and blew the
+            # render budget through sheer key count); chains merge per rel
+            _key = (_ci, (str(ctx.rels[_r]),))
+            confirmed[_key] = list((confirmed.get(_key) or [])) + _chains
         out.append(combined)
     treq["confirmed"] = confirmed
     return out
@@ -5445,19 +5447,14 @@ def _sg_finalize(treq, bres, ctx) -> str:
                   "edges are per-candidate: COMPARE them across the candidates (values, dates, "
                   "ids) and commit the discriminated one(s), never the whole frontier roster. "
                   "Mid-chain entities are HOPS, not answers. ") if treq.get("cont_compare") else "") +
-                 ("triples are the evidence: 'h --rel--> t1 | t2 | ...' (one head, many tails) or "
-                  "'h1 | h2 | ... --rel--> tail' (many heads, one tail), '|' separates entities. "
-                  "Entities shown as m.xxx / g.xxx are EVENT nodes — abstract compound "
-                  "entities whose ATTRIBUTES are the event's content. EXAMPLE: "
-                  "'m.0abc --performance.character--> Denver | --performance.actor--> "
-                  "Jon Favreau' means 'a performance event where the character Denver "
-                  "was played by Jon Favreau'. Event nodes are "
-                  "NEVER answer candidates and NEVER variable bindings — answer and bind with "
-                  "the event's named ATTRIBUTES (actor, character, office holder, jurisdiction). "
-                  "Discriminator attributes (dates, incumbent) appear as their own edges — read "
-                  "them to pick latest/largest/incumbent. Each subgraph shows the FULL evidence "
-                  "its pattern paths justify — an edge may legitimately reappear across subgraphs "
-                  "with its complete tail set. Pick the next center FROM these triples."),
+                ("Evidence blocks group triples by entity: 'h --rel--> t1 | "
+                  "t2' merges tails, 'h1 | h2 --rel--> t' merges heads. "
+                  "m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; "
+                  "use their named ATTRIBUTES (actor, character, office "
+                  "holder, jurisdiction), shown inline in brackets. "
+                  "Discriminator attributes (dates, incumbent) appear as "
+                  "their own edges — compare them to pick. Pick the next "
+                  "center FROM these triples."),
     }
     if treq.get("attr_expansion"):
         # FAMILY EXPANSION ECHO (user audit 2026-09-09): show what each
