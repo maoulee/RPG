@@ -3952,7 +3952,17 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                     _is_extend = (_cl >= len(_comps) - 1)
 
                     if not _is_extend and _layer_ops:
-                        # UPDATE: replace layer _cl+1's relations
+                        # UPDATE (user ruling 2026-09-20): the step a
+                        # submission adjusts is decided by the subgraph's
+                        # ACTUAL START ENTITY (idx-level, ?var-expanded —
+                        # never text parsing): start == the prior round's
+                        # start (the root) ⇒ this optimizes the CURRENT
+                        # step — the whole submitted set replaces that
+                        # layer's relations (a next-step relation submitted
+                        # from the root, like person.religion here, is a
+                        # layer-1 ADJUSTMENT, not a new layer). Start on the
+                        # frontier ⇒ EXTEND (branch below). Root matching is
+                        # idx-level (_a == _ci / _ci in completion sets).
                         _target = _cl  # layer index to replace (0-based)
                         _old_layer = set(_layers[_target]) if _target < len(_layers) else set()
                         _repl = set(rel_idxs)
@@ -4293,6 +4303,14 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
     from kgqa.stages.formatting import PatternEvidence
     from kgqa.traversal.pattern_walk import get_pattern_index
     ix = get_pattern_index(ctx)
+    # RENDER DELTA (user ruling 2026-09-20, superseding the 2026-08-20
+    # full-re-render): a continuation call renders only what is NEW —
+    # chains whose every edge was already displayed by a prior subgraph of
+    # this case render nothing. First calls (empty accumulation) render
+    # everything; EXTEND naturally shows the new layer's chains.
+    _shown_triples = {(str(h), str(r), str(t))
+                      for (h, r, t) in (getattr(ctx, "accumulated_triples",
+                                                None) or set())}
     confirmed = {}
     out = []
     for (_cn, _ci) in treq["centers"]:
@@ -4308,6 +4326,18 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
             chains, edges = _rebuild_paths(ctx, ix, _ci, _seq)
             if not chains:
                 continue
+            # RENDER DELTA: drop chains whose EVERY edge was already
+            # displayed by a prior subgraph (all-old chains render nothing;
+            # a chain with at least one new edge keeps — its rows carry the
+            # new relation's context)
+            chains = [ch for ch in chains
+                      if not all(
+                          (str(ctx.ents[h]), str(ctx.rels[r]),
+                           str(ctx.ents[t])) in _shown_triples
+                          for (h, r, t) in ch["full_edges"])]
+            if not chains:
+                continue
+            edges = {e for ch in chains for e in ch["full_edges"]}
             names = tuple(str(ctx.rels[r]) for r in _pk)
             label = " ⭢ ".join(
                 ".".join(str(ctx.rels[r]).rsplit(".", 2)[-2:])
@@ -4339,6 +4369,13 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
         _direct_agg = {}                # rel_idx -> [chains...] (merged)
         for _si in starts:
             chains, edges = _rebuild_paths(ctx, ix, _si, (hop,))
+            if not chains:
+                continue
+            chains = [ch for ch in chains
+                      if not all(
+                          (str(ctx.ents[h]), str(ctx.rels[r]),
+                           str(ctx.ents[t])) in _shown_triples
+                          for (h, r, t) in ch["full_edges"])]
             if not chains:
                 continue
             for ch in chains:
