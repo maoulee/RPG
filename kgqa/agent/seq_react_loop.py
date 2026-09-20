@@ -1433,7 +1433,14 @@ class SeqReactCase:
             add_view_ok = bool(new_sgs) and all(
                 a.strip() in _planned and a.strip() not in _serving
                 for _, a, _, _ in new_sgs)
-            legal = (rid and rid in _reqs and new_sgs and anchored_ok
+            # RID-LESS PLANS (user ruling 2026-09-20): prompt V2.3 plans
+            # carry no R1.text requirement lines — they overlap the question
+            # segment and were dropped. EXTEND does not essentially depend
+            # on them: when the plan declares no requirements, an extend
+            # anchored on a plan entity is legal on its own merits (nothing
+            # is declared covered, so COVER_MISSING holds trivially)
+            _rid_ok = (rid in _reqs) if _reqs else bool(rid)
+            legal = (rid and _rid_ok and new_sgs and anchored_ok
                      and (rid not in (_cov.values() if _cov else ())
                           or add_view_ok))
             if legal:

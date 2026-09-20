@@ -865,6 +865,25 @@ question.
 
 ---
 
+# 28b. Partial Support and Abstention (NONE)
+
+Partial support is a submittable answer.
+
+When a stated discriminator (date, ordering, type alignment) is UNKNOWN or
+unobtainable in the graph, submit the best graph-supported bindings of
+the answer variable anyway — do NOT abstain merely because verification
+is incomplete.
+
+Submit `entities: NONE` ONLY when no confirmed fact supports ANY binding
+of the declared answer variable — i.e., the checkpoint ledger holds no
+registered evidence for the answer variable at all.
+
+When you submit NONE, the environment may offer one relation re-selection
+round and one case restart; a restart begins with a fresh `plan`. Treat
+these as exploration options, not verdicts.
+
+---
+
 # 29. Hard Invariants
 
 These rules override softer guidance.

@@ -1,5 +1,21 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 Wave3 裁定落地:zh 移除主实验/NONE 语义节/EXTEND 无 R 行回退
+- **zh 移除主实验(user 裁定:测试集本无中文)**:SEQ_ZH_QUESTION 不再进入
+  站立 run env(代码保留为诊断设置);**纯英文避免语义问题已被 2×2 实验
+  证明**(裸 EN 1379 三采样全对)。zh 修正表降为诊断用(1812/2209 两条
+  泄漏 gold 若诊断用仍须修)。站立 env 去掉 SEQ_ZH_QUESTION=... 一项。
+- **V2.3 §28b Partial Support and Abstention(user 语义)**:判别子
+  UNKNOWN/不可得照交最优支持绑定;**NONE 仅当 checkpoint ledger 对
+  answer 变量零注册事实支持**;NONE 后 env 可给一轮关系重选+一次
+  restart(机制保持可达,视为探索选项非判决)。
+- **R1.text 移除定案+EXTEND 回退(user:extend 设计不依赖 text)**:gate
+  加 `_rid_ok = (rid in _reqs) if _reqs else bool(rid)`——无 R 行计划
+  (V2.3)下,锚在 plan 实体的 extend 自身合法(无声明覆盖即 COVER_MISSING
+  平凡成立);V21 带 R 行路径不变。
+- 验证:153 绿;144 重放 answer≠3/144 不变。V2.3 定稿完成(机械契约
+  三项 fee4472+本两项),48×3 待放行。
+
 ### 2026-09-20 环境修复 Wave1+Wave2 落地(子智能体实施,门全过):1379 双采样 1.0
 - **Wave1(07ad9ff,Agent R 9项+T 4项并行,文件分界)**:EXTEND 双合法原因
   (COVER_MISSING/ADD_ANCHOR_VIEW,gate+nudge 对齐);restart 统一
