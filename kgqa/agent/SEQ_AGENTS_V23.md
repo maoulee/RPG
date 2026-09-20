@@ -294,7 +294,11 @@ level during answer analysis.
 
 # 10. Planning
 
-`plan` is always the first tool call.
+`plan` is always the first tool call of an attempt.
+
+The environment may grant ONE restart of the whole case (declared by
+`[explore ✗ none]`); a restart begins with a fresh `plan` — plan once per
+attempt.
 
 Before calling it, reason in this order:
 
@@ -628,7 +632,7 @@ Did the returned graph structure provide the evidence required by THIS fact?
 A fact may end in:
 
 ```text
-resolved, closed-empty, closed-mismatch, closed-moot
+resolved, closed-empty, closed-mismatch, closed-moot, closed-exhausted
 ```
 
 Resolved:
@@ -653,6 +657,12 @@ Moot:
 
 ```text
 [sg1.f1 ✗ moot]
+```
+
+Exhausted (no advancing relation after repair):
+
+```text
+[sg1.f1 ✗ exhausted]
 ```
 
 Several returned bindings do NOT mean failure.
@@ -776,9 +786,13 @@ When evidence is incomplete, preserve graph-supported candidates.
 Before calling `answer`, reconstruct the evidence state from the
 checkpoint ledger.
 
+Emit the analysis under the literal header `ANSWER_ANALYSIS:` — the
+environment's answer stage recognizes that header.
+
 Use:
 
 ```text
+ANSWER_ANALYSIS:
 BASE_BINDINGS:
 <all current bindings of the declared answer variable>
 
