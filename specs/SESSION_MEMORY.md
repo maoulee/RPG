@@ -10297,3 +10297,16 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   adv_r2*/seq_train_r2final)与 v2h/v14 中间文件保留。
 - **未动**: data/(14G)、reports/(3.1G,可复现但暂留)、.pnpm-store/node/
   _data_archive 等仓库外小项、root/.zcode db.sqlite(334M,持续增长)。
+
+### 2026-09-20 step 归属基准+渲染增量(434fe87):用户裁定两项
+- **step 归属=实际起点实体**(idx 级,含 ?var 展开——非文本解析):
+  起点==上一轮起点(根)⇒优化当前 step(整包替换该层关系集——从根
+  提交的下一 step 关系(person.religion)也是 layer-1 调整,不是新层;
+  classify 拆层方向已回退);起点==前沿实体⇒EXTEND。树匹配现状已是
+  idx 级(_a==_ci / _ci∈完成集)✓。
+- **渲染增量取代 2026-08-20 全量重渲染**:链的全部边已被先前子图
+  展示过(accumulated_triples 差分)⇒该链不渲染;含新边的链保留。
+  1379 块#2 标本:仅出 person.religion→Catholicism 新链(based_on/
+  founders 旧链不再重复)。
+- 验证:153 绿;144 重放 67s;fidelity 持平;pattern-lines 331;
+  残留 crashes 1/empty-sg 5。
