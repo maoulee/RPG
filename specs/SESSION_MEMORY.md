@@ -1,5 +1,29 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 V2.3 草案(按 user 十处设计)+plan 一致性 2×2 实验:zh 挂载=plan 漂移主因实锤
+- **V2.3**(kgqa/agent/SEQ_AGENTS_V23.md,SEQ_PROMPT=V23 已支持):按 user 设计
+  重构——Stage A(语义槽三判,先于 KG 表示)/Stage B(实体证据,already-
+  defined answer variable)/Semantic Slot vs Retrieval Entity 切断/
+  Factual Knowledge Boundary 收紧/ANSWER-BEARING EVIDENCE 链要求/
+  modifier 不单独成 fact 原则/示例重配 4 个(新增 Elena Marwick
+  modifier-attraction 反例对照)/去 ENTITY-CENTERED 重复吟诵。
+- **plan 一致性 2×2**(probe_plan_consistency,48 题×3 采样,bare vs 挂 zh):
+  | 配置 | full-agree | 1379 读法 |
+  |---|---|---|
+  | V2.2 裸 | 42 | **3/3 ?career/occupation ✓** |
+  | V2.3 裸 | 41 | 2×?career+1×?occupation ✓ |
+  | V2.2+zh | 42 | **3/3 ?position ✗ 稳定地错** |
+  | V2.3+zh | 39(split 2) | ?position/?occupation/?career 分裂 |
+- **结论**:①**zh 权威挂载是 plan 漂移主因**——V2.2 裸问 1379 三采全对,
+  挂 zh 三采全错(稳定错);rollout s1 漂移完全由 zh 解释。②V2.3 的
+  Stage-A 硬化在裸问下与 V2.2 相当(该指标已近天花板),其价值在冲突
+  场景:V2.3+zh 有 2/3 语义正确或接近 vs V2.2+zh 0/3——新提示在两权威
+  打架时有抵抗力但不稳定胜出。③**P5(zh 治理)是 plan 稳定性的第一杠杆,
+  大于任何提示改动**;正确组合=V2.3+zh 修正/降级。④一致性指标在
+  错位家族(1379/Trn-21)集中失稳,其余 42 题四种配置全稳。
+- 下一步:zh 5-6 条修正+措辞降级→重测一致性→全管线 V2.3 单案例→
+  环境契约同步(ANSWER_ANALYSIS 词汇/mismatch token/答案门括号洞)→48×3。
+
 ### 2026-09-20 V2.2 提示审核(user+codex 草案,tmp/SEQ_AGENTS_V22_draft.md):漂移未修复+6 项环境契约缺口
 - **实测**(probe_plan_drift SYSTEM_FILE=V2.2,48题):1379 仍漂
   (answer=?role type=role,f1 仍"which religious organizations"——career

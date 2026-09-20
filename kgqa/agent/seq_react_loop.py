@@ -472,6 +472,8 @@ def seq_agents_md() -> str:
         return (_AGENT_DIR / "SEQ_AGENTS_V21.md").read_text()
     if _p in ("V22", "V2.2"):
         return (_AGENT_DIR / "SEQ_AGENTS_V22.md").read_text()
+    if _p in ("V23", "V2.3"):
+        return (_AGENT_DIR / "SEQ_AGENTS_V23.md").read_text()
     return (_AGENT_DIR / "SEQ_AGENTS.md").read_text()
 
 
