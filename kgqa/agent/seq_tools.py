@@ -4116,13 +4116,6 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
         for r, t2 in _adj_all[ci]:
             if 0 <= t2 < n and _icl(str(ctx.ents[t2])):
                 hop1[r].update(x for x in _behind(t2) if x != ci)
-                # SUPERNODE (user design: the pattern layer folds a CVT
-                # into a supernode and COMPRESSES its relations onto it) —
-                # track the CVT neighbors per r1; their own edges are
-                # supernode relations (employment_tenure.company lives on
-                # m.04kp4ft, not on the named person behind it — folding to
-                # named-only lost (employer.employees, company) entirely).
-                _cvt1.setdefault(r, set()).add(t2)
             elif 0 <= t2 < n:
                 hop1[r].add(t2)
     if not hop1:
@@ -4160,9 +4153,7 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
         return any(f in fams and (node in ix.fwd[f] or node in ix.rev[f])
                    for f in fams)
 
-    # depth 2: (r1, fam) — two sources: named hop-1 nodes carrying fam, and
-    # SUPERNODE folding (r1 lands on a CVT whose OWN edge is fam — the
-    # compressed relation on the supernode)
+    # depth 2: (r1, fam)
     for r1, reach in hop1.items():
         for node in reach:
             if not (0 <= node < n) or node == ci:
@@ -4171,12 +4162,6 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
                 if f == r1:
                     continue
                 if node in ix.fwd[f] or node in ix.rev[f]:
-                    patterns.add((r1, f))
-        for cvt in _cvt1.get(r1, ()):
-            for f in fams:
-                if f == r1:
-                    continue
-                if cvt in ix.fwd[f] or cvt in ix.rev[f]:
                     patterns.add((r1, f))
 
     # depth 3: (r1, r2, fam) — hop2 named reach from hop1 nodes, bounded

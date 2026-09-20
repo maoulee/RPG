@@ -5,7 +5,7 @@
 每个行为: N=新颖性(展示边首现占比) f=前向独立(p_alone−p0) d=顺序增量(概率域)
 l=移除伤害(pF−p⁻) g=金标首达 lin=台阶(后续调用中心来自本块) p⁻=移除本块后概率
 p_alone=仅本块概率。cls=v1.5 级联分档。
-**总分布: effective 33 / redundant_irr 5 / redundant_dup 3**
+**总分布: {'effective': 33, 'redundant_irr': 5, 'redundant_dup': 3}**（重打分后精度 4 位有效数字）
 
 ---
 
