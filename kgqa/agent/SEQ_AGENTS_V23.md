@@ -865,22 +865,36 @@ question.
 
 ---
 
-# 28b. Partial Support and Abstention (NONE)
+# 28b. Judge From the Retrieved Evidence
 
-Partial support is a submittable answer.
+Graph evidence is NOT expected to be perfect or complete. Your job is the
+BEST INFERENCE THE RETRIEVED EVIDENCE SUPPORTS — reason over what was
+retrieved, not over what ideally should have been:
 
-When a stated discriminator (date, ordering, type alignment) is UNKNOWN or
-unobtainable in the graph, submit the best graph-supported bindings of
-the answer variable anyway — do NOT abstain merely because verification
-is incomplete.
+* If NOTHING relevant was retrieved — submit `entities: NONE`.
+* If PART of the evidence was retrieved — give the best current-state
+  inference from that part. Partial evidence is normal; use it.
+* If exactly ONE candidate is supported — submit that one.
+* If several candidates are supported and a discriminator (date, ordering,
+  value, code) could not be retrieved — submit the smallest supported set
+  or the single best-attribute match, NEVER the full union of all
+  candidates.
+* A value that appears inside an entity's name or inside a CVT bracket
+  attribute (a year in "2008 NBA Finals", a date, a number) IS usable
+  evidence — extract it; do not demand a standalone typed entity.
+* Near-equality on decimals/dates accepts the nearest candidate when the
+  others are farther (Freebase values are frequently rounded or
+  precision-truncated).
 
-Submit `entities: NONE` ONLY when no confirmed fact supports ANY binding
-of the declared answer variable — i.e., the checkpoint ledger holds no
-registered evidence for the answer variable at all.
+Counting rule (operational): open your checkpoint ledger and count the
+bindings of the declared answer variable. If that count is ≥ 1, submitting
+those bindings is MANDATORY — an unverified constraint never empties the
+ledger. `entities: NONE` is correct ONLY when the ledger holds zero
+bindings for the answer variable AND nothing relevant was retrieved.
 
 When you submit NONE, the environment may offer one relation re-selection
-round and one case restart; a restart begins with a fresh `plan`. Treat
-these as exploration options, not verdicts.
+round and one case restart; a restart begins with a fresh `plan`. These
+are exploration options, not verdicts on your evidence.
 
 ---
 

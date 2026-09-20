@@ -767,20 +767,12 @@ class SeqReactCase:
     def _init_messages(self):
         q = f"Question: {self.ctx.question}"
         # SEQ_ZH_QUESTION (2026-09-07): annotation JSON {case_id: {q, gold, zh}}.
-        # Ambiguous English phrasings steer the plan wrong (WebQTrn-493: "Where
-        # in the Greenwich Mean Time Zone is Belgium located?" read as "list the
-        # locations in GMT" instead of "which CONTINENT"); the Chinese
-        # restatement pins the intended reading. Injection is question-text
-        # only — never the gold.
-        zh = _zh_question_for(getattr(self.ctx, "case_id", "") or "")
-        if zh:
-            # Wave-1 demotion: the restatement is a READING AID, not a second
-            # authority — "treat as authoritative" let a wrong zh pull the plan
-            # off the English question (V2.3 probe: bare 3/3 correct vs +zh
-            # 3/3 wrong on 1379). On conflict the English original prevails.
-            q += (f"\n(中文重述，辅助参考；与英文原问冲突时以原问为准 / Chinese "
-                  f"restatement for reference; on conflict the English original "
-                  f"prevails: {zh})")
+        # ZH RESTATEMENT INJECTION REMOVED (user ruling 2026-09-20): the test
+        # benchmark is English-only; the restatement acted as both a
+        # wrong-reading amplifier (1379: career→职务, 3/3 wrong with zh) and
+        # an untracked semantic annotator. Bare-English plan readings were
+        # measurably stabler (2×2 probe). _zh_question_for stays for
+        # diagnostic tooling only — never injected into agent context.
         self.messages = [
             {"role": "system", "content": seq_agents_md()},
             {"role": "user", "content": q},
