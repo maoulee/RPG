@@ -55,9 +55,19 @@
   anchor_seqs/classify/frontier/patterns 全链。
 - **另一个已确认的枚举缺陷(同轮)**:derive 的 CVT 穿透把超节点
   折叠到命名节点时**丢超节点自身的关系**(company 边挂 m.04kp4ft
-  上,折叠到 LoFL 后 (employees,company) 枚举不出)——旧渲染的
+  上,折叠到 LoFL 后 (employees,company) 型 2 跳可枚举不出)——旧渲染的
   多跳来自 beam 实际路径+branch-b 兜底,枚举从未含它们。随模式
   链集表示一并修。
+- **叶子语义裁定(2026-09-20 续,1379 块#0 Freemasonry 标本)**:叶子
+  实体 = 链终点 ∪ 终点为 CVT 时的命名属性端点。**候选通道已达标**:
+  _rebuild_paths 穿透把命名端点入下一层(4246-4251),链 full_nodes[-1]
+  非 CVT 者(=Freemasonry)进 PatternEvidence.candidates(4356-4359),
+  绑定消费(tools.py:1509,注释明言"CVT-expanded named entities")。
+  **前沿通道未达标**(双因:E1 层走断 + 模式跳终点=CVT m.0cr70y2 本身
+  4283-4288,Freemasonry 只在 full_nodes)——修法中"CVT 终点命名展开"
+  由实施细节**升格为语义要求**。渲染无 Freemasonry 块是 9-19"只渲染
+  路径上的边"的正确结果(roster 反向边非链上边;信息收进内联括号,
+  模型正是从括号挑出块#1 center——渲染→提交链路通,断在树层匹配)。
 
 ### 2026-09-20 step 归属基准+渲染增量(434fe87,已入基线)
 - **step 归属=实际起点实体**(idx 级,含 ?var 展开——非文本解析;
