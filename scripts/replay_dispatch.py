@@ -60,6 +60,13 @@ os.environ.setdefault("SEQ_RENDER_V38", "1")
 # lane — far slower on walk-heavy rounds (user catch 2026-09-19: ~5s/case
 # expected from a re-render)
 os.environ.setdefault("WALK_POOL", "3")
+# GTE batching latency is harness overhead, not behavior under test: the
+# same requests hit the same embeddings regardless of how long the client
+# collector waits to batch them. The recorded runs' ~2s/round collect
+# window dominates the replay wall (walk is ~1s TOTAL) — shrink it so the
+# re-render loop stays fast. Results are byte-identical; only timing moves.
+os.environ.setdefault("GTE_CLIENT_BATCH_WINDOW", "0.15")
+os.environ.setdefault("GTE_CLIENT_BATCH_FIRST", "0.08")
 
 
 def _load_recorded(path):

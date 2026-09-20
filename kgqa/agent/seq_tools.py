@@ -372,12 +372,9 @@ def _variable_nudge(raw_entities, ctx) -> str:
             continue
         picked = [e for e in literals if e in bound]
         if picked:
-            return (f"⚠ Passing only '{picked[0]}' narrows the relation pool to just "
-                    f"that entity's edges — {var} has {len(bound)} candidates whose "
-                    f"relations may differ. For full-frontier relation discovery, pass "
-                    f"the variable {var} or ALL relevant entities together. A single "
-                    f"literal is fine when the tree continuation handles it (the system "
-                    f"walks from the root regardless).")
+            return (f"⚠ '{picked[0]}' is 1 of {var}'s {len(bound)} candidates — "
+                    f"pass {var} or all of them to compare their relations. "
+                    f"(Tree continuation walks from the root regardless.)")
     return ""
 
 
@@ -3352,6 +3349,9 @@ def _tree_positions(ctx, ix, anchor_idx, chains):
     n = len(ctx.ents)
     leaves, mid = set(), set()
     leaf_pats, mid_pats = {}, {}
+    joins = {}      # pattern -> [(node, depth)] — every chain position is a
+                    # potential EXTEND anchor (shallow-join rescue, see
+                    # _sg_prepare's extend branch)
     for _pat, _chs in (chains or {}).items():
         for ch in _chs:
             nodes = ch.get("nodes") or []
@@ -3361,6 +3361,9 @@ def _tree_positions(ctx, ix, anchor_idx, chains):
             for j, nd in enumerate(nodes[1:-1], 1):
                 mid.add(nd)
                 mid_pats.setdefault(nd, []).append((pat, j))
+            _jl = joins.setdefault(pat, [])
+            for j, nd in enumerate(nodes[1:], 1):
+                _jl.append((nd, j))
             term = nodes[-1]
             leaves.add(term)
             leaf_pats.setdefault(term, []).append((pat, len(pat)))
@@ -3371,7 +3374,7 @@ def _tree_positions(ctx, ix, anchor_idx, chains):
                         leaves.add(w)
                         leaf_pats.setdefault(w, []).append((pat, len(pat)))
     return {"leaves": leaves, "mid": mid,
-            "leaf_pats": leaf_pats, "mid_pats": mid_pats}
+            "leaf_pats": leaf_pats, "mid_pats": mid_pats, "joins": joins}
 
 
 def _cvt_like_name(n) -> bool:
@@ -3961,8 +3964,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                         continue
                     _cands.sort(key=lambda x: (x[0], x[1]), reverse=True)
                     _root_of[_ci] = _cands[0][2]
-                if _root_of:
-                    # collapsing several typed centers into one root drops
+                if _root_of:                    # collapsing several typed centers into one root drops
                     # the multi-center COMPARE framing — the frontier members
                     # are still the comparison subjects, so the contract must
                     # survive the replacement (1278d3da specimen: 9-country
@@ -3980,6 +3982,13 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                     _layers = _ast[_a]
                     _have = set().union(*_layers) if _layers else set()
                     _new = [r for r in rel_idxs if r not in _have]
+                    if os.environ.get("SEQ_DEBUG_TREE", "0") == "1":
+                        import sys as _sys
+                        print(f"[TREE] root={str(ctx.ents[_a])[:20]!r} "
+                              f"starts={[(str(ctx.ents[_c])[:20], _root_of[_c]) for _c in _root_of if _root_of[_c] == _a]} "
+                              f"layers={len(_layers)} new={len(_new)} "
+                              f"chains={sum(len(v) for v in (_chains_of.get(_a) or {}).values())}",
+                              file=_sys.stderr, flush=True)
                     if not _new and _layer_ops:
                         _layer_action = "repeat"
                         continue
@@ -4009,25 +4018,72 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                             or "none")
                         _tree_map[_a] = ("update", _a)
                     elif _layer_ops:
+                        # BRIDGE-TOLERANT EXTENSION (user catch 2026-09-20,
+                        # 1379 block#3): the new relations need not hang on
+                        # the picked leaf's OWN edges (organization_type
+                        # fires from Classical music, not from the orgs) —
+                        # enumerate from the leaf with terminal = a new
+                        # relation (a direct edge is the depth-1 special
+                        # case) and PREPEND the prefix that reaches the
+                        # anchor, so the composite still walks from the root.
+                        # SHALLOW-JOIN RESCUE: a derived pattern that
+                        # backtracks into the prefix's neighborhood (an
+                        # org's only continuation runs back through its
+                        # member CVT) dies on the prefix's consumed nodes —
+                        # the chain's INTERIOR nodes are anchors too, and
+                        # the same derivation joins forward cleanly one
+                        # level up. Anchors are consumed deepest-first (the
+                        # picked leaf stays the preferred join).
                         _ext = {}
+                        _joins = _pos.get("joins") or {}
+                        _anchors = {}
                         for _ci2 in _starts:
                             _hits = list((_pos.get("leaf_pats") or {})
                                          .get(_ci2) or [])
                             _hits += list((_pos.get("mid_pats") or {})
                                           .get(_ci2) or [])
                             for _pat, _cut in _hits:
-                                for _r in _new:
-                                    _f2 = _ix.fwd.get(_r, {})
-                                    _rv2 = _ix.rev.get(_r, {})
-                                    if _f2.get(_ci2) or _rv2.get(_ci2):
-                                        _np = tuple(_pat[:_cut]) + (_r,)
-                                        _ext[_np] = tuple(
-                                            frozenset([x]) for x in _np)
-                        # combinatorics bound only — the B-phase per-terminal
-                        # quota is the semantic filter
+                                if _ci2 not in _anchors \
+                                        or _cut > _anchors[_ci2][1]:
+                                    _anchors[_ci2] = (tuple(_pat[:_cut]),
+                                                      _cut)
+                                for _nd, _j in _joins.get(tuple(_pat), ()):
+                                    if _nd not in _anchors \
+                                            or _j > _anchors[_nd][1]:
+                                        _anchors[_nd] = (tuple(_pat[:_j]),
+                                                         _j)
+                        for _nd, (_pf, _d) in sorted(
+                                _anchors.items(),
+                                key=lambda kv: -kv[1][1])[:8]:
+                            # an anchor with no edges makes derive return
+                            # None (hop1 empty) — iterating it raised inside
+                            # this swallowed-try block and silently degraded
+                            # the WHOLE call to the plain direct step (the
+                            # walk-nothing regression family, 25+ calls)
+                            _der2 = _derive_multistep_seq(
+                                _ix, ctx, _nd, set(_new), topk=3) or {}
+                            for _p2 in _der2:
+                                _np = _pf + tuple(_p2)
+                                _ext[_np] = tuple(
+                                    frozenset([x]) for x in _np)
+                        # OUT-AND-BACK GUARD + length-first cap: a deep
+                        # anchor's derivation backtracks through the prefix's
+                        # neighborhood and mints monster composites with
+                        # REPEATED relations (...members ⭢ members...); a
+                        # repeated relation in a chain is out-and-back noise
+                        # in this domain. Short composites are the forward-
+                        # clean ones (shallow-join rescue) — they win the cap.
+                        _ext = {k: v for k, v in _ext.items()
+                                if len(set(k)) == len(k)}
                         if len(_ext) > 12:
                             _ext = {k: _ext[k] for k in sorted(
                                 _ext, key=lambda p: (len(p), p))[:12]}
+                        if os.environ.get("SEQ_DEBUG_TREE", "0") == "1":
+                            import sys as _sys
+                            print(f"[TREE] extend root={str(ctx.ents[_a])[:20]!r} "
+                                  f"anchors={sorted((str(ctx.ents[_n])[:16], _d) for _n, (_p, _d) in _anchors.items())[:8]} "
+                                  f"ext={[tuple(str(ctx.rels[_r]).rsplit('.', 2)[-2:] if _r < len(ctx.rels) else _r for _r in k) for k in list(_ext)[:8]]}",
+                                  file=_sys.stderr, flush=True)
                         _ast[_a] = [frozenset(x) for x in _layers] + \
                             [frozenset(rel_idxs)]
                         _layer_action = "extend"
@@ -4039,19 +4095,18 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                         _cont_frontier[_a] = sorted(set(_starts))[:12]
                     else:
                         continue
-                    # SEQUENCE-STATE ECHO: accumulated layers + per-step
-                    # chain counts (per-layer completions retired with the
-                    # layer walk)
-                    _chs = _chains_of.get(_a) or {}
-                    _short = lambda ri: ".".join(
-                        str(ctx.rels[ri]).rsplit(".", 2)[-2:]) \
-                        if 0 <= ri < len(ctx.rels) else str(ri)
-                    _parts = [str(ctx.ents[_a])]
-                    for _li, _lay in enumerate(_ast[_a]):
-                        _lbl = " | ".join(_short(r) for r in sorted(_lay))
-                        _cnt = sum(1 for p in _chs if len(p) == _li + 1)
-                        _parts.append(f"{_lbl} ({_cnt})")
-                    _seq_echo = " ⭢ ".join(_parts)
+                    # SEQUENCE-STATE ECHO (compact, user catch 2026-09-20:
+                    # full per-layer relation lists grew unreadable at 4+
+                    # steps — the render header already carries root+frontier
+                    # and layer_action the action). The model's cue is that
+                    # the chain persists: continuation re-calls the anchor
+                    # with the new relation.
+                    _fr_names = [str(ctx.ents[i]) for i in
+                                 sorted(set(_starts))[:3] if i != _a]
+                    _seq_echo = "%s ⭢ %d-step chain%s" % (
+                        str(ctx.ents[_a]), len(_ast[_a]),
+                        (" (frontier: %s)" % " | ".join(_fr_names))
+                        if _fr_names else "")
             # SEMANTIC IDEMPOTENCE (user ruling 2026-09-15, trajectory
             # review): the model re-called the same walk with surface-
             # different args (typed roster → ?country → short rel name →
@@ -4102,6 +4157,14 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                 if _der:
                     _multistep[_ci] = _der
         except Exception:
+            # a swallowed exception here silently degrades the call to the
+            # plain direct step (the 193-empty regression family) — make it
+            # visible under the tree debug env
+            if os.environ.get("SEQ_DEBUG_TREE", "0") == "1":
+                import sys as _sys, traceback as _tb
+                print("[TREE] EXCEPTION in seq tree block:",
+                      file=_sys.stderr)
+                _tb.print_exc(file=_sys.stderr)
             _multistep = {}
     return {"kind": "sg", "corr": bad_name, "centers": centers, "skipped": skipped,
             "rel_idxs": rel_idxs, "rel_names": rel_names, "fid": fid,
@@ -5585,18 +5648,13 @@ def _sg_finalize(treq, bres, ctx) -> str:
         "note": ((_nudge + " ") if _nudge else "") +
                 (("Multiple centers retrieved with one shared relation set — COMPARE them via "
                   "the triples (an edge '--to--> (incumbent)' marks the current holder). ") if multi else "") +
-                (("SEQUENCE EXTENSION applied to several frontier members — the new layer's "
-                  "edges are per-candidate: COMPARE them across the candidates (values, dates, "
-                  "ids) and commit the discriminated one(s), never the whole frontier roster. "
-                  "Mid-chain entities are HOPS, not answers. ") if treq.get("cont_compare") else "") +
-                ("Evidence blocks group triples by entity: 'h --rel--> t1 | "
-                  "t2' merges tails, 'h1 | h2 --rel--> t' merges heads. "
-                  "m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; "
-                  "use their named ATTRIBUTES (actor, character, office "
-                  "holder, jurisdiction), shown inline in brackets. "
-                  "Discriminator attributes (dates, incumbent) appear as "
-                  "their own edges — compare them to pick. Pick the next "
-                  "center FROM these triples."),
+                (("SEQUENCE EXTENSION: the new layer's edges are per-frontier-member — "
+                  "COMPARE across candidates and commit the discriminated one(s); "
+                  "mid-chain entities are HOPS, not answers. ") if treq.get("cont_compare") else "") +
+                ("Evidence blocks group by entity; 'h --rel--> t1 | t2' merges tails. "
+                  "m.xxx/g.xxx are EVENT nodes — answer/bind their bracketed "
+                  "ATTRIBUTES, never the node; discriminator attributes (dates) "
+                  "are their own edges. Pick the next center FROM these triples."),
     }
     if treq.get("attr_expansion"):
         # FAMILY EXPANSION ECHO (user audit 2026-09-09): show what each

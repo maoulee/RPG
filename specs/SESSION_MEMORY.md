@@ -1,5 +1,34 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 链树修补三轮(user 三连发现):桥容忍延长/None 守卫/重复关系守卫+渲染瘦身+重放提速
+- **user 发现 1(1379 块#3,step1 关系没进模式)**:extend 声明原为叶上直接
+  可行性检查——新关系(org_type 族)不挂叶自身边(挂 Classical music 上)
+  →声明空→回退根 derive 桥模式。**修:延长=桥容忍**——从锚点 derive
+  (终点=新关系,直接边=深度1特例)前置到达前缀;**浅层接锚救援**:回穿型
+  导出在链中间节点(LoFL)浅一层前向成立——锚点=被挑叶+其链全部 join 位
+  (按深优先,≤8),组合链≤12。
+- **两枚连环雷(排查教训)**:①`_derive_multistep_seq` 对无边锚点返回
+  **None**→extend 里迭代 None TypeError→被外层 try 吞→整调用退化裸
+  direct 步——**25+ walk_nothing 的全部来源**(faulthandler+SEQ_DEBUG_TREE
+  才现形;吞点已加 debug 显影)。修 `or {}`。②深锚 derive 回穿整个邻域产
+  出**重复关系怪物链**(...members⭢members...,7 跳),插入序上限按锚深
+  优先把 3 跳干净解挤出名额。修:组合链**重复关系守卫**(set<len 弃,
+  out-and-back 噪声)+上限改**链长优先**。终态:walk_nothing 5(=v1 基线)、
+  empty 3、pat 341、extend 147、answer≠3/144 不变。
+- **user 发现 2(note/echo 过长)**:anchor_sequence 改紧凑式
+  `<root> ⭢ N-step chain (frontier: X|Y)`(渲染头已带 root+frontier,
+  层关系全列表冗余);⚠单字面 note 缩一句;SEQUENCE EXTENSION note
+  ~310c→~190c;格式教学 note ~430c→~290c。
+- **user 发现 3(重放太慢,疑串行回归)**:非串行——WALK_POOL=3 常开,
+  walk 全程 1-2s;慢的是 **GTE 批收集窗口**(真实运行 ~2s/round 的
+  batching 等待,重放无需复刻)。replay_dispatch 站立 env 加
+  GTE_CLIENT_BATCH_WINDOW=0.15/FIRST=0.08(结果逐字不变,只动时序):
+  **144 条 71s→32s**(基线 67s)。
+- 探针(scripts/probe_chain_conn.py)新增 REBUILD 观测点+TREE 调试
+  (SEQ_DEBUG_TREE=1:匹配/ops/锚/ext/吞点异常栈)。生产调试开关
+  SEQ_DEBUG_TREE 永久保留。
+- render_diff v6 已再生供审(specs/render_diff_2026-09-20.md)。
+
 ### 2026-09-20 链树落地(实施完成,待用户审核渲染):判定读链叶集,层走对判定退役
 - **实施**(用户放行"先更新试试,不行就会退"):`ctx.anchor_chains`
   {根→{模式idx元组:原始链}} 为树的新真相源。`_tree_positions`(seq_tools,
