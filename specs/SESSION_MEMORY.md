@@ -1,5 +1,20 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-20 note 三次瘦身+块#4 空响应诊断+rollout 重启
+- note 压至 ~350c(⚠ 一句/EXTENSION 120c/格式 160c,去重复保证句)。
+- **render_diff 尾块"(无 sg 响应)"=重放提前终止**:重放证据态漂移致
+  answer 二拒→强答收尾(1379s1: 32 vs 34 步)——非渲染机制问题;后续可
+  在 render_diff 标注"replay ended early"。
+- **1379s1 完整轨迹**(specs/traj_1379_cmd_rewalk_2026-09-20.md):模型
+  在 Freemasonry|Academy 周边连发 3 次 sg 的根因=子问题 f2(何时离任/
+  是否宗教组织)的**判别证据(日期/宗教分类)在该切片不存在**——每次
+  渲染都无判别子,模型换关系族重问(members/company→membership→org_type),
+  最终 ?org 复调用撞 walk-nothing→ladder→restart→二拒强答。与录制
+  行为一致(同 6 调用)。残留:?org 复调用(?已命令关系)报
+  RELATION_MISMATCH 而非 evidence_repeat 提示——sem 幂等门未命中待查。
+- 冒烟 2 case f1=1.0 后启动 **48×3 全量 rollout(命令重走栈,
+  OUT=reports/cmd_rewalk_48x3.json,后台)**——完成后对比 0.7177。
+
 ### 2026-09-20 命令重走模型(用户三轮裁定,延长状态机退役):完整性排序+重建终闸
 - **用户规格(定稿)**:子图调用=对**完整命令**的修正重走——center 只定
   新关系的归属步(根起点⇒整包替换 step1;上一步链终点⇒追加下一步;跨步

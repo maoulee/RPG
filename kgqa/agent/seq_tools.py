@@ -373,8 +373,7 @@ def _variable_nudge(raw_entities, ctx) -> str:
         picked = [e for e in literals if e in bound]
         if picked:
             return (f"⚠ '{picked[0]}' is 1 of {var}'s {len(bound)} candidates — "
-                    f"pass {var} or all of them to compare their relations. "
-                    f"(Tree continuation walks from the root regardless.)")
+                    f"pass {var} to compare all.")
     return ""
 
 
@@ -5789,13 +5788,12 @@ def _sg_finalize(treq, bres, ctx) -> str:
         "note": ((_nudge + " ") if _nudge else "") +
                 (("Multiple centers retrieved with one shared relation set — COMPARE them via "
                   "the triples (an edge '--to--> (incumbent)' marks the current holder). ") if multi else "") +
-                (("SEQUENCE EXTENSION: the new layer's edges are per-frontier-member — "
-                  "COMPARE across candidates and commit the discriminated one(s); "
-                  "mid-chain entities are HOPS, not answers. ") if treq.get("cont_compare") else "") +
-                ("Evidence blocks group by entity; 'h --rel--> t1 | t2' merges tails. "
-                  "m.xxx/g.xxx are EVENT nodes — answer/bind their bracketed "
-                  "ATTRIBUTES, never the node; discriminator attributes (dates) "
-                  "are their own edges. Pick the next center FROM these triples."),
+                (("New-layer edges are per-frontier-member: COMPARE and commit "
+                  "the discriminated one(s); mid-chain entities are HOPS, not "
+                  "answers. ") if treq.get("cont_compare") else "") +
+                ("Blocks group by entity; 'h --rel--> t1 | t2' merges tails. "
+                  "m.xxx are EVENT nodes — answer their bracketed ATTRIBUTES. "
+                  "Pick the next center FROM these triples."),
     }
     if treq.get("attr_expansion"):
         # FAMILY EXPANSION ECHO (user audit 2026-09-09): show what each
