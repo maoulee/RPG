@@ -358,33 +358,12 @@ def _expand_entities(entities, ctx):
 
 
 def _variable_nudge(raw_entities, ctx) -> str:
-    """If the model passed a LITERAL entity that is one of several bindings of a
-    declared ?variable, it picked one representative from a multi-candidate set.
-    Nudge it to pass the variable instead so all candidates are carried forward
-    (the 832 pipe-string / pick-one failure). Returns the nudge text, or '' .
-
-    SCOPE FIX (user audit 2026-09-21, smoke-4 576 specimen): the old check
-    fired whenever ANY passed entity happened to be a binding member — a
-    model passing the FULL 7-country list still got "you only passed
-    Belize", a factually wrong warning on the exact behavior §14/§17 ask
-    for. Warn ONLY on a genuine narrowing: a single passed literal that is
-    a member of a multi-binding variable."""
-    vb = getattr(ctx, "var_bindings", {}) or {}
-    literals = [str(e) for e in (raw_entities or []) if not str(e).startswith("?")]
-    if not literals or not vb:
-        return ""
-    for var, bindings in vb.items():
-        bound = [str(b) for b in (bindings or [])]
-        if len(bound) <= 1:
-            continue
-        picked = [e for e in literals if e in bound]
-        if picked and len(literals) == 1:
-            return (f"⚠ Passing only '{picked[0]}' narrows the relation pool to just "
-                    f"that entity's edges — {var} has {len(bound)} candidates whose "
-                    f"relations may differ. For full-frontier relation discovery, pass "
-                    f"the variable {var} or ALL relevant entities together. A single "
-                    f"literal is fine when the tree continuation handles it (the system "
-                    f"walks from the root regardless).")
+    """REMOVED (user ruling 2026-09-21): the warning existed because binding
+    loss used to mean core-path loss — under the current design, bindings
+    feed the relation-discovery pool only, never gate the walk; quantity is
+    never limited and the only requirement is non-empty. Always returns ''.
+    Wiring sites (2957, 3605 + 6 prepend points) call this for future
+    re-enablement; the function body is inert."""
     return ""
 
 
@@ -2819,8 +2798,8 @@ def _do_seq_decompose(args: Dict[str, Any], ctx, session=None) -> str:
                      "re-call retrieve_relations/retrieve_subgraph — the plan "
                      "locks facts, not retrieval choices.",
             "note": ("The plan is a closed contract. Its only legal transitions are "
-                     "checkpoints: `[fid ✓] ?var = [v1 | v2 | ...]` (resolved), "
-                     "`[fid ✗ empty]` (the reachable pool holds no relation advancing "
+                     "checkpoints (one md line per fact): `- fid ✓ ?var = v1 | v2` (resolved), "
+                     "`- fid ✗ empty` (the reachable pool holds no relation advancing "
                      "this fact), `[fid ✗ moot]` (earlier evidence already bound this "
                      "fact's target). Continue the workflow with retrieve_relations / "
                      "retrieve_subgraph on the next OPEN fact. Answer when "
@@ -2919,8 +2898,8 @@ def _do_seq_decompose(args: Dict[str, Any], ctx, session=None) -> str:
                       "match, typically ≤3, max 5 — not just the single best), then "
                       "retrieve_subgraph with ALL of them together. After each "
                       "retrieve_subgraph, close the fact with ONE of three checkpoints: "
-                      "resolve it `[fid ✓] ?var = [v1 | v2, ...]`; close it EMPTY "
-                      "`[fid ✗ empty]` when no candidate relation advances it; close it "
+                      "resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY "
+                      "`- fid ✗ empty` when no candidate relation advances it; close it "
                       "MOOT `[fid ✗ moot]` when earlier evidence already bound its target. "
                       "MULTI-TREE (question names SEVERAL entities): prefer a "
                       "separate anchor view per entity when the entities provide "
@@ -3135,7 +3114,7 @@ def _rr_finalize(treq, bres, ctx) -> str:
                         "name (a different name passes the repeat gate). If NONE of "
                         "the candidates is the right entity, do NOT re-call with the "
                         "same name (it will be rejected) — declare "
-                        "`[fid ✗ empty]` for this fact or continue from another "
+                        "`- fid ✗ empty` for this fact or continue from another "
                         "question entity's evidence. CROSS-SUBGRAPH CENTER: if "
                         "THIS fact's selected relations are right but its anchor "
                         "entity is wrong, re-call retrieve_subgraph with a center "
@@ -5598,7 +5577,8 @@ def _sg_finalize(treq, bres, ctx) -> str:
                   "the triples (an edge '--to--> (incumbent)' marks the current holder). ") if multi else "") +
                 (("SEQUENCE EXTENSION applied to several frontier members — the new layer's "
                   "edges are per-candidate: COMPARE them across the candidates (values, dates, "
-                  "ids) and commit the discriminated one(s), never the whole frontier roster. "
+                  "ids) and declare the values the evidence supports (any non-empty count). "
+                  "Final discrimination happens at answer analysis. "
                   "Mid-chain entities are HOPS, not answers. ") if treq.get("cont_compare") else "") +
                 ("Evidence blocks group triples by entity: 'h --rel--> t1 | "
                   "t2' merges tails, 'h1 | h2 --rel--> t' merges heads. "

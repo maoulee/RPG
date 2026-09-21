@@ -1626,10 +1626,10 @@ class SeqReactCase:
                           f"{_var} = {' ∩ '.join(_fids)} (walk candidate pools) = "
                           f"[{' | '.join(_inter[:40])}]"
                           + (f" … ({len(_inter)} entities)" if len(_inter) > 40 else "")
-                          + ". These are the entities present in BOTH sides' "
-                            "retrieved evidence — answer with THESE entities "
-                            "only; submitting one subgraph's unreduced list is "
-                            "a constraint violation.")
+                          + ". Every walked constraint holds on these entities — "
+                            "but a too-narrow relation set on either side can "
+                            "shrink this intersection. Verify against both "
+                            "subgraphs' triples before finalizing (advisory).")
             else:
                 _j_msg = (f"⌗ SYSTEM JOIN over tool-side candidate pools: "
                           f"{len(_fids)} subgraphs bind {_var} "
@@ -2250,11 +2250,19 @@ class SeqReactCase:
             ans_entities = (parsed_args.get("entities") if tool_name == "answer" else None) or []
             pool = list(getattr(self.ctx, "all_candidates", []) or [])
             _joins_now = getattr(self.ctx, "var_joins", None) or {}
+            # LADDER-GATED (audit row #47, 2026-09-21): this bounce used to
+            # fire after the refusal ladder had already accepted a
+            # zero-binding abstention or a third NONE — resurrecting exactly
+            # one more forced-pick turn the ladder rulings abolished. Only
+            # a genuinely UNFORCED premature empty (no ladder interaction,
+            # no restart contract, facts on the ledger) gets one nudge.
+            _ladder_or_restart = (getattr(self.ctx, "_refusal_n", 0)
+                                  or getattr(self.ctx, "restarted", False))
+            _has_facts = any((getattr(self.ctx, "fact_bindings", None)
+                              or {}).values())
             if (tool_name == "answer" and not ans_entities
-                    and not self._empty_answer_retried and pool):
-                # (JOIN-empty rescue suppression REMOVED, Thundera specimen:
-                #  curated lists are not exhaustive — an empty intersection is
-                #  a completeness question for the MODEL, not a harness fact.)
+                    and not self._empty_answer_retried and pool
+                    and not _ladder_or_restart and _has_facts):
                 self._empty_answer_retried = True
                 self.state.state = "RETRIEVE"   # roll back so `answer` is legal again
                 self.messages.append({"role": "user", "content":
