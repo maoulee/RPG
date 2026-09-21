@@ -3011,6 +3011,30 @@ def _rr_prepare(args: Dict[str, Any], ctx) -> dict:
             if _front and _front != {i}:
                 reqs.append((ent, _seq_pool_relids(ctx, _front)))
             break
+    # BINDING-SET POOL EXPANSION (user finding 2026-09-21, 576 specimen):
+    # a discriminator relation may hang on a SIBLING of the queried center —
+    # in 576's slice location.country.calling_code exists ONLY on Panama,
+    # so a single-country center (Belize/Costa Rica…) can never surface it
+    # while the multi-binding union center the protocol asks for does.
+    # Mechanical set propagation, not semantics: when a resolved center IS
+    # one binding of a multi-binding variable, the variable's whole binding
+    # set joins the ranking pool.
+    _vb = getattr(ctx, "var_bindings", None) or {}
+    _bind_of = {}
+    for _v, _vals in _vb.items():
+        if _vals and len(_vals) > 1:
+            for _val in _vals:
+                _bind_of.setdefault(str(_val), _vals)
+    for ent, i in zip(entities, idxs):
+        _nm = str(ctx.ents[i]) if 0 <= i < len(ctx.ents) else ""
+        _sib_names = _bind_of.get(_nm)
+        if not _sib_names:
+            continue
+        _sib = {_name_to_idx(v, ctx) for v in _sib_names}
+        _sib.discard(None)
+        _sib = {x for x in _sib if x is not None and 0 <= x < len(ctx.ents)}
+        if len(_sib) > 1:
+            reqs.append((ent, _seq_pool_relids(ctx, _sib)))
     return {"kind": "rr", "requests": reqs, "entities": entities,
             "question": question, "nudge": _nudge}
 

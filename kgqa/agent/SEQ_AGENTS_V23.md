@@ -522,6 +522,11 @@ center: <fact head>
 question: <planned fact sub-question>
 ```
 
+When the fact's head is a bound variable, pass the VARIABLE (or ALL its
+bindings together) as the center — never a single member: the relation you
+need may hang on a sibling binding (one country carries a code its
+neighbors lack).
+
 The purpose is to identify graph relations that semantically encode the
 current fact.
 
@@ -582,6 +587,12 @@ Line shape: `- <fact id> <✓|✗> <?var = values | status>`.
 
 Values are pipe-separated; a ✓ line lists ALL graph-supported bindings the
 fact produced.
+
+Do NOT pre-discriminate at checkpoint time: declaring a single member
+while the subgraph displayed many candidates is premature — a relation you
+still need (a discriminator) may hang on a SIBLING binding, and a later
+single-member query can never surface it. Discrimination happens at answer
+analysis, not at the checkpoint.
 
 A checkpoint does NOT mean "this is my final answer".
 
