@@ -1,5 +1,22 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-21 反馈 submission-first(d39ee22)+48×3 终判(v23_unified):0.6832/76.4%,距基线-3.5pp
+- **反馈升级(user 裁定"所有反馈要点出要提交什么")**:冻结拒绝消息完整引用
+  台账(`- fid ✓ var=values`)+SUBMIT 指令;幻觉拒绝附合法取值池;CVT 剥绑
+  提醒带 (fid,var) 与站台绑定。153 绿;站立栈重放零漂移。
+- **48×3 终判**(reports/v23_unified_48x3.json,终配置=站立栈+统一重建
+  +反馈升级):**f1 0.6832 / hit 76.4%**,turns 8.2,failed 0,NONE 18/144。
+  对照:基线 v06_aligned 0.7177/81.9%,灾难点 v23_envfix 0.5712/65.3%
+  ——**较灾难回升 +11.2pp,距基线 -3.5pp/-5.5pp**。
+- **NONE 尸检**:13 持绑定 + 5 零绑定。**梯子全部按设计走完**(241-s2
+  标本:1st REMINDER→2nd 带退出预告→3rd 放行;模型原文引用 UNRESOLVED≠
+  CONTRADICTED 后仍弃权)——n_reject 不计 REMINDER 注记,勿误读为梯子
+  未触发。残余=模型"无已确认判别子→拒答"先验顶住两级事实级提醒
+  (~9% 样本);杠杆=§28b CASE B worked example(提交侧 union/弃权侧
+  UNKNOWN≠FAIL 的示例教学),非环境侧。
+- **已知成本项**:zh 移除泄漏分(1812/2209 型~6 轨迹)包含在 -3.5pp 内
+  (裁定接受的代价);2576/567/2209 仍 0.0(hard 标本)。
+
 ### 2026-09-21 站立栈勘误+冒烟#7(用户抓到):冒烟#5/#6 漏带渲染三件套,重验后 6/6
 - **错误(用户发现)**:我启动冒烟#5/#6 及重放时漏带站立渲染栈
   `SEQ_RENDER_V38=1 SEQ_LICENSE_FILTER=1 SEQ_GHOST_EDGES=1 SEQ_MULTISTEP=1`
