@@ -164,7 +164,10 @@ def _update_var_bindings(ctx, content: str) -> None:
         cvt_bound = [p for p in parts if _is_cvt(p)]
         _all_cvt = False
         if cvt_bound:
-            ctx.cvt_binding_flag = True
+            # carry (fid_raw, var) so the reminder can quote the standing
+            # ledger for the affected fact (submission-first rule 2026-09-21)
+            ctx.cvt_binding_flag = ((_fid_raw, var) if (var or _fid_raw)
+                                    else True)
             parts = [p for p in parts if not _is_cvt(p)]
             _all_cvt = not parts and var.startswith("?")
         # PER-SUBGRAPH HALLUCINATION CHECK (2026-08-21, user proposal): every
@@ -1570,45 +1573,91 @@ class SeqReactCase:
         self.state.declared_fids = {norm_fact_key(self.state, k)
                                     for k in (getattr(self.ctx, "fact_vars", None) or {})}
         # harness reminder: the model just bound CVT event nodes — events are
-        # never entities; the binding was stripped, tell it what to bind instead.
-        if getattr(self.ctx, "cvt_binding_flag", False):
+        # never entities; the binding was stripped, tell it what to bind instead
+        # (and what already stands — submission-first rule 2026-09-21).
+        _cvtf = getattr(self.ctx, "cvt_binding_flag", False)
+        if _cvtf:
             self.ctx.cvt_binding_flag = False
+            _cvt_extra = ""
+            if isinstance(_cvtf, tuple):
+                _cfid_raw, _cvar = _cvtf
+                _cfid = _canonical_decl_fid(self.ctx, _cfid_raw, _cvar)
+                _cstand = ((getattr(self.ctx, "fact_bindings", None) or {})
+                           .get(_cfid)) or []
+                if _cstand:
+                    _cvt_extra = (f" The standing bindings for {_cfid} "
+                                  f"({_cvar}) remain: "
+                                  + " | ".join(_cstand[:12])
+                                  + (" …" if len(_cstand) > 12 else "") + ".")
             _cvt_msg = ("⚠ Your checkpoint bound EVENT nodes (m./g. ids) as variable "
                         "values. An event node is an abstract RECORD — it names no "
                         "thing, so that binding was removed (see §7.5). The entities "
-                        "INSIDE the event's bracket are the world: re-declare the "
-                        "checkpoint binding, per variable, the attribute entity whose "
-                        "KEY answers that variable (award question → the award= value, "
-                        "residence → location=, who played → actor=).")
+                        "INSIDE the event's bracket are the world: SUBMIT those — "
+                        "re-declare the checkpoint binding, per variable, the "
+                        "attribute entity whose KEY answers that variable (award "
+                        "question → the award= value, residence → location=, who "
+                        "played → actor=; a film performance → the film= or "
+                        "character= value)."
+                        + _cvt_extra)
             self.messages.append({"role": "user", "content": _cvt_msg})
             self.ctx.trajectory.append({"role": "tool", "content": _cvt_msg})
         # harness reminder: the checkpoint re-declared a FROZEN fact without
-        # new subgraph evidence — tell the model it is a hallucination.
+        # new subgraph evidence — tell the model it is a hallucination AND
+        # hand it the complete standing bindings + the exact next submission
+        # (user ruling 2026-09-21: feedback never names only the error; it
+        # names what to submit — 576-s1 specimen burned turns re-deriving
+        # what "the original bindings stand" referred to).
         fb = getattr(self.ctx, "frozen_binding_flag", None)
         if fb:
             self.ctx.frozen_binding_flag = None
-            _fz_msg = (f"⚠ Your checkpoint [{fb[0]} ✓] tried to change bindings "
-                       f"({fb[1]}) WITHOUT any new subgraph retrieval for {fb[0]} — "
-                       "this is a hallucination: the re-declaration was REJECTED and "
-                       f"the original {fb[0]} bindings stand. A fact's values may only "
-                       "come from its own subgraph's evidence (original or a fresh "
-                       f"retrieval of {fb[0]}). If you need different values, retrieve "
-                       "that subgraph again; otherwise answer from the standing "
-                       "bindings.")
+            _fid = fb[0]
+            _stand = ((getattr(self.ctx, "fact_bindings", None) or {})
+                      .get(_fid)) or []
+            _var = ((getattr(self.ctx, "fact_vars", None) or {})
+                    .get(_fid)) or "the fact's variable"
+            _stand_str = (" | ".join(_stand[:12])
+                          + (" …" if len(_stand) > 12 else "")) if _stand \
+                else "(none recorded — the fact has no standing ✓ binding)"
+            _fz_msg = (f"⚠ Your checkpoint [{_fid} ✓] tried to change bindings "
+                       f"({fb[1]}) WITHOUT any new subgraph retrieval for {_fid} — "
+                       "this is a hallucination: the re-declaration was REJECTED. "
+                       "The COMPLETE standing bindings are:\n"
+                       f"- {_fid} ✓ {_var} = {_stand_str}\n"
+                       "SUBMIT from these: go to ANSWER_ANALYSIS and answer with "
+                       "the subset the evidence supports (narrowing there is "
+                       "legal). A DIFFERENT value set requires one fresh "
+                       f"retrieve_subgraph for {_fid} — nothing else unlocks it.")
             self.messages.append({"role": "user", "content": _fz_msg})
             self.ctx.trajectory.append({"role": "tool", "content": _fz_msg})
         # harness reminder: the checkpoint bound entities ABSENT from the
         # declaring subgraph's evidence (cross-subgraph contamination / invented).
+        # Same submission-first rule: show what stands and where legal values
+        # live, not just the violation.
         hb = getattr(self.ctx, "halluc_binding_flag", None)
         if hb:
             self.ctx.halluc_binding_flag = None
             _fid, _bad = hb
+            _hstand = ((getattr(self.ctx, "fact_bindings", None) or {})
+                       .get(_fid)) or []
+            _hvar = ((getattr(self.ctx, "fact_vars", None) or {})
+                     .get(_fid)) or "the fact's variable"
+            _pool = ((getattr(self.ctx, "fact_evidence", None) or {})
+                     .get(_fid)) or []
+            _pool_str = (" | ".join(list(_pool)[:10])
+                         + (" …" if len(_pool) > 10 else "")) if _pool else \
+                "(that subgraph displayed no named entities)"
             _hal_msg = (f"⚠ Your checkpoint [{_fid} ✓] bound entities that NEVER "
                         f"appeared in subgraph {_fid}'s displayed evidence: {_bad}. "
-                        "They were removed. A fact's bindings come ONLY from ITS OWN "
-                        f"subgraph's triples — do not merge entities from other "
-                        f"subgraphs into this declaration. Re-declare from subgraph "
-                        f"{_fid}'s evidence only.")
+                        "They were removed. "
+                        + (f"The standing bindings are unchanged:\n"
+                           f"- {_fid} ✓ {_hvar} = "
+                           + " | ".join(_hstand[:12])
+                           + (" …" if len(_hstand) > 12 else "") + "\n"
+                           if _hstand else "")
+                        + f"SUBMIT values drawn from {_fid}'s OWN evidence pool "
+                        f"(includes: {_pool_str}) — re-declare "
+                        f"`- {_fid} ✓ {_hvar} = <values from that pool>` or answer "
+                        "from the standing bindings.")
             self.messages.append({"role": "user", "content": _hal_msg})
             self.ctx.trajectory.append({"role": "tool", "content": _hal_msg})
         # SYSTEM JOIN note: multiple subgraphs now bind the same variable — the
