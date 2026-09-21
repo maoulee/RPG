@@ -1855,6 +1855,17 @@ class SeqReactCase:
                                     break
                         return "; ".join(parts)
                     _basis = _basis_now()
+                    # FACT-LEVEL feedback (user ruling 2026-09-21): the
+                    # reminder must point at the CONCRETE facts the model
+                    # retrieved (fid, variable, values) — real content, not a
+                    # bare command. "You have facts — give an answer from
+                    # them."
+                    _fact_parts = []
+                    for _f, _vals in _fb0.items():
+                        if _vals and _f in _fv0:
+                            _fact_parts.append(
+                                f"{_f} {_fv0[_f]}={list(_vals)[:4]}")
+                    _facts_str = "; ".join(_fact_parts[:6])
                     if not _basis and not any(_fb0.values()):
                         # zero support anywhere: accept the abstention —
                         # rewrite to an explicit empty answer and let the
@@ -1868,36 +1879,49 @@ class SeqReactCase:
                             "still advance the answer)")
                         self._emit_tool_note(
                             "REMINDER (not a verdict — your own checkpoint "
-                            "ledger is the authority): your exploration "
-                            "RETRIEVED facts that match the question — the "
-                            "answer may be among them. An imperfect answer "
-                            "from evidence beats an empty one. Current "
-                            f"answer-variable bindings: {_basis_disp}. "
-                            "Re-select relations once if a "
-                            "missing discriminator could still be retrieved; "
-                            "otherwise answer from the current support.")
+                            "ledger is the authority): your facts RETRIEVED "
+                            f"bindings — {_facts_str or _basis_disp}. These "
+                            "are retrieved facts; the answer should be given "
+                            f"from them (imperfect beats empty). "
+                            f"Answer-variable: {_basis_disp}. Re-select "
+                            "relations once if a missing discriminator could "
+                            "still be retrieved; otherwise answer from the "
+                            "current support.")
                         return {"ret": "continue"}
-                    else:
-                        # SECOND REFUSAL: _basis was recomputed above from the
-                        # CURRENT ledger (fresh, not stale — audit P2: a stale
-                        # basis list was submitted verbatim as "the system's
-                        # pick"). Framing stays evidence-relative.
+                    elif self.ctx._refusal_n == 2:
+                        # SECOND refusal — CONCRETE facts, and the exit is
+                        # announced: a third NONE is accepted as final
+                        # (user ruling: 如果第二次还 none，考虑放行 — the old
+                        # loop fired "answer NOW" up to 10× until the round
+                        # cap while the model re-derived the same NONE)
                         self.ctx._analysis_pending = False
                         if _basis:
                             self._emit_tool_note(
-                                "Second refusal — answer from current support NOW. "
-                                "Your own ledger currently holds "
-                                f"{_basis} — an imperfect answer from these beats "
-                                "an empty one. (Reminder, not a ruling; your "
-                                "ledger is the authority.)")
+                                "Second refusal — your ledger holds RETRIEVED "
+                                f"FACTS: {_facts_str}. These are facts you "
+                                "retrieved; give an answer from them (an "
+                                "imperfect answer from facts beats an empty "
+                                "one). If you still judge NONE correct after "
+                                "this, your next NONE submission is ACCEPTED "
+                                "as the final answer.")
                         else:
                             self._emit_tool_note(
                                 "Second refusal — answer from current support NOW "
                                 f"(no bindings yet for the declared answer variable "
                                 f"{' / '.join(_av0) or 'unset'} — submit the best "
                                 "graph-supported bindings from the evidence, or "
-                                "declare [explore ✗ none] to use the one restart).")
+                                "declare [explore ✗ none] to use the one restart). "
+                                "A further NONE is accepted as final.")
                         return {"ret": "continue"}
+                    else:
+                        # THIRD+ refusal with facts on the ledger: the model
+                        # re-derived its NONE twice against concrete
+                        # fact-level feedback — ACCEPT it (放行). Rewrite to
+                        # an explicit empty answer and let the answer tool
+                        # record it; no further ping-pong.
+                        parsed_args = dict(parsed_args)
+                        parsed_args["entities"] = []
+                        parsed_args.pop("ANSWER", None)
             elif (isinstance(_ne, list) and _ne
                     and not getattr(self.ctx, "_varmismatch_retried", False)):
                 # VAR-MISMATCH GUARD (Stalin specimen, 2026-08-24): entities

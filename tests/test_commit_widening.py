@@ -394,10 +394,11 @@ def test_purity_detector_reachable(monkeypatch):
 
 
 def test_refusal_phrase_routes_ladder(monkeypatch):
-    """Refusal routing (user ruling 2026-09-20): FIRST refusal with bindings
-    → evidence-framed REMINDER (never a verdict, never forced); SECOND
-    refusal → answer-now with the fresh answer-var basis; refusal with ZERO
-    bindings anywhere → accepted abstention (see test_none_answer_routes)."""
+    """Refusal routing (user rulings 2026-09-20/21): FIRST refusal with
+    bindings → REMINDER naming the CONCRETE facts; SECOND refusal → fact-
+    level feedback + announced exit; THIRD refusal → NONE ACCEPTED as final
+    (放行 — the old loop fired 'answer NOW' up to 10× to the round cap);
+    refusal with ZERO bindings anywhere → accepted abstention."""
     rc = make_case(monkeypatch)
     turn(rc, PLAN_TURN)
     rc.state.retrieved_fids = ["f1", "f2"]
@@ -412,8 +413,11 @@ def test_refusal_phrase_routes_ladder(monkeypatch):
     out = turn(rc, "tool: answer\nentities: None")
     msgs = [m.get("content") or "" for m in rc.messages]
     sec = next(m for m in msgs if "Second refusal" in m)
-    assert "?founder=['Alice']" in sec                     # fresh basis
+    assert "f1 ?founder=['Alice']" in sec                  # fact-level content
+    assert "ACCEPTED" in sec                               # exit announced
     assert rc.state.state == "RETRIEVE"
+    out = turn(rc, "tool: answer\nentities: None")         # third: 放行
+    assert rc.done is True                                 # accepted as final
 
 
 def test_none_answer_routes_ladder(monkeypatch):
