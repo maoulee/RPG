@@ -10,17 +10,30 @@
   (Poetic Justice 导演=John Singleton,图内真值)合法提交 NONE,事实级
   REMINDER(f1 ?movie=[Poetic Justice|And the Earth…])将其转化为交付
   0.67;s1 NONE 合法(消毒器剥 mid 绑定后 ledger 零支持,梯子第 0 级放行)。
-- **2784 翻转根因(既有渲染盲区,非回归)**:终端 CVT 尾巴渲染成无名 mid
-  串+只有冗余回边属性(`m.02vb3h0 [actor=Tupac Shakur]`——attr=头实体
-  本身),承名出边(film=Poetic Justice/character=Lucky)不在边集,模型
-  必须**再探一步**(把 mid 当中心)才能看到名字;smoke-4 三采样都探了,
-  smoke-5 s0/s1 没探→绑 mid→事件节点消毒器剥绑→零合法支持→NONE。
-  定位:seq_tools._inline_events(707)内联属性只从本次走到的边集收集。
+- **2784 翻转根因(既有渲染盲区,非回归;精确归因 2026-09-21 复盘)**:
+  walk 层**没有断**——_rebuild_paths(4249-4253)对 CVT 落点做了全向穿透,
+  Tupac→CVT→Poetic Justice 完整链在 full_edges 里,图数据完整
+  (m.02vb3h0 --performance.film--> Poetic Justice / --character--> Lucky
+  都在 case 图)。**断点在 _rebuild_pe_list 的 (b) plain-direct 分支
+  (seq_tools.py:4415-4419):组装 triples 只用 ch["edges"](模式跳,止于
+  CVT),丢弃 ch["full_edges"] 的穿透边**;(a) 分支(4371)用的正确是
+  full_edges。渲染器本身有能力(render_evidence_sections 的 cvt_attrs
+  从 all_triples 收 CVT 出边,_disp_node/_tails_display 内联≤4 属性),
+  穿透边没到它手里。实测插桩:all_triples 33 边中 CVT 相关仅
+  Tupac→m.02vb3h0 一条。**[actor=Tupac Shakur] 括号=池伪影**:仅当 attr
+  关系本身被 bridge 挂进池(s1 的 portrayed_in_films 族挂了
+  performance.actor)才出现,非设计属性展示——同渲染时有时无的原因。
+  smoke-4 三采样全靠模型多探一步(mid 当中心,穿透边成为模式跳);
+  smoke-5 s0/s1 没探→绑 mid→消毒器剥绑→零合法支持→NONE。
+  答案池其实早就有 Poetic Justice(_collect_cvt_neighbors_to_pool,
+  5306:"CVT-attr entities pe.triples may miss are answerable")——
+  walk 完整、显示饿死,审计③同族。
+- **候选修复(待裁定,一行级)**:(b) 分支 _edge_set 从 ch["edges"] 改
+  ch["full_edges"]——纯渲染面,walk 已走的边交给显示层,即
+  "CVT expansion renders inline at the CVT node" 裁定的原意。
 - **2784 本身是 gold 噪声题**:问"directed",图内 Petruccelli 只有 art
   director/production designer 边,导演位=Singleton;gold=Poetic Justice
   只能靠 §28b 部分支持达成——该标本分数天然方差大。
-- **候选修复(待裁定)**:终端 CVT 尾巴的内联括号补显其具名出边(从
-  ctx 全图收集,仍纯渲染面,合法)——同时消 2784 型盲区与探测运气依赖。
 
 ### 2026-09-21 审计③定案+渲染/游走四修复(22dfeaf)+冒烟:三机制清白,四真凶已修
 - **审计③结论**:三个 sanctioned 机制(<5 全量/GTE 排序/同属性压缩)全部
