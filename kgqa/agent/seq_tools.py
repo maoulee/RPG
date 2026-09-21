@@ -4319,7 +4319,15 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
     no PG completeness block). Also archives treq["confirmed"] =
     {(center_idx, pattern-name-tuple): [chain...]} — the render layer reads
     this instead of re-inferring the pattern↔path mapping by name matching
-    (the old mismatch that killed heterogeneous multi-hop sections)."""
+    (the old mismatch that killed heterogeneous multi-hop sections).
+    UNIFIED (user ruling 2026-09-21): every call is pattern → rebuild →
+    expand. Derived patterns walk from the center; a plain direct query is
+    the trivial single-hop pattern walking from the step's starts (frontier
+    members on a continuation, else the center). Both lanes share ONE
+    assembly: paths = pattern hops only (license path-admission needs a
+    submitted last hop), triples = full_edges (the terminal-CVT passthrough
+    expansion rides along — the renderer inlines it at the CVT node),
+    candidates = named full terminals."""
     from kgqa.stages.formatting import PatternEvidence
     from kgqa.traversal.pattern_walk import get_pattern_index
     ix = get_pattern_index(ctx)
@@ -4338,26 +4346,61 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
         if not (0 <= _ci < len(ctx.ents)):
             out.append({})
             continue
-        # (a) selected patterns — reconstruct per pattern key. SINGLE-LAYER
-        # declared chains (pattern key len==1, the most common continuation
-        # shape) ride here too: a 1-layer chain IS one hop from the root —
-        # the old len>1 guard dropped them entirely (block renders empty).
-        _raw_fallback = None      # (chains, _pk) when the delta filter ate
-                                  # everything — see the empty-fallback below
-        for _pk, _seq in (_mseq.get(_ci) or {}).items():
-            chains, edges = _rebuild_paths(ctx, ix, _ci, _seq)
-            if not chains:
-                continue
+        _raw_fallback = None      # (chains, names-key) when the delta filter
+                                  # ate everything — see the empty-fallback below
+
+        def _delta_new(chains):
             # RENDER DELTA: drop chains whose EVERY edge was already
             # displayed by a prior subgraph (all-old chains render nothing;
             # a chain with at least one new edge keeps — its rows carry the
             # new relation's context)
-            _new_chains = [ch for ch in chains
-                           if not all(
-                               (str(ctx.ents[h]), str(ctx.rels[r]),
-                                str(ctx.ents[t])) in _shown_triples
-                               for (h, r, t) in ch["full_edges"])]
-            if not _new_chains:
+            return [ch for ch in chains
+                    if not all(
+                        (str(ctx.ents[h]), str(ctx.rels[r]),
+                         str(ctx.ents[t])) in _shown_triples
+                        for (h, r, t) in ch["full_edges"])]
+
+        def _assemble(names, chains):
+            """The ONE PatternEvidence assembly. triples = full_edges (the
+            terminal-CVT passthrough expansion rides along — the renderer
+            inlines it at the CVT node); paths = the PATTERN HOPS ONLY
+            (ending at the submitted relation — license path-admission
+            requires it); candidates = NAMED full terminals. The retired
+            plain-direct branch — born before the edges/full_edges split
+            (e9a10fd) redefined ch["edges"] to pattern hops — assembled
+            triples from the pattern-hop edges and candidates from mid
+            terminals, silently losing the passthrough evidence (2784
+            specimen: Tupac's performance CVTs rendered nameless)."""
+            edges = {e for ch in chains for e in ch["full_edges"]}
+            label = " ⭢ ".join(
+                ".".join(str(r).rsplit(".", 2)[-2:]) for r in names)
+            triples = sorted(
+                (str(ctx.ents[h]), str(ctx.rels[r]), str(ctx.ents[t]))
+                for (h, r, t) in edges)
+            paths = [{"nodes": [str(ctx.ents[i]) for i in ch["nodes"]],
+                      "relations": [str(ctx.rels[r])
+                                    for (_h, r, _t) in ch["edges"]]}
+                     for ch in chains]
+            _cands = {str(ctx.ents[ch["full_nodes"][-1]])
+                      for ch in chains
+                      if not _cvt_like_name(
+                          str(ctx.ents[ch["full_nodes"][-1]]))}
+            combined[label] = PatternEvidence(
+                label, label, sorted(_cands), triples, {"paths": paths})
+            confirmed[(_ci, names)] = list(
+                (confirmed.get((_ci, names)) or [])) + chains
+
+        # lane 1 — derived patterns (multi-hop or layered), from the center.
+        # SINGLE-LAYER declared chains (pattern key len==1, the most common
+        # continuation shape) ride here too: a 1-layer chain IS one hop from
+        # the root — the old len>1 guard dropped them entirely (block
+        # renders empty).
+        for _pk, _seq in (_mseq.get(_ci) or {}).items():
+            chains, _edges = _rebuild_paths(ctx, ix, _ci, _seq)
+            if not chains:
+                continue
+            _new = _delta_new(chains)
+            if not _new:
                 # EMPTY-RENDER FALLBACK (user ruling 2026-09-21): an
                 # all-old call used to render NOTHING — the model then held
                 # NO evidence in context for these relations and exploded
@@ -4365,98 +4408,45 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
                 # render empty, the REPEATED evidence is shown again
                 # (marked) instead.
                 if _raw_fallback is None:
-                    _raw_fallback = (chains, _pk)
+                    _raw_fallback = (
+                        chains, tuple(str(ctx.rels[r]) for r in _pk))
                 continue
-            chains = _new_chains
-            edges = {e for ch in chains for e in ch["full_edges"]}
-            names = tuple(str(ctx.rels[r]) for r in _pk)
-            label = " ⭢ ".join(
-                ".".join(str(ctx.rels[r]).rsplit(".", 2)[-2:])
-                for r in _pk)
-            triples = sorted(
-                (str(ctx.ents[h]), str(ctx.rels[r]), str(ctx.ents[t]))
-                for (h, r, t) in edges)
-            # paths carry the PATTERN HOPS ONLY (ending at the submitted
-            # relation — license path-admission requires it); the CVT
-            # pass-through's named endpoints join candidates/triples (CVT
-            # expansion renders inline at the CVT node, per user ruling)
-            paths = [{"nodes": [str(ctx.ents[i]) for i in ch["nodes"]],
-                      "relations": [str(ctx.rels[r])
-                                    for (_h, r, _t) in ch["edges"]]}
-                     for ch in chains]
-            _cands = {str(ctx.ents[ch["full_nodes"][-1]])
-                      for ch in chains
-                      if not _cvt_like_name(
-                          str(ctx.ents[ch["full_nodes"][-1]]))}
-            combined[label] = PatternEvidence(
-                label, label, sorted(_cands), triples, {"paths": paths})
-            confirmed[( _ci, names)] = chains
-        # (b) plain-direct step: the submitted rel set for ONE hop from the
-        # tree FRONTIER members (continuation) or the center itself — the
-        # same targeting rule the old _ms_steps used
+            _assemble(tuple(str(ctx.rels[r]) for r in _pk), _new)
+
+        # lane 2 — the trivial pattern: the submitted rel set, ONE hop from
+        # the step's starts (tree FRONTIER members on a continuation, else
+        # the center — the same targeting rule the old _ms_steps used).
+        # Grouped per first-hop relation; CONFIRMED KEY IS PER RELATION
+        # (not per frontier member — a 49-member frontier × 5 rels minted
+        # 245 keys and blew the render budget through sheer key count).
         _fr = (treq.get("cont_frontier") or {}).get(_ci)
         starts = [i for i in (_fr or [_ci]) if 0 <= i < len(ctx.ents)]
         hop = frozenset(treq["rel_idxs"])
-        _direct_agg = {}                # rel_idx -> [chains...] (merged)
+        _direct_new, _direct_all = {}, {}
         for _si in starts:
-            chains, edges = _rebuild_paths(ctx, ix, _si, (hop,))
-            if not chains:
-                continue
-            chains = [ch for ch in chains
-                      if not all(
-                          (str(ctx.ents[h]), str(ctx.rels[r]),
-                           str(ctx.ents[t])) in _shown_triples
-                          for (h, r, t) in ch["full_edges"])]
+            chains, _edges = _rebuild_paths(ctx, ix, _si, (hop,))
             if not chains:
                 continue
             for ch in chains:
-                (_h, _r, _t) = ch["edges"][0]
-                _direct_agg.setdefault(_r, []).append(ch)
-        for _r, _chains in _direct_agg.items():
-            _edge_set = set()
-            for ch in _chains:
-                for e in ch["edges"]:
-                    _edge_set.add(e)
-            lbl = ".".join(str(ctx.rels[_r]).rsplit(".", 2)[-2:])
-            triples = sorted(
-                (str(ctx.ents[h2]), str(ctx.rels[r2]), str(ctx.ents[t2]))
-                for (h2, r2, t2) in _edge_set)
-            paths = [{"nodes": [str(ctx.ents[i]) for i in c["nodes"]],
-                      "relations": [str(ctx.rels[r2])
-                                    for (_h2, r2, _t2) in c["edges"]]}
-                     for c in _chains]
-            combined[lbl] = PatternEvidence(
-                lbl, lbl,
-                sorted({str(ctx.ents[c["nodes"][-1]]) for c in _chains}),
-                triples, {"paths": paths})
-            # CONFIRMED KEY IS PER RELATION (not per frontier member — a
-            # 49-member frontier × 5 rels minted 245 keys and blew the
-            # render budget through sheer key count); chains merge per rel
-            _key = (_ci, (str(ctx.rels[_r]),))
-            confirmed[_key] = list((confirmed.get(_key) or [])) + _chains
+                if ch["edges"]:
+                    _direct_all.setdefault(ch["edges"][0][1], []).append(ch)
+            for ch in _delta_new(chains):
+                if ch["edges"]:
+                    _direct_new.setdefault(ch["edges"][0][1], []).append(ch)
+        for _r in sorted(_direct_new):
+            _assemble((str(ctx.rels[_r]),), _direct_new[_r])
+
         # EMPTY-RENDER FALLBACK: the delta filter ate every chain of every
-        # pattern but the walk DID produce chains — re-show the repeated
-        # evidence (first pattern only, marked) instead of an empty render
+        # lane but the walk DID produce chains — re-show the repeated
+        # evidence (first candidate, marked) instead of an empty render.
+        # Covers the trivial lane too: its all-old repeats used to fall
+        # through to a spurious NO_EVIDENCE — the walk had evidence, it was
+        # merely repeated.
+        if not combined and _raw_fallback is None and _direct_all:
+            _r0 = min(_direct_all)
+            _raw_fallback = (_direct_all[_r0], (str(ctx.rels[_r0]),))
         if not combined and _raw_fallback is not None:
-            chains, _pk = _raw_fallback
-            edges = {e for ch in chains for e in ch["full_edges"]}
-            label = " ⭢ ".join(
-                ".".join(str(ctx.rels[r]).rsplit(".", 2)[-2:])
-                for r in _pk)
-            triples = sorted(
-                (str(ctx.ents[h]), str(ctx.rels[r]), str(ctx.ents[t]))
-                for (h, r, t) in edges)
-            paths = [{"nodes": [str(ctx.ents[i]) for i in ch["nodes"]],
-                      "relations": [str(ctx.rels[r])
-                                    for (_h, r, _t) in ch["edges"]]}
-                     for ch in chains]
-            _cands = {str(ctx.ents[ch["full_nodes"][-1]])
-                      for ch in chains
-                      if not _cvt_like_name(
-                          str(ctx.ents[ch["full_nodes"][-1]]))}
-            combined[label] = PatternEvidence(
-                label, label, sorted(_cands), triples, {"paths": paths})
-            confirmed[(_ci, tuple(str(ctx.rels[r]) for r in _pk))] = chains
+            _assemble(_raw_fallback[1], _raw_fallback[0])
             treq["_repeat_evidence"] = True
         out.append(combined)
     treq["confirmed"] = confirmed
