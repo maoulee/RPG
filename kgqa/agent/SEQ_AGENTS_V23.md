@@ -552,6 +552,17 @@ immediately preceding `retrieve_relations` output for the current fact.
 
 Never invent relation names.
 
+**EXHAUSTIVENESS OF A RETRIEVED RELATION**: once a subgraph has been
+retrieved with a relation, the displayed triples are EVERY instantiation
+of that relation that exists in this graph — there is NO additional
+information under the same relation. Re-querying the same center with the
+same relation returns the same evidence. To see more, CHANGE THE RELATION
+(a sibling from the candidate list, a rephrase to surface a new family, or
+close the fact and move on) — never re-ask the same relation for "more".
+(This is the per-relation sense in which evidence is complete; the
+question-level sense — other facts/relations may hold more — is what fact
+iteration and repair are for.)
+
 ---
 
 # 18. Subgraph Retrieval

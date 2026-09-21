@@ -190,12 +190,22 @@ class SeqAgentState:
         return self.n_subgraphs >= len(self.fact_ids)
 
 
-def norm_fact_key(state: SeqAgentState, key: str) -> str:
+def norm_fact_key(state: SeqAgentState, key: str, center_hint: str = "") -> str:
     """Canonical (declared) fact id for any of the three runtime namespaces:
-    `f1` (declared), `sg1` (retrieve_subgraph's sg arg — resolves to the group's
-    first fact not yet retrieved/closed/declared, mirroring the sequential
-    workflow; else the group's last fact), `sg1.f2` (checkpoint declaration).
-    Unknown keys pass through unchanged so budget/closure stores stay inspectable."""
+    `f1` (declared), `sg1` (retrieve_subgraph's sg arg), `sg1.f2` (checkpoint
+    declaration). Unknown keys pass through unchanged so budget/closure stores
+    stay inspectable.
+    BARE-sg RESOLUTION (576 s2 specimen, 2026-09-21): a bare group id used to
+    resolve to the group's first NOT-YET-retrieved fact — but a REPAIR
+    re-retrieval of an already-retrieved fact (the model re-queried f1's head
+    to widen its bindings) got booked under the NEXT fact instead: f1's
+    evidence clock never advanced, the variable freeze stayed shut, and the
+    model's legitimate fresh-evidence widening was rejected as a
+    "hallucination" (while the never-queried f2 lit up as retrieved).
+    center_hint is the call's own declared center string: when it equals a
+    fact's declared HEAD token (the model's own strings, exact match —
+    mechanical, no graph semantics), that fact wins over the sequential
+    guess."""
     k = str(key or "").strip()
     if not k:
         return ""
@@ -211,7 +221,13 @@ def norm_fact_key(state: SeqAgentState, key: str) -> str:
         if fids:
             break
     if fids:
-        busy = set(state.retrieved_fids) | state.closed_fids | state.declared_fids
+        _hint = str(center_hint or "").strip()
+        if _hint:
+            for f in fids:
+                _head = state.fact_edges.get(f, ("", ""))[0]
+                if _head and _head == _hint:
+                    return f
+        busy = set(state.retrieved_fids) | set(state.closed_fids) | set(state.declared_fids)
         for f in fids:
             if f not in busy:
                 return f
@@ -398,7 +414,8 @@ def validate(state: SeqAgentState, tool_calls, ready: bool = False,
         if name == "retrieve_subgraph":
             state.n_subgraphs += 1
             sg = str(args.get("sg") or args.get("fact_id") or args.get("step") or "")
-            canon = norm_fact_key(state, sg)
+            canon = norm_fact_key(state, sg, center_hint=str(
+                (args.get("center") or args.get("entities") or [""])[0] or ""))
             if sg and canon not in state.retrieved_fids:
                 state.retrieved_fids.append(canon)
             # PER-CENTER RETRIEVAL BUDGET (user ruling 2026-09-20): count
