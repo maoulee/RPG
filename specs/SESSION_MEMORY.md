@@ -1,5 +1,27 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-21 冒烟#5(a5e03ff 七连修后 576+2784×3):七连修无恙,2784 翻转=既有渲染盲区
+- **结果**(tmp/rollout_smoke5.json,配置同 smoke-4: V2.3+纯英文,唯一差异
+  =a5e03ff):576 **3/3 Panama**(smoke-4 2/3,s2 数比错消失);2784
+  **s0/s1 NONE + s2 并集 0.67**(smoke-4 3/3)。mean f1 0.833→0.611,
+  hit 4/6,rej 全 0(乒乓零),turns 6.8。
+- **七连修判决:无恙且正向**。失败路径无一条消息来自七连修改动;576 改善
+  与 nudge 整体移除一致;**s2 是新梯子正向标本**——模型拿到更强判别证据
+  (Poetic Justice 导演=John Singleton,图内真值)合法提交 NONE,事实级
+  REMINDER(f1 ?movie=[Poetic Justice|And the Earth…])将其转化为交付
+  0.67;s1 NONE 合法(消毒器剥 mid 绑定后 ledger 零支持,梯子第 0 级放行)。
+- **2784 翻转根因(既有渲染盲区,非回归)**:终端 CVT 尾巴渲染成无名 mid
+  串+只有冗余回边属性(`m.02vb3h0 [actor=Tupac Shakur]`——attr=头实体
+  本身),承名出边(film=Poetic Justice/character=Lucky)不在边集,模型
+  必须**再探一步**(把 mid 当中心)才能看到名字;smoke-4 三采样都探了,
+  smoke-5 s0/s1 没探→绑 mid→事件节点消毒器剥绑→零合法支持→NONE。
+  定位:seq_tools._inline_events(707)内联属性只从本次走到的边集收集。
+- **2784 本身是 gold 噪声题**:问"directed",图内 Petruccelli 只有 art
+  director/production designer 边,导演位=Singleton;gold=Poetic Justice
+  只能靠 §28b 部分支持达成——该标本分数天然方差大。
+- **候选修复(待裁定)**:终端 CVT 尾巴的内联括号补显其具名出边(从
+  ctx 全图收集,仍纯渲染面,合法)——同时消 2784 型盲区与探测运气依赖。
+
 ### 2026-09-21 审计③定案+渲染/游走四修复(22dfeaf)+冒烟:三机制清白,四真凶已修
 - **审计③结论**:三个 sanctioned 机制(<5 全量/GTE 排序/同属性压缩)全部
   按设计工作(同属性压缩在多步 lane 根本没跑)——五标本由四个**其他**
