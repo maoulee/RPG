@@ -1,5 +1,25 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-21 统一重建(601552b,user 裁定"同样"):_rebuild_pe_list (a)/(b) 收编,2784 机制级修复
+- **改动**:(a)/(b) 两分支收编为一条 lane(用户裁定:直查=同一"模式→重建→
+  展开"机制的平凡单跳情形,分支是 e9a10fd 语义迁移不完整的残留)。
+  一组装配例程:paths=模式跳(许可证准入),triples=full_edges(终端 CVT
+  穿透边随行,渲染器在 CVT 节点内联),candidates=具名 full 终端。
+  附带消两处同源不对称:直查 lane 的 candidates 曾给 CVT mid;空渲染
+  回退曾只挂派生 lane(直查全旧重复→伪 NO_EVIDENCE,现回退覆盖)。
+- **验证**:153 绿(排除 val.pkl/skill 缺数据的两个收集错误,预存);
+  144 重放 vs a5e03ff 基线**零漂移**(两侧均 109/144 exact,answer≠7/
+  turns≠32/reject≠13——7 为此前批次累计解释漂移,本改动贡献 0);
+  探针:sg1 渲染 `m.02vb3h0 [starring=Poetic Justice; character=Lucky]`,
+  8 部电影+24 appearance 记录全部具名。
+- **冒烟#6**(tmp/rollout_smoke6.json):2784 **2/3×1.0 Poetic Justice**
+  (首渲染即见名,不再依赖探测运气;s1 剩余 NONE=模型 checkpoint 格式
+  绊倒,reasoning 里在自我纠正,离修好差一次重声明);576 2/3(s1=已知
+  P6 冷关系族缺口:calling_code 族从不进候选,模型猜名全弹回,零绑定
+  合法弃权)。mean 0.667/4hit,rej 乒乓 2。
+- **待办**:48×3 终判(现配置:V2.3+纯英文+全部修复+统一重建,基线
+  0.7177);P6 关系族发现缺口 retrieval 侧工作流。
+
 ### 2026-09-21 冒烟#5(a5e03ff 七连修后 576+2784×3):七连修无恙,2784 翻转=既有渲染盲区
 - **结果**(tmp/rollout_smoke5.json,配置同 smoke-4: V2.3+纯英文,唯一差异
   =a5e03ff):576 **3/3 Panama**(smoke-4 2/3,s2 数比错消失);2784
