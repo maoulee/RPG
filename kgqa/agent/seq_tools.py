@@ -361,7 +361,14 @@ def _variable_nudge(raw_entities, ctx) -> str:
     """If the model passed a LITERAL entity that is one of several bindings of a
     declared ?variable, it picked one representative from a multi-candidate set.
     Nudge it to pass the variable instead so all candidates are carried forward
-    (the 832 pipe-string / pick-one failure). Returns the nudge text, or '' ."""
+    (the 832 pipe-string / pick-one failure). Returns the nudge text, or '' .
+
+    SCOPE FIX (user audit 2026-09-21, smoke-4 576 specimen): the old check
+    fired whenever ANY passed entity happened to be a binding member — a
+    model passing the FULL 7-country list still got "you only passed
+    Belize", a factually wrong warning on the exact behavior §14/§17 ask
+    for. Warn ONLY on a genuine narrowing: a single passed literal that is
+    a member of a multi-binding variable."""
     vb = getattr(ctx, "var_bindings", {}) or {}
     literals = [str(e) for e in (raw_entities or []) if not str(e).startswith("?")]
     if not literals or not vb:
@@ -371,7 +378,7 @@ def _variable_nudge(raw_entities, ctx) -> str:
         if len(bound) <= 1:
             continue
         picked = [e for e in literals if e in bound]
-        if picked:
+        if picked and len(literals) == 1:
             return (f"⚠ Passing only '{picked[0]}' narrows the relation pool to just "
                     f"that entity's edges — {var} has {len(bound)} candidates whose "
                     f"relations may differ. For full-frontier relation discovery, pass "
