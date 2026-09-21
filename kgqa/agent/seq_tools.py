@@ -3011,30 +3011,6 @@ def _rr_prepare(args: Dict[str, Any], ctx) -> dict:
             if _front and _front != {i}:
                 reqs.append((ent, _seq_pool_relids(ctx, _front)))
             break
-    # BINDING-SET POOL EXPANSION (user finding 2026-09-21, 576 specimen):
-    # a discriminator relation may hang on a SIBLING of the queried center —
-    # in 576's slice location.country.calling_code exists ONLY on Panama,
-    # so a single-country center (Belize/Costa Rica…) can never surface it
-    # while the multi-binding union center the protocol asks for does.
-    # Mechanical set propagation, not semantics: when a resolved center IS
-    # one binding of a multi-binding variable, the variable's whole binding
-    # set joins the ranking pool.
-    _vb = getattr(ctx, "var_bindings", None) or {}
-    _bind_of = {}
-    for _v, _vals in _vb.items():
-        if _vals and len(_vals) > 1:
-            for _val in _vals:
-                _bind_of.setdefault(str(_val), _vals)
-    for ent, i in zip(entities, idxs):
-        _nm = str(ctx.ents[i]) if 0 <= i < len(ctx.ents) else ""
-        _sib_names = _bind_of.get(_nm)
-        if not _sib_names:
-            continue
-        _sib = {_name_to_idx(v, ctx) for v in _sib_names}
-        _sib.discard(None)
-        _sib = {x for x in _sib if x is not None and 0 <= x < len(ctx.ents)}
-        if len(_sib) > 1:
-            reqs.append((ent, _seq_pool_relids(ctx, _sib)))
     return {"kind": "rr", "requests": reqs, "entities": entities,
             "question": question, "nudge": _nudge}
 
@@ -4380,6 +4356,8 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
         # declared chains (pattern key len==1, the most common continuation
         # shape) ride here too: a 1-layer chain IS one hop from the root —
         # the old len>1 guard dropped them entirely (block renders empty).
+        _raw_fallback = None      # (chains, _pk) when the delta filter ate
+                                  # everything — see the empty-fallback below
         for _pk, _seq in (_mseq.get(_ci) or {}).items():
             chains, edges = _rebuild_paths(ctx, ix, _ci, _seq)
             if not chains:
@@ -4388,13 +4366,22 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
             # displayed by a prior subgraph (all-old chains render nothing;
             # a chain with at least one new edge keeps — its rows carry the
             # new relation's context)
-            chains = [ch for ch in chains
-                      if not all(
-                          (str(ctx.ents[h]), str(ctx.rels[r]),
-                           str(ctx.ents[t])) in _shown_triples
-                          for (h, r, t) in ch["full_edges"])]
-            if not chains:
+            _new_chains = [ch for ch in chains
+                           if not all(
+                               (str(ctx.ents[h]), str(ctx.rels[r]),
+                                str(ctx.ents[t])) in _shown_triples
+                               for (h, r, t) in ch["full_edges"])]
+            if not _new_chains:
+                # EMPTY-RENDER FALLBACK (user ruling 2026-09-21): an
+                # all-old call used to render NOTHING — the model then held
+                # NO evidence in context for these relations and exploded
+                # into reasoning/re-asking loops. When the whole call would
+                # render empty, the REPEATED evidence is shown again
+                # (marked) instead.
+                if _raw_fallback is None:
+                    _raw_fallback = (chains, _pk)
                 continue
+            chains = _new_chains
             edges = {e for ch in chains for e in ch["full_edges"]}
             names = tuple(str(ctx.rels[r]) for r in _pk)
             label = " ⭢ ".join(
@@ -4461,6 +4448,30 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
             # render budget through sheer key count); chains merge per rel
             _key = (_ci, (str(ctx.rels[_r]),))
             confirmed[_key] = list((confirmed.get(_key) or [])) + _chains
+        # EMPTY-RENDER FALLBACK: the delta filter ate every chain of every
+        # pattern but the walk DID produce chains — re-show the repeated
+        # evidence (first pattern only, marked) instead of an empty render
+        if not combined and _raw_fallback is not None:
+            chains, _pk = _raw_fallback
+            edges = {e for ch in chains for e in ch["full_edges"]}
+            label = " ⭢ ".join(
+                ".".join(str(ctx.rels[r]).rsplit(".", 2)[-2:])
+                for r in _pk)
+            triples = sorted(
+                (str(ctx.ents[h]), str(ctx.rels[r]), str(ctx.ents[t]))
+                for (h, r, t) in edges)
+            paths = [{"nodes": [str(ctx.ents[i]) for i in ch["nodes"]],
+                      "relations": [str(ctx.rels[r])
+                                    for (_h, r, _t) in ch["edges"]]}
+                     for ch in chains]
+            _cands = {str(ctx.ents[ch["full_nodes"][-1]])
+                      for ch in chains
+                      if not _cvt_like_name(
+                          str(ctx.ents[ch["full_nodes"][-1]]))}
+            combined[label] = PatternEvidence(
+                label, label, sorted(_cands), triples, {"paths": paths})
+            confirmed[(_ci, tuple(str(ctx.rels[r]) for r in _pk))] = chains
+            treq["_repeat_evidence"] = True
         out.append(combined)
     treq["confirmed"] = confirmed
     return out
@@ -5572,6 +5583,10 @@ def _sg_finalize(treq, bres, ctx) -> str:
 
         "skipped_centers": skipped,
         "note": ((_nudge + " ") if _nudge else "") +
+                (("UNCHANGED EVIDENCE (repeat): these relations produced no NEW edges since "
+                  "your previous subgraph — the same evidence is displayed again so it stays "
+                  "in context. ACT on it (checkpoint / answer / move to the next fact); "
+                  "re-retrieving will return the same. ") if treq.get("_repeat_evidence") else "") +
                 (("Multiple centers retrieved with one shared relation set — COMPARE them via "
                   "the triples (an edge '--to--> (incumbent)' marks the current holder). ") if multi else "") +
                 (("SEQUENCE EXTENSION applied to several frontier members — the new layer's "
