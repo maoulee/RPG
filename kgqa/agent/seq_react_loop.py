@@ -674,18 +674,31 @@ class SeqReactCase:
         if not self._last_tool_sig:
             return ""
         last_tool = self._last_tool_sig[0]
+        # EXHAUSTIVENESS-FRAMED GUIDANCE (user ruling 2026-09-21): state the
+        # mechanical fact (a retrieved relation is exhaustively instantiated —
+        # nothing more exists under it) and the legal destinations (OTHER
+        # relations / answer analysis), instead of the old unconditional
+        # "NOW submit retrieve_subgraph" conveyor — which fired even while
+        # EVIDENCE COMMIT was pending and pulled the model back into
+        # retrieval after it had already bound the answer variable (576 s2
+        # specimen, steps [11]-[13]).
         if last_tool == "retrieve_relations":
-            return ("You have candidate_relations from your last retrieve_relations call. "
-                    "NOW pick ALL structural bridge relations that encode the same semantic "
-                    "fact — submit them TOGETHER in one retrieve_subgraph call. "
-                    "Do NOT re-call retrieve_relations.\n")
+            return ("You have candidate_relations from your last retrieve_relations "
+                    "call. Relations you have ALREADY retrieved are COMPLETE in this "
+                    "graph — re-querying them adds nothing; pick relations whose "
+                    "evidence you do not yet have, and submit them TOGETHER in one "
+                    "retrieve_subgraph call. If your answer analysis is pending or "
+                    "the answer variable is already bound, complete that instead.\n")
         if last_tool == "retrieve_subgraph":
-            return ("You just retrieved a subgraph. Declare the checkpoint as ONE "
-                    "markdown line per fact (fid, status, variable, values):\n"
+            return ("You just retrieved a subgraph — the evidence under THESE "
+                    "relations is now complete in this graph (re-querying them "
+                    "yields nothing new; other information lives under OTHER "
+                    "relations). Declare the checkpoint as ONE markdown line per "
+                    "fact (fid, status, variable, values):\n"
                     "- fid ✓ ?var = value1 | value2   (resolved)\n"
                     "- fid ✗ empty | moot | mismatch | exhausted   (closed)\n"
-                    "Then call retrieve_relations for the next OPEN fact — or answer "
-                    "as soon as the QUESTION's variable is bound.\n")
+                    "Then retrieve with OTHER relations for more information — or "
+                    "answer as soon as the QUESTION's variable is bound.\n")
         return ""
 
     def _maybe_inject_evidence_commit(self) -> None:
