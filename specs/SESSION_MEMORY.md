@@ -1,5 +1,19 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-21 RSCC 实现分析(4代理并行→specs/rsc_impl_analysis_2026-09-21.md)
+- **产出**:四代理(数据结构/打分器/结构裁决/融合架构)只读审计综合成
+  specs/rsc_impl_analysis_2026-09-21.md,数据基础=v23_unified_48x3。
+- **核心结论**:①第一版分析端(scripts/rscc_credit.py 六阶段,复用
+  annotate/score/dump 三件套);②S()=现有 V(log-mean-exp per-entity
+  cap-8)零新数学;③倒序链式复用每 branch T+1 次评分,四臂 144 轨迹
+  1-2h;④branch=sg 锚树,depth=anchor_sequence 层号,ctx 账本全部未
+  落盘(零改动文本重建可行,_res 加字段是二版升级);⑤结构裁决复用
+  mark_necessity(L1 是正向必要不是 invalid 家;unreached 三条件合取;
+  替代对动态解除,g 保 f 废;空块走证伪通道记 0);⑥三处跨代理分歧
+  已裁定(τ 双域双报/echo 可用但同 run 同批/display 口径设计正确);
+  ⑦最大风险=打分噪声(批次效应 0.409>τ),四臂同批+双 τ 同号判据。
+- **待裁定**:P0-P2 动工;空块 0 分;训练端 P3 暂缓;_res 升级等一版。
+
 ### 2026-09-21 反馈 submission-first(d39ee22)+48×3 终判(v23_unified):0.6832/76.4%,距基线-3.5pp
 - **反馈升级(user 裁定"所有反馈要点出要提交什么")**:冻结拒绝消息完整引用
   台账(`- fid ✓ var=values`)+SUBMIT 指令;幻觉拒绝附合法取值池;CVT 剥绑
