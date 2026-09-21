@@ -1,5 +1,30 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-21 站立栈勘误+冒烟#7(用户抓到):冒烟#5/#6 漏带渲染三件套,重验后 6/6
+- **错误(用户发现)**:我启动冒烟#5/#6 及重放时漏带站立渲染栈
+  `SEQ_RENDER_V38=1 SEQ_LICENSE_FILTER=1 SEQ_GHOST_EDGES=1 SEQ_MULTISTEP=1`
+  (重放里甚至显式覆盖为 0)——跑在 legacy V3.3 lane("pattern paths:")上;
+  smoke-4/48×3 基线全是 rows/V38 渲染("▸ patterns")。跨栈对比无意义。
+  **冒烟必须带完整站立 env**(见下),replay_dispatch 的 setdefault 即
+  站立值,只需覆写 SEQ_PROMPT=V23。
+- **站立 rollout env(修正后全量)**:SEQ_PROMPT=V23 SEQ_MULTISTEP=1
+  SEQ_RENDER_V38=1 SEQ_LICENSE_FILTER=1 SEQ_GHOST_EDGES=1 SPLIT=test_v4
+  N_CASES=48 N_SAMPLES=3 TEMP=0.3 CASE_FILTER=<cohort> CASE_BATCH=1000
+  INFLOW_TARGET=500 LLM_MODE=http WALK_POOL=3 OUT=<path>。(zh 已移除。)
+- **站立栈重验统一重建(601552b)**:①2784 探针:rows 渲染首屏即
+  `m.02vb3h0 [character: Lucky; film: Poetic Justice]`(穿透边正确流入
+  V38 渲染);②144 重放基线 vs 统一:**零漂移**(两侧均 109/144 exact,
+  answer≠7/turns≠32/reject≠13);③**冒烟#7(tmp/rollout_smoke7.json):
+  6/6 全对 f1=1.000 NONE=0**——576 3/3 Panama+2784 3/3 Poetic Justice,
+  rej 2 均一轮转化。本系列最佳(smoke-4 站立栈统一前 5/6)。
+- **P6 重新定性**:站立栈派生层给出 `location.containedby ⭢
+  country.calling_code` 模式链(dump L330/700/1143)——冷判别族缺口被
+  multistep 派生部分解决,legacy 栈冒烟里 576-s1 型 NONE 高估了 P6
+  严重度;真实发生率以 48×3 为准。
+- dump:specs/smoke7_dump_2026-09-21.md(取代 smoke6_dump 作行为审核
+  基准;smoke5/6 dump 已标注 legacy)。
+- **待办**:48×3 终判放行(站立栈+统一重建,基线 0.7177)。
+
 ### 2026-09-21 统一重建(601552b,user 裁定"同样"):_rebuild_pe_list (a)/(b) 收编,2784 机制级修复
 - **改动**:(a)/(b) 两分支收编为一条 lane(用户裁定:直查=同一"模式→重建→
   展开"机制的平凡单跳情形,分支是 e9a10fd 语义迁移不完整的残留)。
