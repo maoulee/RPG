@@ -207,7 +207,16 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
             # rows). Call-level exclusion severed cross-section disclosures —
             # the CVT admitted by administrative_division never showed its
             # date_adopted value next to the owning state (24353bbc).
-            _rt_bare = {str(x).rsplit(".", 1)[-1] for x in rt}
+            # TYPED (audit ③ specimen 537, 2026-09-21): the bare key is
+            # excluded only when THIS hop actually renders the CVT→named
+            # edge for it (a CVT-headed edge in tails_of_h). For a
+            # named→CVT one-hop pattern (actor.film → performance mids) the
+            # old bare-name rule excluded the CVT's OWN film attribute —
+            # the answer surface — while no hop ever rendered it (Pacific
+            # Rim vanished from the bracket, only character: survived).
+            _thishop_cvt_headed = any(
+                str(h)[:2] in ("m.", "g.") for h in tails_of_h)
+            _rt_bare = {sh} if _thishop_cvt_headed else set()
             for mid, red in mids_here:
                 for k, vs in mid_attr_pairs(mid, red, section_bare=_rt_bare):
                     for v in vs:

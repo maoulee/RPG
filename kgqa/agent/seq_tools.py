@@ -4242,6 +4242,7 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
     parents = {}                        # node -> (prev, rel_idx, passthru)
     level = {start_idx}
     for hop in hops:
+        _last_hop = hop is hops[-1]
         nxt, found = set(), False
         for u in sorted(level):
             for r in sorted(hop):
@@ -4265,8 +4266,25 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
                                 parents[w] = (v, r2, True)
                                 nxt.add(w)
                                 found = True
-                    elif v not in parents:
-                        parents[v] = (u, r, False)
+                            elif (_last_hop and 0 <= w < n
+                                    and not _cvt_like_name(ctx.ents[w])
+                                    and w in parents and w != start_idx):
+                                # TERMINAL RE-DISCOVERY (audit ③ specimen
+                                # 576/1812, 2026-09-21): a node discovered at
+                                # an EARLIER hop (single-parent DAG) could
+                                # never be a chain TERMINAL — the 18-of-23
+                                # country rosters silently dropped exactly the
+                                # members pre-parented by a reverse bridge
+                                # (Panama in 576, Barbados in 1812), while
+                                # the walk itself was complete. On the LAST
+                                # hop an already-parented node may join the
+                                # terminal level; its backtrack follows the
+                                # original (real) parent path.
+                                nxt.add(w)
+                                found = True
+                    elif v not in parents or _last_hop:
+                        if v not in parents:
+                            parents[v] = (u, r, False)
                         nxt.add(v)
                         found = True
         if not found:

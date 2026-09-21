@@ -96,6 +96,19 @@ def render_rows(store):
         elif _cvt(h) and not _cvt(t) and not _is_value(t):
             cvt_owner.setdefault(h, t)
 
+    # DISCRIMINATOR VALUE LANE (audit ③ specimen 626, 2026-09-21): a
+    # CVT --date/number--> value edge had NO render lane — ent_out/ent_in
+    # require a non-CVT non-value endpoint on that side, and the context
+    # tail dropped CVT heads, so walked dates/runtimes never reached the
+    # screen (the model abstained "no date evidence" with the values in
+    # the walk). Detected purely by VALUE SHAPE (_is_value) — never by the
+    # model-declared answer type (user design). Rendered under the CVT's
+    # owning entity block, merged per (cvt, relation).
+    val_by_mid = defaultdict(lambda: defaultdict(list))
+    for h, r, t in all_edges:
+        if _cvt(h) and _is_value(t):
+            val_by_mid[h][_short_rel(r)].append(t)
+
     # ── entity classification ──
     centers = set(store.get("centers", []))
     ent_out = defaultdict(list)
@@ -107,7 +120,13 @@ def render_rows(store):
             ent_in[t].append((h, r, t))
 
     # block candidates: anchor + entities with CVT connections or high degree
+    # CVT PARTNERS COUNT TOO (audit ③ specimen 241): the named ENDPOINT of
+    # a CVT edge carries CVT-mediated evidence — without it, degree-1
+    # environment entities (French arrondissement…) alphabetically starved
+    # Monaco/Germany out of the 10-block budget while their edges existed.
     cvt_connected = set(cvt_owner.values())
+    cvt_connected |= {t for h, r, t in all_edges
+                      if _cvt(h) and not _cvt(t) and not _is_value(t)}
     all_ents = set(ent_out) | set(ent_in)
     scored = sorted(
         all_ents,
@@ -171,11 +190,27 @@ def render_rows(store):
             else:
                 for h, r in sorted(hrs):
                     L.append(f"    {h} --{r}--> {t}")
+        # discriminator value rows for this block's owned CVTs
+        for mid, ent2 in sorted(cvt_owner.items(), key=lambda kv: str(kv[0])):
+            if ent2 != ent or mid not in val_by_mid:
+                continue
+            for sr, vs in sorted(val_by_mid[mid].items()):
+                fresh = [v for v in vs
+                         if (str(mid), sr, str(v)) not in rendered_edges]
+                if not fresh:
+                    continue
+                for v in fresh:
+                    rendered_edges.add((str(mid), sr, str(v)))
+                shown_v = " | ".join(str(v) for v in sorted(set(fresh))[:_VAL_CAP])
+                L.append(f"    {mid} --{sr}--> {shown_v}")
 
-    # context tail: remaining unshown edges
+    # context tail: remaining unshown edges. CVT-HEADED edges with a named
+    # endpoint are ADMITTED (audit ③ specimen 241): Monaco's only edge was
+    # CVT-headed and had no lane anywhere; the non-CVT endpoint is a real
+    # walked entity, so the edge is evidence, not noise.
     ctx = [(h, r, t) for h, r, t in all_edges
            if (str(h), _short_rel(r), str(t)) not in rendered_edges
-           and not _cvt(h) and not _cvt(t)]
+           and not _cvt(t) and not _is_value(t)]
     if ctx:
         _ctx_by = defaultdict(list)
         for h, r, t in ctx[:_GROUP_CAP * 3]:
@@ -185,6 +220,19 @@ def render_rows(store):
             ts_u = sorted(set(t for _, t in rts))
             shown = " | ".join(str(t) for t in ts_u[:_TAIL_CAP])
             L.append(f"    {h} --{r0}--> {shown}")
+    # ownerless CVT discriminator values (no named owner block to ride on)
+    for mid, srs in sorted(val_by_mid.items()):
+        if mid in cvt_owner:
+            continue
+        for sr, vs in sorted(srs.items()):
+            fresh = [v for v in vs
+                     if (str(mid), sr, str(v)) not in rendered_edges]
+            if not fresh:
+                continue
+            for v in fresh:
+                rendered_edges.add((str(mid), sr, str(v)))
+            L.append(f"    {mid} --{sr}--> "
+                     f"{' | '.join(str(v) for v in sorted(set(fresh))[:_VAL_CAP])}")
 
     if _NOTE:
         L.append(_NOTE)
