@@ -1,5 +1,21 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-22 logprob 提速与噪声分析(user/Codex wavefront 设计):APC 开启+顺序依赖实测
+- **现状对照**:已实现 K+1 缓存(链式复用)/teacher-forced prompt_logprobs
+  (无生成)/token 平均/top-1 logprobs——Codex 清单的四项已在。
+- **缺口**:轨迹间串行(当前 8 线程仅轨迹内 gold 并行)→wavefront 方向
+  =跨轨迹异步并行+轨迹内串行动态依赖;async 原语(gold_logprob_async)
+  已落 scripts/rscc_credit.py,全量异步化为下版。
+- **APC 实测**:服务端 enable_prefix_caching=True(Mamba align 实验模式);
+  **顺序依赖确认**——同 prompt 批序打乱 max|Δ|=0.040 nats/单条串行 0.038
+  (#42019 家族)。含义:Δp 噪声底≈0.02(中概率区),τ=0.05 仅略高于底,
+  边缘带(ratio 0.90-1.0 集中区)必须双 τ+重打分;归档级 run 需 APC
+  关闭验证或接受该噪声底(服务端裁定项)。
+- **prefix 复用结构性优势**:反序删除+时序序列化天然保最长公共前缀
+  (删尾块=前缀裁剪);Forward 反之(question 后立即分叉)——Reverse 的
+  工程附加优势。
+
+
 ### 2026-09-22 打分器终稿(user 两裁定):调用编排 prompt + 同口径 p0/lift
 - **user 裁定①**:推理流程含后续信息,只给证据会泄露/失真——打分 prompt
   改**调用编排**:指令头给一行检索循环说明,块=工具调用命令(center/
