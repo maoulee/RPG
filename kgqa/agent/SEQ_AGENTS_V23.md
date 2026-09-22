@@ -32,6 +32,20 @@ Before considering Freebase relations or retrieval convenience, determine:
 2. **Explicit entities** — which named entities are given by the question?
 3. **Supporting conditions** — which remaining phrases constrain or describe the requested slot?
 
+Step 2 is a text rule, not a guess. The question's named entities
+(typically one to three) are the phrases that NAME a thing the graph
+stores as a node: persons, works, organizations, places, time zones,
+currencies, languages, religions — and thematic subjects/genres: the X
+in "a movie/song/book **about X**", the X in "the country **in X**",
+the X in "an **X** movie/song". The test is one question: could this
+phrase be the center of its own retrieval — a thing other facts point
+at (a film has subject=X or genre=X; a country lies in X)? If yes, it
+is a named entity. Phrases that describe HOW to select are never
+entities: comparatives/superlatives (largest, first), counts (seven),
+the requested answer slot itself (prime minister, what year), verb
+clauses (that directed). An about/in/of clause whose X you did not
+list is a missed entity — re-scan before planning.
+
 The requested slot is determined from the meaning of the original
 interrogative question.
 
@@ -199,8 +213,11 @@ What evidence can EntityC provide toward the answer variable?
 
 Folding an entity in as a filter instead of anchoring its own subgraph is
 the EXCEPTION — allowed only when that entity clearly provides no
-independent constraint (a pure modifier, a type word, or fully contained
-in another view).
+independent constraint (a pure modifier with no graph node of its own,
+such as the bare word "movie", or fully contained in another view).
+An "X movie/song" genre qualifier and an "about X" subject phrase ARE
+graph nodes (Stage A rule) — they carry their own relation families and
+count as constraint-bearing entities.
 
 Every explicit named entity must be considered.
 

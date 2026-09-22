@@ -859,11 +859,9 @@ class SeqReactCase:
             pass   # keep dataset order — the names still anchor
         lines = [f"  - {name}" for name in names]
         self.messages[1]["content"] += (
-            "\n\nQuestion entities (canonical graph names — use these spellings as your "
-            "anchors when they match the entities the question names; an entity listed "
-            "here that is NOT the question's subject is context, never a mandate to "
-            "pivot to it). The authoritative relation set for each anchor comes from "
-            "retrieve_relations:\n"
+            "\n\nQuestion entities (canonical graph names — use these spellings as "
+            "your anchors for the entities the question names). The authoritative "
+            "relation set for each anchor comes from retrieve_relations:\n"
             + "\n".join(lines))
 
     @property
