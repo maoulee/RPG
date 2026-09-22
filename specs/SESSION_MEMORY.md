@@ -1,5 +1,25 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-22 用户审核三问题(48×3 dump):off-pool 关闭 bug 已修,省略号=dump 伪迹,多实体反而升
+- **问题①(真 bug,已修 0b64adc)**:2209-s0 答案 '2008'(年份碎片)触发
+  off-pool 一次性拒绝后,**回合直接关闭,被拒答案原样入记录**——工具内
+  的合法性弹回没有传导到 loop 控制流。修:DONE 块检测错误串特征
+  ("answer entities NOT in the retrieved evidence" in result_str[:200]
+  ——**坑:不能用 '"offpool"' 键,它排在长错误串+15 池实体之后,
+  [:400] 窗口够不着**)→状态回滚 RETRIEVE(镜像 empty bounce)。
+  实测:模型弹回后读池重答 '2008 NBA Finals'(f1 0→0.11,gold=17 个
+  Finals 是基准噪声)。自洽重放 143/144,漂移=恰好 3 条 off-pool
+  终结轨迹(仅 turns)。影响面 3/144。
+- **问题②(dump 伪迹,已修)**:2576 time_zones 行"Eastern Caribbea…"
+  省略号是 dump 生成器每行截 300 字造成——**原始渲染 797 字完整含
+  "Eastern Time Zone"**。dump v2 每行截 1000。教训:审核渲染截断
+  先查 raw json 再定性渲染层。
+- **问题③(量化后反转)**:多实体答案没有塌缩——multi-gold 36 案上
+  **42%→75% 给多实体**(基线 15 vs 本次 27),multi-gold f1 0.591→
+  0.606;单塌缩仅 626-s2(2→1),反向改善 13 例(f1 6.4→9.9)。
+  2209 型"单数读法+碎片答案"是 COUNT CONTRACT 个案(gold=17 本身
+  基准噪声);如需进一步可议 CASE B 措辞,但数据不支持系统性压制。
+
 ### 2026-09-21 RSCC 实现分析(4代理并行→specs/rsc_impl_analysis_2026-09-21.md)
 - **产出**:四代理(数据结构/打分器/结构裁决/融合架构)只读审计综合成
   specs/rsc_impl_analysis_2026-09-21.md,数据基础=v23_unified_48x3。
