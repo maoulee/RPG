@@ -11,9 +11,9 @@ lineage/cls + pathway 裁决/必要)与 RSCC 概率(p_ref→p_cf,ratio,
 ========== CASE WebQTrn-2316_b8e16d5f4985c5ab2a3c75e7bc8c9e1a|s0 ==========
 Q: Who is the illustrator of the book Feu de joie and the person who influenced Jackson Pollock's work?
 gold=['Pablo Picasso']  实际answer='Pablo Picasso' f1=1.0
-p0=0.005592  pF=0.2854  pG*(收缩后)=-
-子图独立概率 [Feu de joie] = 0.2692
-子图独立概率 [Jackson Pollock] = 0.002315
+p0=0.005592  pF=0.2098  pG*(收缩后)=-
+子图独立概率 [Feu de joie] = 0.2822
+子图独立概率 [Jackson Pollock] = 0.002117
 
 ## 块 #0 [msg 5]  分支=feu de joie
 调用命令:
@@ -52,7 +52,7 @@ note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails
 relation_expansion: {'book.illustrator.books_illustrated': {'direct': ['book.illustrator.books_illustrated'], 'bridge': ['book.book.interior_illustrations_by']}}
 ```
 (送评归属文本: 15 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.2521 l=0.3333 f=0.2521 N=1.0 g=★ lineage=- necessary=yes
+◆ 旧标记: cls=effective d=0.2521 l=0.3335 f=0.2521 N=1.0 g=★ lineage=- necessary=yes
 ◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
 
 ## 块 #1 [msg 10]  分支=jackson pollock
@@ -107,11 +107,11 @@ note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails
 relation_expansion: {'influence.influence_node.influenced_by': {'direct': ['influence.influence_node.influenced_by'], 'bridge': ['influence.influence_node.influenced', 'influence.influence_node.peers', 'people.marriage.spouse']}, 'base.inspiration.inspiration.inspired_by': {'direct': ['base.inspiration.inspiration.inspired_by'], 'bridge': ['people.person.ethnicity', 'people.person.nationality']}}
 ```
 (送评归属文本: 15 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.07902 l=0.07902 f=-0.002111 N=1.0 g=- lineage=- necessary=yes
+◆ 旧标记: cls=effective d=0.07902 l=0.07564 f=-0.002111 N=1.0 g=- lineage=- necessary=yes
 ◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
 
 ── RSCC 倒序收缩逐步概率迹（概率变化 + 结构必要性）──
-  初始状态: p=0.2854 (块 [0, 1])
+  初始状态: p=0.2098 (块 [0, 1])
   块#0 [Feu de joie]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
   块#1 [Jackson Pollock]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
   终态 p=-
@@ -122,9 +122,9 @@ relation_expansion: {'influence.influence_node.influenced_by': {'direct': ['infl
 ========== CASE WebQTrn-2784_b64250ae3c9d6c724133d09dad5593ec|s2 ==========
 Q: What movie featuring Tupac was directed by Kirk M. Petruccelli?
 gold=['Poetic Justice']  实际answer='Poetic Justice' f1=1.0
-p0=0.01358  pF=0.526  pG*(收缩后)=-
-子图独立概率 [Tupac Shakur] = 0.3814
-子图独立概率 [Kirk M. Petruccelli] = 0.2769
+p0=0.01329  pF=0.5298  pG*(收缩后)=-
+子图独立概率 [Tupac Shakur] = 0.4425
+子图独立概率 [Kirk M. Petruccelli] = 0.2207
 
 ## 块 #0 [msg 5]  分支=tupac shakur
 调用命令:
@@ -161,7 +161,7 @@ note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails
 relation_expansion: {'film.actor.film': {'direct': ['film.actor.film'], 'bridge': ['fictional_universe.person_in_fiction.representations_in_fiction']}, 'film.person_or_entity_appearing_in_film.films': {'direct': ['film.person_or_entity_appearing_in_film.films'], 'bridge': ['fictional_universe.person_in_fiction.representations_in_fiction']}, 'film.performance.film': {'direct': ['film.performance.film'], 'bridge': ['award.award_nomination.award_nominee', 'film.actor.film', 'film.performance.actor', 'music.producer.releases_produced']}}
 ```
 (送评归属文本: 15 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.6003 l=0.3038 f=0.6003 N=1.0 g=★ lineage=- necessary=yes
+◆ 旧标记: cls=effective d=0.6006 l=0.3038 f=0.6006 N=1.0 g=★ lineage=- necessary=yes
 ◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
 
 ## 块 #1 [msg 9]  分支=kirk m petruccelli
@@ -216,11 +216,11 @@ note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails
 relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_nominee.award_nominations', 'film.film.film_production_design_by', 'film.film_art_director.films_art_directed', 'film.film_production_designer.films_production_designed']}, 'film.film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['award.award_nominee.award_nominations', 'film.film.film_art_direction_by', 'film.film.film_production_design_by', 'film.film_art_director.films_art_directed', 'film.film_production_designer.films_production_designed']}}
 ```
 (送评归属文本: 14 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.0803 l=0.0803 f=0.3742 N=1.0 g=- lineage=- necessary=yes
+◆ 旧标记: cls=effective d=0.0803 l=0.0803 f=0.3745 N=1.0 g=- lineage=- necessary=yes
 ◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
 
 ── RSCC 倒序收缩逐步概率迹（概率变化 + 结构必要性）──
-  初始状态: p=0.526 (块 [0, 1])
+  初始状态: p=0.5298 (块 [0, 1])
   块#0 [Tupac Shakur]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
   块#1 [Kirk M. Petruccell]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
   终态 p=-
@@ -231,9 +231,9 @@ relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'b
 ========== CASE WebQTrn-21_6671d5347b1b3cfe482cf5894cc6a05a|s0 ==========
 Q: Who is the prime minister of where the currency used in the country, is Ethiopian birr?
 gold=['Hailemariam Desalegn']  实际answer='Haile Selassie | Hailemariam Desalegn' f1=0.667
-p0=0.4208  pF=0.7435  pG*(收缩后)=0.7418
-子图独立概率 [Ethiopian birr] = 0.3807
-子图独立概率 [Ethiopia] = 0.7418
+p0=0.4208  pF=0.8386  pG*(收缩后)=-
+子图独立概率 [Ethiopian birr] = 0.1643
+子图独立概率 [Ethiopia] = 0.7381
 
 ## 块 #0 [msg 5]  分支=ethiopian birr
 调用命令:
@@ -256,7 +256,7 @@ note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails
 ```
 (送评归属文本: 3 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
 ◆ 旧标记: cls=effective d=0.2189 l=0.009404 f=0.2189 N=1.0 g=- lineage=✓ necessary=n/a
-◆ RSCC: p 0.7435 → 移除后 0.7418  Δp=-0.001631 (-0.2%)  ratio=0.9978 → 移除  [结构: necessary=n/a pathway=ethiopian birr]
+◆ RSCC: p 0.8386 → 移除后 0.7381  Δp=-0.1005 (-12.0%)  ratio=0.8802 → 保留  [结构: necessary=n/a pathway=ethiopian birr]
 
 ## 块 #1 [msg 9]  分支=ethiopian birr
 调用命令:
@@ -286,23 +286,23 @@ layer_action: extend
 ```
 (送评归属文本: 6 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
 ◆ 旧标记: cls=effective d=0.1368 l=0.1368 f=0.3393 N=0.944 g=★ lineage=- necessary=n/a
-◆ RSCC: p 0.7418 → 移除后 0.4375  Δp=-0.3044 (-41.0%)  ratio=0.5897 → 保留  [结构: necessary=n/a pathway=ethiopian birr]
+◆ RSCC: p 0.8386 → 移除后 0.1643  Δp=-0.6743 (-80.4%)  ratio=0.1959 → 保留  [结构: necessary=n/a pathway=ethiopian birr]
 
 ── RSCC 倒序收缩逐步概率迹（概率变化 + 结构必要性）──
-  初始状态: p=0.7435 (块 [0, 1])
-  块#0 [Ethiopian birr] 结构=n/a(通路未达): p 0.7435 → 0.7418  Δp=-0.001631 (-0.2%)  ratio=0.9978 ⇒ Redundant-valid → 移除
-  块#1 [Ethiopia] 结构=n/a(通路未达): p 0.7418 → 0.4375  Δp=-0.3044 (-41.0%)  ratio=0.5897 ⇒ Informative → 保留
-  终态 p=0.7418 (整体变化 -0.2%)
-  双通道小结: 结构必要块=无 | 概率移除块=['0'] | 两通道无冲突
+  初始状态: p=0.8386 (块 [0, 1])
+  块#0 [Ethiopian birr] 结构=n/a(通路未达): p 0.8386 → 0.7381  Δp=-0.1005 (-12.0%)  ratio=0.8802 ⇒ Informative → 保留
+  块#1 [Ethiopia] 结构=n/a(通路未达): p 0.8386 → 0.1643  Δp=-0.6743 (-80.4%)  ratio=0.1959 ⇒ Informative → 保留
+  终态 p=-
+  双通道小结: 结构必要块=无 | 概率移除块=无 | 两通道无冲突
 
 
 
 ========== CASE WebQTest-626_01ad90831a03b6c5ef17898ccd80a639|s0 ==========
 Q: What setting of the fictional universe Tempus Unbound is bisected by the Missouri River?
 gold=['Kansas']  实际answer='Kansas' f1=1.0
-p0=0.00386  pF=0.2413  pG*(收缩后)=-
-子图独立概率 [Tempus Unbound] = 0.373
-子图独立概率 [Missouri River] = 0.1994
+p0=0.00386  pF=0.1919  pG*(收缩后)=-
+子图独立概率 [Tempus Unbound] = 0.3829
+子图独立概率 [Missouri River] = 0.08422
 
 ## 块 #0 [msg 5]  分支=tempus unbound
 调用命令:
@@ -356,7 +356,7 @@ note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails
 relation_expansion: {'fictional_universe.work_of_fiction.setting': {'direct': ['fictional_universe.work_of_fiction.setting'], 'bridge': ['base.militaryinfiction.location_in_fiction.works_set_here', 'book.written_work.next_in_series', 'fictional_universe.fictional_character.appears_in_these_fictional_universes', 'fictional_universe.fictional_setting.works_set_here', 'fictional_universe.fictional_universe.works_set_here']}, 'fictional_universe.fictional_setting.universe': {'direct': ['fictional_universe.fictional_setting.universe'], 'bridge': ['base.militaryinfiction.location_in_fiction.works_set_here', 'book.written_work.next_in_series', 'fictional_universe.fictional_setting.works_set_here', 'fictional_universe.fictional_universe.works_set_here', 'fictional_universe.work_of_fiction.setting']}, 'fictional_universe.fictional_setting.contained_by': {'direct': ['fictional_universe.fictional_setting.contained_by'], 'bridge': ['base.militaryinfiction.location_in_fiction.works_set_here', 'base.militaryinfiction.military_command_in_fiction.mentioned_in_works', 'book.written_work.next_in_series', 'fictional_universe.fictional_setting.works_set_here', 'fictional_universe.work_of_fiction.setting']}}
 ```
 (送评归属文本: 15 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.3354 l=0.1437 f=0.3352 N=1.0 g=★ lineage=- necessary=yes
+◆ 旧标记: cls=effective d=0.3354 l=0.142 f=0.3354 N=1.0 g=★ lineage=- necessary=yes
 ◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
 
 ## 块 #1 [msg 10]  分支=missouri river
@@ -415,13 +415,116 @@ note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails
 relation_expansion: {'location.partiallycontains': {'direct': ['location.location.partiallycontains'], 'bridge': ['location.location.partially_contained_by', 'location.location.partially_containedby', 'location.location.partially_contains', 'location.partial_containment_relationship.partially_contains']}, 'location.location.contains_major_portion_of': {'direct': ['location.location.contains_major_portion_of'], 'bridge': ['location.location.containedby']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['geography.body_of_water.bridges', 'geography.river.mouth', 'location.location.partially_containedby', 'location.partial_containment_relationship.partially_contains', 'transportation.bridge.body_of_water_spanned', 'travel.travel_destination.tourist_attractions']}}
 ```
 (送评归属文本: 15 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.07733 l=0.007353 f=0.2394 N=1.0 g=- lineage=- necessary=yes
+◆ 旧标记: cls=effective d=0.0626 l=0.007353 f=0.2394 N=1.0 g=- lineage=- necessary=yes
 ◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
 
 ── RSCC 倒序收缩逐步概率迹（概率变化 + 结构必要性）──
-  初始状态: p=0.2413 (块 [0, 1])
+  初始状态: p=0.1919 (块 [0, 1])
   块#0 [Tempus Unbound]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
   块#1 [Missouri River]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
   终态 p=-
   双通道小结: 结构必要块=['0', '1'] | 概率移除块=无 | 两通道无冲突
+
+
+
+========== CASE WebQTrn-567_df97b91c1a9dfe15bdad689feb59f791|s0 ==========
+Q: What is the movie about a child prodigy that Ron Howard did?
+gold=['Village of the Giants']  实际answer='NONE' f1=0.0
+p0=0.01487  pF=0.5538  pG*(收缩后)=0.5087
+子图独立概率 [Ron Howard] = 0.004365
+子图独立概率 [Child prodigy] = 0.5087
+
+## 块 #0 [msg 5]  分支=ron howard
+调用命令:
+```text
+tool: retrieve_subgraph
+center: Ron Howard
+relations: film.director.film | film.film.directed_by
+sg: sg1
+```
+工具结果(完整,未截断):
+```text
+fact_id: sg1
+triples:
+entities: Ron Howard
+▸ patterns: award_honor.award_winner | award_nominee.award_nominations | director.film | film.directed_by | producer.film | producer.films_executive_produced | award_honor.award_winner ⭢ award_winner.awards_won ⭢ film.executive_produced_by ⭢ director.film | award_honor.award_winner ⭢ award_winner.awards_won ⭢ film.executive_produced_by ⭢ film.directed_by | award_honor.award_winner ⭢ award_winner.awards_won ⭢ film.produced_by ⭢ director.film | award_honor.award_winner ⭢ award_winner.awards_won ⭢ film.produced_by ⭢ film.directed_by
+── Ron Howard ──
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Director; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Eric Fellner; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.07zqyp3 [award: BAFTA Award for Best Direction; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lby3g [award: BAFTA Award for Best Film; award_nominee: Brian Grazer | Eric Fellner | Tim Bevan; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.090dj60 [ceremony: 34th Golden Globe Awards; nominated_for: The Shootist] | m.095h15z [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 53rd Golden Globe Awards; nominated_for: Apollo 13] | m.095h1h2 [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 59th Golden Globe Awards; nominated_for: A Beautiful Mind] | m.095h1tj [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 66th Golden Globe Awards; nominated_for: Frost/Nixon] | m.09k3n_p [award: Critics' Choice Movie Award for Best Director; ceremony: 11th Critics' Choice Awards; nominated_for: Cinderella Man] | m.09k3nwh [award: Critics' Choice Movie Award for Best Director; ceremony: 14th Critics' Choice Awards; nominated_for: Frost/Nixon] | m.09sc2mb [ceremony: 61st Directors Guild of America Awards; nominated_for: Frost/Nixon] | m.09tjrrf [award: Satellite Award for Best Director; ceremony: 13th Satellite Awards; nominated_for: Frost/Nixon] | m.09z78wm [award: Golden Raspberry Award for Worst Director; ceremony: 27th Golden Raspberry Awards; nominated_for: The Da Vinci Code] | m.0b6b38g [ceremony: 38th Directors Guild of America Awards; nominated_for: Cocoon] | m.0gkjjsg [award: Saturn Award for Best Director; nominated_for: Splash] | m.0glkp4v [award: Golden Bear; nominated_for: The Missing] | m.0k1j58y [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill; ceremony: 39th Daytime Emmy Awards; nominated_for: Curious George] | m.0lmtm8f [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill; ceremony: 38th Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0lv467q [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Brian Grazer | Chuck Tatham | David Nevins | Dean Lorey | John Amodeo | Mitchell Hurwitz; ceremony: 58th Primetime Emmy Awards; nominated_for: Arrested Development] | m.0lv4ffs [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Brian Grazer | Chuck Martin | David Nevins | Jim Vallely | John Amodeo; ceremony: 57th Primetime Emmy Awards; nominated_for: Arrested Development] | m.0m0bwv0 [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | David Wilcox | Ellen Cockrill | Jacqui Deegan; ceremony: 36th Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0m_1x_7 [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | Dean Criswell | Ellen Cockrill | Frank Marino; ceremony: 34th Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0my74fy [award: PGA Television Producer of the Year Award in Episodic; award_nominee: Brian Grazer | Rob Scheidlinger | Ron Howard | Thomas Schlamme | Tony Krantz; ceremony: Producers Guild of America Awards 1999; nominated_for: Sports Night] | m.0n4htv8 [award_nominee: Brian Grazer | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz | Richard A. Rosenstock; ceremony: Producers Guild of America Awards 2004; nominated_for: Arrested Development] | m.0n4kzq9 [award_nominee: Brian Grazer | Chuck Martin | David Nevins | Jim Vallely | John Amodeo | Mitchell Hurwitz; ceremony: Producers Guild of America Awards 2005; nominated_for: Arrested Development] | m.0n4psbw [award_nominee: Brian Grazer | David Nevins | Dean Lorey | Jim Vallely | John Amodeo | Mitchell Hurwitz; ceremony: Producers Guild of America Awards 2006; nominated_for: Arrested Development] | m.0n4t7bh [award_nominee: Brian Grazer | Eric Fellner; ceremony: Producers Guild of America Awards 2008; nominated_for: Frost/Nixon] | m.0nbbh6b [award: Australian Film Institute Award for Best Foreign Film; award_nominee: Brian Grazer; ceremony: 44th Australian Film Institute Awards; nominated_for: A Beautiful Mind] | m.0svn6jn [award_nominee: Al Jean | Bill Freiberger | Brian Grazer | David Ichioka | Donald R. Beck | Eddie Murphy; ceremony: 51st Primetime Emmy Awards; nominated_for: The PJs] | m.0v4_x4x [award: Primetime Emmy Award for Outstanding Children's Program; award_nominee: Herbert Wright | Rance Howard; ceremony: 34th Primetime Emmy Awards; nominated_for: Through the Magic Pyramid] | m.0ycq_cj [award: Hugo Award for Best Dramatic Presentation; award_nominee: Jeffrey Kluger | Jim Lovell | Ron Howard | William Broyles, Jr.; ceremony: 1996 Hugo Awards; nominated_for: Apollo 13] | m.0yfbbn9 [award: Hugo Award for Best Dramatic Presentation; award_nominee: George Lucas | Ron Howard; ceremony: 1989 Hugo Awards; nominated_for: Willow] | m.0yj9zzq [award: Hugo Award for Best Dramatic Presentation; award_nominee: David Saperstein | Tom Benedek; ceremony: 1986 Hugo Awards; nominated_for: Cocoon] | m.0z62fp3 [award: Best Sports Movie ESPY Award; ceremony: 2005 ESPY Awards; nominated_for: Cinderella Man] | m.0zgtpgn [award_nominee: David Cross | Henry Winkler | Isla Fisher | Jason Bateman | Jeffrey Tambor | Jessica Walter; ceremony: 20th Screen Actors Guild Awards; nominated_for: Arrested Development] | m.0zgztlt [award: Golden Globe Award for Best Motion Picture – Drama; ceremony: 71st Golden Globe Awards; nominated_for: Rush] | m.0zrlfxd [award: Satellite Award for Best Director; ceremony: 18th Satellite Awards; nominated_for: Rush] …(+2) (to answer with ALL of them, include "#Ron Howard::award_nominations" as one answer entity)
+    --producer.film--> Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | The Dark Tower | The Dilemma | The Lost Symbol | The Paper | Beyond the Mat | Changeling | Clean and Sober | Closet Land | Cowboys & Aliens | Curious George 2: Follow That Monkey! | Inside Deep Throat | Inventing the Abbotts | J. Edgar | Katy Perry: Part of Me | Problem Child | Restless | Sky High | The 'Burbs | The Alamo | The Chamber | The Good Lie
+    --producer.films_executive_produced--> Leo and Loree
+    m.03mlppw | m.03mlsw7 | m.04kcph9 | m.08pc389 | m.09dyy55 | m.09dyymh | m.09k3ns1 | m.0jyzxxs | m.0lts_jr | m.0mvjqsr | m.0mwh6d0 | m.0mzc0vk …(+4) (to answer with ALL of them, include "#m.03mlppw::award_winner" as one answer entity) --award_honor.award_winner--> Ron Howard
+    A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto …(+17) (to answer with ALL of them, include "#A Beautiful Mind::directed_by" as one answer entity) --film.directed_by--> Ron Howard
+── Aaron Sorkin ──
+    --award_nominee.award_nominations--> m.0my74fy [award: PGA Television Producer of the Year Award in Episodic; award_nominee: Brian Grazer | Rob Scheidlinger | Ron Howard | Thomas Schlamme | Tony Krantz; ceremony: Producers Guild of America Awards 1999; nominated_for: Sports Night]
+── Al Reinert ──
+    --award_nominee.award_nominations--> m.0ycq_cj [award: Hugo Award for Best Dramatic Presentation; award_nominee: Jeffrey Kluger | Jim Lovell | Ron Howard | William Broyles, Jr.; ceremony: 1996 Hugo Awards; nominated_for: Apollo 13]
+── Alia Shawkat ──
+    --award_nominee.award_nominations--> m.0zgtpgn [award_nominee: David Cross | Henry Winkler | Isla Fisher | Jason Bateman | Jeffrey Tambor | Jessica Walter; ceremony: 20th Screen Actors Guild Awards; nominated_for: Arrested Development]
+── Barbie Adler ──
+    m.04kcph9 --award_honor.award_winner--> Barbie Adler
+── Bob Dolman ──
+    --award_nominee.award_nominations--> m.0yfbbn9 [award: Hugo Award for Best Dramatic Presentation; award_nominee: George Lucas | Ron Howard; ceremony: 1989 Hugo Awards; nominated_for: Willow]
+── Brad Copeland ──
+    --award_nominee.award_nominations--> m.0lv4ffs [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Brian Grazer | Chuck Martin | David Nevins | Jim Vallely | John Amodeo; ceremony: 57th Primetime Emmy Awards; nominated_for: Arrested Development]
+── Bruce Akiyama ──
+    --award_nominee.award_nominations--> m.0m_1x_7 [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | Dean Criswell | Ellen Cockrill | Frank Marino; ceremony: 34th Daytime Creative Arts Emmy Awards; nominated_for: Curious George]
+── Bruce Richmond ──
+    m.0mvjqsr --award_honor.award_winner--> Bruce Richmond
+── Carol Greenwald ──
+    m.0lts_jr --award_honor.award_winner--> Carol Greenwald
+    Barry W. Blaustein --director.film--> Beyond the Mat
+    Beyond the Mat --film.directed_by--> Barry W. Blaustein
+    Beyond the Mat --film.produced_by--> Brian Grazer
+    Changeling --film.directed_by--> Clint Eastwood
+    Changeling --film.produced_by--> Brian Grazer
+    Clint Eastwood --director.film--> Changeling
+    Closet Land --film.directed_by--> Radha Bharadwaj
+    Closet Land --film.executive_produced_by--> Brian Grazer
+    Mark Romanek --director.film--> The Lost Symbol
+    Radha Bharadwaj --director.film--> Closet Land
+    The Lost Symbol --film.directed_by--> Mark Romanek
+    The Lost Symbol --film.produced_by--> Brian Grazer
+    m.04kcph9 --award_honor.award_winner--> Mitchell Hurwitz | Richard A. Rosenstock
+    m.0lts_jr --award_honor.award_winner--> David Wilcox | Ellen Cockrill | Matthew Baughman
+    m.0mvjqsr --award_honor.award_winner--> John P. Melfi | Michael Bostick | Tom Hanks | Tony To
+    m.0mwh6d0 --award_honor.award_winner--> Patty Jausoro
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.director.film', 'film.producer.film', 'film.producer.films_executive_produced']}}
+```
+(送评归属文本: 15 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
+◆ 旧标记: cls=harmful d=-0.008761 l=-0.2427 f=-0.008838 N=1.0 g=- lineage=- necessary=n/a
+◆ RSCC: p 0.5538 → 移除后 0.5087  Δp=-0.04517 (-8.2%)  ratio=0.9184 → 移除  [结构: necessary=n/a pathway=ron howard]
+
+## 块 #1 [msg 9]  分支=child prodigy
+调用命令:
+```text
+tool: retrieve_subgraph
+center: Child prodigy
+relations: film.film_subject.films | film.film_genre.films_in_this_genre
+sg: sg2
+```
+工具结果(完整,未截断):
+```text
+fact_id: sg2
+triples:
+entities: Child prodigy
+▸ patterns: film_subject.films | film.subjects ⭢ film_genre.films_in_this_genre
+── Child prodigy ──
+    --film_subject.films--> Village of the Giants
+    Village of the Giants --film.subjects--> Child prodigy
+── Village of the Giants ──
+    Juvenile Delinquency Film --film_genre.films_in_this_genre--> Village of the Giants
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.film_genre.films_in_this_genre': {'direct': ['film.film_genre.films_in_this_genre'], 'bridge': ['film.film_subject.films']}}
+```
+(送评归属文本: 5 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
+◆ 旧标记: cls=effective d=0.5517 l=0.5591 f=0.7812 N=1.0 g=★ lineage=- necessary=yes
+◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
+
+── RSCC 倒序收缩逐步概率迹（概率变化 + 结构必要性）──
+  初始状态: p=0.5538 (块 [0, 1])
+  块#0 [Ron Howard] 结构=n/a(通路未达): p 0.5538 → 0.5087  Δp=-0.04517 (-8.2%)  ratio=0.9184 ⇒ Redundant-valid → 移除
+  块#1 [Child prodigy]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
+  终态 p=0.5087 (整体变化 -8.2%)
+  双通道小结: 结构必要块=['1'] | 概率移除块=['0'] | 两通道无冲突
 

@@ -21,7 +21,7 @@
     "lineage": false,
     "gold_first": true,
     "empty_channel": false,
-    "d_loo": 0.28313491081566516,
+    "d_loo": 0.2076418866237459,
     "p_ref": null,
     "p_cf": null,
     "ratio": null,
@@ -37,7 +37,7 @@
     "lineage": false,
     "gold_first": false,
     "empty_channel": false,
-    "d_loo": 0.016286392178478104,
+    "d_loo": -0.07246527056727275,
     "p_ref": null,
     "p_cf": null,
     "ratio": null,
@@ -53,9 +53,9 @@
    "modules": {
     "0": {
      "d": 0.2521,
-     "l": 0.3333,
+     "l": 0.3335,
      "f": 0.2521,
-     "p_minus": 0.003402,
+     "p_minus": 0.003211,
      "p_alone": 0.2577,
      "g": true,
      "N": 1.0,
@@ -64,9 +64,9 @@
     },
     "1": {
      "d": 0.07902,
-     "l": 0.07902,
+     "l": 0.07564,
      "f": -0.002111,
-     "p_minus": 0.2577,
+     "p_minus": 0.2611,
      "p_alone": 0.003481,
      "g": false,
      "N": 1.0,
@@ -75,12 +75,12 @@
     }
    }
   },
-  "p0": null,
-  "pF": 0.2854499819657274,
+  "p0": 0.006383563173856742,
+  "pF": 0.20975922300154642,
   "pGstar": null,
   "branch_alone": {
-   "Feu de joie": 0.2691635897872493,
-   "Jackson Pollock": 0.0023150711500622163
+   "Feu de joie": 0.2822244935688192,
+   "Jackson Pollock": 0.0021173363778005092
   },
   "trace": [
    {
@@ -117,7 +117,7 @@
     "lineage": false,
     "gold_first": true,
     "empty_channel": false,
-    "d_loo": 0.24914119798107603,
+    "d_loo": 0.3090826527513709,
     "p_ref": null,
     "p_cf": null,
     "ratio": null,
@@ -133,7 +133,7 @@
     "lineage": false,
     "gold_first": false,
     "empty_channel": false,
-    "d_loo": 0.14465530445531077,
+    "d_loo": 0.08729930932037527,
     "p_ref": null,
     "p_cf": null,
     "ratio": null,
@@ -144,13 +144,13 @@
    }
   },
   "old_markers": {
-   "p0": 0.013583227407165912,
+   "p0": 0.013286826045712968,
    "pF": 0.6941908704718938,
    "modules": {
     "0": {
-     "d": 0.6003,
+     "d": 0.6006,
      "l": 0.3038,
-     "f": 0.6003,
+     "f": 0.6006,
      "p_minus": 0.3904,
      "p_alone": 0.6139,
      "g": true,
@@ -161,7 +161,7 @@
     "1": {
      "d": 0.0803,
      "l": 0.0803,
-     "f": 0.3742,
+     "f": 0.3745,
      "p_minus": 0.6139,
      "p_alone": 0.3878,
      "g": false,
@@ -171,12 +171,12 @@
     }
    }
   },
-  "p0": null,
-  "pF": 0.5260423231890812,
+  "p0": 0.022255893903224702,
+  "pF": 0.5297554491540929,
   "pGstar": null,
   "branch_alone": {
-   "Tupac Shakur": 0.3813870187337704,
-   "Kirk M. Petruccelli": 0.27690112520800514
+   "Tupac Shakur": 0.4424561398337176,
+   "Kirk M. Petruccelli": 0.22067279640272194
   },
   "trace": [
    {
@@ -213,16 +213,16 @@
     "lineage": true,
     "gold_first": false,
     "empty_channel": false,
-    "d_loo": 0.001630605690555731,
-    "p_ref": 0.7434769024273178,
-    "p_cf": 0.7418462967367621,
-    "ratio": 0.9978067836603504,
-    "d_rscc": 0.001630605690555731,
-    "removed": true,
-    "d_fwd": 0.001630605690555731,
-    "fwd_removed": true,
-    "d_rand": 0.001630605690555731,
-    "rand_removed": false
+    "d_loo": 0.10049932922349702,
+    "p_ref": 0.8386241600338434,
+    "p_cf": 0.7381248308103464,
+    "ratio": 0.8801616576137739,
+    "d_rscc": 0.10049932922349702,
+    "removed": false,
+    "d_fwd": 0.10049932922349702,
+    "fwd_removed": false,
+    "d_rand": 0.10049932922349702,
+    "rand_removed": true
    },
    "1": {
     "branch": "ethiopian birr",
@@ -231,15 +231,15 @@
     "lineage": false,
     "gold_first": true,
     "empty_channel": false,
-    "d_loo": 0.3627845294632131,
-    "p_ref": 0.7418462967367621,
-    "p_cf": 0.43748198976055025,
-    "ratio": 0.5897205279381303,
-    "d_rscc": 0.3043643069762118,
+    "d_loo": 0.6743303663222896,
+    "p_ref": 0.8386241600338434,
+    "p_cf": 0.16429379371155384,
+    "ratio": 0.19590872948964838,
+    "d_rscc": 0.6743303663222896,
     "removed": false,
-    "d_fwd": 0.3043643069762118,
+    "d_fwd": 0.6743303663222896,
     "fwd_removed": false,
-    "d_rand": 0.3043643069762118,
+    "d_rand": 0.6743303663222896,
     "rand_removed": true
    }
   },
@@ -271,28 +271,28 @@
     }
    }
   },
-  "p0": null,
-  "pF": 0.7434769024273178,
-  "pGstar": 0.7418462967367621,
+  "p0": 0.36758088475483186,
+  "pF": 0.8386241600338434,
+  "pGstar": null,
   "branch_alone": {
-   "Ethiopian birr": 0.3806923729641047,
-   "Ethiopia": 0.7418462967367621
+   "Ethiopian birr": 0.16429379371155384,
+   "Ethiopia": 0.7381248308103464
   },
   "trace": [
    {
     "blk": 0,
     "branch": "Ethiopian birr",
-    "p_ref": 0.7434769024273178,
-    "p_cf": 0.7418462967367621,
-    "ratio": 0.9978067836603504,
-    "verdict": "Redundant-valid → 移除"
+    "p_ref": 0.8386241600338434,
+    "p_cf": 0.7381248308103464,
+    "ratio": 0.8801616576137739,
+    "verdict": "Informative → 保留"
    },
    {
     "blk": 1,
     "branch": "Ethiopia",
-    "p_ref": 0.7418462967367621,
-    "p_cf": 0.43748198976055025,
-    "ratio": 0.5897205279381303,
+    "p_ref": 0.8386241600338434,
+    "p_cf": 0.16429379371155384,
+    "ratio": 0.19590872948964838,
     "verdict": "Informative → 保留"
    }
   ]
@@ -319,7 +319,7 @@
     "lineage": false,
     "gold_first": true,
     "empty_channel": false,
-    "d_loo": 0.041950710245657497,
+    "d_loo": 0.10763259009702868,
     "p_ref": null,
     "p_cf": null,
     "ratio": null,
@@ -335,7 +335,7 @@
     "lineage": false,
     "gold_first": false,
     "empty_channel": false,
-    "d_loo": -0.13169215492319641,
+    "d_loo": -0.19109500411354888,
     "p_ref": null,
     "p_cf": null,
     "ratio": null,
@@ -351,17 +351,17 @@
    "modules": {
     "0": {
      "d": 0.3354,
-     "l": 0.1437,
-     "f": 0.3352,
-     "p_minus": 0.231,
-     "p_alone": 0.339,
+     "l": 0.142,
+     "f": 0.3354,
+     "p_minus": 0.2327,
+     "p_alone": 0.3392,
      "g": true,
      "N": 1.0,
      "lineage": false,
      "cls": "effective"
     },
     "1": {
-     "d": 0.07733,
+     "d": 0.0626,
      "l": 0.007353,
      "f": 0.2394,
      "p_minus": 0.3673,
@@ -373,12 +373,12 @@
     }
    }
   },
-  "p0": null,
-  "pF": 0.24134033229715918,
+  "p0": 0.015711531169536625,
+  "pF": 0.191852735739684,
   "pGstar": null,
   "branch_alone": {
-   "Tempus Unbound": 0.3730324872203556,
-   "Missouri River": 0.19938962205150168
+   "Tempus Unbound": 0.3829477398532329,
+   "Missouri River": 0.08422014564265533
   },
   "trace": [
    {
@@ -389,6 +389,107 @@
    {
     "blk": 1,
     "branch": "Missouri River",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   }
+  ]
+ },
+ "WebQTrn-567_df97b91c1a9dfe15bdad689feb59f791|s0": {
+  "gold": [
+   "Village of the Giants"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "Ron Howard": [
+    0
+   ],
+   "Child prodigy": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "ron howard",
+    "idx": 5,
+    "necessary": "n/a",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": 0.06072239556436576,
+    "p_ref": 0.5538321649318654,
+    "p_cf": 0.5086640369401241,
+    "ratio": 0.918444375657925,
+    "d_rscc": 0.0451681279917413,
+    "removed": true,
+    "d_fwd": 0.07611446311605718,
+    "fwd_removed": false,
+    "d_rand": 0.04818612848733961,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "child prodigy",
+    "idx": 9,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": 0.5496771330467046,
+    "p_ref": null,
+    "p_cf": null,
+    "ratio": null,
+    "d_rscc": null,
+    "removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   }
+  },
+  "old_markers": {
+   "p0": 0.014865521537374879,
+   "pF": 0.5651332802072512,
+   "modules": {
+    "0": {
+     "d": -0.008761,
+     "l": -0.2427,
+     "f": -0.008838,
+     "p_minus": 0.8079,
+     "p_alone": 0.006028,
+     "g": false,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "harmful"
+    },
+    "1": {
+     "d": 0.5517,
+     "l": 0.5591,
+     "f": 0.7812,
+     "p_minus": 0.006028,
+     "p_alone": 0.7961,
+     "g": true,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": 0.014468014724424022,
+  "pF": 0.5538321649318654,
+  "pGstar": 0.5086640369401241,
+  "branch_alone": {
+   "Ron Howard": 0.0043649206447236326,
+   "Child prodigy": 0.5086640369401241
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Ron Howard",
+    "p_ref": 0.5538321649318654,
+    "p_cf": 0.5086640369401241,
+    "ratio": 0.918444375657925,
+    "verdict": "Redundant-valid → 移除"
+   },
+   {
+    "blk": 1,
+    "branch": "Child prodigy",
     "note": "结构必要(删除断链) → 结构优先保留"
    }
   ]
