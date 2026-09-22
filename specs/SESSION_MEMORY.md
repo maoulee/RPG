@@ -1,5 +1,24 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-22 命名实体识别规则(626caba,user 裁定:纯文本规则,不依赖数据)
+- **问题③再定性(user 纠正:是多实体问题不是多实体答案)**:多实体问题
+  塌缩家族 9 轨迹 mean 0.482(最差),多树打开的 48 轨迹 0.845(最佳)
+  ——失败全在 Stage A 把清单实体误判成"描述"。真标本 3 例漏选短语:
+  Child prodigy(about 从句补语)/Eastern Time Zone(in 从句)/
+  Drama(类型修饰语)——全是"图内存节点、自带关系族"之物。
+- **落地(user 不同意数据侧兜底,要模型按规则选)**:①V2.3 Stage A
+  step2 加识别规则(判据:该短语能否作为自己检索的中心——被其他事实
+  指向之物;about-X/in-X/X-movie 三句位;HOW-to-select 短语永非实体;
+  1-3 soft prior;漏了 about/in/of 的 X=漏实体,重扫);②§6 type-word
+  例外收窄为"图内无节点的纯词"(genre/subject 修饰语是节点);
+  ③prelink 去"context, never a mandate"(user 批准,纯拼写参考)。
+- **塌缩家族冒烟(567/2576/124×3)**:7/9 双实体计划;**567-s0=
+  Village of the Giants 1.0(48×3 里 0.0)**,2576×2=Americas 1.0;
+  家族 0→0.333。残余再归因:124×3=检索 lane(JOIN 空,gold 不在 sg1
+  池——识别/多树/JOIN 全对);567-s1=世界知识陷阱(A Beautiful Mind);
+  567-s2=1 例识别漏;2576-s2=答案槽错。153 绿;自洽重放 143/144 不变。
+- 48×3 终判需重跑(本规则改变 plan 分布)。
+
 ### 2026-09-22 用户审核三问题(48×3 dump):off-pool 关闭 bug 已修,省略号=dump 伪迹,多实体反而升
 - **问题①(真 bug,已修 0b64adc)**:2209-s0 答案 '2008'(年份碎片)触发
   off-pool 一次性拒绝后,**回合直接关闭,被拒答案原样入记录**——工具内
