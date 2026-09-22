@@ -1,7 +1,8 @@
-# 48×3 终判 dump（v23_unified，优化后终配置）— 2026-09-22
+# 48×3 终判 dump（v23_unified，优化后终配置）— 2026-09-22（v2：渲染行截断 300→1000 修正）
 
 配置: 站立栈 + 统一重建(601552b) + 反馈 submission-first(d39ee22)。
 结果: f1 0.6832 / hit 76.4% / NONE 18 / zero-non-NONE 16 / failed 0（基线 0.7177）。
+v2 勘误: v1 版工具结果每行截 300 字造成伪省略号(2576 time_zones 行实为 797 字完整),本版每行截 1000 字。
 
 ## ① 全量得分表（48 case × 3 采样）
 
@@ -48,7 +49,7 @@
 
 ## ② 失败标本完整轨迹（18 NONE + 16 零分非 NONE）
 
-思考原文全量；工具结果每行截 300 字。
+思考原文全量；工具结果每行截 1000 字。
 
 
 
@@ -154,11 +155,11 @@ sg1.f3: ?championship | when did this championship occur | ?year
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Brad Stevens | which basketball teams did this person coach | ?team)', 'subquestion': 'which basketball teams did this person coach'} | {'id': 'f2', 'triple': '(?team | which championships did this team win | ?championship)', 'subquestion': 'which championships did thi…
+flow: {'id': 'f1', 'triple': '(Brad Stevens | which basketball teams did this person coach | ?team)', 'subquestion': 'which basketball teams did this person coach'} | {'id': 'f2', 'triple': '(?team | which championships did this team win | ?championship)', 'subquestion': 'which championships did this team win'} | {'id': 'f3', 'triple': '(?championship | when did this championship occur | ?year)', 'subquestion': 'when did this championship occur'}
 entities: Brad Stevens
 answer: ?year
 answer_type: year
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -179,7 +180,7 @@ question: which basketball teams did this person coach
 ```text
 entities: Brad Stevens
 question: which basketball teams did this person coach
-candidate_relations: sports.sport.team_coaches | sports.sports_team_coach.teams_coached | sports.sports_team_coach.sports_coached | basketball.basketball_team.head_coach | sports.coaching_position.coaches | sports.sports_team.coaches | basketball.basketball_team.previous_coaches | sports.sports_gend…
+candidate_relations: sports.sport.team_coaches | sports.sports_team_coach.teams_coached | sports.sports_team_coach.sports_coached | basketball.basketball_team.head_coach | sports.coaching_position.coaches | sports.sports_team.coaches | basketball.basketball_team.previous_coaches | sports.sports_gender.sports_teams | basketball.basketball_historical_coach_position.coach | sports.sports_team_coach_tenure.coach | sports.sports_team_owner.teams_owned | basketball.basketball_conference.teams | basketball.basketball_division.teams | sports.pro_athlete.teams | sports.sports_facility.teams
 grouped_relations:
   sport.team_coaches ← sports.sport.team_coaches
   sports_team_coach.teams_coached ← sports.sports_team_coach.teams_coached
@@ -193,7 +194,7 @@ grouped_relations:
   sports_team_coach_tenure.coach ← sports.sports_team_coach_tenure.coach
   sports_team_owner.teams_owned ← sports.sports_team_owner.teams_owned
   basketball_conference.teams ← basketball.basketball_conference.teams
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -224,7 +225,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Brad Stevens
-▸ patterns: basketball_coach.previous_teams | basketball_coach.team | basketball_team.head_coach | sport.team_coaches | sports_team_coach.teams_coached | sports_team_coach_tenure.coach | basketball_coach.team ⭢ sports_team.coaches | basketball_team.head_coach ⭢ sports_team.coaches | sports_team_coac…
+▸ patterns: basketball_coach.previous_teams | basketball_coach.team | basketball_team.head_coach | sport.team_coaches | sports_team_coach.teams_coached | sports_team_coach_tenure.coach | basketball_coach.team ⭢ sports_team.coaches | basketball_team.head_coach ⭢ sports_team.coaches | sports_team_coach.sports_coached ⭢ sport.team_coaches | basketball_historical_coach_position.coach ⭢ basketball_historical_coach_position.team ⭢ basketball_coach.team | basketball_historical_coach_position.coach ⭢ basketball_historical_coach_position.team ⭢ basketball_team.head_coach | basketball_historical_coach_position.coach ⭢ basketball_historical_coach_position.team ⭢ sports_team.coaches | topic.notable_types ⭢ person.profession ⭢ sports_team_coach.teams_coached | sports_team_coach.teams_coached ⭢ sports_team_coach_tenure.team ⭢ basketball_coach.team | sports_team_coach.teams_coached ⭢ sports_team_coach_tenure.team ⭢ basketball_team.head_coach | sports_team_coach_tenure.coach ⭢ sports_team_coach_tenure…
 ── Brad Stevens ──
     --topic.notable_types--> Basketball Coach
     --basketball_coach.previous_teams--> m.0wfd2k7 [team: Butler Bulldogs men's basketball]
@@ -248,9 +249,9 @@ entities: Brad Stevens
     --sports_team_coach.teams_coached--> m.0y98dfs [has_no_value: To; position: Basketball Coach]
     Basketball --sport.team_coaches--> Geno Auriemma
 ── Basketball ──
-    --sport.team_coaches--> Billy Donovan | Billy Wright | Brandon Miller | Carl Roth | Derek Fisher | Don Meyer | Earl Scott | Enoch J. Mills | Ettore Messina | Frank Haith | Frank Summers | Frank Vogel | Fred Hengeveld | Gene Keady | Gregg Popovich | Jarron Collins | Jason Kidd | Jesse Mermuys | J…
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'sport.team_coaches': {'direct': ['sports.sport.team_coaches'], 'bridge': []}, 'sports_team_coach.teams_coached': {'direct': ['sports.sports_team_coach.teams_coached'], 'bridge': []}, 'basketball_team.head_coach': {'direct': ['basketball.basketball_team.head_coach'], 'bridge': […
+    --sport.team_coaches--> Billy Donovan | Billy Wright | Brandon Miller | Carl Roth | Derek Fisher | Don Meyer | Earl Scott | Enoch J. Mills | Ettore Messina | Frank Haith | Frank Summers | Frank Vogel | Fred Hengeveld | Gene Keady | Gregg Popovich | Jarron Collins | Jason Kidd | Jesse Mermuys | Jim Boeheim | Jim Calhoun | John Floyd | June Olkowski | Larry Drew | Marty Fletcher | Matt Johnson | Mike Maker | Mike Montgomery | Ned Thompson | Pat Kelsey | Pat Summitt | Rick Barnes | Robert Morris | Sam Jones | Tay Baker | Tom Izzo | Tony Miller
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'sport.team_coaches': {'direct': ['sports.sport.team_coaches'], 'bridge': []}, 'sports_team_coach.teams_coached': {'direct': ['sports.sports_team_coach.teams_coached'], 'bridge': []}, 'basketball_team.head_coach': {'direct': ['basketball.basketball_team.head_coach'], 'bridge': ['basketball.basketball_coach.previous_teams', 'sports.sports_team_coach.teams_coached', 'sports.sports_team_coach_tenure.coach']}, 'sports_team.coaches': {'direct': ['sports.sports_team.coaches'], 'bridge': ['basketball.basketball_coach.previous_teams', 'basketball.basketball_coach.team', 'sports.sports_team_coach.teams_coached', 'sports.sports_team_coach_tenure.coach']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -294,7 +295,7 @@ question: which championships did this team win
 ```text
 entities: Butler Bulldogs men's basketball | Boston Celtics
 question: which championships did this team win
-candidate_relations: sports.sports_team.championships | sports.sports_championship_event.championship | award.competition_type.competitions_of_this_type | sports.sports_team_owner.teams_owned | sports.sports_championship_event.champion | basketball.basketball_conference.teams | sports.sports_facilit…
+candidate_relations: sports.sports_team.championships | sports.sports_championship_event.championship | award.competition_type.competitions_of_this_type | sports.sports_team_owner.teams_owned | sports.sports_championship_event.champion | basketball.basketball_conference.teams | sports.sports_facility.teams | sports.sports_league.teams | sports.sports_team_location.teams | sports.sports_league_participation.league | sports.sports_team.league | sports.sports_league_participation.team | sports.sports_team_roster.team | sports.team_venue_relationship.team | award.award_discipline.awards_in_this_discipline
 grouped_relations:
   sports_team.championships ← sports.sports_team.championships
   sports_championship_event.championship ← sports.sports_championship_event.championship
@@ -308,7 +309,7 @@ grouped_relations:
   sports_league_participation.league ← sports.sports_league_participation.league
   sports_team.league ← sports.sports_team.league
   sports_league_participation.team ← sports.sports_league_participation.team
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -347,9 +348,9 @@ entities: Brad Stevens  (sequence root; this layer applies to the frontier: Assi
     --basketball_coach.team--> Boston Celtics
     Boston Celtics --basketball_team.head_coach--> Brad Stevens
 ── Boston Celtics ──
-    --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Fina…
-    1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) (to answer with ALL of them, include "#1957 NBA Finals::champion" as one ans…
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+    --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 2008 NBA Finals
+    1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) (to answer with ALL of them, include "#1957 NBA Finals::champion" as one answer entity) --sports_championship_event.champion--> Boston Celtics
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'sports_team.championships': {'direct': ['sports.sports_team.championships'], 'bridge': []}, 'sports_championship_event.champion': {'direct': ['sports.sports_championship_event.champion'], 'bridge': []}}
 anchor_sequence: Brad Stevens ⭢ basketball_coach.previous_teams | basketball_coach.team | basketball_team.head_coach | sport.team_coaches | sports_team.coaches | sports_team_coach.teams_coached | sports_team_coach_tenure.coach (6) ⭢ sports_championship_event.champion | sports_team.championships (0)
 layer_action: extend
@@ -406,9 +407,9 @@ question: when did this championship occur
 ```
 **[13] 工具结果**:
 ```text
-entities: 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 20…
+entities: 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 2008 NBA Finals
 question: when did this championship occur
-candidate_relations: sports.sports_championship_event.championship | sports.sports_team.championships | sports.sports_championship_event.champion | sports.sports_team.league | sports.sports_team.sport | time.event.start_date | sports.sports_team.arena_stadium | sports.sports_team.team_mascot | sport…
+candidate_relations: sports.sports_championship_event.championship | sports.sports_team.championships | sports.sports_championship_event.champion | sports.sports_team.league | sports.sports_team.sport | time.event.start_date | sports.sports_team.arena_stadium | sports.sports_team.team_mascot | sports.mascot.team | sports.sports_league_participation.team | sports.sports_team_coach_tenure.team | sports.sports_team_roster.team | sports.team_venue_relationship.team | sports.sports_facility.teams | sports.sports_team_location.teams
 grouped_relations:
   sports_championship_event.championship ← sports.sports_championship_event.championship
   sports_team.championships ← sports.sports_team.championships
@@ -422,7 +423,7 @@ grouped_relations:
   sports_league_participation.team ← sports.sports_league_participation.team
   sports_team_coach_tenure.team ← sports.sports_team_coach_tenure.team
   sports_team_roster.team ← sports.sports_team_roster.team
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [14] assistant
 **思考（原文）**:
@@ -451,8 +452,8 @@ entities: Brad Stevens  (sequence root; this layer applies to the frontier: 1957
 ── Brad Stevens ──
     --basketball_coach.team--> Boston Celtics
 ── Boston Celtics ──
-    --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Fina…
-    1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) (to answer with ALL of them, include "#1957 NBA Finals::champion" as one ans…
+    --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 2008 NBA Finals
+    1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) (to answer with ALL of them, include "#1957 NBA Finals::champion" as one answer entity) --sports_championship_event.champion--> Boston Celtics
 ── 1959 NBA Finals ──
     --object.name--> 1968 NBA Finals
     --event.start_date--> 1968-04-21-08:00
@@ -493,9 +494,9 @@ entities: Brad Stevens  (sequence root; this layer applies to the frontier: 1957
     1984 NBA Finals --event.start_date--> 1966-04-17-08:00
     1986 NBA Finals --event.start_date--> 1984-05-27-08:00
     2008 NBA Finals --event.start_date--> 1961-04-02-08:00
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'time.event.start_date': {'direct': ['time.event.start_date'], 'bridge': ['type.object.name']}}
-anchor_sequence: Brad Stevens ⭢ basketball_coach.previous_teams | basketball_coach.team | basketball_team.head_coach | sport.team_coaches | sports_team.coaches | sports_team_coach.teams_coached | sports_team_coach_tenure.coach (6) ⭢ sports_championship_event.champion | sports_team.championships (17)…
+anchor_sequence: Brad Stevens ⭢ basketball_coach.previous_teams | basketball_coach.team | basketball_team.head_coach | sport.team_coaches | sports_team.coaches | sports_team_coach.teams_coached | sports_team_coach_tenure.coach (6) ⭢ sports_championship_event.champion | sports_team.championships (17) ⭢ event.start_date | object.name (0)
 layer_action: extend
 ```
 **[16] 工具结果**:
@@ -578,7 +579,7 @@ entities: 2008
 ```
 **[18] 工具结果**:
 ```text
-{"error": "answer entities NOT in the retrieved evidence: ['2008']. The answer must COMPLETELY MATCH an entity retrieved in the evidence — use the full entity name exactly as it appears (a partial word or extracted fragment is not an entity). Entities in your retrieved evidence pool include: ['Brand…
+{"error": "answer entities NOT in the retrieved evidence: ['2008']. The answer must COMPLETELY MATCH an entity retrieved in the evidence — use the full entity name exactly as it appears (a partial word or extracted fragment is not an entity). Entities in your retrieved evidence pool include: ['Brandon Miller', 'Brad Stevens', \"Butler Bulldogs men's basketball\", 'Boston Celtics', 'Coach', 'Head coach', 'To', 'Assistant Coach', 'Basketball', '1957 NBA Finals', '1959 NBA Finals', '1960 NBA Finals', '1961 NBA Finals', '1962 NBA Finals', '1963 NBA Finals']. Pick from these or expand the relevant branches, then re-call `answer` with complete entity names.", "offpool": ["2008"], "candidate_pool": ["Brandon Miller", "Brad Stevens", "Butler Bulldogs men's basketball", "Boston Celtics", "Coach", "Head coach", "To", "Assistant Coach", "Basketball", "1957 NBA Finals", "1959 NBA Finals", "1960 NBA Finals", "1961 NBA Finals", "1962 NBA Finals", "1963 NBA Finals", "1964 NBA Finals", "1965 NBA Final…
 ```
 
 
@@ -659,11 +660,11 @@ sg1.f3: ?championship | in what year did this championship occur | ?year
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Brad Stevens | which teams did this person coach | ?team)', 'subquestion': 'which teams did this person coach'} | {'id': 'f2', 'triple': '(?team | which championships did this team win | ?championship)', 'subquestion': 'which championships did this team win'} | {'id': …
+flow: {'id': 'f1', 'triple': '(Brad Stevens | which teams did this person coach | ?team)', 'subquestion': 'which teams did this person coach'} | {'id': 'f2', 'triple': '(?team | which championships did this team win | ?championship)', 'subquestion': 'which championships did this team win'} | {'id': 'f3', 'triple': '(?championship | in what year did this championship occur | ?year)', 'subquestion': 'in what year did this championship occur'}
 entities: Brad Stevens
 answer: ?year
 answer_type: year
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -686,7 +687,7 @@ question: which teams did this person coach
 ```text
 entities: Brad Stevens
 question: which teams did this person coach
-candidate_relations: sports.sports_team_coach.teams_coached | sports.sport.team_coaches | sports.sports_team_coach.sports_coached | sports.coaching_position.coaches | sports.sports_team.coaches | basketball.basketball_team.previous_coaches | basketball.basketball_team.head_coach | basketball.basketb…
+candidate_relations: sports.sports_team_coach.teams_coached | sports.sport.team_coaches | sports.sports_team_coach.sports_coached | sports.coaching_position.coaches | sports.sports_team.coaches | basketball.basketball_team.previous_coaches | basketball.basketball_team.head_coach | basketball.basketball_historical_coach_position.coach | sports.sports_team_coach_tenure.coach | sports.sports_team_owner.teams_owned | sports.sports_gender.sports_teams | basketball.basketball_conference.teams | basketball.basketball_division.teams | sports.pro_athlete.teams | sports.sports_facility.teams
 grouped_relations:
   sports_team_coach.teams_coached ← sports.sports_team_coach.teams_coached
   sport.team_coaches ← sports.sport.team_coaches
@@ -700,7 +701,7 @@ grouped_relations:
   sports_team_owner.teams_owned ← sports.sports_team_owner.teams_owned
   sports_gender.sports_teams ← sports.sports_gender.sports_teams
   basketball_conference.teams ← basketball.basketball_conference.teams
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -728,7 +729,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Brad Stevens
-▸ patterns: basketball_coach.previous_teams | basketball_team.head_coach | sport.team_coaches | sports_team_coach.sports_coached | sports_team_coach.teams_coached | sport.team_coaches ⭢ sports_team_coach.sports_coached | sports_team_coach.sports_coached ⭢ sport.team_coaches | basketball_historical_c…
+▸ patterns: basketball_coach.previous_teams | basketball_team.head_coach | sport.team_coaches | sports_team_coach.sports_coached | sports_team_coach.teams_coached | sport.team_coaches ⭢ sports_team_coach.sports_coached | sports_team_coach.sports_coached ⭢ sport.team_coaches | basketball_historical_coach_position.coach ⭢ basketball_historical_coach_position.team ⭢ basketball_team.head_coach | topic.notable_types ⭢ person.profession ⭢ sports_team_coach.teams_coached | sport.team_coaches ⭢ sports_team_coach.sports_coached ⭢ sports_team_coach.teams_coached | sports_team_coach.sports_coached ⭢ sport.team_coaches ⭢ sports_team_coach.teams_coached | sports_team_coach.teams_coached ⭢ sports_team_coach_tenure.team ⭢ basketball_team.head_coach | sports_team_coach_tenure.coach ⭢ sports_team_coach_tenure.team ⭢ basketball_team.head_coach | basketball_historical_coach_position.coach ⭢ basketball_historical_coach_position.team ⭢ basketball_coach.team ⭢ sport.team_coaches | basketball_historical_coac…
 ── Brad Stevens ──
     --topic.notable_types--> Basketball Coach
     --basketball_coach.previous_teams--> m.0wfd2k7 [team: Butler Bulldogs men's basketball]
@@ -747,10 +748,10 @@ entities: Brad Stevens
     --sports_team_coach.teams_coached--> m.0y98dfs [has_no_value: To; position: Basketball Coach]
     Basketball --sport.team_coaches--> Geno Auriemma
 ── Basketball ──
-    --sport.team_coaches--> Billy Donovan | Billy Wright | Brandon Miller | Carl Roth | Derek Fisher | Don Meyer | Earl Scott | Enoch J. Mills | Ettore Messina | Frank Haith | Frank Summers | Frank Vogel | Fred Hengeveld | Gene Keady | Gregg Popovich | Jarron Collins | Jason Kidd | Jesse Mermuys | J…
-    Billy Donovan | Billy Wright | Brandon Miller | Carl Roth | Derek Fisher | Don Meyer | Earl Scott | Enoch J. Mills | Ettore Messina | Frank Haith | Frank Summers | Frank Vogel …(+24) (to answer with ALL of them, include "#Billy Donovan::sports_coached" as one answer entity) --sports_team_coach.s…
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'sports_team_coach.teams_coached': {'direct': ['sports.sports_team_coach.teams_coached'], 'bridge': []}, 'basketball_team.head_coach': {'direct': ['basketball.basketball_team.head_coach'], 'bridge': ['basketball.basketball_coach.previous_teams', 'sports.sports_team_coach.teams_c…
+    --sport.team_coaches--> Billy Donovan | Billy Wright | Brandon Miller | Carl Roth | Derek Fisher | Don Meyer | Earl Scott | Enoch J. Mills | Ettore Messina | Frank Haith | Frank Summers | Frank Vogel | Fred Hengeveld | Gene Keady | Gregg Popovich | Jarron Collins | Jason Kidd | Jesse Mermuys | Jim Boeheim | Jim Calhoun | John Floyd | June Olkowski | Larry Drew | Marty Fletcher | Matt Johnson | Mike Maker | Mike Montgomery | Ned Thompson | Pat Kelsey | Pat Summitt | Rick Barnes | Robert Morris | Sam Jones | Tay Baker | Tom Izzo | Tony Miller
+    Billy Donovan | Billy Wright | Brandon Miller | Carl Roth | Derek Fisher | Don Meyer | Earl Scott | Enoch J. Mills | Ettore Messina | Frank Haith | Frank Summers | Frank Vogel …(+24) (to answer with ALL of them, include "#Billy Donovan::sports_coached" as one answer entity) --sports_team_coach.sports_coached--> Basketball
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'sports_team_coach.teams_coached': {'direct': ['sports.sports_team_coach.teams_coached'], 'bridge': []}, 'basketball_team.head_coach': {'direct': ['basketball.basketball_team.head_coach'], 'bridge': ['basketball.basketball_coach.previous_teams', 'sports.sports_team_coach.teams_coached', 'sports.sports_team_coach_tenure.coach']}, 'sports_team_coach.sports_coached': {'direct': ['sports.sports_team_coach.sports_coached'], 'bridge': ['sports.sport.team_coaches']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -821,7 +822,7 @@ question: which championships did this team win
 ```text
 entities: Boston Celtics | Butler Bulldogs men's basketball
 question: which championships did this team win
-candidate_relations: sports.sports_team.championships | sports.sports_championship_event.championship | award.competition_type.competitions_of_this_type | sports.sports_team_owner.teams_owned | sports.sports_championship_event.champion | basketball.basketball_coach.previous_teams | sports.pro_athlet…
+candidate_relations: sports.sports_team.championships | sports.sports_championship_event.championship | award.competition_type.competitions_of_this_type | sports.sports_team_owner.teams_owned | sports.sports_championship_event.champion | basketball.basketball_coach.previous_teams | sports.pro_athlete.teams | sports.sports_facility.teams | sports.sports_league.teams | sports.sports_team_location.teams | sports.sports_league_participation.league | sports.sports_team.league | sports.sports_league_participation.team | sports.sports_team_coach_tenure.team | sports.sports_team_roster.team
 grouped_relations:
   sports_team.championships ← sports.sports_team.championships
   sports_championship_event.championship ← sports.sports_championship_event.championship
@@ -835,7 +836,7 @@ grouped_relations:
   sports_team_location.teams ← sports.sports_team_location.teams
   sports_league_participation.league ← sports.sports_league_participation.league
   sports_team.league ← sports.sports_team.league
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [10] assistant
 **思考（原文）**:
@@ -869,10 +870,10 @@ entities: Brad Stevens  (sequence root; this layer applies to the frontier: Assi
     --sports_team_coach.teams_coached--> m.0w3_qv3 [has_no_value: To; position: Head coach; team: Boston Celtics]
     Boston Celtics --basketball_team.head_coach--> Brad Stevens
 ── Boston Celtics ──
-    --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Fina…
-    1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) (to answer with ALL of them, include "#1957 NBA Finals::champion" as one ans…
+    --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 2008 NBA Finals
+    1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) (to answer with ALL of them, include "#1957 NBA Finals::champion" as one answer entity) --sports_championship_event.champion--> Boston Celtics
     m.0w3_qv3 --sports_team_coach_tenure.team--> Boston Celtics
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'sports_team.championships': {'direct': ['sports.sports_team.championships'], 'bridge': []}, 'sports_championship_event.champion': {'direct': ['sports.sports_championship_event.champion'], 'bridge': []}}
 anchor_sequence: Brad Stevens ⭢ basketball_coach.previous_teams | basketball_team.head_coach | sport.team_coaches | sports_team_coach.sports_coached | sports_team_coach.teams_coached | sports_team_coach_tenure.coach (6) ⭢ sports_championship_event.champion | sports_team.championships (0)
 layer_action: extend
@@ -913,9 +914,9 @@ question: in what year did this championship occur
 ```
 **[13] 工具结果**:
 ```text
-entities: 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 20…
+entities: 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 2008 NBA Finals
 question: in what year did this championship occur
-candidate_relations: sports.sports_championship_event.championship | sports.sports_team.championships | sports.sports_championship_event.champion | sports.sports_team.league | sports.sports_team.sport | sports.sports_team.arena_stadium | sports.sports_team.team_mascot | time.event.start_date | baske…
+candidate_relations: sports.sports_championship_event.championship | sports.sports_team.championships | sports.sports_championship_event.champion | sports.sports_team.league | sports.sports_team.sport | sports.sports_team.arena_stadium | sports.sports_team.team_mascot | time.event.start_date | basketball.basketball_conference.teams | sports.sports_facility.teams | sports.sports_team_location.teams | sports.mascot.team | sports.sports_league_participation.team | sports.sports_team_coach_tenure.team | sports.sports_team_roster.team
 grouped_relations:
   sports_championship_event.championship ← sports.sports_championship_event.championship
   sports_team.championships ← sports.sports_team.championships
@@ -929,7 +930,7 @@ grouped_relations:
   sports_facility.teams ← sports.sports_facility.teams
   sports_team_location.teams ← sports.sports_team_location.teams
   mascot.team ← sports.mascot.team
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [14] assistant
 **思考（原文）**:
@@ -962,8 +963,8 @@ entities: Brad Stevens  (sequence root; this layer applies to the frontier: 1957
 ── Brad Stevens ──
     Boston Celtics --basketball_team.head_coach--> Brad Stevens
 ── Boston Celtics ──
-    --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Fina…
-    1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) (to answer with ALL of them, include "#1957 NBA Finals::champion" as one ans…
+    --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 2008 NBA Finals
+    1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) (to answer with ALL of them, include "#1957 NBA Finals::champion" as one answer entity) --sports_championship_event.champion--> Boston Celtics
 ── 1959 NBA Finals ──
     --object.name--> 1968 NBA Finals
     --event.start_date--> 1968-04-21-08:00
@@ -1004,9 +1005,9 @@ entities: Brad Stevens  (sequence root; this layer applies to the frontier: 1957
     1984 NBA Finals --event.start_date--> 1966-04-17-08:00
     1986 NBA Finals --event.start_date--> 1984-05-27-08:00
     2008 NBA Finals --event.start_date--> 1961-04-02-08:00
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'time.event.start_date': {'direct': ['time.event.start_date'], 'bridge': ['type.object.name']}}
-anchor_sequence: Brad Stevens ⭢ basketball_coach.previous_teams | basketball_team.head_coach | sport.team_coaches | sports_team_coach.sports_coached | sports_team_coach.teams_coached | sports_team_coach_tenure.coach (6) ⭢ sports_championship_event.champion | sports_team.championships (17) ⭢ event.st…
+anchor_sequence: Brad Stevens ⭢ basketball_coach.previous_teams | basketball_team.head_coach | sport.team_coaches | sports_team_coach.sports_coached | sports_team_coach.teams_coached | sports_team_coach_tenure.coach (6) ⭢ sports_championship_event.champion | sports_team.championships (17) ⭢ event.start_date | object.name (0)
 layer_action: extend
 ```
 **[16] 工具结果**:
@@ -1088,7 +1089,7 @@ entities: 2008
 ```
 **[18] 工具结果**:
 ```text
-{"error": "answer entities NOT in the retrieved evidence: ['2008']. The answer must COMPLETELY MATCH an entity retrieved in the evidence — use the full entity name exactly as it appears (a partial word or extracted fragment is not an entity). Entities in your retrieved evidence pool include: ['Brand…
+{"error": "answer entities NOT in the retrieved evidence: ['2008']. The answer must COMPLETELY MATCH an entity retrieved in the evidence — use the full entity name exactly as it appears (a partial word or extracted fragment is not an entity). Entities in your retrieved evidence pool include: ['Brandon Miller', 'Brad Stevens', \"Butler Bulldogs men's basketball\", 'Billy Donovan', 'Billy Wright', 'Carl Roth', 'Derek Fisher', 'Don Meyer', 'Earl Scott', 'Enoch J. Mills', 'Ettore Messina', 'Frank Haith', 'Frank Summers', 'Frank Vogel', 'Fred Hengeveld']. Pick from these or expand the relevant branches, then re-call `answer` with complete entity names.", "offpool": ["2008"], "candidate_pool": ["Brandon Miller", "Brad Stevens", "Butler Bulldogs men's basketball", "Billy Donovan", "Billy Wright", "Carl Roth", "Derek Fisher", "Don Meyer", "Earl Scott", "Enoch J. Mills", "Ettore Messina", "Frank Haith", "Frank Summers", "Frank Vogel", "Fred Hengeveld", "Gene Keady", "Geno Auriemma", "Gregg Popo…
 ```
 
 
@@ -1183,11 +1184,11 @@ sg1.f3: ?championship | what year was this championship | ?year
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Brad Stevens | which teams did this person coach | ?team)', 'subquestion': 'which teams did this person coach'} | {'id': 'f2', 'triple': '(?team | which championships did this team win | ?championship)', 'subquestion': 'which championships did this team win'} | {'id': …
+flow: {'id': 'f1', 'triple': '(Brad Stevens | which teams did this person coach | ?team)', 'subquestion': 'which teams did this person coach'} | {'id': 'f2', 'triple': '(?team | which championships did this team win | ?championship)', 'subquestion': 'which championships did this team win'} | {'id': 'f3', 'triple': '(?championship | what year was this championship | ?year)', 'subquestion': 'what year was this championship'}
 entities: Brad Stevens
 answer: ?year
 answer_type: year
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -1216,7 +1217,7 @@ question: which teams did this person coach
 ```text
 entities: Brad Stevens
 question: which teams did this person coach
-candidate_relations: sports.sports_team_coach.teams_coached | sports.sport.team_coaches | sports.sports_team_coach.sports_coached | sports.coaching_position.coaches | sports.sports_team.coaches | basketball.basketball_team.previous_coaches | basketball.basketball_team.head_coach | basketball.basketb…
+candidate_relations: sports.sports_team_coach.teams_coached | sports.sport.team_coaches | sports.sports_team_coach.sports_coached | sports.coaching_position.coaches | sports.sports_team.coaches | basketball.basketball_team.previous_coaches | basketball.basketball_team.head_coach | basketball.basketball_historical_coach_position.coach | sports.sports_team_coach_tenure.coach | sports.sports_team_owner.teams_owned | sports.sports_gender.sports_teams | basketball.basketball_conference.teams | basketball.basketball_division.teams | sports.pro_athlete.teams | sports.sports_facility.teams
 grouped_relations:
   sports_team_coach.teams_coached ← sports.sports_team_coach.teams_coached
   sport.team_coaches ← sports.sport.team_coaches
@@ -1230,7 +1231,7 @@ grouped_relations:
   sports_team_owner.teams_owned ← sports.sports_team_owner.teams_owned
   sports_gender.sports_teams ← sports.sports_gender.sports_teams
   basketball_conference.teams ← basketball.basketball_conference.teams
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -1258,7 +1259,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Brad Stevens
-▸ patterns: basketball_coach.previous_teams | basketball_historical_coach_position.coach | basketball_team.head_coach | sports_team_coach.teams_coached | basketball_historical_coach_position.coach ⭢ basketball_historical_coach_position.team ⭢ basketball_team.head_coach | topic.notable_types ⭢ person…
+▸ patterns: basketball_coach.previous_teams | basketball_historical_coach_position.coach | basketball_team.head_coach | sports_team_coach.teams_coached | basketball_historical_coach_position.coach ⭢ basketball_historical_coach_position.team ⭢ basketball_team.head_coach | topic.notable_types ⭢ person.profession ⭢ sports_team_coach.teams_coached | sport.team_coaches ⭢ sports_team_coach.sports_coached ⭢ sports_team_coach.teams_coached | sports_team_coach.sports_coached ⭢ sport.team_coaches ⭢ sports_team_coach.teams_coached | sports_team_coach.teams_coached ⭢ sports_team_coach_tenure.team ⭢ basketball_team.head_coach | sports_team_coach_tenure.coach ⭢ sports_team_coach_tenure.team ⭢ basketball_team.head_coach
 ── Brad Stevens ──
     --topic.notable_types--> Basketball Coach
     --basketball_coach.previous_teams--> m.0wfd2k7 [team: Butler Bulldogs men's basketball]
@@ -1277,8 +1278,8 @@ entities: Brad Stevens
     --basketball_team.head_coach--> Brandon Miller
     m.0w48285 --sports_team_coach_tenure.team--> Butler Bulldogs men's basketball
     m.0wfd2k7 --basketball_historical_coach_position.team--> Butler Bulldogs men's basketball
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'sports_team_coach.teams_coached': {'direct': ['sports.sports_team_coach.teams_coached'], 'bridge': []}, 'basketball_team.head_coach': {'direct': ['basketball.basketball_team.head_coach'], 'bridge': ['basketball.basketball_coach.previous_teams', 'sports.sports_team_coach.teams_c…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'sports_team_coach.teams_coached': {'direct': ['sports.sports_team_coach.teams_coached'], 'bridge': []}, 'basketball_team.head_coach': {'direct': ['basketball.basketball_team.head_coach'], 'bridge': ['basketball.basketball_coach.previous_teams', 'sports.sports_team_coach.teams_coached', 'sports.sports_team_coach_tenure.coach']}, 'basketball_historical_coach_position.coach': {'direct': ['basketball.basketball_historical_coach_position.coach'], 'bridge': []}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -1312,7 +1313,7 @@ question: which championships did this team win
 ```text
 entities: m.0w3_qv3 | m.0w48285
 question: which championships did this team win
-candidate_relations: sports.sports_team.championships | sports.sports_team_owner.teams_owned | sports.sports_team.team_mascot | sports.sports_championship_event.champion | basketball.basketball_coach.previous_teams | basketball.basketball_conference.teams | basketball.basketball_division.teams | spo…
+candidate_relations: sports.sports_team.championships | sports.sports_team_owner.teams_owned | sports.sports_team.team_mascot | sports.sports_championship_event.champion | basketball.basketball_coach.previous_teams | basketball.basketball_conference.teams | basketball.basketball_division.teams | sports.pro_athlete.teams | sports.sports_facility.teams | sports.sports_team_location.teams | sports.sports_team.league | sports.sports_league_participation.team | sports.sports_team_coach_tenure.team | sports.sports_team_roster.team | sports.team_venue_relationship.team
 grouped_relations:
   sports_team.championships ← sports.sports_team.championships
   sports_team_owner.teams_owned ← sports.sports_team_owner.teams_owned
@@ -1326,7 +1327,7 @@ grouped_relations:
   sports_team_location.teams ← sports.sports_team_location.teams
   sports_team.league ← sports.sports_team.league
   sports_league_participation.team ← sports.sports_league_participation.team
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -1355,12 +1356,12 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: m.0w3_qv3 | m.0w48285
-▸ patterns: sports_team_coach_tenure.team | sports_team.coaches ⭢ sports_championship_event.champion | sports_team.coaches ⭢ sports_team.championships | sports_team_coach_tenure.team ⭢ sports_championship_event.champion | sports_team_coach_tenure.team ⭢ sports_team.championships | sports_team_coach.…
+▸ patterns: sports_team_coach_tenure.team | sports_team.coaches ⭢ sports_championship_event.champion | sports_team.coaches ⭢ sports_team.championships | sports_team_coach_tenure.team ⭢ sports_championship_event.champion | sports_team_coach_tenure.team ⭢ sports_team.championships | sports_team_coach.teams_coached ⭢ basketball_team.head_coach ⭢ sports_championship_event.champion | sports_team_coach.teams_coached ⭢ basketball_team.head_coach ⭢ sports_team.championships | sports_team_coach_tenure.coach ⭢ basketball_coach.team ⭢ sports_championship_event.champion | sports_team_coach_tenure.coach ⭢ basketball_coach.team ⭢ sports_team.championships | sports_team_coach_tenure.coach ⭢ basketball_team.head_coach ⭢ sports_championship_event.champion | sports_team_coach_tenure.coach ⭢ basketball_team.head_coach ⭢ sports_team.championships | sports_team_coach.teams_coached ⭢ basketball_coach.team | sports_team_coach_tenure.coach ⭢ basketball_coach.team | sports_team_coach_tenure.team ⭢ basketball_c…
 ── Boston Celtics ──
-    --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Fina…
+    --sports_team.championships--> 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 2008 NBA Finals
     --sports_team.coaches--> m.0w3_qv3 [coach: Brad Stevens; has_no_value: To; position: Head coach]
     --basketball_team.head_coach--> Brad Stevens
-    1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) (to answer with ALL of them, include "#1957 NBA Finals::champion" as one ans…
+    1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals …(+5) (to answer with ALL of them, include "#1957 NBA Finals::champion" as one answer entity) --sports_championship_event.champion--> Boston Celtics
     Brad Stevens --basketball_coach.team--> Boston Celtics
     m.0w3_qv3 --sports_team_coach_tenure.team--> Boston Celtics
 ── Brad Stevens ──
@@ -1370,7 +1371,7 @@ entities: m.0w3_qv3 | m.0w48285
 ── Butler Bulldogs men's basketball ──
     Brandon Miller --basketball_coach.team--> Butler Bulldogs men's basketball
     m.0w48285 --sports_team_coach_tenure.team--> Butler Bulldogs men's basketball
-note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER an…
+note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'sports_team.championships': {'direct': ['sports.sports_team.championships'], 'bridge': ['sports.sports_team_coach_tenure.team']}, 'sports_championship_event.champion': {'direct': ['sports.sports_championship_event.champion'], 'bridge': ['sports.sports_team_coach_tenure.team']}}
 ```
 ## [10] assistant
@@ -1408,9 +1409,9 @@ question: what year was this championship
 ```
 **[11] 工具结果**:
 ```text
-entities: 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 20…
+entities: 1957 NBA Finals | 1959 NBA Finals | 1960 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1963 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1968 NBA Finals | 1969 NBA Finals | 1974 NBA Finals | 1976 NBA Finals | 1981 NBA Finals | 1984 NBA Finals | 1986 NBA Finals | 2008 NBA Finals
 question: what year was this championship
-candidate_relations: sports.sports_championship_event.championship | sports.sports_team.championships | sports.sports_championship_event.champion | sports.sports_team.league | sports.sports_team.team_mascot | sports.sports_team.arena_stadium | sports.sports_team.sport | time.event.start_date | sport…
+candidate_relations: sports.sports_championship_event.championship | sports.sports_team.championships | sports.sports_championship_event.champion | sports.sports_team.league | sports.sports_team.team_mascot | sports.sports_team.arena_stadium | sports.sports_team.sport | time.event.start_date | sports.sports_facility.teams | sports.sports_team_location.teams | sports.mascot.team | sports.sports_league_participation.team | sports.sports_team_coach_tenure.team | sports.sports_team_roster.team | sports.team_venue_relationship.team
 grouped_relations:
   sports_championship_event.championship ← sports.sports_championship_event.championship
   sports_team.championships ← sports.sports_team.championships
@@ -1424,7 +1425,7 @@ grouped_relations:
   sports_team_location.teams ← sports.sports_team_location.teams
   mascot.team ← sports.mascot.team
   sports_league_participation.team ← sports.sports_league_participation.team
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [12] assistant
 **思考（原文）**:
@@ -1454,7 +1455,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: 1957 NBA Finals | 1959 NBA Finals | 1961 NBA Finals | 1962 NBA Finals | 1964 NBA Finals | 1965 NBA Finals | 1966 NBA Finals | 1969 NBA Finals
-▸ patterns: event.start_date | object.name | object.name ⭢ event.start_date | object_profile.prominent_type ⭢ topic.notable_types ⭢ event.start_date | sports_championship_event.champion ⭢ sports_team.championships ⭢ event.start_date | sports_team.championships ⭢ sports_championship_event.champion ⭢ …
+▸ patterns: event.start_date | object.name | object.name ⭢ event.start_date | object_profile.prominent_type ⭢ topic.notable_types ⭢ event.start_date | sports_championship_event.champion ⭢ sports_team.championships ⭢ event.start_date | sports_team.championships ⭢ sports_championship_event.champion ⭢ event.start_date
 ── 1959 NBA Finals ──
     --sports_championship_event.champion--> Boston Celtics
     --object.name--> 1968 NBA Finals
@@ -1523,7 +1524,7 @@ entities: 1957 NBA Finals | 1959 NBA Finals | 1961 NBA Finals | 1962 NBA Finals 
     1984 NBA Finals --event.start_date--> 1966-04-17-08:00
     1986 NBA Finals --event.start_date--> 1984-05-27-08:00
     2008 NBA Finals --event.start_date--> 1961-04-02-08:00
-note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, …
+note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'time.event.start_date': {'direct': ['time.event.start_date'], 'bridge': ['type.object.name']}}
 layer_action: repeat
 ```
@@ -1598,7 +1599,7 @@ entities: 2008
 ```
 **[15] 工具结果**:
 ```text
-{"error": "answer entities NOT in the retrieved evidence: ['2008']. The answer must COMPLETELY MATCH an entity retrieved in the evidence — use the full entity name exactly as it appears (a partial word or extracted fragment is not an entity). Entities in your retrieved evidence pool include: ['Brand…
+{"error": "answer entities NOT in the retrieved evidence: ['2008']. The answer must COMPLETELY MATCH an entity retrieved in the evidence — use the full entity name exactly as it appears (a partial word or extracted fragment is not an entity). Entities in your retrieved evidence pool include: ['Brandon Miller', 'Brad Stevens', \"Butler Bulldogs men's basketball\", 'Basketball Coach', 'Geno Auriemma', 'To', 'Basketball', 'Boston Celtics', 'Assistant Coach', 'Head coach', '1957 NBA Finals', '1959 NBA Finals', '1960 NBA Finals', '1961 NBA Finals', '1962 NBA Finals']. Pick from these or expand the relevant branches, then re-call `answer` with complete entity names.", "offpool": ["2008"], "candidate_pool": ["Brandon Miller", "Brad Stevens", "Butler Bulldogs men's basketball", "Basketball Coach", "Geno Auriemma", "To", "Basketball", "Boston Celtics", "Assistant Coach", "Head coach", "1957 NBA Finals", "1959 NBA Finals", "1960 NBA Finals", "1961 NBA Finals", "1962 NBA Finals", "1963 NBA Finals…
 ```
 
 
@@ -1670,11 +1671,11 @@ sg2.f1: Greenwich Mean Time Zone | which countries are in this time zone | ?coun
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Belgium | in which country is this country located | ?country)', 'subquestion': 'in which country is this country located'} | {'id': 'f2', 'triple': '(Greenwich Mean Time Zone | which countries are in this time zone | ?country)', 'subquestion': 'which countries are in …
+flow: {'id': 'f1', 'triple': '(Belgium | in which country is this country located | ?country)', 'subquestion': 'in which country is this country located'} | {'id': 'f2', 'triple': '(Greenwich Mean Time Zone | which countries are in this time zone | ?country)', 'subquestion': 'which countries are in this time zone'}
 entities: Belgium | Greenwich Mean Time Zone
 answer: ?location
 answer_type: location
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -1726,7 +1727,7 @@ fact_id: f1
 ```text
 entities: Belgium
 question: in which country is this country located
-candidate_relations: base.locations.continents.countries_within | language.human_language.main_country | base.locations.countries.continent | location.administrative_division.country | people.family.country | film.film.country | location.location.geolocation | location.location.containedby | locatio…
+candidate_relations: base.locations.continents.countries_within | language.human_language.main_country | base.locations.countries.continent | location.administrative_division.country | people.family.country | film.film.country | location.location.geolocation | location.location.containedby | location.country.languages_spoken | location.location.people_born_here | location.location.partially_contains | location.partial_containment_relationship.partially_contains | location.location.time_zones | location.location.partiallycontains | location.location_symbol_relationship.administrative_division
 grouped_relations:
   continents.countries_within ← base.locations.continents.countries_within
   human_language.main_country ← language.human_language.main_country
@@ -1740,7 +1741,7 @@ grouped_relations:
   location.people_born_here ← location.location.people_born_here
   location.partially_contains ← location.location.partially_contains
   partial_containment_relationship.partially_contains ← location.partial_containment_relationship.partially_contains
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -1803,21 +1804,21 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Belgium
-▸ patterns: countries.continent | adjoining_relationship.adjoins | administrative_division.second_level_division_of | location.adjoin_s | location.containedby | location.time_zones | casualties.combatant | military_combatant.military_conflicts | military_combatant_group.combatants | bibs_location.co…
+▸ patterns: countries.continent | adjoining_relationship.adjoins | administrative_division.second_level_division_of | location.adjoin_s | location.containedby | location.time_zones | casualties.combatant | military_combatant.military_conflicts | military_combatant_group.combatants | bibs_location.country ⭢ location.containedby | continents.countries_within ⭢ location.containedby | continents.countries_within ⭢ location.time_zones | countries.continent ⭢ location.containedby | countries.continent ⭢ location.time_zones | administrative_division.country ⭢ countries.continent | administrative_division.country ⭢ location.time_zones | administrative_division.country ⭢ military_combatant.military_conflicts | administrative_division.country ⭢ military_combatant_group.combatants | country.administrative_divisions ⭢ countries.continent | country.administrative_divisions ⭢ military_combatant.military_conflicts | country.administrative_divisions ⭢ military_combatant_group.combatants | adjoining_re…
 ── Belgium ──
     --location.adjoin_s--> m.02sd_yv [adjoins: France] | m.02sd_z8 [adjoins: Luxembourg] | m.02sd_zh [adjoins: Germany] | m.02shm4h [adjoins: Netherlands] | m.046cvbh [adjoins: Nord-Pas-de-Calais] | m.046cvbp [adjoins: Dunkirk] | m.04hy1tc [adjoins: Zeeland] | m.0z1_dzl [adjoins: North Sea]
     --country.administrative_divisions--> Luxembourg
     --location.containedby--> Eurasia | Western Europe
     --countries.continent--> Europe
-    --military_combatant.military_conflicts--> m.03z967f [combatants: Australia | Brazil | Bulgaria | Canada | France | Germany] | m.048z_dd [combatants: Canada | France | Luxembourg | Nazi Germany | Netherlands | Poland; conflict: Battle of France] | m.04fsf9x [conflict: Battle of Hannut] | m.04fv5…
+    --military_combatant.military_conflicts--> m.03z967f [combatants: Australia | Brazil | Bulgaria | Canada | France | Germany] | m.048z_dd [combatants: Canada | France | Luxembourg | Nazi Germany | Netherlands | Poland; conflict: Battle of France] | m.04fsf9x [conflict: Battle of Hannut] | m.04fv50v [conflict: Battle of Le Cateau] | m.04fvknf [conflict: Battle of Liège] | m.04fvnbt [conflict: Second Battle of Ypres] | m.04fvncw [conflict: Battle of the Yser] | m.04g9ysp [combatants: Australia | Brazil | Canada | France | Greece | Netherlands; conflict: World War II] | m.04p5pd3 [combatants: First Portuguese Republic | United Kingdom; conflict: East African Campaign] | m.04y_th0 [conflict: Mahdist War] | m.04yvx77 [conflict: Siege of Antwerp] | m.04yw370 [conflict: First Battle of Ypres] | m.04yzz7m [conflict: Operation Active Endeavour] | m.04z2vny [conflict: Shaba II] | m.04z6cs3 [conflict: Battle of Fort Eben-Emael] | m.052b2k5 [conflict: Battle of the Atlantic] | m.05ckfjn [confli…
     --location.time_zones--> Central European Summer Time | Central European Time Zone
     m.02sd_yv | m.02sd_z8 | m.02sd_zh | m.02shm4h | m.046cvbh | m.046cvbp | m.04hy1tc | m.0z1_dzl --adjoining_relationship.adjoins--> Belgium
     m.04lkt8z --casualties.combatant--> Belgium
     m.03z967f | m.048z_dd | m.04fsf9x | m.04fv50v | m.04fvknf | m.04fvnbt | m.04fvncw | m.04g9ysp | m.04lkt5r | m.04p5pd3 | m.04y_th0 | m.04yvx77 …(+20) (to answer with ALL of them, include "#m.03z967f::combatants" as one answer entity) --military_combatant_group.combatants--> Belgium
-    Antwerp | Arrondissement of Brussels-Capital | Brussels | Brussels-Capital Region | City of Brussels | East Flanders | Flanders | Flemish Brabant | Flemish Region | Hainaut | High Fens | Jodoigne …(+8) (to answer with ALL of them, include "#Antwerp::containedby" as one answer entity) --location.…
+    Antwerp | Arrondissement of Brussels-Capital | Brussels | Brussels-Capital Region | City of Brussels | East Flanders | Flanders | Flemish Brabant | Flemish Region | Hainaut | High Fens | Jodoigne …(+8) (to answer with ALL of them, include "#Antwerp::containedby" as one answer entity) --location.containedby--> Belgium
     Europe --continents.countries_within--> Belgium
     Arrondissement of Brussels-Capital | Brussels | Flemish Brabant | Luxembourg --bibs_location.country--> Belgium
-    Arrondissement of Aalst | Arrondissement of Antwerp | Arrondissement of Ath | Arrondissement of Bastogne | Arrondissement of Dendermonde | Arrondissement of Diksmuide | Arrondissement of Hasselt | Arrondissement of Huy | Arrondissement of Kortrijk | Arrondissement of Marche-en-Famenne | Arrondis…
+    Arrondissement of Aalst | Arrondissement of Antwerp | Arrondissement of Ath | Arrondissement of Bastogne | Arrondissement of Dendermonde | Arrondissement of Diksmuide | Arrondissement of Hasselt | Arrondissement of Huy | Arrondissement of Kortrijk | Arrondissement of Marche-en-Famenne | Arrondissement of Mechelen | Arrondissement of Namur …(+8) (to answer with ALL of them, include "#Arrondissement of Aalst::second_level_division_of" as one answer entity) --administrative_division.second_level_division_of--> Belgium
 ── Luxembourg ──
     --location.adjoin_s--> m.02sd_z8 [adjoins: Luxembourg]
     --location.containedby--> Europe
@@ -1886,8 +1887,8 @@ entities: Belgium
     m.046cvbh --adjoining_relationship.adjoins--> Nord-Pas-de-Calais
     m.046cvbp --adjoining_relationship.adjoins--> Dunkirk
     m.04hy1tc --adjoining_relationship.adjoins--> Zeeland
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'base.locations.countries.continent': {'direct': ['base.locations.countries.continent'], 'bridge': ['location.adjoining_relationship.adjoins', 'location.location.adjoin_s', 'location.location.containedby', 'military.casualties.combatant', 'military.military_combatant.military_co…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'base.locations.countries.continent': {'direct': ['base.locations.countries.continent'], 'bridge': ['location.adjoining_relationship.adjoins', 'location.location.adjoin_s', 'location.location.containedby', 'military.casualties.combatant', 'military.military_combatant.military_conflicts', 'military.military_combatant_group.combatants']}, 'location.location.time_zones': {'direct': ['location.location.time_zones'], 'bridge': ['location.adjoining_relationship.adjoins', 'location.administrative_division.second_level_division_of', 'location.location.adjoin_s', 'location.location.containedby', 'military.military_combatant.military_conflicts', 'military.military_combatant_group.combatants']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -1956,7 +1957,7 @@ MULTI-TREE REMINDER: declared entity 'Greenwich Mean Time Zone' anchors no tree 
 ```text
 entities: Greenwich Mean Time Zone
 question: which countries are in this time zone
-candidate_relations: location.location.time_zones | time.time_zone.locations_in_this_time_zone | base.locations.continents.countries_within | finance.currency.countries_used | language.human_language.main_country | sports.multi_event_tournament.participating_countries | olympics.olympic_games.partic…
+candidate_relations: location.location.time_zones | time.time_zone.locations_in_this_time_zone | base.locations.continents.countries_within | finance.currency.countries_used | language.human_language.main_country | sports.multi_event_tournament.participating_countries | olympics.olympic_games.participating_countries | language.human_language.region | language.human_language.countries_spoken_in | base.locations.countries.continent | people.person.nationality | location.administrative_division.country | base.biblioness.bibs_location.country | people.family.country | organization.organization.geographic_scope
 grouped_relations:
   location.time_zones ← location.location.time_zones
   time_zone.locations_in_this_time_zone ← time.time_zone.locations_in_this_time_zone
@@ -1970,7 +1971,7 @@ grouped_relations:
   countries.continent ← base.locations.countries.continent
   person.nationality ← people.person.nationality
   administrative_division.country ← location.administrative_division.country
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [9] assistant
 **思考（原文）**:
@@ -2016,7 +2017,7 @@ sg: sg2
 fact_id: sg2
 triples:
 entities: Greenwich Mean Time Zone
-▸ patterns: location.time_zones | location.time_zones ⭢ time_zone.locations_in_this_time_zone | image.appears_in_topic_gallery ⭢ topic.image ⭢ location.time_zones | topic.image ⭢ image.appears_in_topic_gallery ⭢ location.time_zones | location.time_zones ⭢ continents.countries_within ⭢ time_zone.loca…
+▸ patterns: location.time_zones | location.time_zones ⭢ time_zone.locations_in_this_time_zone | image.appears_in_topic_gallery ⭢ topic.image ⭢ location.time_zones | topic.image ⭢ image.appears_in_topic_gallery ⭢ location.time_zones | location.time_zones ⭢ continents.countries_within ⭢ time_zone.locations_in_this_time_zone | location.time_zones ⭢ countries.continent ⭢ time_zone.locations_in_this_time_zone
 ── Greenwich Mean Time Zone ──
     --topic.image--> Africa-timezones
     Africa-timezones --image.appears_in_topic_gallery--> Greenwich Mean Time Zone
@@ -2033,7 +2034,7 @@ entities: Greenwich Mean Time Zone
     Spain --location.time_zones--> Western European Time Zone
 ── Belgium ──
     Central European Summer Time --time_zone.locations_in_this_time_zone--> Belgium
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'time.time_zone.locations_in_this_time_zone': {'direct': ['time.time_zone.locations_in_this_time_zone'], 'bridge': ['location.location.time_zones']}}
 ```
 **[11] 工具结果**:
@@ -2150,7 +2151,7 @@ entities: NONE
 ```
 **[15] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?time_zone=['Central European Summer Time', 'Central European Time Zone']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bi…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?time_zone=['Central European Summer Time', 'Central European Time Zone']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of other variables may still advance the answer). Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [16] assistant
 **思考（原文）**:
@@ -2453,11 +2454,11 @@ sg1.f3: ?country | which continent contains this country | ?continent
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Falkland Islands | which country do these islands belong to | ?country)', 'subquestion': 'which country do these islands belong to'} | {'id': 'f2', 'triple': '(?country | which time zone does this country use | ?time_zone)', 'subquestion': 'which time zone does this co…
+flow: {'id': 'f1', 'triple': '(Falkland Islands | which country do these islands belong to | ?country)', 'subquestion': 'which country do these islands belong to'} | {'id': 'f2', 'triple': '(?country | which time zone does this country use | ?time_zone)', 'subquestion': 'which time zone does this country use'} | {'id': 'f3', 'triple': '(?country | which continent contains this country | ?continent)', 'subquestion': 'which continent contains this country'}
 entities: Falkland Islands
 answer: ?continent
 answer_type: continent
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -2489,7 +2490,7 @@ question: which country do these islands belong to
 ```text
 entities: Falkland Islands
 question: which country do these islands belong to
-candidate_relations: geography.island.island_group | finance.currency.countries_formerly_used | base.aareas.schema.earth.sovereign_domain.sovereign_state | people.person.nationality | base.aareas.schema.administrative_area_type.sovereignty | location.location.containedby | location.administrative_di…
+candidate_relations: geography.island.island_group | finance.currency.countries_formerly_used | base.aareas.schema.earth.sovereign_domain.sovereign_state | people.person.nationality | base.aareas.schema.administrative_area_type.sovereignty | location.location.containedby | location.administrative_division.country | base.aareas.schema.administrative_area.subdividing_place | base.aareas.schema.administrative_area_type.pertains_to | location.country.languages_spoken | base.aareas.schema.administrative_area.subdivides_place | location.location.time_zones | base.locations.continents.planet | location.location.contains | location.partial_containment_relationship.partially_contains
 grouped_relations:
   island.island_group ← geography.island.island_group
   currency.countries_formerly_used ← finance.currency.countries_formerly_used
@@ -2503,7 +2504,7 @@ grouped_relations:
   country.languages_spoken ← location.country.languages_spoken
   administrative_area.subdivides_place ← base.aareas.schema.administrative_area.subdivides_place
   location.time_zones ← location.location.time_zones
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -2535,7 +2536,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Falkland Islands
-▸ patterns: island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_division | location.containedby | location.contains | administrative_area.administrative_childre…
+▸ patterns: island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_division | location.containedby | location.contains | administrative_area.administrative_children ⭢ sovereign_domain.sovereign_state | island.island_group ⭢ administrative_division.first_level_division_of | island.island_group ⭢ location.containedby | island.island_group ⭢ location.contains | island_group.islands_in_group ⭢ administrative_division.first_level_division_of | island_group.islands_in_group ⭢ location.containedby | island_group.islands_in_group ⭢ location.contains | country.first_level_divisions ⭢ sovereign_domain.sovereign_state | country.first_level_divisions ⭢ administrative_division.first_level_division_of | location.containedby ⭢ sovereign_domain.sovereign_state | government_position_held.jurisdiction_of_office ⭢ political_district.representatives ⭢ location.containedb…
 ── Falkland Islands ──
     --location.containedby--> Americas | Atlantic Ocean | South America | United Kingdom, with Dependencies and Territories
     --administrative_division.first_level_division_of--> United Kingdom, with Dependencies and Territories
@@ -2552,7 +2553,7 @@ entities: Falkland Islands
 ── United Kingdom, with Dependencies and Territories ──
     --sovereign_domain.sovereign_state--> United Kingdom
     South Georgia and the South Sandwich Islands --location.containedby--> United Kingdom, with Dependencies and Territories
-    Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat …(+4) (to answer with ALL of them, include "#Akrotiri and Dhekelia::first_level_division_…
+    Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat …(+4) (to answer with ALL of them, include "#Akrotiri and Dhekelia::first_level_division_of" as one answer entity) --administrative_division.first_level_division_of--> United Kingdom, with Dependencies and Territories
 ── East Falkland ──
     --location.containedby--> Atlantic Ocean
     --location.contains--> Stanley
@@ -2563,8 +2564,8 @@ entities: Falkland Islands
     Americas --location.contains--> South Georgia and the South Sandwich Islands
 ── Stanley ──
     --political_district.representatives--> m.0zbfy6d [basic_title: Member of the Legislative Assembly; district_represented: Stanley; governmental_body: Legislative Assembly of the Falkland Islands; has_no_value: Appointed By (if Position is Appointed) | To; office_holder: Michael Poole]
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'sovereign_domain.sovereign_state': {'direct': ['base.aareas.schema.earth.sovereign_domain.sovereign_state'], 'bridge': ['location.administrative_division.first_level_division_of']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['geogr…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'sovereign_domain.sovereign_state': {'direct': ['base.aareas.schema.earth.sovereign_domain.sovereign_state'], 'bridge': ['location.administrative_division.first_level_division_of']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['geography.island_group.islands_in_group', 'government.government_position_held.jurisdiction_of_office', 'location.administrative_division.country', 'location.administrative_division_capital_relationship.administrative_division', 'location.location.contains']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -2618,7 +2619,7 @@ question: which time zone does this country use
 ```text
 entities: United Kingdom, with Dependencies and Territories
 question: which time zone does this country use
-candidate_relations: location.location.time_zones | time.time_zone.locations_in_this_time_zone | finance.currency.countries_used | language.human_language.main_country | base.locations.planets.countries_within | location.administrative_division.country | base.locations.planets.continents_within | la…
+candidate_relations: location.location.time_zones | time.time_zone.locations_in_this_time_zone | finance.currency.countries_used | language.human_language.main_country | base.locations.planets.countries_within | location.administrative_division.country | base.locations.planets.continents_within | language.human_language.countries_spoken_in | time.event.locations | location.country.currency_used | location.location.geolocation | location.country.languages_spoken | base.aareas.schema.administrative_area.administrative_area_type | location.statistical_region.population | location.country.internet_tld
 grouped_relations:
   location.time_zones ← location.location.time_zones
   time_zone.locations_in_this_time_zone ← time.time_zone.locations_in_this_time_zone
@@ -2632,7 +2633,7 @@ grouped_relations:
   country.currency_used ← location.country.currency_used
   location.geolocation ← location.location.geolocation
   country.languages_spoken ← location.country.languages_spoken
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -2660,20 +2661,20 @@ sg: sg1
 ```text
 fact_id: sg1
 triples:
-entities: Falkland Islands  (sequence root; this layer applies to the frontier: Americas | Appointed By (if Position is Appointed) | Atlantic Ocean | Basic title | Chief Executive of the Falkland Islands | Chief executive | Colin Roberts | East Falkland | Elizabeth II | From | Governor | Governor of…
+entities: Falkland Islands  (sequence root; this layer applies to the frontier: Americas | Appointed By (if Position is Appointed) | Atlantic Ocean | Basic title | Chief Executive of the Falkland Islands | Chief executive | Colin Roberts | East Falkland | Elizabeth II | From | Governor | Governor of the Falkland Islands)
 ▸ patterns: island_group.islands_in_group ⭢ administrative_area.administrative_children | island_group.islands_in_group ⭢ country.first_level_divisions | location.partially_containedby | location.time_zones
 ── Falkland Islands ──
     --island_group.islands_in_group--> South Georgia and the South Sandwich Islands
 ── Americas ──
-    --location.time_zones--> Alaska Time Zone | Amazon Time Zone | Argentina Time Zone | Atlantic Time Zone | Bolivia Time Zone | Brasília Time Zone | Central Time Zone | Chile Time Zone | Clipperton Island Time Zone | Colombia Time Zone | Cuba Time Zone | East Greenland Time Zone | Eastern Caribbea…
+    --location.time_zones--> Alaska Time Zone | Amazon Time Zone | Argentina Time Zone | Atlantic Time Zone | Bolivia Time Zone | Brasília Time Zone | Central Time Zone | Chile Time Zone | Clipperton Island Time Zone | Colombia Time Zone | Cuba Time Zone | East Greenland Time Zone | Eastern Caribbean Time Zone | Eastern Time Zone | Ecuador Time Zone | Falkland Islands Time Zone | Fernando de Noronha Time Zone | French Guiana Time Zone | Galápagos Time Zone | Guyana Time Zone | Mountain Time Zone | Newfoundland Time Zone | Pacific Time Zone | Paraguay Time Zone | Peru Time Zone | Saint Pierre and Miquelon Time Zone | South Georgia and the South Sandwich Islands Time Zone | Suriname Time Zone | Uruguay Time Zone | Venezuela Time Zone | West Greenland Time Zone | Western European Time Zone
 ── Atlantic Ocean ──
     Portugal | Spain | United Kingdom, with Dependencies and Territories --location.partially_containedby--> Atlantic Ocean
 ── South Georgia and the South Sandwich Islands ──
     United Kingdom, with Dependencies and Territories --administrative_area.administrative_children--> South Georgia and the South Sandwich Islands
     United Kingdom, with Dependencies and Territories --country.first_level_divisions--> South Georgia and the South Sandwich Islands
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'location.location.time_zones': {'direct': ['location.location.time_zones'], 'bridge': ['base.aareas.schema.administrative_area.administrative_children', 'location.country.administrative_divisions', 'location.country.first_level_divisions', 'location.location.partially_contained…
-anchor_sequence: Falkland Islands ⭢ sovereign_domain.sovereign_state | island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.country | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_div…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'location.location.time_zones': {'direct': ['location.location.time_zones'], 'bridge': ['base.aareas.schema.administrative_area.administrative_children', 'location.country.administrative_divisions', 'location.country.first_level_divisions', 'location.location.partially_contained_by', 'location.location.partially_containedby', 'location.partial_containment_relationship.partially_contains']}, 'time.time_zone.locations_in_this_time_zone': {'direct': ['time.time_zone.locations_in_this_time_zone'], 'bridge': ['location.administrative_division.first_level_division_of', 'location.country.administrative_divisions']}}
+anchor_sequence: Falkland Islands ⭢ sovereign_domain.sovereign_state | island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.country | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_division | location.containedby | location.contains (32) ⭢ administrative_area.administrative_children | country.administrative_divisions | country.first_level_divisions | location.partially_contained_by | location.partially_containedby | location.time_zones | partial_containment_relationship.partially_contains | time_zone.locations_in_this_time_zone (0)
 layer_action: extend
 ```
 ## [10] assistant
@@ -2719,7 +2720,7 @@ question: which continent contains this country
 ```text
 entities: United Kingdom, with Dependencies and Territories
 question: which continent contains this country
-candidate_relations: base.locations.planets.continents_within | base.locations.planets.countries_within | language.human_language.main_country | location.location.containedby | location.location.partially_containedby | location.administrative_division.country | location.location.partially_contained_…
+candidate_relations: base.locations.planets.continents_within | base.locations.planets.countries_within | language.human_language.main_country | location.location.containedby | location.location.partially_containedby | location.administrative_division.country | location.location.partially_contained_by | location.partial_containment_relationship.partially_contained_by | location.location.partiallycontains | language.human_language.countries_spoken_in | location.location.partially_contains | location.partial_containment_relationship.partially_contains | location.location.contains | base.aareas.schema.administrative_area_type.sovereignty | time.event.locations
 grouped_relations:
   planets.continents_within ← base.locations.planets.continents_within
   planets.countries_within ← base.locations.planets.countries_within
@@ -2733,7 +2734,7 @@ grouped_relations:
   human_language.countries_spoken_in ← language.human_language.countries_spoken_in
   location.partially_contains ← location.location.partially_contains
   partial_containment_relationship.partially_contains ← location.partial_containment_relationship.partially_contains
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [12] assistant
 **思考（原文）**:
@@ -2807,7 +2808,7 @@ sg: sg1
 ```text
 fact_id: sg1
 triples:
-entities: Falkland Islands  (sequence root; this layer applies to the frontier: Akrotiri and Dhekelia | Alaska Time Zone | Altitude | Amazon Time Zone | Anguilla | Argentina Time Zone | Atlantic Time Zone | Bermuda | Bolivia Time Zone | Brasília Time Zone | British Antarctic Territory | British Indi…
+entities: Falkland Islands  (sequence root; this layer applies to the frontier: Akrotiri and Dhekelia | Alaska Time Zone | Altitude | Amazon Time Zone | Anguilla | Argentina Time Zone | Atlantic Time Zone | Bermuda | Bolivia Time Zone | Brasília Time Zone | British Antarctic Territory | British Indian Ocean Territory)
 ▸ patterns: island_group.islands_in_group ⭢ administrative_area.administrative_parent | administrative_area.administrative_children | location.containedby
 ── Falkland Islands ──
     --island_group.islands_in_group--> South Georgia and the South Sandwich Islands
@@ -2825,9 +2826,9 @@ entities: Falkland Islands  (sequence root; this layer applies to the frontier: 
     --location.containedby--> Altitude
 ── British Indian Ocean Territory ──
     --location.containedby--> Indian Ocean
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'base.locations.planets.countries_within': {'direct': ['base.locations.planets.countries_within'], 'bridge': ['base.aareas.schema.administrative_area.administrative_parent']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['base.aareas.…
-anchor_sequence: Falkland Islands ⭢ sovereign_domain.sovereign_state | island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.country | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_div…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'base.locations.planets.countries_within': {'direct': ['base.locations.planets.countries_within'], 'bridge': ['base.aareas.schema.administrative_area.administrative_parent']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['base.aareas.schema.administrative_area.administrative_children', 'base.aareas.schema.administrative_area.administrative_parent', 'location.country.administrative_divisions', 'location.location.partially_contained_by', 'location.partial_containment_relationship.partially_contains']}}
+anchor_sequence: Falkland Islands ⭢ sovereign_domain.sovereign_state | island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.country | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_division | location.containedby | location.contains (32) ⭢ administrative_area.administrative_children | administrative_area.administrative_parent | planets.countries_within | country.administrative_divisions | location.containedby | location.partially_contained_by | partial_containment_relationship.partially_contains (68)
 layer_action: update layer 2 (replaced location.location.partially_containedby, me.time_zone.locations_in_this_time_zone, location.location.time_zones, location.country.first_level_divisions)
 ```
 **[14] 工具结果**:
@@ -2933,7 +2934,7 @@ entities: NONE
 ```
 **[16] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['United Kingdom, with Dependencies and Territories']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of o…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['United Kingdom, with Dependencies and Territories']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of other variables may still advance the answer). Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [17] assistant
 **思考（原文）**:
@@ -3252,11 +3253,11 @@ sg2.f1: Eastern Time Zone | which countries are in this time zone | ?country
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Falkland Islands | which country does this territory belong to | ?country)', 'subquestion': 'which country does this territory belong to'} | {'id': 'f2', 'triple': '(?country | which continent contains this country | ?continent)', 'subquestion': 'which continent contai…
+flow: {'id': 'f1', 'triple': '(Falkland Islands | which country does this territory belong to | ?country)', 'subquestion': 'which country does this territory belong to'} | {'id': 'f2', 'triple': '(?country | which continent contains this country | ?continent)', 'subquestion': 'which continent contains this country'} | {'id': 'f3', 'triple': '(Eastern Time Zone | which countries are in this time zone | ?country)', 'subquestion': 'which countries are in this time zone'}
 entities: Falkland Islands | Eastern Time Zone
 answer: ?continent
 answer_type: continent
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -3294,7 +3295,7 @@ question: which country does this territory belong to
 ```text
 entities: Falkland Islands
 question: which country does this territory belong to
-candidate_relations: finance.currency.countries_formerly_used | base.locations.planets.continents_within | base.aareas.schema.earth.sovereign_domain.sovereign_state | base.aareas.schema.administrative_area_type.sovereignty | location.location.containedby | base.aareas.schema.administrative_area_type…
+candidate_relations: finance.currency.countries_formerly_used | base.locations.planets.continents_within | base.aareas.schema.earth.sovereign_domain.sovereign_state | base.aareas.schema.administrative_area_type.sovereignty | location.location.containedby | base.aareas.schema.administrative_area_type.pertains_to | base.aareas.schema.administrative_area.administrative_area_type | time.time_zone.locations_in_this_time_zone | time.event.locations | location.location.time_zones | organization.organization.geographic_scope | base.aareas.schema.administrative_area.subdivides_place | base.aareas.schema.administrative_area_type.subdivides_place | base.aareas.schema.administrative_area.administrative_parent | location.partial_containment_relationship.partially_contains
 grouped_relations:
   currency.countries_formerly_used ← finance.currency.countries_formerly_used
   planets.continents_within ← base.locations.planets.continents_within
@@ -3308,7 +3309,7 @@ grouped_relations:
   location.time_zones ← location.location.time_zones
   organization.geographic_scope ← organization.organization.geographic_scope
   administrative_area.subdivides_place ← base.aareas.schema.administrative_area.subdivides_place
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -3362,7 +3363,7 @@ sg: sg2
 fact_id: sg2
 triples:
 entities: Eastern Time Zone
-▸ patterns: location.time_zones | location.time_zones ⭢ time_zone.locations_in_this_time_zone | image.appears_in_topic_gallery ⭢ topic.image ⭢ location.time_zones | topic.image ⭢ image.appears_in_topic_gallery ⭢ location.time_zones | location.time_zones ⭢ continents.countries_within ⭢ time_zone.loca…
+▸ patterns: location.time_zones | location.time_zones ⭢ time_zone.locations_in_this_time_zone | image.appears_in_topic_gallery ⭢ topic.image ⭢ location.time_zones | topic.image ⭢ image.appears_in_topic_gallery ⭢ location.time_zones | location.time_zones ⭢ continents.countries_within ⭢ time_zone.locations_in_this_time_zone | location.time_zones ⭢ countries.continent ⭢ time_zone.locations_in_this_time_zone | time_zone.day_dst_begins ⭢ time_zone.day_dst_ends ⭢ location.time_zones
 ── Eastern Time Zone ──
     --time_zone.day_dst_begins--> Second Sunday in March
     --topic.image--> Timezoneswest
@@ -3370,11 +3371,11 @@ entities: Eastern Time Zone
     Americas | Bahamas | Canada | Latin America | Long Beach Island | Lucayan Archipelago | North America | United States of America --location.time_zones--> Eastern Time Zone
 ── Americas ──
     --location.time_zones--> Alaska Time Zone | Uruguay Time Zone
-    Amazon Time Zone | Argentina Time Zone | Bolivia Time Zone | Brasília Time Zone | Chile Time Zone | Colombia Time Zone | East Greenland Time Zone | Eastern Caribbean Time Zone | Falkland Islands Time Zone | Fernando de Noronha Time Zone | French Guiana Time Zone | Galápagos Time Zone …(+6) (to a…
+    Amazon Time Zone | Argentina Time Zone | Bolivia Time Zone | Brasília Time Zone | Chile Time Zone | Colombia Time Zone | East Greenland Time Zone | Eastern Caribbean Time Zone | Falkland Islands Time Zone | Fernando de Noronha Time Zone | French Guiana Time Zone | Galápagos Time Zone …(+6) (to answer with ALL of them, include "#Amazon Time Zone::locations_in_this_time_zone" as one answer entity) --time_zone.locations_in_this_time_zone--> Americas
 ── Atlantic Time Zone ──
     --topic.image--> Timezoneswest
     Timezoneswest --image.appears_in_topic_gallery--> Atlantic Time Zone
-    Aruba | Bermuda | Bonaire | British Virgin Islands | Canada | Curaçao | Dominican Republic | Greater Antilles | Greenland | Kingdom of the Netherlands | Leeward Islands | Netherlands …(+7) (to answer with ALL of them, include "#Aruba::time_zones" as one answer entity) --location.time_zones--> At…
+    Aruba | Bermuda | Bonaire | British Virgin Islands | Canada | Curaçao | Dominican Republic | Greater Antilles | Greenland | Kingdom of the Netherlands | Leeward Islands | Netherlands …(+7) (to answer with ALL of them, include "#Aruba::time_zones" as one answer entity) --location.time_zones--> Atlantic Time Zone
 ── Timezoneswest ──
     --image.appears_in_topic_gallery--> Alaska Time Zone | Central Time Zone | Samoa Time Zone
     Alaska Time Zone | Central Time Zone | Samoa Time Zone --topic.image--> Timezoneswest
@@ -3395,7 +3396,7 @@ entities: Eastern Time Zone
     American Samoa --location.time_zones--> Samoa Time Zone
 ── Antigua and Barbuda ──
     Eastern Caribbean Time Zone --time_zone.locations_in_this_time_zone--> Antigua and Barbuda
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'time_zone.locations_in_this_time_zone': {'direct': ['time.time_zone.locations_in_this_time_zone'], 'bridge': ['location.location.time_zones']}}
 ```
 ## [6] assistant
@@ -3453,7 +3454,7 @@ MULTI-TREE REMINDER: declared entity 'Falkland Islands' anchors no tree yet. Anc
 ```text
 entities: Falkland Islands
 question: which country does this territory belong to
-candidate_relations: finance.currency.countries_formerly_used | base.locations.planets.continents_within | base.aareas.schema.earth.sovereign_domain.sovereign_state | base.aareas.schema.administrative_area_type.sovereignty | location.location.containedby | base.aareas.schema.administrative_area_type…
+candidate_relations: finance.currency.countries_formerly_used | base.locations.planets.continents_within | base.aareas.schema.earth.sovereign_domain.sovereign_state | base.aareas.schema.administrative_area_type.sovereignty | location.location.containedby | base.aareas.schema.administrative_area_type.pertains_to | base.aareas.schema.administrative_area.administrative_area_type | time.time_zone.locations_in_this_time_zone | time.event.locations | location.location.time_zones | organization.organization.geographic_scope | base.aareas.schema.administrative_area.subdivides_place | base.aareas.schema.administrative_area_type.subdivides_place | base.aareas.schema.administrative_area.administrative_parent | location.partial_containment_relationship.partially_contains
 grouped_relations:
   currency.countries_formerly_used ← finance.currency.countries_formerly_used
   planets.continents_within ← base.locations.planets.continents_within
@@ -3467,7 +3468,7 @@ grouped_relations:
   location.time_zones ← location.location.time_zones
   organization.geographic_scope ← organization.organization.geographic_scope
   administrative_area.subdivides_place ← base.aareas.schema.administrative_area.subdivides_place
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [9] assistant
 **思考（原文）**:
@@ -3498,7 +3499,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Falkland Islands
-▸ patterns: island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_division | location.containedby | location.contains | administrative_area.administrative_childre…
+▸ patterns: island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_division | location.containedby | location.contains | administrative_area.administrative_children ⭢ sovereign_domain.sovereign_state | island.island_group ⭢ administrative_division.first_level_division_of | island.island_group ⭢ location.containedby | island.island_group ⭢ location.contains | island_group.islands_in_group ⭢ administrative_division.first_level_division_of | island_group.islands_in_group ⭢ location.containedby | island_group.islands_in_group ⭢ location.contains | country.first_level_divisions ⭢ sovereign_domain.sovereign_state | country.first_level_divisions ⭢ administrative_division.first_level_division_of | location.containedby ⭢ sovereign_domain.sovereign_state | government_position_held.jurisdiction_of_office ⭢ political_district.representatives ⭢ location.containedb…
 ── Falkland Islands ──
     --location.containedby--> Americas | Atlantic Ocean | South America | United Kingdom, with Dependencies and Territories
     --administrative_division.first_level_division_of--> United Kingdom, with Dependencies and Territories
@@ -3515,7 +3516,7 @@ entities: Falkland Islands
 ── United Kingdom, with Dependencies and Territories ──
     --sovereign_domain.sovereign_state--> United Kingdom
     South Georgia and the South Sandwich Islands --location.containedby--> United Kingdom, with Dependencies and Territories
-    Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat …(+4) (to answer with ALL of them, include "#Akrotiri and Dhekelia::first_level_division_…
+    Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat …(+4) (to answer with ALL of them, include "#Akrotiri and Dhekelia::first_level_division_of" as one answer entity) --administrative_division.first_level_division_of--> United Kingdom, with Dependencies and Territories
 ── East Falkland ──
     --location.containedby--> Atlantic Ocean
     --location.contains--> Stanley
@@ -3526,8 +3527,8 @@ entities: Falkland Islands
     Americas --location.contains--> South Georgia and the South Sandwich Islands
 ── Stanley ──
     --political_district.representatives--> m.0zbfy6d [basic_title: Member of the Legislative Assembly; district_represented: Stanley; governmental_body: Legislative Assembly of the Falkland Islands; has_no_value: Appointed By (if Position is Appointed) | To; office_holder: Michael Poole]
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'sovereign_domain.sovereign_state': {'direct': ['base.aareas.schema.earth.sovereign_domain.sovereign_state'], 'bridge': ['location.administrative_division.first_level_division_of']}, 'location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['geography.isla…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'sovereign_domain.sovereign_state': {'direct': ['base.aareas.schema.earth.sovereign_domain.sovereign_state'], 'bridge': ['location.administrative_division.first_level_division_of']}, 'location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['geography.island_group.islands_in_group', 'government.government_position_held.jurisdiction_of_office', 'location.administrative_division.country', 'location.administrative_division_capital_relationship.administrative_division', 'location.location.contains']}}
 ```
 ## [11] assistant
 **思考（原文）**:
@@ -3599,7 +3600,7 @@ entities: NONE
 ```
 **[12] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f3 ?country=['Americas', 'Bahamas', 'Canada', 'Latin America']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of othe…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f3 ?country=['Americas', 'Bahamas', 'Canada', 'Latin America']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of other variables may still advance the answer). Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [13] assistant
 **思考（原文）**:
@@ -3667,7 +3668,7 @@ question: which continent contains this country
 ```text
 entities: Americas | Bahamas | Canada | Latin America | Long Beach Island | Lucayan Archipelago | North America | United States of America | Saba | Saint Barthélemy | Sint Eustatius | Sint Maarten | Trinidad and Tobago | United States Virgin Islands
 question: which continent contains this country
-candidate_relations: base.locations.planets.continents_within | base.locations.continents.countries_within | base.locations.planets.countries_within | base.locations.countries.continent | location.location.containedby | location.location.primarily_containedby | location.location.partially_containedb…
+candidate_relations: base.locations.planets.continents_within | base.locations.continents.countries_within | base.locations.planets.countries_within | base.locations.countries.continent | location.location.containedby | location.location.primarily_containedby | location.location.partially_containedby | location.administrative_division.country | location.partial_containment_relationship.partially_contained_by | location.location.partially_contains | location.partial_containment_relationship.partially_contains | people.person.place_of_birth | geography.island.body_of_water | base.mystery.cryptid_area_of_occurrence.cryptid_s_found_here | base.mystery.cryptid.area_of_occurrence
 grouped_relations:
   planets.continents_within ← base.locations.planets.continents_within
   continents.countries_within ← base.locations.continents.countries_within
@@ -3681,7 +3682,7 @@ grouped_relations:
   location.partially_contains ← location.location.partially_contains
   partial_containment_relationship.partially_contains ← location.partial_containment_relationship.partially_contains
   person.place_of_birth ← people.person.place_of_birth
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [15] assistant
 **思考（原文）**:
@@ -3744,7 +3745,7 @@ entities: Eastern Time Zone  (sequence root; this layer applies to the frontier:
     North America --location.time_zones--> Eastern Time Zone
 ── North America ──
     --location.containedby--> Americas | Northern Hemisphere | Western Hemisphere
-    --continents.countries_within--> Barbados | Belize | Costa Rica | Cuba | Dominica | Dominican Republic | El Salvador | Grenada | Guatemala | Haiti | Honduras | Jamaica | Mexico | Nicaragua | Panama | Saint Kitts and Nevis | Saint Lucia | Saint Vincent and the Grenadines | Trinidad and Tobago | B…
+    --continents.countries_within--> Barbados | Belize | Costa Rica | Cuba | Dominica | Dominican Republic | El Salvador | Grenada | Guatemala | Haiti | Honduras | Jamaica | Mexico | Nicaragua | Panama | Saint Kitts and Nevis | Saint Lucia | Saint Vincent and the Grenadines | Trinidad and Tobago | Bahamas | Canada | United States of America
     Anguilla | Aruba | Bermuda | Bonaire | British Virgin Islands | Caribbean | Cayman Islands | Curaçao | Greenland | Guadeloupe | Martinique | Montserrat …(+9) (to answer with ALL of them, include "#Anguilla::containedby" as one answer entity) --location.containedby--> North America
     Barbados | Belize | Costa Rica | Cuba | Dominica | Dominican Republic | El Salvador | Grenada | Guatemala | Haiti | Honduras | Jamaica …(+7) (to answer with ALL of them, include "#Barbados::continent" as one answer entity) --countries.continent--> North America
     France --location.partially_containedby--> North America
@@ -3764,8 +3765,8 @@ entities: Eastern Time Zone  (sequence root; this layer applies to the frontier:
     Turks and Caicos Islands --location.containedby--> Lucayan Archipelago
     United Kingdom, with Dependencies and Territories --location.partially_containedby--> Lucayan Archipelago
     United States of America --location.partially_containedby--> Pacific Ocean
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'continents.countries_within': {'direct': ['base.locations.continents.countries_within'], 'bridge': ['base.biblioness.bibs_topic.subsumes', 'location.location.containedby', 'location.location.contains', 'location.location.partially_containedby']}, 'countries.continent': {'direct…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'continents.countries_within': {'direct': ['base.locations.continents.countries_within'], 'bridge': ['base.biblioness.bibs_topic.subsumes', 'location.location.containedby', 'location.location.contains', 'location.location.partially_containedby']}, 'countries.continent': {'direct': ['base.locations.countries.continent'], 'bridge': ['base.biblioness.bibs_topic.subsumes', 'base.locations.continents.countries_within', 'location.location.containedby', 'location.location.contains', 'location.location.partially_containedby']}}
 anchor_sequence: Eastern Time Zone ⭢ location.time_zones | time_zone.locations_in_this_time_zone (8) ⭢ bibs_topic.subsumes | continents.countries_within | countries.continent | location.containedby | location.contains | location.partially_containedby (0)
 layer_action: extend
 ```
@@ -4051,11 +4052,11 @@ sg2.f1: Eastern Time Zone | which countries are in this time zone | ?country
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Falkland Islands | which country does this territory belong to | ?country)', 'subquestion': 'which country does this territory belong to'} | {'id': 'f2', 'triple': '(?country | which continent is this country located in | ?continent)', 'subquestion': 'which continent i…
+flow: {'id': 'f1', 'triple': '(Falkland Islands | which country does this territory belong to | ?country)', 'subquestion': 'which country does this territory belong to'} | {'id': 'f2', 'triple': '(?country | which continent is this country located in | ?continent)', 'subquestion': 'which continent is this country located in'} | {'id': 'f3', 'triple': '(Eastern Time Zone | which countries are in this time zone | ?country)', 'subquestion': 'which countries are in this time zone'}
 entities: Falkland Islands | Eastern Time Zone
 answer: ?continent
 answer_type: continent
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -4085,7 +4086,7 @@ question: which country does this territory belong to
 ```text
 entities: Falkland Islands
 question: which country does this territory belong to
-candidate_relations: finance.currency.countries_formerly_used | base.locations.planets.continents_within | base.aareas.schema.earth.sovereign_domain.sovereign_state | base.aareas.schema.administrative_area_type.sovereignty | location.location.containedby | base.aareas.schema.administrative_area_type…
+candidate_relations: finance.currency.countries_formerly_used | base.locations.planets.continents_within | base.aareas.schema.earth.sovereign_domain.sovereign_state | base.aareas.schema.administrative_area_type.sovereignty | location.location.containedby | base.aareas.schema.administrative_area_type.pertains_to | base.aareas.schema.administrative_area.administrative_area_type | time.time_zone.locations_in_this_time_zone | time.event.locations | location.location.time_zones | organization.organization.geographic_scope | base.aareas.schema.administrative_area.subdivides_place | base.aareas.schema.administrative_area_type.subdivides_place | base.aareas.schema.administrative_area.administrative_parent | location.partial_containment_relationship.partially_contains
 grouped_relations:
   currency.countries_formerly_used ← finance.currency.countries_formerly_used
   planets.continents_within ← base.locations.planets.continents_within
@@ -4099,7 +4100,7 @@ grouped_relations:
   location.time_zones ← location.location.time_zones
   organization.geographic_scope ← organization.organization.geographic_scope
   administrative_area.subdivides_place ← base.aareas.schema.administrative_area.subdivides_place
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -4133,7 +4134,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Falkland Islands
-▸ patterns: island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_division | location.containedby | location.contains | administrative_area.administrative_childre…
+▸ patterns: island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_division | location.containedby | location.contains | administrative_area.administrative_children ⭢ sovereign_domain.sovereign_state | island.island_group ⭢ administrative_division.first_level_division_of | island.island_group ⭢ location.containedby | island.island_group ⭢ location.contains | island_group.islands_in_group ⭢ administrative_division.first_level_division_of | island_group.islands_in_group ⭢ location.containedby | island_group.islands_in_group ⭢ location.contains | country.first_level_divisions ⭢ sovereign_domain.sovereign_state | country.first_level_divisions ⭢ administrative_division.first_level_division_of | location.containedby ⭢ sovereign_domain.sovereign_state | government_position_held.jurisdiction_of_office ⭢ political_district.representatives ⭢ location.containedb…
 ── Falkland Islands ──
     --location.containedby--> Americas | Atlantic Ocean | South America | United Kingdom, with Dependencies and Territories
     --administrative_division.first_level_division_of--> United Kingdom, with Dependencies and Territories
@@ -4150,7 +4151,7 @@ entities: Falkland Islands
 ── United Kingdom, with Dependencies and Territories ──
     --sovereign_domain.sovereign_state--> United Kingdom
     South Georgia and the South Sandwich Islands --location.containedby--> United Kingdom, with Dependencies and Territories
-    Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat …(+4) (to answer with ALL of them, include "#Akrotiri and Dhekelia::first_level_division_…
+    Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat …(+4) (to answer with ALL of them, include "#Akrotiri and Dhekelia::first_level_division_of" as one answer entity) --administrative_division.first_level_division_of--> United Kingdom, with Dependencies and Territories
 ── East Falkland ──
     --location.containedby--> Atlantic Ocean
     --location.contains--> Stanley
@@ -4161,8 +4162,8 @@ entities: Falkland Islands
     Americas --location.contains--> South Georgia and the South Sandwich Islands
 ── Stanley ──
     --political_district.representatives--> m.0zbfy6d [basic_title: Member of the Legislative Assembly; district_represented: Stanley; governmental_body: Legislative Assembly of the Falkland Islands; has_no_value: Appointed By (if Position is Appointed) | To; office_holder: Michael Poole]
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'base.aareas.schema.earth.sovereign_domain.sovereign_state': {'direct': ['base.aareas.schema.earth.sovereign_domain.sovereign_state'], 'bridge': ['location.administrative_division.first_level_division_of']}, 'location.location.containedby': {'direct': ['location.location.contain…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'base.aareas.schema.earth.sovereign_domain.sovereign_state': {'direct': ['base.aareas.schema.earth.sovereign_domain.sovereign_state'], 'bridge': ['location.administrative_division.first_level_division_of']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['geography.island_group.islands_in_group', 'government.government_position_held.jurisdiction_of_office', 'location.administrative_division.country', 'location.administrative_division_capital_relationship.administrative_division', 'location.location.contains']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -4215,7 +4216,7 @@ MULTI-TREE REMINDER: declared entity 'Eastern Time Zone' anchors no tree yet. An
 ```text
 entities: United Kingdom, with Dependencies and Territories
 question: which continent is this country located in
-candidate_relations: base.locations.planets.continents_within | base.locations.planets.countries_within | location.administrative_division.country | time.time_zone.locations_in_this_time_zone | time.event.locations | location.location.geolocation | location.location.containedby | language.human_lang…
+candidate_relations: base.locations.planets.continents_within | base.locations.planets.countries_within | location.administrative_division.country | time.time_zone.locations_in_this_time_zone | time.event.locations | location.location.geolocation | location.location.containedby | language.human_language.countries_spoken_in | location.location.partially_containedby | location.location.partially_contained_by | location.partial_containment_relationship.partially_contained_by | location.location.partially_contains | location.partial_containment_relationship.partially_contains | base.aareas.schema.administrative_area_type.sovereignty | location.location.partiallycontains
 grouped_relations:
   planets.continents_within ← base.locations.planets.continents_within
   planets.countries_within ← base.locations.planets.countries_within
@@ -4229,7 +4230,7 @@ grouped_relations:
   location.partially_contained_by ← location.location.partially_contained_by
   partial_containment_relationship.partially_contained_by ← location.partial_containment_relationship.partially_contained_by
   location.partially_contains ← location.location.partially_contains
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [9] assistant
 **思考（原文）**:
@@ -4262,17 +4263,17 @@ sg: sg1
 ```text
 fact_id: sg1
 triples:
-entities: Falkland Islands  (sequence root; this layer applies to the frontier: Americas | Appointed By (if Position is Appointed) | Atlantic Ocean | Basic title | Chief Executive of the Falkland Islands | Chief executive | Colin Roberts | East Falkland | Elizabeth II | From | Governor | Governor of…
+entities: Falkland Islands  (sequence root; this layer applies to the frontier: Americas | Appointed By (if Position is Appointed) | Atlantic Ocean | Basic title | Chief Executive of the Falkland Islands | Chief executive | Colin Roberts | East Falkland | Elizabeth II | From | Governor | Governor of the Falkland Islands)
 ▸ patterns: island_group.islands_in_group ⭢ administrative_area.administrative_parent | administrative_division.first_level_division_of ⭢ administrative_area.administrative_parent
 ── Falkland Islands ──
     --administrative_division.first_level_division_of--> United Kingdom, with Dependencies and Territories
     --island_group.islands_in_group--> South Georgia and the South Sandwich Islands
 ── United Kingdom, with Dependencies and Territories ──
     --administrative_area.administrative_parent--> Earth
-    Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat …(+5) (to answer with ALL of them, include "#Akrotiri and Dhekelia::administrative_parent…
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'base.locations.planets.countries_within': {'direct': ['base.locations.planets.countries_within'], 'bridge': ['base.aareas.schema.administrative_area.administrative_parent']}, 'base.locations.planets.continents_within': {'direct': ['base.locations.planets.continents_within'], 'b…
-anchor_sequence: Falkland Islands ⭢ sovereign_domain.sovereign_state | island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.country | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_div…
+    Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat …(+5) (to answer with ALL of them, include "#Akrotiri and Dhekelia::administrative_parent" as one answer entity) --administrative_area.administrative_parent--> United Kingdom, with Dependencies and Territories
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'base.locations.planets.countries_within': {'direct': ['base.locations.planets.countries_within'], 'bridge': ['base.aareas.schema.administrative_area.administrative_parent']}, 'base.locations.planets.continents_within': {'direct': ['base.locations.planets.continents_within'], 'bridge': ['base.aareas.schema.administrative_area.administrative_parent']}}
+anchor_sequence: Falkland Islands ⭢ sovereign_domain.sovereign_state | island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.country | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_division | location.containedby | location.contains (32) ⭢ administrative_area.administrative_parent | planets.continents_within (0)
 layer_action: extend
 ```
 ## [11] assistant
@@ -4328,7 +4329,7 @@ question: which continent is this country located in
 ```text
 entities: United Kingdom, with Dependencies and Territories
 question: which continent is this country located in
-candidate_relations: base.locations.planets.continents_within | base.locations.planets.countries_within | location.administrative_division.country | time.time_zone.locations_in_this_time_zone | time.event.locations | location.location.geolocation | location.location.containedby | language.human_lang…
+candidate_relations: base.locations.planets.continents_within | base.locations.planets.countries_within | location.administrative_division.country | time.time_zone.locations_in_this_time_zone | time.event.locations | location.location.geolocation | location.location.containedby | language.human_language.countries_spoken_in | location.location.partially_containedby | location.location.partially_contained_by | location.partial_containment_relationship.partially_contained_by | location.location.partially_contains | location.partial_containment_relationship.partially_contains | base.aareas.schema.administrative_area_type.sovereignty | location.location.partiallycontains
 grouped_relations:
   planets.continents_within ← base.locations.planets.continents_within
   planets.countries_within ← base.locations.planets.countries_within
@@ -4342,7 +4343,7 @@ grouped_relations:
   location.partially_contained_by ← location.location.partially_contained_by
   partial_containment_relationship.partially_contained_by ← location.partial_containment_relationship.partially_contained_by
   location.partially_contains ← location.location.partially_contains
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [13] assistant
 **思考（原文）**:
@@ -4396,9 +4397,9 @@ entities: Falkland Islands  (sequence root; this layer applies to the frontier: 
     Gibraltar --location.containedby--> Iberian Peninsula
     Isle of Man --location.containedby--> British Isles | Irish Sea
     Jersey --location.containedby--> English Channel
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'base.locations.planets.countries_within': {'direct': ['base.locations.planets.countries_within'], 'bridge': ['base.aareas.schema.administrative_area.administrative_parent']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['base.aareas.…
-anchor_sequence: Falkland Islands ⭢ sovereign_domain.sovereign_state | island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.country | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_div…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'base.locations.planets.countries_within': {'direct': ['base.locations.planets.countries_within'], 'bridge': ['base.aareas.schema.administrative_area.administrative_parent']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['base.aareas.schema.administrative_area.administrative_children', 'base.aareas.schema.administrative_area.administrative_parent', 'location.country.administrative_divisions', 'location.location.partially_contained_by', 'location.partial_containment_relationship.partially_contains']}}
+anchor_sequence: Falkland Islands ⭢ sovereign_domain.sovereign_state | island_group.islands_in_group | government_position_held.jurisdiction_of_office | administrative_division.country | administrative_division.first_level_division_of | administrative_division_capital_relationship.administrative_division | location.containedby | location.contains (32) ⭢ administrative_area.administrative_children | administrative_area.administrative_parent | planets.countries_within | country.administrative_divisions | location.containedby | location.partially_contained_by | partial_containment_relationship.partially_contains (17)
 layer_action: update layer 2 (replaced base.locations.planets.continents_within)
 ```
 ## [15] assistant
@@ -4454,7 +4455,7 @@ question: which countries are in this time zone
 ```text
 entities: Eastern Time Zone
 question: which countries are in this time zone
-candidate_relations: location.location.time_zones | time.time_zone.locations_in_this_time_zone | base.locations.continents.countries_within | base.locations.planets.countries_within | finance.currency.countries_used | language.human_language.main_country | government.form_of_government.countries | b…
+candidate_relations: location.location.time_zones | time.time_zone.locations_in_this_time_zone | base.locations.continents.countries_within | base.locations.planets.countries_within | finance.currency.countries_used | language.human_language.main_country | government.form_of_government.countries | base.locations.planets.continents_within | language.human_language.countries_spoken_in | base.locations.countries.continent | people.person.nationality | location.administrative_division.country | location.location.geolocation | organization.organization.geographic_scope | location.country.languages_spoken
 grouped_relations:
   location.time_zones ← location.location.time_zones
   time_zone.locations_in_this_time_zone ← time.time_zone.locations_in_this_time_zone
@@ -4468,7 +4469,7 @@ grouped_relations:
   countries.continent ← base.locations.countries.continent
   person.nationality ← people.person.nationality
   administrative_division.country ← location.administrative_division.country
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [17] assistant
 **思考（原文）**:
@@ -4503,7 +4504,7 @@ sg: sg2
 fact_id: sg2
 triples:
 entities: Eastern Time Zone
-▸ patterns: location.time_zones | location.time_zones ⭢ countries.continent | location.time_zones ⭢ time_zone.locations_in_this_time_zone | image.appears_in_topic_gallery ⭢ topic.image ⭢ location.time_zones | topic.image ⭢ image.appears_in_topic_gallery ⭢ location.time_zones | location.time_zones ⭢ …
+▸ patterns: location.time_zones | location.time_zones ⭢ countries.continent | location.time_zones ⭢ time_zone.locations_in_this_time_zone | image.appears_in_topic_gallery ⭢ topic.image ⭢ location.time_zones | topic.image ⭢ image.appears_in_topic_gallery ⭢ location.time_zones | location.time_zones ⭢ continents.countries_within ⭢ time_zone.locations_in_this_time_zone | location.time_zones ⭢ countries.continent ⭢ time_zone.locations_in_this_time_zone | time_zone.day_dst_begins ⭢ time_zone.day_dst_ends ⭢ location.time_zones
 ── Eastern Time Zone ──
     --time_zone.day_dst_begins--> Second Sunday in March
     --topic.image--> Timezoneswest
@@ -4515,11 +4516,11 @@ entities: Eastern Time Zone
     Antigua and Barbuda | Barbados | Belize | Costa Rica | Cuba | Dominica | Dominican Republic | El Salvador | Grenada | Guatemala | Haiti | Honduras …(+8) (to answer with ALL of them, include "#Antigua and Barbuda::continent" as one answer entity) --countries.continent--> North America
 ── Americas ──
     --location.time_zones--> Alaska Time Zone | Uruguay Time Zone
-    Amazon Time Zone | Argentina Time Zone | Bolivia Time Zone | Brasília Time Zone | Chile Time Zone | Colombia Time Zone | East Greenland Time Zone | Eastern Caribbean Time Zone | Falkland Islands Time Zone | Fernando de Noronha Time Zone | French Guiana Time Zone | Galápagos Time Zone …(+6) (to a…
+    Amazon Time Zone | Argentina Time Zone | Bolivia Time Zone | Brasília Time Zone | Chile Time Zone | Colombia Time Zone | East Greenland Time Zone | Eastern Caribbean Time Zone | Falkland Islands Time Zone | Fernando de Noronha Time Zone | French Guiana Time Zone | Galápagos Time Zone …(+6) (to answer with ALL of them, include "#Amazon Time Zone::locations_in_this_time_zone" as one answer entity) --time_zone.locations_in_this_time_zone--> Americas
 ── Atlantic Time Zone ──
     --topic.image--> Timezoneswest
     Timezoneswest --image.appears_in_topic_gallery--> Atlantic Time Zone
-    Aruba | Bermuda | Bonaire | British Virgin Islands | Canada | Curaçao | Dominican Republic | Greater Antilles | Greenland | Kingdom of the Netherlands | Leeward Islands | Netherlands …(+7) (to answer with ALL of them, include "#Aruba::time_zones" as one answer entity) --location.time_zones--> At…
+    Aruba | Bermuda | Bonaire | British Virgin Islands | Canada | Curaçao | Dominican Republic | Greater Antilles | Greenland | Kingdom of the Netherlands | Leeward Islands | Netherlands …(+7) (to answer with ALL of them, include "#Aruba::time_zones" as one answer entity) --location.time_zones--> Atlantic Time Zone
 ── Timezoneswest ──
     --image.appears_in_topic_gallery--> Alaska Time Zone | Central Time Zone | Samoa Time Zone
     Alaska Time Zone | Central Time Zone | Samoa Time Zone --topic.image--> Timezoneswest
@@ -4536,8 +4537,8 @@ entities: Eastern Time Zone
     American Samoa --location.time_zones--> Samoa Time Zone
 ── Antigua and Barbuda ──
     Eastern Caribbean Time Zone --time_zone.locations_in_this_time_zone--> Antigua and Barbuda
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'time.time_zone.locations_in_this_time_zone': {'direct': ['time.time_zone.locations_in_this_time_zone'], 'bridge': ['location.location.time_zones']}, 'base.locations.countries.continent': {'direct': ['base.locations.countries.continent'], 'bridge': ['location.location.time_zones…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'time.time_zone.locations_in_this_time_zone': {'direct': ['time.time_zone.locations_in_this_time_zone'], 'bridge': ['location.location.time_zones']}, 'base.locations.countries.continent': {'direct': ['base.locations.countries.continent'], 'bridge': ['location.location.time_zones']}}
 ```
 **[19] 工具结果**:
 ```text
@@ -4622,7 +4623,7 @@ question: which continent is this country located in
 ```text
 entities: United Kingdom, with Dependencies and Territories
 question: which continent is this country located in
-candidate_relations: base.locations.planets.continents_within | base.locations.planets.countries_within | location.administrative_division.country | time.time_zone.locations_in_this_time_zone | time.event.locations | location.location.geolocation | location.location.containedby | language.human_lang…
+candidate_relations: base.locations.planets.continents_within | base.locations.planets.countries_within | location.administrative_division.country | time.time_zone.locations_in_this_time_zone | time.event.locations | location.location.geolocation | location.location.containedby | language.human_language.countries_spoken_in | location.location.partially_containedby | location.location.partially_contained_by | location.partial_containment_relationship.partially_contained_by | location.location.partially_contains | location.partial_containment_relationship.partially_contains | base.aareas.schema.administrative_area_type.sovereignty | location.location.partiallycontains
 grouped_relations:
   planets.continents_within ← base.locations.planets.continents_within
   planets.countries_within ← base.locations.planets.countries_within
@@ -4636,7 +4637,7 @@ grouped_relations:
   location.partially_contained_by ← location.location.partially_contained_by
   partial_containment_relationship.partially_contained_by ← location.partial_containment_relationship.partially_contained_by
   location.partially_contains ← location.location.partially_contains
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 **[22] 工具结果**:
 ```text
@@ -4743,7 +4744,7 @@ entities: NONE
 ```
 **[24] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['United Kingdom, with Dependencies and Territories']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of o…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['United Kingdom, with Dependencies and Territories']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of other variables may still advance the answer). Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [25] assistant
 **思考（原文）**:
@@ -4801,7 +4802,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Falkland Islands
-▸ patterns: administrative_area.administrative_children | location.containedby | administrative_area.administrative_children ⭢ country.administrative_divisions | administrative_area.administrative_children ⭢ location.partially_contained_by | administrative_area.administrative_parent ⭢ country.admini…
+▸ patterns: administrative_area.administrative_children | location.containedby | administrative_area.administrative_children ⭢ country.administrative_divisions | administrative_area.administrative_children ⭢ location.partially_contained_by | administrative_area.administrative_parent ⭢ country.administrative_divisions | administrative_area.administrative_parent ⭢ location.partially_contained_by | country.first_level_divisions ⭢ administrative_area.administrative_children | country.first_level_divisions ⭢ location.partially_contained_by | location.containedby ⭢ country.administrative_divisions | government_position_held.jurisdiction_of_office ⭢ political_district.representatives ⭢ location.containedby
 ── Falkland Islands ──
     --administrative_area.administrative_parent--> United Kingdom, with Dependencies and Territories
     --location.containedby--> United Kingdom, with Dependencies and Territories
@@ -4810,14 +4811,14 @@ entities: Falkland Islands
     United Kingdom, with Dependencies and Territories --country.first_level_divisions--> Falkland Islands
     m.0zbfy6d --government_position_held.jurisdiction_of_office--> Falkland Islands
 ── United Kingdom, with Dependencies and Territories ──
-    --administrative_area.administrative_children--> Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat | Pitcairn Islands | Saint Helena, Ascen…
+    --administrative_area.administrative_children--> Akrotiri and Dhekelia | Anguilla | Bermuda | British Antarctic Territory | British Indian Ocean Territory | British Virgin Islands | Cayman Islands | Gibraltar | Guernsey | Isle of Man | Jersey | Montserrat | Pitcairn Islands | Saint Helena, Ascension and Tristan da Cunha | South Georgia and the South Sandwich Islands | Turks and Caicos Islands | United Kingdom
     --country.administrative_divisions--> Anguilla | Montserrat | Pitcairn Islands | Turks and Caicos Islands
-    --location.partially_contained_by--> m.0wg979p [partially_contained_by: Indian Ocean] | m.0wg97vk [partially_contained_by: Atlantic Ocean] | m.0wg99vd [partially_contained_by: Pacific Ocean] | m.0wg9dgc [partially_contained_by: Cyprus] | m.0wg9flw [partially_contained_by: Leeward Islands] | m.0w…
+    --location.partially_contained_by--> m.0wg979p [partially_contained_by: Indian Ocean] | m.0wg97vk [partially_contained_by: Atlantic Ocean] | m.0wg99vd [partially_contained_by: Pacific Ocean] | m.0wg9dgc [partially_contained_by: Cyprus] | m.0wg9flw [partially_contained_by: Leeward Islands] | m.0wg9fnb [partially_contained_by: Western Europe] | m.0wg9fvn [partially_contained_by: Iberian Peninsula] | m.0wg9fw3 [partially_contained_by: Lucayan Archipelago] | m.0wg9fw8 [partially_contained_by: Virgin Islands] | m.0wg9fwf [partially_contained_by: English Channel] | m.0wg9fwl [partially_contained_by: Irish Sea] | m.0wg9fwr [partially_contained_by: Greater Antilles] | m.0wg9hhf [partially_contained_by: Altitude]
 ── Stanley ──
     --location.containedby--> East Falkland
     --political_district.representatives--> m.0zbfy6d [basic_title: Member of the Legislative Assembly; district_represented: Stanley; governmental_body: Legislative Assembly of the Falkland Islands; has_no_value: Appointed By (if Position is Appointed) | To; office_holder: Michael Poole]
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['base.aareas.schema.administrative_area.administrative_children', 'base.aareas.schema.administrative_area.administrative_parent', 'location.country.administrative_divisions', 'location.loca…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['base.aareas.schema.administrative_area.administrative_children', 'base.aareas.schema.administrative_area.administrative_parent', 'location.country.administrative_divisions', 'location.location.partially_contained_by', 'location.partial_containment_relationship.partially_contains']}}
 layer_action: repeat
 ```
 ## [27] assistant
@@ -4874,7 +4875,7 @@ question: which continent is this country located in
 ```text
 entities: United Kingdom, with Dependencies and Territories
 question: which continent is this country located in
-candidate_relations: base.locations.planets.continents_within | base.locations.planets.countries_within | location.administrative_division.country | time.time_zone.locations_in_this_time_zone | time.event.locations | location.location.geolocation | location.location.containedby | language.human_lang…
+candidate_relations: base.locations.planets.continents_within | base.locations.planets.countries_within | location.administrative_division.country | time.time_zone.locations_in_this_time_zone | time.event.locations | location.location.geolocation | location.location.containedby | language.human_language.countries_spoken_in | location.location.partially_containedby | location.location.partially_contained_by | location.partial_containment_relationship.partially_contained_by | location.location.partially_contains | location.partial_containment_relationship.partially_contains | base.aareas.schema.administrative_area_type.sovereignty | location.location.partiallycontains
 grouped_relations:
   planets.continents_within ← base.locations.planets.continents_within
   planets.countries_within ← base.locations.planets.countries_within
@@ -4888,7 +4889,7 @@ grouped_relations:
   location.partially_contained_by ← location.location.partially_contained_by
   partial_containment_relationship.partially_contained_by ← location.partial_containment_relationship.partially_contained_by
   location.partially_contains ← location.location.partially_contains
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [29] assistant
 **思考（原文）**:
@@ -5124,7 +5125,7 @@ flow: {'id': 'f1', 'triple': '(Ron Howard | which films did this person direct |
 entities: Ron Howard
 answer: ?movie
 answer_type: film
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -5151,7 +5152,7 @@ question: which films did this person direct
 ```text
 entities: Ron Howard
 question: which films did this person direct
-candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.pr…
+candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.producer.films_executive_produced | film.film_genre.films_in_this_genre | film.actor.film | film.cinematographer.film | film.director.film | film.film_film_distributor_relationship.film | film.film_regional_release_date.film | film.film.cinematography
 grouped_relations:
   film_casting_director.films_casting_directed ← film.film_casting_director.films_casting_directed
   film_art_director.films_art_directed ← film.film_art_director.films_art_directed
@@ -5165,7 +5166,7 @@ grouped_relations:
   actor.film ← film.actor.film
   cinematographer.film ← film.cinematographer.film
   director.film ← film.director.film
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -5196,24 +5197,24 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Ron Howard
-▸ patterns: award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | producer.film | producer.films_executive_produced | film.executive_produced_by ⭢ director.film | award_honor.award_winner ⭢ award_honor.honored_for ⭢ producer.films_executive_produced |…
+▸ patterns: award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | producer.film | producer.films_executive_produced | film.executive_produced_by ⭢ director.film | award_honor.award_winner ⭢ award_honor.honored_for ⭢ producer.films_executive_produced | award_honor.award_winner ⭢ award_winner.awards_won ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominated_work.award_nominations ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nomination.nominated_for ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_honor.award_winner | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_winner.awards_won | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ producer.films_executive_produced | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ producer.films_executive_produced…
 ── Ron Howard ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Direc…
-    --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.03mlsw7 [award: Academy Award for Best Director; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.04kcph9 …
-    --actor.film--> Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | The Dark Tower | The…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Director; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Eric Fellner; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.07zqyp3 [award: BAFTA Award for Best Direction; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film…
+    --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.03mlsw7 [award: Academy Award for Best Director; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.04kcph9 [award: Primetime Emmy Award for Outstanding Comedy Series; award_winner: Barbie Adler | Brian Grazer | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz; ceremony: 56th Primetime Emmy Awards; honored_for: Arrested Development] | m.08pc389 [award_winner: Henry Winkler; ceremony: 35th Golden Globe Awards; honored_for: Happy Days] | m.09dyy55 [ceremony: 54th Directors Guild of America Awards; honored_for: A Beautiful Mind] | m.09dyymh [ceremony: 48th Directors Guild of America Awards; honored_for: Apollo 13] | m.09k3ns1 [award: Critics' Choice Movie Award for Best Director; ceremony: 7th Critics' Choice Awards; honored_for: A Beautiful Mind] | m.0jyzxxs [award: Saturn Award for …
+    --actor.film--> Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | The Dark Tower | The Dilemma | The Lost Symbol | The Paper | Beyond the Mat | Changeling | Clean and Sober | Closet Land | Cowboys & Aliens | Curious George 2: Follow That Monkey! | Inside Deep Throat | Inventing the Abbotts | J. Edgar | Katy Perry: Part of Me | Problem Child | Restless | Sky High | The 'Burbs | The Alamo | The Chamber | The Good Lie | m.011lncw2 [character: Johnny; film: Happy Mother's Day, Love George] | m.03k_qjq [character: Eddie Corbett; film: The Courtship of Eddie's Father] | m.03l70c7 [character: Steve; film: More American Graffiti] | m.04hvctr [character: Sam Freeman; film: Grand Theft Auto] …(+25) (to answer with ALL of them, include "#Ron Howard::film" as one answer entity)
     --producer.films_executive_produced--> Arrested Development | Leo and Loree
     m.010g1d9b | m.05bkyhb | m.09z78wm | m.0gkjjsg | m.0yfbbn9 --award_nomination.award_nominee--> Ron Howard
     m.03mlppw | m.03mlsw7 | m.04kcph9 | m.08pc389 | m.09dyy55 | m.09dyymh | m.09k3ns1 | m.0jyzxxs | m.0lts_jr | m.0mvjqsr | m.0mwh6d0 | m.0mzc0vk …(+4) (to answer with ALL of them, include "#m.03mlppw::award_winner" as one answer entity) --award_honor.award_winner--> Ron Howard
     Arrested Development | Leo and Loree | The 'Burbs --film.executive_produced_by--> Ron Howard
     A Beautiful Mind | Cinderella Man | Curious George | Frost/Nixon | Rush | The Da Vinci Code | The Missing --film.produced_by--> Ron Howard
 ── A Beautiful Mind ──
-    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful …
+    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.095h1h2 [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 59th Golden Globe Awards; nominated_for: A Beautiful Mind] | m.09k3p5_ [award: Critics' Choice Movie Award for Best Director; award_nominee: Ron Howard; ceremony: 7th Critics' Choice Awards] | m.09sc2vl [award_nominee: Ron Howard; ceremony: 54th Directors Guild of America Awards] | m.0nbbh6b [award: Australian Film Institute …
     Karen Kehela --producer.films_executive_produced--> A Beautiful Mind
     Todd Hallowell --producer.films_executive_produced--> A Beautiful Mind
     m.03mlppw --award_honor.honored_for--> A Beautiful Mind
     m.05bkyhb --award_nomination.nominated_for--> A Beautiful Mind
 ── Brian Grazer ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Pictu…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.0lv464x [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz | Richard A. Rosenstock; ceremony: 56th Primetime Emmy Awards; nominated_for: Arrested Development]
     --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.0n4xc5_ [award: PGA Milestone Award; award_winner: Brian Grazer; ceremony: Producers Guild of America Awards 2008]
     --producer.films_executive_produced--> Backdraft | Closet Land
     m.0n4xc5_ --award_honor.award_winner--> Brian Grazer
@@ -5248,7 +5249,7 @@ entities: Ron Howard
     m.0lts_jr --award_honor.award_winner--> Carol Greenwald | David Wilcox | Ellen Cockrill | Matthew Baughman
     m.0mvjqsr --award_honor.award_winner--> Tony To
     m.0mwh6d0 --award_honor.award_winner--> Patty Jausoro
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}}
 ```
 ## [6] assistant
@@ -5298,7 +5299,7 @@ question: which films did this person direct
 ```text
 entities: Ron Howard
 question: which films did this person direct
-candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.pr…
+candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.producer.films_executive_produced | film.film_genre.films_in_this_genre | film.actor.film | film.cinematographer.film | film.director.film | film.film_film_distributor_relationship.film | film.film_regional_release_date.film | film.film.cinematography
 grouped_relations:
   film_casting_director.films_casting_directed ← film.film_casting_director.films_casting_directed
   film_art_director.films_art_directed ← film.film_art_director.films_art_directed
@@ -5312,7 +5313,7 @@ grouped_relations:
   actor.film ← film.actor.film
   cinematographer.film ← film.cinematographer.film
   director.film ← film.director.film
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -5363,24 +5364,24 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Ron Howard
-▸ patterns: award_nominee.award_nominations | film.executive_produced_by ⭢ director.film | award_nomination.award_nominee ⭢ award_nominated_work.award_nominations ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nomination.nominated_for ⭢ producer.films_executive_produced…
+▸ patterns: award_nominee.award_nominations | film.executive_produced_by ⭢ director.film | award_nomination.award_nominee ⭢ award_nominated_work.award_nominations ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nomination.nominated_for ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_honor.award_winner | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_winner.awards_won | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ producer.films_executive_produced | actor.film | film.produced_by ⭢ award_nominated_work.award_nominations
 ── Ron Howard ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Direc…
-    --actor.film--> m.011lncw2 [character: Johnny; film: Happy Mother's Day, Love George] | m.03k_qjq [character: Eddie Corbett; film: The Courtship of Eddie's Father] | m.03l70c7 [character: Steve; film: More American Graffiti] | m.04hvctr [character: Sam Freeman; film: Grand Theft Auto] | m.04j34j…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Director; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Eric Fellner; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.07zqyp3 [award: BAFTA Award for Best Direction; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.090dj60 [ceremony: 34th Golden Globe Awards; nominated_for: The Shootis…
+    --actor.film--> m.011lncw2 [character: Johnny; film: Happy Mother's Day, Love George] | m.03k_qjq [character: Eddie Corbett; film: The Courtship of Eddie's Father] | m.03l70c7 [character: Steve; film: More American Graffiti] | m.04hvctr [character: Sam Freeman; film: Grand Theft Auto] | m.04j34jd [character: Hoover Niebold; film: Eat My Dust!] | m.06z_4g2 [character: Bobby Wilson; film: Five Minutes to Live] | m.0772sry [character: Les; film: The Spikes Gang] | m.09hzncv [character: Tom Colonic; film: Osmosis Jones; special_performance_type: Voice] | m.0b_v1cm [character: Lee Mackie; film: Fire on the Mountain] | m.0c05st8 [character: Leon Cybulkowski; film: Act of Love] | m.0cg88x1 [film: The Independent] | m.0crsz0w [character: Andy; film: I'm a Fool] | m.0dgl0dq [character: Ned De Vries; film: Bitter Harvest] | m.0gds6st [character: Huckleberry Finn; film: Huckleberry Finn] | m.0gz5dg6 [character: Man at Gouverners Ball #2; film: A Beautiful Mind; special_performance_type: Uncre…
     m.010g1d9b | m.05bkyhb | m.09z78wm | m.0gkjjsg | m.0yfbbn9 --award_nomination.award_nominee--> Ron Howard
     Arrested Development | Leo and Loree | The 'Burbs --film.executive_produced_by--> Ron Howard
     A Beautiful Mind | Cinderella Man | Curious George | Frost/Nixon | Rush | The Da Vinci Code | The Missing --film.produced_by--> Ron Howard
 ── A Beautiful Mind ──
-    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful …
+    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.095h1h2 [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 59th Golden Globe Awards; nominated_for: A Beautiful Mind] | m.09k3p5_ [award: Critics' Choice Movie Award for Best Director; award_nominee: Ron Howard; ceremony: 7th Critics' Choice Awards] | m.09sc2vl [award_nominee: Ron Howard; ceremony: 54th Directors Guild of America Awards] | m.0nbbh6b [award: Australian Film Institute …
     Karen Kehela --producer.films_executive_produced--> A Beautiful Mind
     Todd Hallowell --producer.films_executive_produced--> A Beautiful Mind
     m.05bkyhb --award_nomination.nominated_for--> A Beautiful Mind
 ── Frost/Nixon ──
-    --award_nominated_work.award_nominations--> m.05bkr1w [award: Academy Award for Best Director; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Eric Fellner; ceremony: 81st Academy Awards; nominated_for: …
+    --award_nominated_work.award_nominations--> m.05bkr1w [award: Academy Award for Best Director; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Eric Fellner; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.07zqyp3 [award: BAFTA Award for Best Direction; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.08lby3g [award: BAFTA Award for Best Film; award_nominee: Brian Grazer | Eric Fellner | Ron Howard | Tim Bevan; ceremony: 62nd British Academy Film Awards] | m.095h1tj [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 66th Golden Globe Awards; nominated_for: Frost/Nixon] | m.09k3nwh [award: Critics' Choice Movie Award for Best Director; ceremony: 14th Critics' Choice Awards; nominated_for: Frost/Nixon] | m.09sc2mb [ceremony: 61st Directors Guild of America Awards; nominated_for: Frost/Nixon] | m.09tjrrf [award: Satellite Award for…
 ── Curious George ──
-    --award_nominated_work.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0k1j58y [award_nominee: Brian Grazer …
+    --award_nominated_work.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0k1j58y [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill; ceremony: 39th Daytime Emmy Awards; nominated_for: Curious George] | m.0lmtm8f [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill; ceremony: 38th Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0ltshlx [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill; ceremony: 37th Daytime Creative Arts Emmy Awards] | m.0m0bwv0 [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | David Wilcox | Ellen Cockrill | Jacqui Deegan; ceremony: 36th Daytime Creative A…
 ── Brian Grazer ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Pictu…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind]
     --award_winner.awards_won--> m.0n4xc5_ [award: PGA Milestone Award; award_winner: Ron Howard; ceremony: Producers Guild of America Awards 2008]
     --producer.films_executive_produced--> Backdraft | Closet Land
     m.0n4xc5_ --award_honor.award_winner--> Brian Grazer
@@ -5401,8 +5402,8 @@ entities: Ron Howard
     Joe Dante --director.film--> The 'Burbs
     John Thomas Lenox --producer.films_executive_produced--> Splash
     Mitchell Hurwitz --director.film--> Arrested Development
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'film.subject.films': {'direct': ['film.subject.films'], 'bridge': []}, 'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.pro…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.subject.films': {'direct': ['film.subject.films'], 'bridge': []}, 'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}}
 layer_action: repeat
 ```
 ## [10] assistant
@@ -5526,7 +5527,7 @@ flow: {'id': 'f1', 'triple': '(Ron Howard | which films did this person direct |
 entities: Ron Howard
 answer: ?movie
 answer_type: film
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -5555,7 +5556,7 @@ question: which films did this person direct
 ```text
 entities: Ron Howard
 question: which films did this person direct
-candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.pr…
+candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.producer.films_executive_produced | film.film_genre.films_in_this_genre | film.actor.film | film.cinematographer.film | film.director.film | film.film_film_distributor_relationship.film | film.film_regional_release_date.film | film.film.cinematography
 grouped_relations:
   film_casting_director.films_casting_directed ← film.film_casting_director.films_casting_directed
   film_art_director.films_art_directed ← film.film_art_director.films_art_directed
@@ -5569,7 +5570,7 @@ grouped_relations:
   actor.film ← film.actor.film
   cinematographer.film ← film.cinematographer.film
   director.film ← film.director.film
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -5608,24 +5609,24 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Ron Howard
-▸ patterns: award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | producer.film | producer.films_executive_produced | film.executive_produced_by ⭢ director.film | award_honor.award_winner ⭢ award_honor.honored_for ⭢ producer.films_executive_produced |…
+▸ patterns: award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | producer.film | producer.films_executive_produced | film.executive_produced_by ⭢ director.film | award_honor.award_winner ⭢ award_honor.honored_for ⭢ producer.films_executive_produced | award_honor.award_winner ⭢ award_winner.awards_won ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominated_work.award_nominations ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nomination.nominated_for ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_honor.award_winner | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_winner.awards_won | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ producer.films_executive_produced | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ producer.films_executive_produced…
 ── Ron Howard ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Direc…
-    --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.03mlsw7 [award: Academy Award for Best Director; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.04kcph9 …
-    --actor.film--> Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | The Dark Tower | The…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Director; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Eric Fellner; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.07zqyp3 [award: BAFTA Award for Best Direction; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film…
+    --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.03mlsw7 [award: Academy Award for Best Director; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.04kcph9 [award: Primetime Emmy Award for Outstanding Comedy Series; award_winner: Barbie Adler | Brian Grazer | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz; ceremony: 56th Primetime Emmy Awards; honored_for: Arrested Development] | m.08pc389 [award_winner: Henry Winkler; ceremony: 35th Golden Globe Awards; honored_for: Happy Days] | m.09dyy55 [ceremony: 54th Directors Guild of America Awards; honored_for: A Beautiful Mind] | m.09dyymh [ceremony: 48th Directors Guild of America Awards; honored_for: Apollo 13] | m.09k3ns1 [award: Critics' Choice Movie Award for Best Director; ceremony: 7th Critics' Choice Awards; honored_for: A Beautiful Mind] | m.0jyzxxs [award: Saturn Award for …
+    --actor.film--> Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | The Dark Tower | The Dilemma | The Lost Symbol | The Paper | Beyond the Mat | Changeling | Clean and Sober | Closet Land | Cowboys & Aliens | Curious George 2: Follow That Monkey! | Inside Deep Throat | Inventing the Abbotts | J. Edgar | Katy Perry: Part of Me | Problem Child | Restless | Sky High | The 'Burbs | The Alamo | The Chamber | The Good Lie | m.011lncw2 [character: Johnny; film: Happy Mother's Day, Love George] | m.03k_qjq [character: Eddie Corbett; film: The Courtship of Eddie's Father] | m.03l70c7 [character: Steve; film: More American Graffiti] | m.04hvctr [character: Sam Freeman; film: Grand Theft Auto] …(+25) (to answer with ALL of them, include "#Ron Howard::film" as one answer entity)
     --producer.films_executive_produced--> Arrested Development | Leo and Loree
     m.010g1d9b | m.05bkyhb | m.09z78wm | m.0gkjjsg | m.0yfbbn9 --award_nomination.award_nominee--> Ron Howard
     m.03mlppw | m.03mlsw7 | m.04kcph9 | m.08pc389 | m.09dyy55 | m.09dyymh | m.09k3ns1 | m.0jyzxxs | m.0lts_jr | m.0mvjqsr | m.0mwh6d0 | m.0mzc0vk …(+4) (to answer with ALL of them, include "#m.03mlppw::award_winner" as one answer entity) --award_honor.award_winner--> Ron Howard
     Arrested Development | Leo and Loree | The 'Burbs --film.executive_produced_by--> Ron Howard
     A Beautiful Mind | Cinderella Man | Curious George | Frost/Nixon | Rush | The Da Vinci Code | The Missing --film.produced_by--> Ron Howard
 ── A Beautiful Mind ──
-    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful …
+    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.095h1h2 [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 59th Golden Globe Awards; nominated_for: A Beautiful Mind] | m.09k3p5_ [award: Critics' Choice Movie Award for Best Director; award_nominee: Ron Howard; ceremony: 7th Critics' Choice Awards] | m.09sc2vl [award_nominee: Ron Howard; ceremony: 54th Directors Guild of America Awards] | m.0nbbh6b [award: Australian Film Institute …
     Karen Kehela --producer.films_executive_produced--> A Beautiful Mind
     Todd Hallowell --producer.films_executive_produced--> A Beautiful Mind
     m.03mlppw --award_honor.honored_for--> A Beautiful Mind
     m.05bkyhb --award_nomination.nominated_for--> A Beautiful Mind
 ── Brian Grazer ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Pictu…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.0lv464x [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz | Richard A. Rosenstock; ceremony: 56th Primetime Emmy Awards; nominated_for: Arrested Development]
     --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.0n4xc5_ [award: PGA Milestone Award; award_winner: Brian Grazer; ceremony: Producers Guild of America Awards 2008]
     --producer.films_executive_produced--> Backdraft | Closet Land
     m.0n4xc5_ --award_honor.award_winner--> Brian Grazer
@@ -5660,7 +5661,7 @@ entities: Ron Howard
     m.0lts_jr --award_honor.award_winner--> Carol Greenwald | David Wilcox | Ellen Cockrill | Matthew Baughman
     m.0mvjqsr --award_honor.award_winner--> Tony To
     m.0mwh6d0 --award_honor.award_winner--> Patty Jausoro
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}}
 ```
 ## [6] assistant
@@ -5845,7 +5846,7 @@ entities: NONE
 ```
 **[10] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?movie=['A Beautiful Mind', 'Cinderella Man', 'Curious George', 'Frost/Nixon']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?movie=…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?movie=['A Beautiful Mind', 'Cinderella Man', 'Curious George', 'Frost/Nixon']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?movie=['A Beautiful Mind', 'Cinderella Man', 'Curious George', 'Frost/Nixon']. Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [11] assistant
 **思考（原文）**:
@@ -6023,7 +6024,7 @@ flow: {'id': 'f1', 'triple': '(Angelina Jolie | which movies did this person dir
 entities: Angelina Jolie
 answer: ?movie
 answer_type: film
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -6052,7 +6053,7 @@ question: which movies did this person direct
 ```text
 entities: Angelina Jolie
 question: which movies did this person direct
-candidate_relations: film.film_casting_director.films_casting_directed | film.film.film_casting_director | film.film.directed_by | film.film_art_director.films_art_directed | film.film_subject.films | film.production_company.films | film.film.film_art_direction_by | film.producer.films_executive_pro…
+candidate_relations: film.film_casting_director.films_casting_directed | film.film.film_casting_director | film.film.directed_by | film.film_art_director.films_art_directed | film.film_subject.films | film.production_company.films | film.film.film_art_direction_by | film.producer.films_executive_produced | film.film_production_designer.films_production_designed | film.cinematographer.film | film.director.film | film.film_film_distributor_relationship.film | film.film_regional_release_date.film | film.producer.film | film.film_genre.films_in_this_genre
 grouped_relations:
   film_casting_director.films_casting_directed ← film.film_casting_director.films_casting_directed
   film.film_casting_director ← film.film.film_casting_director
@@ -6066,7 +6067,7 @@ grouped_relations:
   cinematographer.film ← film.cinematographer.film
   director.film ← film.director.film
   film_film_distributor_relationship.film ← film.film_film_distributor_relationship.film
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -6111,12 +6112,12 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Angelina Jolie
-▸ patterns: award_nomination.award_nominee | award_winner.awards_won | image.appears_in_topic_gallery | actor.film | director.film | film.executive_produced_by | producer.films_executive_produced | award_honor.award_winner ⭢ award_winner.awards_won ⭢ actor.film | award_nomination.award_nominee ⭢ awa…
+▸ patterns: award_nomination.award_nominee | award_winner.awards_won | image.appears_in_topic_gallery | actor.film | director.film | film.executive_produced_by | producer.films_executive_produced | award_honor.award_winner ⭢ award_winner.awards_won ⭢ actor.film | award_nomination.award_nominee ⭢ award_nominated_work.award_nominations ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nomination.nominated_for ⭢ producer.films_executive_produced | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.executive_produced_by | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ producer.films_executive_produced | award_nominee.award_nominations ⭢ award_nomination.nominated_for ⭢ film.executive_produced_by | award_nominee.award_nominations ⭢ award_nomination.nominated_for ⭢ producer.films_executive_produced | award_winner.awards_won ⭢ award_winner.awards_won ⭢ actor.film | award_winner.awards_won ⭢ award_winning_work.…
 ── Angelina Jolie ──
     --award_nominee.award_nominations--> m.0_rbrv6 [ceremony: 43rd NAACP Image Awards; nominated_for: In the Land of Blood and Honey] | m.05c7g30 [award: Academy Award for Best Actress in a Supporting Role; ceremony: 72nd Academy Awards; nominated_for: Girl, Interrupted]
-    --award_winner.awards_won--> m.04ds23p [award: Academy Award for Best Actress in a Supporting Role; ceremony: 72nd Academy Awards; honored_for: Girl, Interrupted] | m.09vqn_f [award: People's Choice Award for Favorite Female Action Star; ceremony: 35th People's Choice Awards; has_no_value: Winni…
+    --award_winner.awards_won--> m.04ds23p [award: Academy Award for Best Actress in a Supporting Role; ceremony: 72nd Academy Awards; honored_for: Girl, Interrupted] | m.09vqn_f [award: People's Choice Award for Favorite Female Action Star; ceremony: 35th People's Choice Awards; has_no_value: Winning work] | m.0km3x8l [award: Silver Berlin Bear; honored_for: The Good Shepherd] | m.0n5hvxj [award: Producers Guild of America Award - Stanley Kramer Award; ceremony: Producers Guild of America Awards 2011; honored_for: In the Land of Blood and Honey] | m.0w181b6 [award: Freedom Award] | m.0wqx56s [ceremony: National Board of Review Awards 1998; honored_for: Playing by Heart] | m.0y7lry4 [award: MTV Movie Award for Best Fight; award_winner: Brad Pitt; ceremony: 2006 MTV Movie Awards; honored_for: Mr. & Mrs. Smith] | m.0y7lwj3 [award: Rembrandt Award for Best International Actress; ceremony: 2011 Rembrandt Awards; honored_for: Salt] | m.0ywbktk [award: Glamour Award for Inspiration; ceremony…
     --celebrity.dated--> m.064sjp6 [participant: Winona Ryder]
-    --director.film--> g.11b6ddmqwl | m.02nrcwf [character: Gia Carangi; film: Gia] | m.02vbn2z [character: Mariane Pearl; film: A Mighty Heart] | m.02vbs6z [character: Fox; film: Wanted] | m.02vc25x [character: Casella \"Cash\" Reese; film: Cyborg 2] | m.02vc9kp [character: Joan; film: Playing by H…
+    --director.film--> g.11b6ddmqwl | m.02nrcwf [character: Gia Carangi; film: Gia] | m.02vbn2z [character: Mariane Pearl; film: A Mighty Heart] | m.02vbs6z [character: Fox; film: Wanted] | m.02vc25x [character: Casella \"Cash\" Reese; film: Cyborg 2] | m.02vc9kp [character: Joan; film: Playing by Heart] | m.02vczf7 [character: Cornelia Wallace; film: George Wallace] | m.02vd8y4 [character: Tosh; film: Lookin' to Get Out] | m.03kxvhb [character: Christine Collins; film: Changeling] | m.03ldqh6 [character: Tigress; film: Kung Fu Panda; special_performance_type: Voice] | m.03lqz4k [character: Claire; film: Playing God] | m.04m51zy [film: The Thomas Crown Affair 2] | m.05tf7mr [character: Evelyn Salt; film: Salt] | m.0704ms7 [character: Jodie Swearingen; film: Without Evidence] | m.075j3lw [character: Revolutionary; film: The Fever] | m.086_rjx [character: Tigress; film: Kung Fu Panda 2; special_performance_type: Voice] | m.08czg_4 [film: Confessions of an Action Star; special_performance…
     --producer.films_executive_produced--> Difret | Maleficent | Trudell
     --celebrity.infidelity_participant--> m.063jy_2 [perpetrator: Brad Pitt; victim: Jennifer Aniston]
     --celebrity.infidelity_perpetrator--> m.064gf40 [participant: Brad Pitt; victim: Jennifer Aniston]
@@ -6127,7 +6128,7 @@ entities: Angelina Jolie
     Difret --film.executive_produced_by--> Angelina Jolie
     Trudell --film.executive_produced_by--> Angelina Jolie
 ── Brad Pitt ──
-    --award_winner.awards_won--> m.0y7lry4 [award: MTV Movie Award for Best Fight; award_winner: Brad Pitt; ceremony: 2006 MTV Movie Awards; honored_for: Mr. & Mrs. Smith] | m.0z9t4rt [award: Teen Choice Award for Choice Movie: Rumble; award_winner: Angelina Jolie; ceremony: 2005 Teen Choice Awards;…
+    --award_winner.awards_won--> m.0y7lry4 [award: MTV Movie Award for Best Fight; award_winner: Brad Pitt; ceremony: 2006 MTV Movie Awards; honored_for: Mr. & Mrs. Smith] | m.0z9t4rt [award: Teen Choice Award for Choice Movie: Rumble; award_winner: Angelina Jolie; ceremony: 2005 Teen Choice Awards; honored_for: Mr. & Mrs. Smith]
     --actor.film--> g.11b6r79157
     --celebrity.infidelity_participant--> m.064gf40 [participant: Brad Pitt; victim: Jennifer Aniston]
     m.09vrp8w | m.0b3w_y4 | m.0b3wch6 | m.0z9t1ch | m.0z9t4_g | m.0z9tbts | m.0z9wbm2 --award_nomination.award_nominee--> Brad Pitt
@@ -6147,7 +6148,7 @@ entities: Angelina Jolie
     --award_winning_work.awards_won--> m.0n5hvxj [award: Producers Guild of America Award - Stanley Kramer Award; ceremony: Producers Guild of America Awards 2011; honored_for: In the Land of Blood and Honey]
     --film.executive_produced_by--> Mick Garris
     Mick Garris --producer.films_executive_produced--> Unbroken
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_nomination.award_nominee', 'award.award_winner.awards_won', 'common.image.appears_in_topic_gallery', 'film.actor.film', 'film.film.executive_produced_by', 'film.producer.films_executive_produced']}}
 ```
 ## [6] assistant
@@ -6193,9 +6194,9 @@ question: which genre does this film belong to
 ```
 **[7] 工具结果**:
 ```text
-entities: Gia | A Mighty Heart | Wanted | Cyborg 2 | Playing by Heart | George Wallace | Lookin' to Get Out | Changeling | Kung Fu Panda | Salt | The Thomas Crown Affair 2 | Confessions of an Action Star | Love Is All There Is | Mojave Moon | True Women | Hell's Kitchen | Cleopatra | Angela & Viril …
+entities: Gia | A Mighty Heart | Wanted | Cyborg 2 | Playing by Heart | George Wallace | Lookin' to Get Out | Changeling | Kung Fu Panda | Salt | The Thomas Crown Affair 2 | Confessions of an Action Star | Love Is All There Is | Mojave Moon | True Women | Hell's Kitchen | Cleopatra | Angela & Viril | Alice & Viril | Kung Fu Panda: Secrets of the Masters | Kung Fu Panda Holiday | Original Sin | Life or Something Like It | Lara Croft Tomb Raider: The Cradle of Life | Alexander | Beowulf | Beyond Borders | Foxfire | Gone in 60 Seconds | Hackers | Mr. & Mrs. Smith | Pushing Tin | Shark Tale | Difret | Maleficent | Trudell | A Place in Time
 question: which genre does this film belong to
-candidate_relations: film.film_genre.films_in_this_genre | media_common.media_genre.parent_genre | film.film_location.featured_in_films | theater.theater_genre.plays_in_this_genre | film.film.genre | tv.tv_program.genre | film.film_subject.films | media_common.literary_genre.stories_in_this_genre | …
+candidate_relations: film.film_genre.films_in_this_genre | media_common.media_genre.parent_genre | film.film_location.featured_in_films | theater.theater_genre.plays_in_this_genre | film.film.genre | tv.tv_program.genre | film.film_subject.films | media_common.literary_genre.stories_in_this_genre | film.film.directed_by | film.film_regional_release_date.film_release_region | media_common.media_genre.child_genres | media_common.netflix_title.netflix_genres | film.film_production_designer.films_production_designed | base.kinometric.genre.incompatible_genres | film.film.produced_by
 grouped_relations:
   film_genre.films_in_this_genre ← film.film_genre.films_in_this_genre
   media_genre.parent_genre ← media_common.media_genre.parent_genre
@@ -6209,7 +6210,7 @@ grouped_relations:
   film_regional_release_date.film_release_region ← film.film_regional_release_date.film_release_region
   media_genre.child_genres ← media_common.media_genre.child_genres
   netflix_title.netflix_genres ← media_common.netflix_title.netflix_genres
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -6243,7 +6244,7 @@ sg: sg1
 ```text
 fact_id: sg1
 triples:
-entities: Angelina Jolie  (sequence root; this layer applies to the frontier: 12th Satellite Awards | 13th Critics' Choice Awards | 13th Satellite Awards | 14th Critics' Choice Awards | 14th Screen Actors Guild Awards | 15th Screen Actors Guild Awards | 2000 Teen Choice Awards | 2001 Teen Choice Awa…
+entities: Angelina Jolie  (sequence root; this layer applies to the frontier: 12th Satellite Awards | 13th Critics' Choice Awards | 13th Satellite Awards | 14th Critics' Choice Awards | 14th Screen Actors Guild Awards | 15th Screen Actors Guild Awards | 2000 Teen Choice Awards | 2001 Teen Choice Awards | 2002 Kids' Choice Awards | 2002 MTV Movie Awards | 2005 Teen Choice Awards | 2006 MTV Movie Awards)
 ▸ patterns: award_nomination.award_nominee ⭢ award_nominated_work.award_nominations ⭢ film.genre | award_nomination.award_nominee ⭢ award_nomination.nominated_for ⭢ film.genre
 ── Angelina Jolie ──
     m.05bj568 | m.07shwmb | m.07t71jr | m.08hhgqp | m.09091sf | m.09vxk82 | m.0b3x639 | m.0dlsk9w --award_nomination.award_nominee--> Angelina Jolie
@@ -6274,9 +6275,9 @@ entities: Angelina Jolie  (sequence root; this layer applies to the frontier: 12
 ── Taking Lives ──
     --award_nominated_work.award_nominations--> m.08hhgqp [award: Razzie Award for Worst Actress; ceremony: 25th Golden Raspberry Awards; nominated_for: Alexander | Taking Lives]
     --film.genre--> Psychological thriller
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.film.genre': {'direct': ['film.film.genre'], 'bridge': ['award.award_nominated_work.award_nominations', 'award.award_nomination.nominated_for', 'film.film.prequel', 'film.film.sequel', 'media_common.netflix_title.netflix_genres']}}
-anchor_sequence: Angelina Jolie ⭢ award_nomination.award_nominee | award_winner.awards_won | image.appears_in_topic_gallery | actor.film | director.film | film.executive_produced_by | producer.films_executive_produced (215) ⭢ award_nominated_work.award_nominations | award_nomination.nominated_for | …
+anchor_sequence: Angelina Jolie ⭢ award_nomination.award_nominee | award_winner.awards_won | image.appears_in_topic_gallery | actor.film | director.film | film.executive_produced_by | producer.films_executive_produced (215) ⭢ award_nominated_work.award_nominations | award_nomination.nominated_for | film.genre | film.prequel | film.sequel | film_genre.films_in_this_genre | netflix_title.netflix_genres (0)
 layer_action: extend
 ```
 **[10] 工具结果**:
@@ -6456,11 +6457,11 @@ sg1.f2: ?college | how many undergraduates does this college have | ?count
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Russell Wilson | which colleges did this person attend | ?college)', 'subquestion': 'which colleges did this person attend'} | {'id': 'f2', 'triple': '(?college | how many undergraduates does this college have | ?count)', 'subquestion': 'how many undergraduates does th…
+flow: {'id': 'f1', 'triple': '(Russell Wilson | which colleges did this person attend | ?college)', 'subquestion': 'which colleges did this person attend'} | {'id': 'f2', 'triple': '(?college | how many undergraduates does this college have | ?count)', 'subquestion': 'how many undergraduates does this college have'}
 entities: Russell Wilson
 answer: ?college
 answer_type: college
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -6483,7 +6484,7 @@ question: which colleges did this person attend
 ```text
 entities: Russell Wilson
 question: which colleges did this person attend
-candidate_relations: education.educational_institution.campuses | education.educational_institution.students_graduates | education.educational_institution_campus.educational_institution | education.university.number_of_undergraduates | people.person.education | sports.school_sports_team.school | edu…
+candidate_relations: education.educational_institution.campuses | education.educational_institution.students_graduates | education.educational_institution_campus.educational_institution | education.university.number_of_undergraduates | people.person.education | sports.school_sports_team.school | education.education.student | education.education.major_field_of_study | education.education.institution | education.education.degree | base.jewlib.parent_institution.jewish_studies_research_units | people.person.nationality | location.location.contains | education.educational_institution.sports_teams | sports.sports_gender.sports_teams
 grouped_relations:
   educational_institution.campuses ← education.educational_institution.campuses
   educational_institution.students_graduates ← education.educational_institution.students_graduates
@@ -6497,7 +6498,7 @@ grouped_relations:
   education.degree ← education.education.degree
   parent_institution.jewish_studies_research_units ← base.jewlib.parent_institution.jewish_studies_research_units
   person.nationality ← people.person.nationality
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -6536,9 +6537,9 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Russell Wilson
-▸ patterns: education.student | person.education | person.parents | person.children ⭢ person.parents | person.sibling_s ⭢ sibling_relationship.sibling ⭢ person.parents | sibling_relationship.sibling ⭢ sibling_relationship.sibling ⭢ person.parents | sports_team_roster.player ⭢ sports_team_roster.team…
+▸ patterns: education.student | person.education | person.parents | person.children ⭢ person.parents | person.sibling_s ⭢ sibling_relationship.sibling ⭢ person.parents | sibling_relationship.sibling ⭢ sibling_relationship.sibling ⭢ person.parents | sports_team_roster.player ⭢ sports_team_roster.team ⭢ educational_institution.sports_teams ⭢ education.institution
 ── Russell Wilson ──
-    --person.education--> m.0hpny0z [degree: Bachelor of Arts; institution: North Carolina State University; major_field_of_study: Communication] | m.0hpny13 [end_date: 2012-01-28-08:00; institution: University of Wisconsin-Madison; start_date: 2011-06-27-08:00] | m.0jvsppk [has_value: Start Date; i…
+    --person.education--> m.0hpny0z [degree: Bachelor of Arts; institution: North Carolina State University; major_field_of_study: Communication] | m.0hpny13 [end_date: 2012-01-28-08:00; institution: University of Wisconsin-Madison; start_date: 2011-06-27-08:00] | m.0jvsppk [has_value: Start Date; institution: Collegiate School]
     --person.parents--> Harrison Wilson, III | Tammy T. Wilson
     --person.sibling_s--> m.0zmhhkc [sibling: Anna Wilson]
     Harrison Wilson, III --person.children--> Russell Wilson
@@ -6561,7 +6562,7 @@ entities: Russell Wilson
     m.0jmln2x --sports_team_roster.team--> Wisconsin Badgers football
 ── Harrison Wilson, III ──
     Harrison Wilson, IV --person.parents--> Harrison Wilson, III
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'people.person.education': {'direct': ['people.person.education'], 'bridge': ['people.person.parents']}, 'education.education.institution': {'direct': ['education.education.institution'], 'bridge': ['education.education.student', 'people.person.education']}}
 ```
 ## [6] assistant
@@ -6657,7 +6658,7 @@ question: how many undergraduates does this college have
 ```text
 entities: North Carolina State University
 question: how many undergraduates does this college have
-candidate_relations: education.education.student | sports.school_sports_team.school | people.person.education | education.education.degree | education.education.institution | people.person.children | base.locations.countries.states_provinces_within | education.educational_institution.sports_teams | …
+candidate_relations: education.education.student | sports.school_sports_team.school | people.person.education | education.education.degree | education.education.institution | people.person.children | base.locations.countries.states_provinces_within | education.educational_institution.sports_teams | base.aareas.schema.administrative_area.administrative_children | location.country.administrative_divisions | location.country.first_level_divisions | location.administrative_division.second_level_division_of | sports.sports_team_roster.team | base.aareas.schema.administrative_area.administrative_parent | location.administrative_division.country
 grouped_relations:
   education.student ← education.education.student
   school_sports_team.school ← sports.school_sports_team.school
@@ -6671,7 +6672,7 @@ grouped_relations:
   country.administrative_divisions ← location.country.administrative_divisions
   country.first_level_divisions ← location.country.first_level_divisions
   administrative_division.second_level_division_of ← location.administrative_division.second_level_division_of
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [12] assistant
 **思考（原文）**:
@@ -6726,7 +6727,7 @@ sg: sg1
 ```text
 fact_id: sg1
 triples:
-entities: Russell Wilson  (sequence root; this layer applies to the frontier: Bachelor of Arts | Collegiate School | Communication | Education | Harrison Wilson, III | North Carolina State University | Start Date | Tammy T. Wilson | University of Wisconsin-Madison | 2011-06-27-08:00 | 2012-01-28-08:…
+entities: Russell Wilson  (sequence root; this layer applies to the frontier: Bachelor of Arts | Collegiate School | Communication | Education | Harrison Wilson, III | North Carolina State University | Start Date | Tammy T. Wilson | University of Wisconsin-Madison | 2011-06-27-08:00 | 2012-01-28-08:00)
 ▸ patterns: education.student ⭢ education.institution ⭢ location.containedby | education.institution | location.containedby
 ── Russell Wilson ──
     m.0hpny0z --education.student--> Russell Wilson
@@ -6738,8 +6739,8 @@ entities: Russell Wilson  (sequence root; this layer applies to the frontier: Ba
     m.0hpny13 --education.institution--> University of Wisconsin-Madison
 ── Collegiate School ──
     m.0jvsppk --education.institution--> Collegiate School
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'education.education.institution': {'direct': ['education.education.institution'], 'bridge': ['education.educational_institution_campus.educational_institution']}, 'location.country.first_level_divisions': {'direct': ['location.country.first_level_divisions'], 'bridge': ['locati…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'education.education.institution': {'direct': ['education.education.institution'], 'bridge': ['education.educational_institution_campus.educational_institution']}, 'location.country.first_level_divisions': {'direct': ['location.country.first_level_divisions'], 'bridge': ['location.location.containedby']}}
 anchor_sequence: Russell Wilson ⭢ education.institution | education.student | person.education | person.parents (11) ⭢ educational_institution_campus.educational_institution | location.containedby (0)
 layer_action: extend
 ```
@@ -6800,7 +6801,7 @@ question: how many undergraduates does this college have
 ```text
 entities: North Carolina State University
 question: how many undergraduates does this college have
-candidate_relations: education.education.student | sports.school_sports_team.school | people.person.education | education.education.degree | education.education.institution | people.person.children | base.locations.countries.states_provinces_within | education.educational_institution.sports_teams | …
+candidate_relations: education.education.student | sports.school_sports_team.school | people.person.education | education.education.degree | education.education.institution | people.person.children | base.locations.countries.states_provinces_within | education.educational_institution.sports_teams | base.aareas.schema.administrative_area.administrative_children | location.country.administrative_divisions | location.country.first_level_divisions | location.administrative_division.second_level_division_of | sports.sports_team_roster.team | base.aareas.schema.administrative_area.administrative_parent | location.administrative_division.country
 grouped_relations:
   education.student ← education.education.student
   school_sports_team.school ← sports.school_sports_team.school
@@ -6814,7 +6815,7 @@ grouped_relations:
   country.administrative_divisions ← location.country.administrative_divisions
   country.first_level_divisions ← location.country.first_level_divisions
   administrative_division.second_level_division_of ← location.administrative_division.second_level_division_of
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [17] assistant
 **思考（原文）**:
@@ -6978,11 +6979,11 @@ sg2.f1: Kirk M. Petruccelli | which movies did this person direct | ?movie
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Tupac Shakur | which movies did this person appear in | ?movie)', 'subquestion': 'which movies did this person appear in'} | {'id': 'f2', 'triple': '(Kirk M. Petruccelli | which movies did this person direct | ?movie)', 'subquestion': 'which movies did this person dire…
+flow: {'id': 'f1', 'triple': '(Tupac Shakur | which movies did this person appear in | ?movie)', 'subquestion': 'which movies did this person appear in'} | {'id': 'f2', 'triple': '(Kirk M. Petruccelli | which movies did this person direct | ?movie)', 'subquestion': 'which movies did this person direct'}
 entities: Tupac Shakur | Kirk M. Petruccelli
 answer: ?movie
 answer_type: movie
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -7009,7 +7010,7 @@ question: which movies did this person appear in
 ```text
 entities: Tupac Shakur
 question: which movies did this person appear in
-candidate_relations: film.film_character.portrayed_in_films | film.film_featured_song.featured_in_film | tv.tv_character.appeared_in_tv_episodes | tv.tv_guest_role.episodes_appeared_in | film.person_or_entity_appearing_in_film.films | film.film.starring | film.actor.film | film.performance.film | fi…
+candidate_relations: film.film_character.portrayed_in_films | film.film_featured_song.featured_in_film | tv.tv_character.appeared_in_tv_episodes | tv.tv_guest_role.episodes_appeared_in | film.person_or_entity_appearing_in_film.films | film.film.starring | film.actor.film | film.performance.film | film.personal_film_appearance.film | film.film.personal_appearances | film.personal_film_appearance.type_of_appearance | film.film.featured_film_locations | film.performance.actor | tv.tv_guest_role.actor | media_common.netflix_title.netflix_genres
 grouped_relations:
   film_character.portrayed_in_films ← film.film_character.portrayed_in_films
   film_featured_song.featured_in_film ← film.film_featured_song.featured_in_film
@@ -7023,7 +7024,7 @@ grouped_relations:
   film.personal_appearances ← film.film.personal_appearances
   personal_film_appearance.type_of_appearance ← film.personal_film_appearance.type_of_appearance
   film.featured_film_locations ← film.film.featured_film_locations
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -7059,11 +7060,11 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Tupac Shakur
-▸ patterns: award_nomination.award_nominee | actor.film | performance.actor | person_or_entity_appearing_in_film.films | producer.releases_produced | producer.releases_produced ⭢ film.starring | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.starring | actor.film ⭢ p…
+▸ patterns: award_nomination.award_nominee | actor.film | performance.actor | person_or_entity_appearing_in_film.films | producer.releases_produced | producer.releases_produced ⭢ film.starring | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.starring | actor.film ⭢ performance.film ⭢ producer.releases_produced | performance.actor ⭢ film.starring ⭢ film.starring | performance.actor ⭢ performance.film ⭢ producer.releases_produced | award_nominee.award_nominations
 ── Tupac Shakur ──
-    --award_nominee.award_nominations--> m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; ceremony: 26th NAACP Image Awards; nominated_for: Poetic Justice] | m.0j_l784 [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: Dr. Dre | Roger Troutm…
-    --actor.film--> m.02vb3h0 [character: Lucky; film: Poetic Justice] | m.02vcpnk [character: Tank; film: Bullet] | m.02vcykh [character: Digital Underground member; film: Nothing but Trouble] | m.0j_81z [character: Bishop; film: Juice] | m.0js_kj [character: Birdie; film: Above the Rim] | m.0jyn86…
-    --person_or_entity_appearing_in_film.films--> m.0cg09kz [film: Tupac: Resurrection] | m.0cg53k6 [film: Tupac Shakur: Thug Angel: The Life of an Outlaw; type_of_appearance: Him/Herself] | m.0crz6dl [film: Biggie & Tupac] | m.0cs3gpc [film: Thug Immortal: The Tupac Shakur Story] | m.0cs6p06 [film:…
+    --award_nominee.award_nominations--> m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; ceremony: 26th NAACP Image Awards; nominated_for: Poetic Justice] | m.0j_l784 [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: Dr. Dre | Roger Troutman; ceremony: 39th Annual Grammy Awards; nominated_for: California Love (album version)] | m.0j_l78n [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: K-Ci & JoJo; ceremony: 39th Annual Grammy Awards; nominated_for: How Do U Want It] | m.0m0q4k7 [award: MTV Video Music Award for Best Rap Video; ceremony: 1999 MTV Video Music Awards; nominated_for: Changes] | m.0mv8gv3 [award: MTV Video Music Award for Best Rap Video; award_nominee: Dr. Dre | Roger Troutman; ceremony: 1996 MTV Video Music Awards; nominated_for: California Love] | m.0mw779x [award: MTV Video Music Award for Best Rap Video; award_nominee: Nas; ceremony: 2003 MTV Video Music Awards; nominated_for: T…
+    --actor.film--> m.02vb3h0 [character: Lucky; film: Poetic Justice] | m.02vcpnk [character: Tank; film: Bullet] | m.02vcykh [character: Digital Underground member; film: Nothing but Trouble] | m.0j_81z [character: Bishop; film: Juice] | m.0js_kj [character: Birdie; film: Above the Rim] | m.0jyn86 [character: Det. Rodriguez; film: Gang Related] | m.0jz0c4 [character: Ezekiel 'Spoon' Whitmore; film: Gridlock'd] | m.0pcn9p9 [character: Sniper; film: Murder Was the Case]
+    --person_or_entity_appearing_in_film.films--> m.0cg09kz [film: Tupac: Resurrection] | m.0cg53k6 [film: Tupac Shakur: Thug Angel: The Life of an Outlaw; type_of_appearance: Him/Herself] | m.0crz6dl [film: Biggie & Tupac] | m.0cs3gpc [film: Thug Immortal: The Tupac Shakur Story] | m.0cs6p06 [film: Tupac: So Many Years, So Many Tears] | m.0csbsmb [film: Tupac Vs.] | m.0cscmvw [film: Hip Hop Story: Tha Movie] | m.0cskjp_ [film: Welcome to Death Row] | m.0cv_t55 [film: Tupac Shakur: Before I Wake] | m.0gm2nfd [film: Tupac: Uncensored and Uncut: The Lost Prison Tapes] | m.0jmyz7_ [film: Dead Homiez] | m.0jmyz7d [film: Tupac: Assassination] | m.0jmyz7m [film: Beef] | m.0jmyz7t [film: Freestyle: The Art of Rhyme] | m.0jmyz86 [film: Apprenticeship of Tupac Shakur] | m.0jmyz8d [film: Tha Westside] | m.0jmyz8n [film: R.I.P.: Shades of Hip Hop] | m.0jmyz8w [film: Best of the Source Awards: Vol. 1] | m.0jmyz91 [film: Death Row Uncut] | m.0jmyz96 [film: Digital Underground: Raw and Uncut] | m.0j…
     --producer.releases_produced--> 15 Years on Death Row | Death Row: The Singles Collection | Gang Related | Poetic Justice | Still I Rise | Strictly 4 My N.I.G.G.A.Z... | Supercop | The Don Killuminati: The 7 Day Theory | West Side | オール・アイズ・オン・ミー
     m.02vb3h0 | m.02vcpnk | m.02vcykh | m.0j_81z | m.0js_kj | m.0jyn86 | m.0jz0c4 | m.0pcn9p9 --performance.actor--> Tupac Shakur
     m.0_tln3r | m.0j_l784 | m.0j_l78n | m.0j_l7hc | m.0j_pbc9 | m.0lyw79d | m.0m0q4k7 | m.0m3g28_ | m.0mv8gv3 | m.0mw779x | m.0ndlnz1 | m.0nf_zwj …(+7) (to answer with ALL of them, include "#m.0_tln3r::award_nominee" as one answer entity) --award_nomination.award_nominee--> Tupac Shakur
@@ -7079,8 +7080,8 @@ entities: Tupac Shakur
 ── Poetic Justice ──
     --award_nominated_work.award_nominations--> m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; ceremony: 26th NAACP Image Awards; nominated_for: Poetic Justice]
     --film.starring--> m.02vb3h0 [character: Lucky; film: Poetic Justice] | m.02vckpm [film: Poetic Justice]
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'film.actor.film': {'direct': ['film.actor.film'], 'bridge': ['fictional_universe.person_in_fiction.representations_in_fiction']}, 'film.person_or_entity_appearing_in_film.films': {'direct': ['film.person_or_entity_appearing_in_film.films'], 'bridge': ['fictional_universe.person…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.actor.film': {'direct': ['film.actor.film'], 'bridge': ['fictional_universe.person_in_fiction.representations_in_fiction']}, 'film.person_or_entity_appearing_in_film.films': {'direct': ['film.person_or_entity_appearing_in_film.films'], 'bridge': ['fictional_universe.person_in_fiction.representations_in_fiction']}, 'film.starring': {'direct': ['film.film.starring'], 'bridge': ['award.award_nomination.award_nominee', 'film.actor.film', 'film.performance.actor', 'music.producer.releases_produced']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -7151,7 +7152,7 @@ MULTI-TREE REMINDER: declared entity 'Kirk M. Petruccelli' anchors no tree yet. 
 ```text
 entities: Kirk M. Petruccelli
 question: which movies did this person direct
-candidate_relations: film.film_casting_director.films_casting_directed | film.film.film_casting_director | film.film.directed_by | film.film_art_director.films_art_directed | film.film_job.films_with_this_crew_job | film.film.film_art_direction_by | film.film_crewmember.films_crewed | film.producer.…
+candidate_relations: film.film_casting_director.films_casting_directed | film.film.film_casting_director | film.film.directed_by | film.film_art_director.films_art_directed | film.film_job.films_with_this_crew_job | film.film.film_art_direction_by | film.film_crewmember.films_crewed | film.producer.films_executive_produced | film.film_production_designer.films_production_designed | film.director.film | film.film_film_distributor_relationship.film | film.film.cinematography | film.film.film_series | film.film_series.films_in_series | film.film.produced_by
 grouped_relations:
   film_casting_director.films_casting_directed ← film.film_casting_director.films_casting_directed
   film.film_casting_director ← film.film.film_casting_director
@@ -7165,7 +7166,7 @@ grouped_relations:
   director.film ← film.director.film
   film_film_distributor_relationship.film ← film.film_film_distributor_relationship.film
   film.cinematography ← film.film.cinematography
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [9] assistant
 **思考（原文）**:
@@ -7192,26 +7193,26 @@ sg: sg2
 fact_id: sg2
 triples:
 entities: Kirk M. Petruccelli
-▸ patterns: award_nominee.award_nominations | film.film_art_direction_by | film.film_production_design_by | film_art_director.films_art_directed | film_production_designer.films_production_designed | film.film_art_direction_by ⭢ director.film | film.film_art_direction_by ⭢ film.directed_by | film.fi…
+▸ patterns: award_nominee.award_nominations | film.film_art_direction_by | film.film_production_design_by | film_art_director.films_art_directed | film_production_designer.films_production_designed | film.film_art_direction_by ⭢ director.film | film.film_art_direction_by ⭢ film.directed_by | film.film_art_direction_by ⭢ film.film_production_design_by | film.film_art_direction_by ⭢ film_production_designer.films_production_designed | film.film_production_design_by ⭢ director.film | film.film_production_design_by ⭢ film.directed_by | film.film_production_design_by ⭢ film.film_art_direction_by | film.film_production_design_by ⭢ film_art_director.films_art_directed | film_art_director.films_art_directed ⭢ film_production_designer.films_production_designed | film_production_designer.films_production_designed ⭢ director.film | film_production_designer.films_production_designed ⭢ film.directed_by | film_production_designer.films_production_designed ⭢ film_art_director.films_art_directed | awa…
 ── Kirk M. Petruccelli ──
     --award_nominee.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot]
     --film_art_director.films_art_directed--> And the Earth Did Not Swallow Him | Philadelphia Experiment II | Poetic Justice
-    --film_production_designer.films_production_designed--> 3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hu…
+    --film_production_designer.films_production_designed--> 3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hulk | The Last Castle | The Librarian: Quest for the Spear | The Patriot | The Thirteenth Floor | When in Rome | Where the Day Takes You | White House Down | Zookeeper
     m.09twb36 --award_nomination.award_nominee--> Kirk M. Petruccelli
     And the Earth Did Not Swallow Him | Philadelphia Experiment II | Poetic Justice --film.film_art_direction_by--> Kirk M. Petruccelli
-    3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hulk …(+8) (to answer with ALL of them, include "#3 Ninjas…
+    3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hulk …(+8) (to answer with ALL of them, include "#3 Ninjas::film_production_design_by" as one answer entity) --film.film_production_design_by--> Kirk M. Petruccelli
 ── White House Down ──
     --award_nominated_work.award_nominations--> m.0_vwczr [award_nominee: Channing Tatum]
     --film.film_art_direction_by--> Charlotte Rouleau | David Gaucher | Isabelle Guay | Jean-Pierre Paquet | Martina Javorova | Robert Parle
     David Gaucher | Isabelle Guay | Jean-Pierre Paquet | Robert Parle --film_art_director.films_art_directed--> White House Down
 ── Poetic Justice ──
-    --award_nominated_work.award_nominations--> m.08hhgkp [award_nominee: Janet Jackson] | m.0_tk0n5 [award_nominee: Janet Jackson; ceremony: 26th NAACP Image Awards] | m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; award_nominee: Tupac Shakur; ceremony: 26th NAACP Im…
+    --award_nominated_work.award_nominations--> m.08hhgkp [award_nominee: Janet Jackson] | m.0_tk0n5 [award_nominee: Janet Jackson; ceremony: 26th NAACP Image Awards] | m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; award_nominee: Tupac Shakur; ceremony: 26th NAACP Image Awards]
     --film.directed_by--> John Singleton
     --film.film_production_design_by--> Keith Brian Burns
     John Singleton --director.film--> Poetic Justice
     Keith Brian Burns --film_production_designer.films_production_designed--> Poetic Justice
 ── The Patriot ──
-    --award_nominated_work.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot] | m.09tzl16 [award_nominee: Caleb Deschanel] | m.09wpcxt [nominated_for: The Patriot] | m.0pct97z [award_…
+    --award_nominated_work.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot] | m.09tzl16 [award_nominee: Caleb Deschanel] | m.09wpcxt [nominated_for: The Patriot] | m.0pct97z [award_nominee: John Williams]
     --film.directed_by--> Roland Emmerich
     Roland Emmerich --director.film--> The Patriot
 ── Barry Chusid ──
@@ -7260,8 +7261,8 @@ entities: Kirk M. Petruccelli
     The Last Castle --film.film_art_direction_by--> Lawrence A. Hubbs
     The Thirteenth Floor --film.directed_by--> Josef Rusnak
     The Thirteenth Floor --film.film_art_direction_by--> Frank Bollinger
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_nominee.award_nominations', 'film.film.film_production_design_by', 'film.film_art_director.films_art_directed', 'film.film_production_designer.films_production_designed']}, 'film.film.directed_by': …
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_nominee.award_nominations', 'film.film.film_production_design_by', 'film.film_art_director.films_art_directed', 'film.film_production_designer.films_production_designed']}, 'film.film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['award.award_nominee.award_nominations', 'film.film.film_art_direction_by', 'film.film.film_production_design_by', 'film.film_art_director.films_art_directed', 'film.film_production_designer.films_production_designed']}}
 ```
 **[11] 工具结果**:
 ```text
@@ -7314,7 +7315,7 @@ entities: NONE
 ```
 **[13] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?movie=['Poetic Justice', 'Bullet', 'Nothing but Trouble', 'Juice']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?movie=['Poetic Ju…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?movie=['Poetic Justice', 'Bullet', 'Nothing but Trouble', 'Juice']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?movie=['Poetic Justice', 'Bullet', 'Nothing but Trouble', 'Juice']. Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [14] assistant
 **思考（原文）**:
@@ -7353,7 +7354,7 @@ entities: NONE
 ```
 **[15] 工具结果**:
 ```text
-Second refusal — your ledger holds RETRIEVED FACTS: f1 ?movie=['Poetic Justice', 'Bullet', 'Nothing but Trouble', 'Juice']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE correct after this, your next NONE submissi…
+Second refusal — your ledger holds RETRIEVED FACTS: f1 ?movie=['Poetic Justice', 'Bullet', 'Nothing but Trouble', 'Juice']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE correct after this, your next NONE submission is ACCEPTED as the final answer.
 ```
 ## [16] assistant
 **思考（原文）**:
@@ -7509,7 +7510,7 @@ flow: {'id': 'f1', 'triple': '(Tupac Shakur | which films did this person appear
 entities: Tupac Shakur | Kirk M. Petruccelli
 answer: ?film
 answer_type: film
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -7542,7 +7543,7 @@ question: which films did this person appear in
 ```text
 entities: Tupac Shakur
 question: which films did this person appear in
-candidate_relations: film.film_character.portrayed_in_films | film.film_featured_song.featured_in_film | film.film_subject.films | film.person_or_entity_appearing_in_film.films | tv.tv_character.appeared_in_tv_episodes | tv.tv_guest_role.episodes_appeared_in | film.actor.film | film.performance.film…
+candidate_relations: film.film_character.portrayed_in_films | film.film_featured_song.featured_in_film | film.film_subject.films | film.person_or_entity_appearing_in_film.films | tv.tv_character.appeared_in_tv_episodes | tv.tv_guest_role.episodes_appeared_in | film.actor.film | film.performance.film | film.personal_film_appearance.film | film.film.starring | film.film.personal_appearances | film.film.film_art_direction_by | film.film.featured_film_locations | film.film.directed_by | film.personal_film_appearance.type_of_appearance
 grouped_relations:
   film_character.portrayed_in_films ← film.film_character.portrayed_in_films
   film_featured_song.featured_in_film ← film.film_featured_song.featured_in_film
@@ -7556,7 +7557,7 @@ grouped_relations:
   film.starring ← film.film.starring
   film.personal_appearances ← film.film.personal_appearances
   film.film_art_direction_by ← film.film.film_art_direction_by
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -7588,11 +7589,11 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Tupac Shakur
-▸ patterns: award_nomination.award_nominee | actor.film | performance.actor | person_or_entity_appearing_in_film.films | producer.releases_produced | producer.releases_produced ⭢ film.starring | producer.releases_produced ⭢ performance.film | award_nomination.award_nominee ⭢ award_nominated_work.awa…
+▸ patterns: award_nomination.award_nominee | actor.film | performance.actor | person_or_entity_appearing_in_film.films | producer.releases_produced | producer.releases_produced ⭢ film.starring | producer.releases_produced ⭢ performance.film | award_nomination.award_nominee ⭢ award_nominated_work.award_nominations ⭢ performance.film | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.starring | actor.film ⭢ performance.film ⭢ producer.releases_produced | performance.actor ⭢ film.starring ⭢ film.starring | performance.actor ⭢ film.starring ⭢ performance.film | performance.actor ⭢ performance.film ⭢ producer.releases_produced | award_nominee.award_nominations
 ── Tupac Shakur ──
-    --award_nominee.award_nominations--> m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; ceremony: 26th NAACP Image Awards; nominated_for: Poetic Justice] | m.0j_l784 [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: Dr. Dre | Roger Troutm…
-    --actor.film--> m.02vb3h0 [character: Lucky; film: Poetic Justice] | m.02vcpnk [character: Tank; film: Bullet] | m.02vcykh [character: Digital Underground member; film: Nothing but Trouble] | m.0j_81z [character: Bishop; film: Juice] | m.0js_kj [character: Birdie; film: Above the Rim] | m.0jyn86…
-    --person_or_entity_appearing_in_film.films--> m.0cg09kz [film: Tupac: Resurrection] | m.0cg53k6 [film: Tupac Shakur: Thug Angel: The Life of an Outlaw; type_of_appearance: Him/Herself] | m.0crz6dl [film: Biggie & Tupac] | m.0cs3gpc [film: Thug Immortal: The Tupac Shakur Story] | m.0cs6p06 [film:…
+    --award_nominee.award_nominations--> m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; ceremony: 26th NAACP Image Awards; nominated_for: Poetic Justice] | m.0j_l784 [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: Dr. Dre | Roger Troutman; ceremony: 39th Annual Grammy Awards; nominated_for: California Love (album version)] | m.0j_l78n [award: Grammy Award for Best Rap Performance by a Duo or Group; award_nominee: K-Ci & JoJo; ceremony: 39th Annual Grammy Awards; nominated_for: How Do U Want It] | m.0m0q4k7 [award: MTV Video Music Award for Best Rap Video; ceremony: 1999 MTV Video Music Awards; nominated_for: Changes] | m.0mv8gv3 [award: MTV Video Music Award for Best Rap Video; award_nominee: Dr. Dre | Roger Troutman; ceremony: 1996 MTV Video Music Awards; nominated_for: California Love] | m.0mw779x [award: MTV Video Music Award for Best Rap Video; award_nominee: Nas; ceremony: 2003 MTV Video Music Awards; nominated_for: T…
+    --actor.film--> m.02vb3h0 [character: Lucky; film: Poetic Justice] | m.02vcpnk [character: Tank; film: Bullet] | m.02vcykh [character: Digital Underground member; film: Nothing but Trouble] | m.0j_81z [character: Bishop; film: Juice] | m.0js_kj [character: Birdie; film: Above the Rim] | m.0jyn86 [character: Det. Rodriguez; film: Gang Related] | m.0jz0c4 [character: Ezekiel 'Spoon' Whitmore; film: Gridlock'd] | m.0pcn9p9 [character: Sniper; film: Murder Was the Case]
+    --person_or_entity_appearing_in_film.films--> m.0cg09kz [film: Tupac: Resurrection] | m.0cg53k6 [film: Tupac Shakur: Thug Angel: The Life of an Outlaw; type_of_appearance: Him/Herself] | m.0crz6dl [film: Biggie & Tupac] | m.0cs3gpc [film: Thug Immortal: The Tupac Shakur Story] | m.0cs6p06 [film: Tupac: So Many Years, So Many Tears] | m.0csbsmb [film: Tupac Vs.] | m.0cscmvw [film: Hip Hop Story: Tha Movie] | m.0cskjp_ [film: Welcome to Death Row] | m.0cv_t55 [film: Tupac Shakur: Before I Wake] | m.0gm2nfd [film: Tupac: Uncensored and Uncut: The Lost Prison Tapes] | m.0jmyz7_ [film: Dead Homiez] | m.0jmyz7d [film: Tupac: Assassination] | m.0jmyz7m [film: Beef] | m.0jmyz7t [film: Freestyle: The Art of Rhyme] | m.0jmyz86 [film: Apprenticeship of Tupac Shakur] | m.0jmyz8d [film: Tha Westside] | m.0jmyz8n [film: R.I.P.: Shades of Hip Hop] | m.0jmyz8w [film: Best of the Source Awards: Vol. 1] | m.0jmyz91 [film: Death Row Uncut] | m.0jmyz96 [film: Digital Underground: Raw and Uncut] | m.0j…
     --producer.releases_produced--> 15 Years on Death Row | Death Row: The Singles Collection | Gang Related | Poetic Justice | Still I Rise | Strictly 4 My N.I.G.G.A.Z... | Supercop | The Don Killuminati: The 7 Day Theory | West Side | オール・アイズ・オン・ミー
     m.02vb3h0 | m.02vcpnk | m.02vcykh | m.0j_81z | m.0js_kj | m.0jyn86 | m.0jz0c4 | m.0pcn9p9 --performance.actor--> Tupac Shakur
     m.0_tln3r | m.0j_l784 | m.0j_l78n | m.0j_l7hc | m.0j_pbc9 | m.0lyw79d | m.0m0q4k7 | m.0m3g28_ | m.0mv8gv3 | m.0mw779x | m.0ndlnz1 | m.0nf_zwj …(+7) (to answer with ALL of them, include "#m.0_tln3r::award_nominee" as one answer entity) --award_nomination.award_nominee--> Tupac Shakur
@@ -7610,8 +7611,8 @@ entities: Tupac Shakur
     --actor.film--> m.02vckpm [film: Poetic Justice]
 ── K-Ci & JoJo ──
     m.0j_l78n --award_nomination.award_nominee--> K-Ci & JoJo
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'film.actor.film': {'direct': ['film.actor.film'], 'bridge': ['fictional_universe.person_in_fiction.representations_in_fiction']}, 'film.person_or_entity_appearing_in_film.films': {'direct': ['film.person_or_entity_appearing_in_film.films'], 'bridge': ['fictional_universe.person…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.actor.film': {'direct': ['film.actor.film'], 'bridge': ['fictional_universe.person_in_fiction.representations_in_fiction']}, 'film.person_or_entity_appearing_in_film.films': {'direct': ['film.person_or_entity_appearing_in_film.films'], 'bridge': ['fictional_universe.person_in_fiction.representations_in_fiction']}, 'film.performance.film': {'direct': ['film.performance.film'], 'bridge': ['award.award_nomination.award_nominee', 'film.actor.film', 'film.performance.actor', 'music.producer.releases_produced']}, 'film.starring': {'direct': ['film.film.starring'], 'bridge': ['award.award_nomination.award_nominee', 'film.actor.film', 'film.performance.actor', 'music.producer.releases_produced']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -7687,7 +7688,7 @@ question: which films did this person direct
 ```text
 entities: Kirk M. Petruccelli
 question: which films did this person direct
-candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_job.films_with_this_crew_job | film.film_subject.films | film.film_crewmember.fil…
+candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_job.films_with_this_crew_job | film.film_subject.films | film.film_crewmember.films_crewed | film.film_production_designer.films_production_designed | film.producer.films_executive_produced | film.cinematographer.film | film.director.film | film.film_film_distributor_relationship.film | film.film.cinematography | film.film.film_series
 grouped_relations:
   film_casting_director.films_casting_directed ← film.film_casting_director.films_casting_directed
   film_art_director.films_art_directed ← film.film_art_director.films_art_directed
@@ -7701,7 +7702,7 @@ grouped_relations:
   producer.films_executive_produced ← film.producer.films_executive_produced
   cinematographer.film ← film.cinematographer.film
   director.film ← film.director.film
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -7729,21 +7730,21 @@ sg: sg2
 fact_id: sg2
 triples:
 entities: Kirk M. Petruccelli
-▸ patterns: award_nominee.award_nominations | film.film_production_design_by | film_art_director.films_art_directed | film_production_designer.films_production_designed | film.film_art_direction_by ⭢ director.film | film.film_art_direction_by ⭢ film.film_production_design_by | film.film_art_directio…
+▸ patterns: award_nominee.award_nominations | film.film_production_design_by | film_art_director.films_art_directed | film_production_designer.films_production_designed | film.film_art_direction_by ⭢ director.film | film.film_art_direction_by ⭢ film.film_production_design_by | film.film_art_direction_by ⭢ film_production_designer.films_production_designed | film.film_production_design_by ⭢ director.film | film.film_production_design_by ⭢ film_art_director.films_art_directed | film_art_director.films_art_directed ⭢ film_production_designer.films_production_designed | film_production_designer.films_production_designed ⭢ director.film | film_production_designer.films_production_designed ⭢ film_art_director.films_art_directed | film.film_art_direction_by ⭢ award_nominated_work.award_nominations | film.film_production_design_by ⭢ award_nominated_work.award_nominations | film_production_designer.films_production_designed ⭢ award_nominated_work.award_nominations
 ── Kirk M. Petruccelli ──
     --award_nominee.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot]
     --film_art_director.films_art_directed--> And the Earth Did Not Swallow Him | Philadelphia Experiment II | Poetic Justice
-    --film_production_designer.films_production_designed--> 3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hu…
+    --film_production_designer.films_production_designed--> 3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hulk | The Last Castle | The Librarian: Quest for the Spear | The Patriot | The Thirteenth Floor | When in Rome | Where the Day Takes You | White House Down | Zookeeper
     Philadelphia Experiment II --film.film_art_direction_by--> Kirk M. Petruccelli
     Poetic Justice --film.film_art_direction_by--> Kirk M. Petruccelli
-    3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hulk …(+8) (to answer with ALL of them, include "#3 Ninjas…
+    3 Ninjas | Anaconda | Blade | Bullhead | Fantastic Four: Rise of the Silver Surfer | Ghost Rider | Killing Season | Lara Croft Tomb Raider: The Cradle of Life | Lara Croft: Tomb Raider | Murder in the First | Mystery Men | The Incredible Hulk …(+8) (to answer with ALL of them, include "#3 Ninjas::film_production_design_by" as one answer entity) --film.film_production_design_by--> Kirk M. Petruccelli
 ── Poetic Justice ──
-    --award_nominated_work.award_nominations--> m.08hhgkp [award_nominee: Janet Jackson] | m.0_tk0n5 [award_nominee: Janet Jackson; ceremony: 26th NAACP Image Awards] | m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; award_nominee: Tupac Shakur; ceremony: 26th NAACP Im…
+    --award_nominated_work.award_nominations--> m.08hhgkp [award_nominee: Janet Jackson] | m.0_tk0n5 [award_nominee: Janet Jackson; ceremony: 26th NAACP Image Awards] | m.0_tln3r [award: NAACP Image Award for Outstanding Actor in a Motion Picture; award_nominee: Tupac Shakur; ceremony: 26th NAACP Image Awards]
     --film.film_production_design_by--> Keith Brian Burns
     John Singleton --director.film--> Poetic Justice
     Keith Brian Burns --film_production_designer.films_production_designed--> Poetic Justice
 ── The Patriot ──
-    --award_nominated_work.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot] | m.09tzl16 [award_nominee: Caleb Deschanel] | m.09wpcxt [nominated_for: The Patriot] | m.0pct97z [award_…
+    --award_nominated_work.award_nominations--> m.09twb36 [award_nominee: Kirk M. Petruccelli | Richard F. Mays | Tom Reta; ceremony: Art Directors Guild Awards 2000; nominated_for: The Patriot] | m.09tzl16 [award_nominee: Caleb Deschanel] | m.09wpcxt [nominated_for: The Patriot] | m.0pct97z [award_nominee: John Williams]
     Roland Emmerich --director.film--> The Patriot
 ── White House Down ──
     --award_nominated_work.award_nominations--> m.0_vwczr [award_nominee: Channing Tatum]
@@ -7776,7 +7777,7 @@ entities: Kirk M. Petruccelli
     Rod Lurie --director.film--> The Last Castle
     Simon West --director.film--> Lara Croft: Tomb Raider
     Stephen Cornwell --director.film--> Philadelphia Experiment II
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_nominee.award_nominations', 'film.film.film_production_design_by', 'film.film_art_director.films_art_directed', 'film.film_production_designer.films_production_designed']}}
 ```
 ## [10] assistant
@@ -7955,11 +7956,11 @@ sg1.f2: ?country | what is the official language of this country | ?language
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Acting Prime Minister of Ukraine | which country does this position belong to | ?country)', 'subquestion': 'which country does this position belong to'} | {'id': 'f2', 'triple': '(?country | what is the official language of this country | ?language)', 'subquestion': 'w…
+flow: {'id': 'f1', 'triple': '(Acting Prime Minister of Ukraine | which country does this position belong to | ?country)', 'subquestion': 'which country does this position belong to'} | {'id': 'f2', 'triple': '(?country | what is the official language of this country | ?language)', 'subquestion': 'what is the official language of this country'}
 entities: Acting Prime Minister of Ukraine
 answer: ?language
 answer_type: language
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -7982,7 +7983,7 @@ question: which country does this position belong to
 ```text
 entities: Acting Prime Minister of Ukraine
 question: which country does this position belong to
-candidate_relations: government.government_position_held.jurisdiction_of_office | government.politician.government_positions_held | language.human_language.main_country | people.person.nationality | government.government_position_held.office_position_or_title | language.human_language.countries_spok…
+candidate_relations: government.government_position_held.jurisdiction_of_office | government.politician.government_positions_held | language.human_language.main_country | people.person.nationality | government.government_position_held.office_position_or_title | language.human_language.countries_spoken_in | government.government_office_or_title.office_holders | location.country.languages_spoken | government.government_position_held.from | government.government_position_held.office_holder | government.governmental_jurisdiction.governing_officials | government.government_position_held.to | government.government_position_held.basic_title
 grouped_relations:
   government_position_held.jurisdiction_of_office ← government.government_position_held.jurisdiction_of_office
   politician.government_positions_held ← government.politician.government_positions_held
@@ -7996,7 +7997,7 @@ grouped_relations:
   government_position_held.office_holder ← government.government_position_held.office_holder
   governmental_jurisdiction.governing_officials ← government.governmental_jurisdiction.governing_officials
   government_position_held.to ← government.government_position_held.to
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -8029,11 +8030,11 @@ triples:
 entities: Acting Prime Minister of Ukraine
 ▸ patterns: government_office_or_title.office_holders | government_position_held.office_position_or_title
 ── Acting Prime Minister of Ukraine ──
-    --government_office_or_title.office_holders--> m.0_g0wpm [basic_title: Acting Prime Minister; from: 2014-01-28-08:00; jurisdiction_of_office: Ukraine; office_holder: Sergij Arbuzov; to: 2014-02-27-08:00] | m.0_rs8f8 [basic_title: Acting Prime Minister; from: 2010-03-04-08:00; jurisdiction_of_off…
+    --government_office_or_title.office_holders--> m.0_g0wpm [basic_title: Acting Prime Minister; from: 2014-01-28-08:00; jurisdiction_of_office: Ukraine; office_holder: Sergij Arbuzov; to: 2014-02-27-08:00] | m.0_rs8f8 [basic_title: Acting Prime Minister; from: 2010-03-04-08:00; jurisdiction_of_office: Ukraine; office_holder: Oleksandr Turchynov; to: 2010-03-11-08:00]
     m.0_g0wpm --government_position_held.office_position_or_title--> Acting Prime Minister of Ukraine
     m.0_rs8f8 --government_position_held.office_position_or_title--> Acting Prime Minister of Ukraine
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'government.government_position_held.jurisdiction_of_office': {'direct': ['government.government_position_held.jurisdiction_of_office'], 'bridge': ['government.government_office_or_title.office_holders']}, 'government.governmental_jurisdiction.governing_officials': {'direct': ['…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'government.government_position_held.jurisdiction_of_office': {'direct': ['government.government_position_held.jurisdiction_of_office'], 'bridge': ['government.government_office_or_title.office_holders']}, 'government.governmental_jurisdiction.governing_officials': {'direct': ['government.governmental_jurisdiction.governing_officials'], 'bridge': ['government.government_office_or_title.office_holders']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -8061,7 +8062,7 @@ question: what is the official language of this country
 ```text
 entities: Ukraine
 question: what is the official language of this country
-candidate_relations: location.country.languages_spoken | language.human_language.countries_spoken_in | language.human_language.language_family | language.language_dialect.language | language.human_language.iso_639_3_code | language.human_language.iso_639_2_code | language.human_language.main_country…
+candidate_relations: location.country.languages_spoken | language.human_language.countries_spoken_in | language.human_language.language_family | language.language_dialect.language | language.human_language.iso_639_3_code | language.human_language.iso_639_2_code | language.human_language.main_country | language.human_language.iso_639_1_code | people.person.nationality | language.human_language.dialects | government.governmental_jurisdiction.governing_officials | base.rosetta.languoid.languoid_class | base.rosetta.languoid.local_name | government.government_position_held.from | language.human_language.region
 grouped_relations:
   country.languages_spoken ← location.country.languages_spoken
   human_language.countries_spoken_in ← language.human_language.countries_spoken_in
@@ -8075,7 +8076,7 @@ grouped_relations:
   human_language.dialects ← language.human_language.dialects
   governmental_jurisdiction.governing_officials ← government.governmental_jurisdiction.governing_officials
   languoid.languoid_class ← base.rosetta.languoid.languoid_class
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -8106,7 +8107,7 @@ sg: sg2
 fact_id: sg2
 triples:
 entities: Acting Prime Minister of Ukraine  (sequence root; this layer applies to the frontier: Acting Prime Minister | Oleksandr Turchynov | Sergij Arbuzov | Ukraine | 2010-03-11-08:00 | 2014-02-27-08:00 | Government Position Held | 2010-03-04-08:00 | 2014-01-28-08:00)
-▸ patterns: government_office_or_title.office_holders ⭢ governmental_jurisdiction.governing_officials ⭢ human_language.countries_spoken_in | government_office_or_title.office_holders ⭢ governmental_jurisdiction.governing_officials ⭢ human_language.main_country | government_office_or_title.office_hol…
+▸ patterns: government_office_or_title.office_holders ⭢ governmental_jurisdiction.governing_officials ⭢ human_language.countries_spoken_in | government_office_or_title.office_holders ⭢ governmental_jurisdiction.governing_officials ⭢ human_language.main_country | government_office_or_title.office_holders ⭢ governmental_jurisdiction.governing_officials ⭢ country.languages_spoken | human_language.countries_spoken_in | country.languages_spoken
 ── Acting Prime Minister of Ukraine ──
     --government_office_or_title.office_holders--> m.0_g0wpm [basic_title: Acting Prime Minister; from: 2014-01-28-08:00; jurisdiction_of_office: Ukraine; office_holder: Sergij Arbuzov; to: 2014-02-27-08:00]
 ── Ukraine ──
@@ -8114,7 +8115,7 @@ entities: Acting Prime Minister of Ukraine  (sequence root; this layer applies t
     --country.languages_spoken--> Albanian language | Hungarian language | Moldovan language | Romanian Language | Russian Language | Tatar Language | Ukrainian Language
     Albanian language | Moldovan language | Ukrainian Language --human_language.countries_spoken_in--> Ukraine
     Hungarian language --human_language.main_country--> Ukraine
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'language.human_language.countries_spoken_in': {'direct': ['language.human_language.countries_spoken_in'], 'bridge': ['location.country.languages_spoken', 'language.human_language.main_country']}}
 anchor_sequence: Acting Prime Minister of Ukraine ⭢ government_office_or_title.office_holders | government_position_held.jurisdiction_of_office | governmental_jurisdiction.governing_officials (9) ⭢ human_language.countries_spoken_in | country.languages_spoken | human_language.main_country (0)
 layer_action: extend
@@ -8164,7 +8165,7 @@ question: what is the official language of this country
 ```text
 entities: Ukraine
 question: what is the official language of this country
-candidate_relations: location.country.languages_spoken | language.human_language.countries_spoken_in | language.human_language.language_family | language.language_dialect.language | language.human_language.iso_639_3_code | language.human_language.iso_639_2_code | language.human_language.main_country…
+candidate_relations: location.country.languages_spoken | language.human_language.countries_spoken_in | language.human_language.language_family | language.language_dialect.language | language.human_language.iso_639_3_code | language.human_language.iso_639_2_code | language.human_language.main_country | language.human_language.iso_639_1_code | people.person.nationality | language.human_language.dialects | government.governmental_jurisdiction.governing_officials | base.rosetta.languoid.languoid_class | base.rosetta.languoid.local_name | government.government_position_held.from | language.human_language.region
 grouped_relations:
   country.languages_spoken ← location.country.languages_spoken
   human_language.countries_spoken_in ← language.human_language.countries_spoken_in
@@ -8178,7 +8179,7 @@ grouped_relations:
   human_language.dialects ← language.human_language.dialects
   governmental_jurisdiction.governing_officials ← government.governmental_jurisdiction.governing_officials
   languoid.languoid_class ← base.rosetta.languoid.languoid_class
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [12] assistant
 **思考（原文）**:
@@ -8233,9 +8234,9 @@ entities: Acting Prime Minister of Ukraine  (sequence root; this layer applies t
 ── Moldova ──
     Albanian language --human_language.countries_spoken_in--> Moldova
     Tatar Language --languoid.local_name--> Russian
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'language.human_language.main_country': {'direct': ['language.human_language.main_country'], 'bridge': ['language.human_language.countries_spoken_in', 'location.country.languages_spoken']}, 'base.rosetta.languoid.local_name': {'direct': ['base.rosetta.languoid.local_name'], 'bri…
-anchor_sequence: Acting Prime Minister of Ukraine ⭢ government_office_or_title.office_holders | government_position_held.jurisdiction_of_office | governmental_jurisdiction.governing_officials (9) ⭢ human_language.countries_spoken_in | languoid.local_name | country.languages_spoken | human_language.m…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'language.human_language.main_country': {'direct': ['language.human_language.main_country'], 'bridge': ['language.human_language.countries_spoken_in', 'location.country.languages_spoken']}, 'base.rosetta.languoid.local_name': {'direct': ['base.rosetta.languoid.local_name'], 'bridge': ['language.human_language.countries_spoken_in', 'location.country.languages_spoken', 'language.human_language.main_country']}}
+anchor_sequence: Acting Prime Minister of Ukraine ⭢ government_office_or_title.office_holders | government_position_held.jurisdiction_of_office | governmental_jurisdiction.governing_officials (9) ⭢ human_language.countries_spoken_in | languoid.local_name | country.languages_spoken | human_language.main_country (7)
 layer_action: update layer 2 (replaced none)
 ```
 ## [14] assistant
@@ -8291,7 +8292,7 @@ question: what is the official language of this country
 ```text
 entities: Ukraine
 question: what is the official language of this country
-candidate_relations: location.country.languages_spoken | language.human_language.countries_spoken_in | language.human_language.language_family | language.language_dialect.language | language.human_language.iso_639_3_code | language.human_language.iso_639_2_code | language.human_language.main_country…
+candidate_relations: location.country.languages_spoken | language.human_language.countries_spoken_in | language.human_language.language_family | language.language_dialect.language | language.human_language.iso_639_3_code | language.human_language.iso_639_2_code | language.human_language.main_country | language.human_language.iso_639_1_code | people.person.nationality | language.human_language.dialects | government.governmental_jurisdiction.governing_officials | base.rosetta.languoid.languoid_class | base.rosetta.languoid.local_name | government.government_position_held.from | language.human_language.region
 grouped_relations:
   country.languages_spoken ← location.country.languages_spoken
   human_language.countries_spoken_in ← language.human_language.countries_spoken_in
@@ -8305,7 +8306,7 @@ grouped_relations:
   human_language.dialects ← language.human_language.dialects
   governmental_jurisdiction.governing_officials ← government.governmental_jurisdiction.governing_officials
   languoid.languoid_class ← base.rosetta.languoid.languoid_class
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [16] assistant
 **思考（原文）**:
@@ -8370,8 +8371,8 @@ entities: Acting Prime Minister of Ukraine
     --human_language.main_country--> Romania
 ── Ukrainian Language ──
     --human_language.main_country--> Russia
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'language.human_language.main_country': {'direct': ['language.human_language.main_country'], 'bridge': ['language.human_language.countries_spoken_in', 'location.country.languages_spoken']}, 'base.rosetta.languoid.local_name': {'direct': ['base.rosetta.languoid.local_name'], 'bri…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'language.human_language.main_country': {'direct': ['language.human_language.main_country'], 'bridge': ['language.human_language.countries_spoken_in', 'location.country.languages_spoken']}, 'base.rosetta.languoid.local_name': {'direct': ['base.rosetta.languoid.local_name'], 'bridge': ['language.human_language.countries_spoken_in', 'location.country.languages_spoken', 'language.human_language.main_country']}}
 layer_action: repeat
 ```
 ## [18] assistant
@@ -8430,7 +8431,7 @@ question: what is the official language of this country
 ```text
 entities: Ukraine
 question: what is the official language of this country
-candidate_relations: location.country.languages_spoken | language.human_language.countries_spoken_in | language.human_language.language_family | language.language_dialect.language | language.human_language.iso_639_3_code | language.human_language.iso_639_2_code | language.human_language.main_country…
+candidate_relations: location.country.languages_spoken | language.human_language.countries_spoken_in | language.human_language.language_family | language.language_dialect.language | language.human_language.iso_639_3_code | language.human_language.iso_639_2_code | language.human_language.main_country | language.human_language.iso_639_1_code | people.person.nationality | language.human_language.dialects | government.governmental_jurisdiction.governing_officials | base.rosetta.languoid.languoid_class | base.rosetta.languoid.local_name | government.government_position_held.from | language.human_language.region
 grouped_relations:
   country.languages_spoken ← location.country.languages_spoken
   human_language.countries_spoken_in ← language.human_language.countries_spoken_in
@@ -8444,7 +8445,7 @@ grouped_relations:
   human_language.dialects ← language.human_language.dialects
   governmental_jurisdiction.governing_officials ← government.governmental_jurisdiction.governing_officials
   languoid.languoid_class ← base.rosetta.languoid.languoid_class
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [20] assistant
 **思考（原文）**:
@@ -8521,9 +8522,9 @@ entities: Acting Prime Minister of Ukraine  (sequence root; this layer applies t
     --human_language.iso_639_3_code--> tat
 ── rum ──
     Albanian language --human_language.iso_639_2_code--> rum
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'base.rosetta.languoid.local_name': {'direct': ['base.rosetta.languoid.local_name'], 'bridge': ['language.human_language.countries_spoken_in', 'location.country.languages_spoken', 'language.human_language.main_country']}, 'language.human_language.iso_639_1_code': {'direct': ['la…
-anchor_sequence: Acting Prime Minister of Ukraine ⭢ government_office_or_title.office_holders | government_position_held.jurisdiction_of_office | governmental_jurisdiction.governing_officials (9) ⭢ human_language.iso_639_3_code | human_language.countries_spoken_in | human_language.iso_639_1_code | l…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'base.rosetta.languoid.local_name': {'direct': ['base.rosetta.languoid.local_name'], 'bridge': ['language.human_language.countries_spoken_in', 'location.country.languages_spoken', 'language.human_language.main_country']}, 'language.human_language.iso_639_1_code': {'direct': ['language.human_language.iso_639_1_code'], 'bridge': ['language.human_language.countries_spoken_in', 'location.country.languages_spoken', 'language.human_language.main_country']}, 'language.human_language.iso_639_2_code': {'direct': ['language.human_language.iso_639_2_code'], 'bridge': ['language.human_language.countries_spoken_in', 'location.country.languages_spoken', 'language.human_language.main_country']}, 'language.human_language.iso_639_3_code': {'direct': ['language.human_language.iso_639_3_code'], 'bridge': ['language.human_language.countries_spoken_in', 'location.country.languages_spoken', 'language.human_language.main_country']}}
+anchor_sequence: Acting Prime Minister of Ukraine ⭢ government_office_or_title.office_holders | government_position_held.jurisdiction_of_office | governmental_jurisdiction.governing_officials (9) ⭢ human_language.iso_639_3_code | human_language.countries_spoken_in | human_language.iso_639_1_code | languoid.local_name | country.languages_spoken | human_language.main_country | human_language.iso_639_2_code (7)
 layer_action: update layer 2 (replaced none)
 ```
 ## [22] assistant
@@ -8568,7 +8569,7 @@ question: what is the official language of this country
 ```text
 entities: Ukraine
 question: what is the official language of this country
-candidate_relations: location.country.languages_spoken | language.human_language.countries_spoken_in | language.human_language.language_family | language.language_dialect.language | language.human_language.iso_639_3_code | language.human_language.iso_639_2_code | language.human_language.main_country…
+candidate_relations: location.country.languages_spoken | language.human_language.countries_spoken_in | language.human_language.language_family | language.language_dialect.language | language.human_language.iso_639_3_code | language.human_language.iso_639_2_code | language.human_language.main_country | language.human_language.iso_639_1_code | people.person.nationality | language.human_language.dialects | government.governmental_jurisdiction.governing_officials | base.rosetta.languoid.languoid_class | base.rosetta.languoid.local_name | government.government_position_held.from | language.human_language.region
 grouped_relations:
   country.languages_spoken ← location.country.languages_spoken
   human_language.countries_spoken_in ← language.human_language.countries_spoken_in
@@ -8582,7 +8583,7 @@ grouped_relations:
   human_language.dialects ← language.human_language.dialects
   governmental_jurisdiction.governing_officials ← government.governmental_jurisdiction.governing_officials
   languoid.languoid_class ← base.rosetta.languoid.languoid_class
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [24] assistant
 **思考（原文）**:
@@ -8678,7 +8679,7 @@ entities: NONE
 ```
 **[27] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['Ukraine']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of other variables may still advance the answe…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['Ukraine']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of other variables may still advance the answer). Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [28] assistant
 **思考（原文）**:
@@ -8884,11 +8885,11 @@ sg1.f2: ?neighbor | what is this country's GDP deflator change rate | ?rate
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(France | which countries border this country | ?neighbor)', 'subquestion': 'which countries border this country'} | {'id': 'f2', 'triple': "(?neighbor | what is this country's GDP deflator change rate | ?rate)", 'subquestion': "what is this country's GDP deflator chang…
+flow: {'id': 'f1', 'triple': '(France | which countries border this country | ?neighbor)', 'subquestion': 'which countries border this country'} | {'id': 'f2', 'triple': "(?neighbor | what is this country's GDP deflator change rate | ?rate)", 'subquestion': "what is this country's GDP deflator change rate"}
 entities: France
 answer: ?country
 answer_type: country
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -8911,7 +8912,7 @@ question: which countries border this country
 ```text
 entities: France
 question: which countries border this country
-candidate_relations: base.locations.continents.countries_within | geography.river.basin_countries | base.locations.countries.continent | language.human_language.countries_spoken_in | location.administrative_division.country | location.location.partially_contained_by | location.partial_containment_re…
+candidate_relations: base.locations.continents.countries_within | geography.river.basin_countries | base.locations.countries.continent | language.human_language.countries_spoken_in | location.administrative_division.country | location.location.partially_contained_by | location.partial_containment_relationship.partially_contained_by | location.location.partially_containedby | geography.river.origin | location.location.containedby | base.aareas.schema.administrative_area_type.sovereignty | location.adjoining_relationship.adjoins | geography.mountain.mountain_range | location.country.languages_spoken | location.location.adjoin_s
 grouped_relations:
   continents.countries_within ← base.locations.continents.countries_within
   river.basin_countries ← geography.river.basin_countries
@@ -8925,7 +8926,7 @@ grouped_relations:
   location.containedby ← location.location.containedby
   administrative_area_type.sovereignty ← base.aareas.schema.administrative_area_type.sovereignty
   adjoining_relationship.adjoins ← location.adjoining_relationship.adjoins
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -8953,11 +8954,11 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: France
-▸ patterns: adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_contains | casualties.combatant | river.basin_countries ⭢ location.partially_contains | administrative_division.country ⭢ location.partially_conta…
+▸ patterns: adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_contains | casualties.combatant | river.basin_countries ⭢ location.partially_contains | administrative_division.country ⭢ location.partially_contains | statistical_region.places_imported_from ⭢ imports_and_exports.imported_from ⭢ location.partially_contains | imports_and_exports.exported_to | partial_containment_relationship.partially_contained_by | statistical_region.places_exported_to | statistical_region.places_imported_from
 ── France ──
-    --location.adjoin_s--> m.02nzg8j [adjoins: Italy] | m.02sd_yv [adjoins: Belgium] | m.02wrxl5 [adjoins: Germany] | m.03q9tk0 [adjoins: Spain] | m.03w5dqz [adjoins: Bay of Biscay] | m.046cs69 [adjoins: Switzerland] | m.046csbd [adjoins: Andorra] | m.046csbk [adjoins: Luxembourg] | m.046csbq [adjoi…
-    --location.partially_contained_by--> m.0wg8l5l [partially_contained_by: Europe] | m.0wg91xs [partially_contained_by: North America] | m.0wg9796 [partially_contained_by: Indian Ocean] | m.0wg99tb [partially_contained_by: Pacific Ocean] | m.0wg9f8v [partially_contained_by: South America] | m.0wg9f…
-    --location.partially_contains--> Aiguille d'Argentière | Aiguille de Bionnassay | Aiguille de Scolette | Aiguille de la Grande Sassière | Aiguille des Glaciers | Allaine | Alps | Alps–Mediterranean Euroregion | Alzette | Arve | Balaïtous | Batoua SW | Belfries of Belgium and France | Birsig | Ce…
+    --location.adjoin_s--> m.02nzg8j [adjoins: Italy] | m.02sd_yv [adjoins: Belgium] | m.02wrxl5 [adjoins: Germany] | m.03q9tk0 [adjoins: Spain] | m.03w5dqz [adjoins: Bay of Biscay] | m.046cs69 [adjoins: Switzerland] | m.046csbd [adjoins: Andorra] | m.046csbk [adjoins: Luxembourg] | m.046csbq [adjoins: Monaco] | m.046csbw [adjoins: Mediterranean Sea] | m.046csc5 [adjoins: United Kingdom]
+    --location.partially_contained_by--> m.0wg8l5l [partially_contained_by: Europe] | m.0wg91xs [partially_contained_by: North America] | m.0wg9796 [partially_contained_by: Indian Ocean] | m.0wg99tb [partially_contained_by: Pacific Ocean] | m.0wg9f8v [partially_contained_by: South America] | m.0wg9fk6 [partially_contained_by: Windward Islands] | m.0wg9fkw [partially_contained_by: Leeward Islands] | m.0wg9fmc [partially_contained_by: Western Europe] | m.0wg9hg6 [partially_contained_by: Altitude]
+    --location.partially_contains--> Aiguille d'Argentière | Aiguille de Bionnassay | Aiguille de Scolette | Aiguille de la Grande Sassière | Aiguille des Glaciers | Allaine | Alps | Alps–Mediterranean Euroregion | Alzette | Arve | Balaïtous | Batoua SW | Belfries of Belgium and France | Birsig | Cenischia | Chiers | Croix Scaille | Dent du Géant | Doubs | Dôme de Rochefort | Dôme du Goûter | EuRegio SaarLorLuxRhin | Euroregion East Sussex/Seine Maritime/Somme | Garonne | Grandes Jorasses | Haine | Leie | Meuse | Mont Agel | Mont Blanc | Mont Blanc de Courmayeur | Mont Maudit | Moselle | Normandy | Oise | Perdiguero | Pic Schrader | Pic de Médécourbe | Pica d'Estats | Pointe Walker …(+15) (to answer with ALL of them, include "#France::partially_contains" as one answer entity)
     --statistical_region.places_exported_to--> m.049377b [currency: United States Dollar; exported_to: United States of America] | m.04bfg28 [exported_to: Madagascar] | m.04fhpjj [exported_to: Algeria] | m.04fj_hp [exported_to: Andorra]
     --statistical_region.places_imported_from--> m.049377t [currency: United States Dollar; exported_to: France] | m.04bfg3r [exported_to: France] | m.04fhpg8 [exported_to: France]
     m.02nzg8j | m.02sd_yv | m.02wrxl5 | m.03q9tk0 | m.03w5dqz | m.046cs69 | m.046csbd | m.046csbk | m.046csbq | m.046csbw | m.046csc5 --adjoining_relationship.adjoins--> France
@@ -8967,7 +8968,7 @@ entities: France
     Overseas France --administrative_division.country--> France
     m.049377t | m.04bfg3r | m.04fhpg8 --imports_and_exports.exported_to--> France
     m.049377b | m.04bfg28 | m.04fhpjj --imports_and_exports.imported_from--> France
-    m.0w_khkn | m.0wg8rkz | m.0wg8rl4 | m.0wg8rln | m.0wg8rlt | m.0wg8rm9 | m.0wg8rmw | m.0wg8rn0 | m.0wg8rnj | m.0wg8rnp | m.0wg8rp5 | m.0wg8rpc …(+44) (to answer with ALL of them, include "#m.0w_khkn::partially_contained_by" as one answer entity) --partial_containment_relationship.partially_contai…
+    m.0w_khkn | m.0wg8rkz | m.0wg8rl4 | m.0wg8rln | m.0wg8rlt | m.0wg8rm9 | m.0wg8rmw | m.0wg8rn0 | m.0wg8rnj | m.0wg8rnp | m.0wg8rp5 | m.0wg8rpc …(+44) (to answer with ALL of them, include "#m.0w_khkn::partially_contained_by" as one answer entity) --partial_containment_relationship.partially_contained_by--> France
 ── Alzette ──
     --location.partially_contained_by--> m.0wg8rvs [partially_contained_by: France]
     Luxembourg --location.partially_contains--> Alzette
@@ -9008,8 +9009,8 @@ entities: France
     m.04bfg3r --imports_and_exports.imported_from--> Madagascar
     m.04fhpg8 --imports_and_exports.imported_from--> Algeria
     m.04kxmbp --casualties.combatant--> United Kingdom
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'location.adjoining_relationship.adjoins': {'direct': ['location.adjoining_relationship.adjoins'], 'bridge': ['location.imports_and_exports.imported_from', 'location.location.adjoin_s', 'location.location.partially_contained_by', 'location.location.partially_contains', 'military…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'location.adjoining_relationship.adjoins': {'direct': ['location.adjoining_relationship.adjoins'], 'bridge': ['location.imports_and_exports.imported_from', 'location.location.adjoin_s', 'location.location.partially_contained_by', 'location.location.partially_contains', 'military.casualties.combatant']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -9041,7 +9042,7 @@ question: what is this country's GDP deflator change rate
 ```text
 entities: Italy | Belgium | Germany | Spain | Switzerland | Andorra | Luxembourg | Monaco | United Kingdom
 question: what is this country's GDP deflator change rate
-candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.…
+candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.statistical_region.trade_balance_as_percent_of_gdp | location.statistical_region.gdp_nominal_per_capita | location.statistical_region.gross_savings_as_percent_of_gdp | location.statistical_region.merchandise_trade_percent_of_gdp | location.statistical_region.gni_in_ppp_dollars | location.statistical_region.gni_per_capita_in_ppp_dollars | location.statistical_region.military_expenditure_percent_gdp | location.statistical_region.market_cap_of_listed_companies_as_percent_of_gdp | location.statistical_region.consumer_price_index | location.statistical_region.agriculture_as_percent_of_gdp
 grouped_relations:
   statistical_region.gdp_deflator_change ← location.statistical_region.gdp_deflator_change
   statistical_region.gdp_growth_rate ← location.statistical_region.gdp_growth_rate
@@ -9055,7 +9056,7 @@ grouped_relations:
   statistical_region.gni_in_ppp_dollars ← location.statistical_region.gni_in_ppp_dollars
   statistical_region.gni_per_capita_in_ppp_dollars ← location.statistical_region.gni_per_capita_in_ppp_dollars
   statistical_region.military_expenditure_percent_gdp ← location.statistical_region.military_expenditure_percent_gdp
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -9083,7 +9084,7 @@ entities: France  (sequence root; this layer applies to the frontier: Aiguille d
 ▸ patterns: imports_and_exports.imported_from
 ── France ──
     m.04fj_hp --imports_and_exports.imported_from--> France
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 anchor_sequence: France ⭢ adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_contains | casualties.combatant (84) ⭢ statistical_region.gdp_deflator_change (0)
 layer_action: extend
 ```
@@ -9134,7 +9135,7 @@ question: what is this country's GDP deflator change rate
 ```text
 entities: Italy | Belgium | Germany | Spain | Switzerland | Andorra | Luxembourg | Monaco | United Kingdom
 question: what is this country's GDP deflator change rate
-candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.…
+candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.statistical_region.trade_balance_as_percent_of_gdp | location.statistical_region.gdp_nominal_per_capita | location.statistical_region.gross_savings_as_percent_of_gdp | location.statistical_region.merchandise_trade_percent_of_gdp | location.statistical_region.gni_in_ppp_dollars | location.statistical_region.gni_per_capita_in_ppp_dollars | location.statistical_region.military_expenditure_percent_gdp | location.statistical_region.market_cap_of_listed_companies_as_percent_of_gdp | location.statistical_region.consumer_price_index | location.statistical_region.agriculture_as_percent_of_gdp
 grouped_relations:
   statistical_region.gdp_deflator_change ← location.statistical_region.gdp_deflator_change
   statistical_region.gdp_growth_rate ← location.statistical_region.gdp_growth_rate
@@ -9148,7 +9149,7 @@ grouped_relations:
   statistical_region.gni_in_ppp_dollars ← location.statistical_region.gni_in_ppp_dollars
   statistical_region.gni_per_capita_in_ppp_dollars ← location.statistical_region.gni_per_capita_in_ppp_dollars
   statistical_region.military_expenditure_percent_gdp ← location.statistical_region.military_expenditure_percent_gdp
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [13] assistant
 **思考（原文）**:
@@ -9191,9 +9192,9 @@ entities: France  (sequence root; this layer applies to the frontier: Aiguille d
     m.04fhpjj --imports_and_exports.exported_to--> Algeria
 ── Andorra ──
     m.046csbd --adjoining_relationship.adjoins--> Andorra
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'location.statistical_region.cpi_inflation_rate': {'direct': ['location.statistical_region.cpi_inflation_rate'], 'bridge': ['location.adjoining_relationship.adjoins', 'location.imports_and_exports.exported_to', 'location.location.adjoin_s', 'military.casualties.combatant']}, 'lo…
-anchor_sequence: France ⭢ adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_contains | statistical_region.cpi_inflation_rate | statistical_region.government_debt_percent_gdp | casualties.combatant (84) ⭢ impo…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'location.statistical_region.cpi_inflation_rate': {'direct': ['location.statistical_region.cpi_inflation_rate'], 'bridge': ['location.adjoining_relationship.adjoins', 'location.imports_and_exports.exported_to', 'location.location.adjoin_s', 'military.casualties.combatant']}, 'location.statistical_region.government_debt_percent_gdp': {'direct': ['location.statistical_region.government_debt_percent_gdp'], 'bridge': ['location.adjoining_relationship.adjoins', 'location.imports_and_exports.exported_to', 'location.location.adjoin_s', 'military.casualties.combatant']}}
+anchor_sequence: France ⭢ adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_contains | statistical_region.cpi_inflation_rate | statistical_region.government_debt_percent_gdp | casualties.combatant (84) ⭢ imports_and_exports.exported_to | statistical_region.gdp_deflator_change | statistical_region.gdp_growth_rate (0)
 layer_action: extend
 ```
 ## [15] assistant
@@ -9260,7 +9261,7 @@ entities: NONE
 ```
 **[16] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?neighbor=['Italy', 'Belgium', 'Germany', 'Spain']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of other variabl…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?neighbor=['Italy', 'Belgium', 'Germany', 'Spain']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of other variables may still advance the answer). Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [17] assistant
 **思考（原文）**:
@@ -9313,7 +9314,7 @@ question: what is this country's GDP deflator change rate
 ```text
 entities: Italy | Belgium | Germany | Spain | Switzerland | Andorra | Luxembourg | Monaco | United Kingdom
 question: what is this country's GDP deflator change rate
-candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.…
+candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.statistical_region.trade_balance_as_percent_of_gdp | location.statistical_region.gdp_nominal_per_capita | location.statistical_region.gross_savings_as_percent_of_gdp | location.statistical_region.merchandise_trade_percent_of_gdp | location.statistical_region.gni_in_ppp_dollars | location.statistical_region.gni_per_capita_in_ppp_dollars | location.statistical_region.military_expenditure_percent_gdp | location.statistical_region.market_cap_of_listed_companies_as_percent_of_gdp | location.statistical_region.consumer_price_index | location.statistical_region.agriculture_as_percent_of_gdp
 grouped_relations:
   statistical_region.gdp_deflator_change ← location.statistical_region.gdp_deflator_change
   statistical_region.gdp_growth_rate ← location.statistical_region.gdp_growth_rate
@@ -9327,7 +9328,7 @@ grouped_relations:
   statistical_region.gni_in_ppp_dollars ← location.statistical_region.gni_in_ppp_dollars
   statistical_region.gni_per_capita_in_ppp_dollars ← location.statistical_region.gni_per_capita_in_ppp_dollars
   statistical_region.military_expenditure_percent_gdp ← location.statistical_region.military_expenditure_percent_gdp
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [19] assistant
 **思考（原文）**:
@@ -9371,8 +9372,8 @@ entities: France
     --statistical_region.government_debt_percent_gdp--> m.0nfn44k
     m.049377t | m.04bfg3r | m.04fhpg8 --imports_and_exports.exported_to--> France
     m.0wg8rnp --partial_containment_relationship.partially_contained_by--> France
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'location.statistical_region.cpi_inflation_rate': {'direct': ['location.statistical_region.cpi_inflation_rate'], 'bridge': ['location.adjoining_relationship.adjoins', 'location.imports_and_exports.exported_to', 'location.location.adjoin_s', 'military.casualties.combatant']}, 'lo…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'location.statistical_region.cpi_inflation_rate': {'direct': ['location.statistical_region.cpi_inflation_rate'], 'bridge': ['location.adjoining_relationship.adjoins', 'location.imports_and_exports.exported_to', 'location.location.adjoin_s', 'military.casualties.combatant']}, 'location.statistical_region.government_debt_percent_gdp': {'direct': ['location.statistical_region.government_debt_percent_gdp'], 'bridge': ['location.adjoining_relationship.adjoins', 'location.imports_and_exports.exported_to', 'location.location.adjoin_s', 'military.casualties.combatant']}}
 layer_action: repeat
 ```
 ## [21] assistant
@@ -9564,11 +9565,11 @@ sg1.f2: ?border_country | what is this country's GDP deflator change rate | ?gdp
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(France | which countries border this country | ?border_country)', 'subquestion': 'which countries border this country'} | {'id': 'f2', 'triple': "(?border_country | what is this country's GDP deflator change rate | ?gdp_rate)", 'subquestion': "what is this country's GD…
+flow: {'id': 'f1', 'triple': '(France | which countries border this country | ?border_country)', 'subquestion': 'which countries border this country'} | {'id': 'f2', 'triple': "(?border_country | what is this country's GDP deflator change rate | ?gdp_rate)", 'subquestion': "what is this country's GDP deflator change rate"}
 entities: France
 answer: ?country
 answer_type: country
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -9599,7 +9600,7 @@ question: which countries border this country
 ```text
 entities: France
 question: which countries border this country
-candidate_relations: base.locations.continents.countries_within | geography.river.basin_countries | base.locations.countries.continent | language.human_language.countries_spoken_in | location.administrative_division.country | location.location.partially_contained_by | location.partial_containment_re…
+candidate_relations: base.locations.continents.countries_within | geography.river.basin_countries | base.locations.countries.continent | language.human_language.countries_spoken_in | location.administrative_division.country | location.location.partially_contained_by | location.partial_containment_relationship.partially_contained_by | location.location.partially_containedby | geography.river.origin | location.location.containedby | base.aareas.schema.administrative_area_type.sovereignty | location.adjoining_relationship.adjoins | geography.mountain.mountain_range | location.country.languages_spoken | location.location.adjoin_s
 grouped_relations:
   continents.countries_within ← base.locations.continents.countries_within
   river.basin_countries ← geography.river.basin_countries
@@ -9613,7 +9614,7 @@ grouped_relations:
   location.containedby ← location.location.containedby
   administrative_area_type.sovereignty ← base.aareas.schema.administrative_area_type.sovereignty
   adjoining_relationship.adjoins ← location.adjoining_relationship.adjoins
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -9642,11 +9643,11 @@ facts: f1
 fact_id: sg1
 triples:
 entities: France
-▸ patterns: adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_contains | casualties.combatant | river.basin_countries ⭢ location.partially_contains | administrative_division.country ⭢ location.partially_conta…
+▸ patterns: adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_contains | casualties.combatant | river.basin_countries ⭢ location.partially_contains | administrative_division.country ⭢ location.partially_contains | statistical_region.places_imported_from ⭢ imports_and_exports.imported_from ⭢ location.partially_contains | imports_and_exports.exported_to | partial_containment_relationship.partially_contained_by | statistical_region.places_exported_to | statistical_region.places_imported_from
 ── France ──
-    --location.adjoin_s--> m.02nzg8j [adjoins: Italy] | m.02sd_yv [adjoins: Belgium] | m.02wrxl5 [adjoins: Germany] | m.03q9tk0 [adjoins: Spain] | m.03w5dqz [adjoins: Bay of Biscay] | m.046cs69 [adjoins: Switzerland] | m.046csbd [adjoins: Andorra] | m.046csbk [adjoins: Luxembourg] | m.046csbq [adjoi…
-    --location.partially_contained_by--> m.0wg8l5l [partially_contained_by: Europe] | m.0wg91xs [partially_contained_by: North America] | m.0wg9796 [partially_contained_by: Indian Ocean] | m.0wg99tb [partially_contained_by: Pacific Ocean] | m.0wg9f8v [partially_contained_by: South America] | m.0wg9f…
-    --location.partially_contains--> Aiguille d'Argentière | Aiguille de Bionnassay | Aiguille de Scolette | Aiguille de la Grande Sassière | Aiguille des Glaciers | Allaine | Alps | Alps–Mediterranean Euroregion | Alzette | Arve | Balaïtous | Batoua SW | Belfries of Belgium and France | Birsig | Ce…
+    --location.adjoin_s--> m.02nzg8j [adjoins: Italy] | m.02sd_yv [adjoins: Belgium] | m.02wrxl5 [adjoins: Germany] | m.03q9tk0 [adjoins: Spain] | m.03w5dqz [adjoins: Bay of Biscay] | m.046cs69 [adjoins: Switzerland] | m.046csbd [adjoins: Andorra] | m.046csbk [adjoins: Luxembourg] | m.046csbq [adjoins: Monaco] | m.046csbw [adjoins: Mediterranean Sea] | m.046csc5 [adjoins: United Kingdom]
+    --location.partially_contained_by--> m.0wg8l5l [partially_contained_by: Europe] | m.0wg91xs [partially_contained_by: North America] | m.0wg9796 [partially_contained_by: Indian Ocean] | m.0wg99tb [partially_contained_by: Pacific Ocean] | m.0wg9f8v [partially_contained_by: South America] | m.0wg9fk6 [partially_contained_by: Windward Islands] | m.0wg9fkw [partially_contained_by: Leeward Islands] | m.0wg9fmc [partially_contained_by: Western Europe] | m.0wg9hg6 [partially_contained_by: Altitude]
+    --location.partially_contains--> Aiguille d'Argentière | Aiguille de Bionnassay | Aiguille de Scolette | Aiguille de la Grande Sassière | Aiguille des Glaciers | Allaine | Alps | Alps–Mediterranean Euroregion | Alzette | Arve | Balaïtous | Batoua SW | Belfries of Belgium and France | Birsig | Cenischia | Chiers | Croix Scaille | Dent du Géant | Doubs | Dôme de Rochefort | Dôme du Goûter | EuRegio SaarLorLuxRhin | Euroregion East Sussex/Seine Maritime/Somme | Garonne | Grandes Jorasses | Haine | Leie | Meuse | Mont Agel | Mont Blanc | Mont Blanc de Courmayeur | Mont Maudit | Moselle | Normandy | Oise | Perdiguero | Pic Schrader | Pic de Médécourbe | Pica d'Estats | Pointe Walker …(+15) (to answer with ALL of them, include "#France::partially_contains" as one answer entity)
     --statistical_region.places_exported_to--> m.049377b [currency: United States Dollar; exported_to: United States of America] | m.04bfg28 [exported_to: Madagascar] | m.04fhpjj [exported_to: Algeria] | m.04fj_hp [exported_to: Andorra]
     --statistical_region.places_imported_from--> m.049377t [currency: United States Dollar; exported_to: France] | m.04bfg3r [exported_to: France] | m.04fhpg8 [exported_to: France]
     m.02nzg8j | m.02sd_yv | m.02wrxl5 | m.03q9tk0 | m.03w5dqz | m.046cs69 | m.046csbd | m.046csbk | m.046csbq | m.046csbw | m.046csc5 --adjoining_relationship.adjoins--> France
@@ -9656,7 +9657,7 @@ entities: France
     Overseas France --administrative_division.country--> France
     m.049377t | m.04bfg3r | m.04fhpg8 --imports_and_exports.exported_to--> France
     m.049377b | m.04bfg28 | m.04fhpjj --imports_and_exports.imported_from--> France
-    m.0w_khkn | m.0wg8rkz | m.0wg8rl4 | m.0wg8rln | m.0wg8rlt | m.0wg8rm9 | m.0wg8rmw | m.0wg8rn0 | m.0wg8rnj | m.0wg8rnp | m.0wg8rp5 | m.0wg8rpc …(+44) (to answer with ALL of them, include "#m.0w_khkn::partially_contained_by" as one answer entity) --partial_containment_relationship.partially_contai…
+    m.0w_khkn | m.0wg8rkz | m.0wg8rl4 | m.0wg8rln | m.0wg8rlt | m.0wg8rm9 | m.0wg8rmw | m.0wg8rn0 | m.0wg8rnj | m.0wg8rnp | m.0wg8rp5 | m.0wg8rpc …(+44) (to answer with ALL of them, include "#m.0w_khkn::partially_contained_by" as one answer entity) --partial_containment_relationship.partially_contained_by--> France
 ── Alzette ──
     --location.partially_contained_by--> m.0wg8rvs [partially_contained_by: France]
     Luxembourg --location.partially_contains--> Alzette
@@ -9697,8 +9698,8 @@ entities: France
     m.04bfg3r --imports_and_exports.imported_from--> Madagascar
     m.04fhpg8 --imports_and_exports.imported_from--> Algeria
     m.04kxmbp --casualties.combatant--> United Kingdom
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'location.adjoining_relationship.adjoins': {'direct': ['location.adjoining_relationship.adjoins'], 'bridge': ['location.imports_and_exports.imported_from', 'location.location.adjoin_s', 'location.location.partially_contained_by', 'location.location.partially_contains', 'military…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'location.adjoining_relationship.adjoins': {'direct': ['location.adjoining_relationship.adjoins'], 'bridge': ['location.imports_and_exports.imported_from', 'location.location.adjoin_s', 'location.location.partially_contained_by', 'location.location.partially_contains', 'military.casualties.combatant']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -9745,7 +9746,7 @@ question: what is this country's GDP deflator change rate
 ```text
 entities: Italy | Belgium | Germany | Spain | Switzerland | Andorra | Luxembourg | Monaco | United Kingdom | Pyrenees | Regio TriRhena | Uia di Ciamarella | Upper Rhine | Vignemale | Vignemale Massif
 question: what is this country's GDP deflator change rate
-candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.…
+candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.statistical_region.trade_balance_as_percent_of_gdp | location.statistical_region.gdp_nominal_per_capita | location.statistical_region.gross_savings_as_percent_of_gdp | location.statistical_region.merchandise_trade_percent_of_gdp | location.statistical_region.gni_in_ppp_dollars | location.statistical_region.gni_per_capita_in_ppp_dollars | location.statistical_region.military_expenditure_percent_gdp | location.statistical_region.market_cap_of_listed_companies_as_percent_of_gdp | location.statistical_region.consumer_price_index | location.statistical_region.agriculture_as_percent_of_gdp
 grouped_relations:
   statistical_region.gdp_deflator_change ← location.statistical_region.gdp_deflator_change
   statistical_region.gdp_growth_rate ← location.statistical_region.gdp_growth_rate
@@ -9759,7 +9760,7 @@ grouped_relations:
   statistical_region.gni_in_ppp_dollars ← location.statistical_region.gni_in_ppp_dollars
   statistical_region.gni_per_capita_in_ppp_dollars ← location.statistical_region.gni_per_capita_in_ppp_dollars
   statistical_region.military_expenditure_percent_gdp ← location.statistical_region.military_expenditure_percent_gdp
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -9793,7 +9794,7 @@ facts: f2
 fact_id: sg1
 triples:
 entities: France  (sequence root; this layer applies to the frontier: Aiguille d'Argentière | Aiguille de Bionnassay | Aiguille de Scolette | Aiguille de la Grande Sassière | Aiguille des Glaciers | Algeria | Allaine | Alps | Alps–Mediterranean Euroregion | Altitude | Alzette | Andorra)
-▸ patterns: location.partially_containedby | adjoining_relationship.adjoins ⭢ adjoining_relationship.adjoins ⭢ location.partially_containedby | adjoining_relationship.adjoins ⭢ location.adjoin_s ⭢ location.partially_containedby | imports_and_exports.imported_from ⭢ imports_and_exports.exported_to ⭢ …
+▸ patterns: location.partially_containedby | adjoining_relationship.adjoins ⭢ adjoining_relationship.adjoins ⭢ location.partially_containedby | adjoining_relationship.adjoins ⭢ location.adjoin_s ⭢ location.partially_containedby | imports_and_exports.imported_from ⭢ imports_and_exports.exported_to ⭢ location.partially_containedby
 ── France ──
     --location.partially_containedby--> Altitude
     m.02nzg8j | m.02sd_yv | m.02wrxl5 | m.03q9tk0 | m.046cs69 | m.046csbd | m.046csbk | m.046csbq | m.046csc5 --adjoining_relationship.adjoins--> France
@@ -9818,7 +9819,7 @@ entities: France  (sequence root; this layer applies to the frontier: Aiguille d
     Euroregion East Sussex/Seine Maritime/Somme --location.partially_containedby--> United Kingdom
 ── Italy ──
     --location.adjoin_s--> m.02nzg8j [adjoins: Italy]
-    Aiguille de Bionnassay | Aiguille de Scolette | Aiguille de la Grande Sassière | Aiguille des Glaciers | Alps | Alps–Mediterranean Euroregion | Cenischia | Dent du Géant | Dôme de Rochefort | Dôme du Goûter | Grandes Jorasses | Mont Blanc …(+4) (to answer with ALL of them, include "#Aiguille de …
+    Aiguille de Bionnassay | Aiguille de Scolette | Aiguille de la Grande Sassière | Aiguille des Glaciers | Alps | Alps–Mediterranean Euroregion | Cenischia | Dent du Géant | Dôme de Rochefort | Dôme du Goûter | Grandes Jorasses | Mont Blanc …(+4) (to answer with ALL of them, include "#Aiguille de Bionnassay::partially_containedby" as one answer entity) --location.partially_containedby--> Italy
 ── Belgium ──
     --location.adjoin_s--> m.02sd_yv [adjoins: Belgium]
     Belfries of Belgium and France | Chiers | Croix Scaille | EuRegio SaarLorLuxRhin | Haine | Leie | Meuse | Oise | Sambre | Scheldt | Semois | Yser --location.partially_containedby--> Belgium
@@ -9831,7 +9832,7 @@ entities: France  (sequence root; this layer applies to the frontier: Aiguille d
     Alzette --location.partially_containedby--> Luxembourg
     French Southern and Antarctic Lands --location.partially_containedby--> Altitude
     Overseas France --location.partially_containedby--> Altitude
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'location.statistical_region.gdp_deflator_change': {'direct': ['location.statistical_region.gdp_deflator_change'], 'bridge': ['location.location.partially_containedby']}}
 anchor_sequence: France ⭢ adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_contains | casualties.combatant (84) ⭢ location.partially_containedby | statistical_region.gdp_deflator_change (0)
 layer_action: extend
@@ -9901,7 +9902,7 @@ entities: NONE
 ```
 **[12] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?border_country=['Italy', 'Belgium', 'Germany', 'Spain']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of other v…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?border_country=['Italy', 'Belgium', 'Germany', 'Spain']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of other variables may still advance the answer). Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [13] assistant
 **思考（原文）**:
@@ -10015,7 +10016,7 @@ relations: location.statistical_region.cpi_inflation_rate | location.statistical
 ```text
 entities: Italy | Belgium | Germany | Spain | Switzerland | Andorra | Luxembourg | Monaco | United Kingdom | Upper Rhine | Vignemale | Vignemale Massif | Mont Blanc de Courmayeur | Mont Maudit | Pointe Walker
 question: what is this country's GDP deflator change rate
-candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.…
+candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.statistical_region.trade_balance_as_percent_of_gdp | location.statistical_region.gdp_nominal_per_capita | location.statistical_region.gross_savings_as_percent_of_gdp | location.statistical_region.merchandise_trade_percent_of_gdp | location.statistical_region.gni_in_ppp_dollars | location.statistical_region.gni_per_capita_in_ppp_dollars | location.statistical_region.military_expenditure_percent_gdp | location.statistical_region.market_cap_of_listed_companies_as_percent_of_gdp | location.statistical_region.consumer_price_index | location.statistical_region.agriculture_as_percent_of_gdp
 grouped_relations:
   statistical_region.gdp_deflator_change ← location.statistical_region.gdp_deflator_change
   statistical_region.gdp_growth_rate ← location.statistical_region.gdp_growth_rate
@@ -10029,7 +10030,7 @@ grouped_relations:
   statistical_region.gni_in_ppp_dollars ← location.statistical_region.gni_in_ppp_dollars
   statistical_region.gni_per_capita_in_ppp_dollars ← location.statistical_region.gni_per_capita_in_ppp_dollars
   statistical_region.military_expenditure_percent_gdp ← location.statistical_region.military_expenditure_percent_gdp
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [17] assistant
 **思考（原文）**:
@@ -10151,11 +10152,11 @@ sg1.f2: ?country | which GDP deflator change rate does this country have | ?rate
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(France | which countries border this country | ?country)', 'subquestion': 'which countries border this country'} | {'id': 'f2', 'triple': '(?country | which GDP deflator change rate does this country have | ?rate)', 'subquestion': 'which GDP deflator change rate does t…
+flow: {'id': 'f1', 'triple': '(France | which countries border this country | ?country)', 'subquestion': 'which countries border this country'} | {'id': 'f2', 'triple': '(?country | which GDP deflator change rate does this country have | ?rate)', 'subquestion': 'which GDP deflator change rate does this country have'}
 entities: France
 answer: ?country
 answer_type: country
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -10178,7 +10179,7 @@ question: which countries border this country
 ```text
 entities: France
 question: which countries border this country
-candidate_relations: base.locations.continents.countries_within | geography.river.basin_countries | base.locations.countries.continent | language.human_language.countries_spoken_in | location.administrative_division.country | location.location.partially_contained_by | location.partial_containment_re…
+candidate_relations: base.locations.continents.countries_within | geography.river.basin_countries | base.locations.countries.continent | language.human_language.countries_spoken_in | location.administrative_division.country | location.location.partially_contained_by | location.partial_containment_relationship.partially_contained_by | location.location.partially_containedby | geography.river.origin | location.location.containedby | base.aareas.schema.administrative_area_type.sovereignty | location.adjoining_relationship.adjoins | geography.mountain.mountain_range | location.country.languages_spoken | location.location.adjoin_s
 grouped_relations:
   continents.countries_within ← base.locations.continents.countries_within
   river.basin_countries ← geography.river.basin_countries
@@ -10192,7 +10193,7 @@ grouped_relations:
   location.containedby ← location.location.containedby
   administrative_area_type.sovereignty ← base.aareas.schema.administrative_area_type.sovereignty
   adjoining_relationship.adjoins ← location.adjoining_relationship.adjoins
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -10225,13 +10226,13 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: France
-▸ patterns: administrative_area_type.sovereignty | river.basin_countries | adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_containedby | location.partially_contains | location.partiallycontains | casualties…
+▸ patterns: administrative_area_type.sovereignty | river.basin_countries | adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_containedby | location.partially_contains | location.partiallycontains | casualties.combatant | river.basin_countries ⭢ location.partially_containedby | river.basin_countries ⭢ location.partially_contains | administrative_division.country ⭢ location.partially_containedby | administrative_division.country ⭢ location.partially_contains | country.first_level_divisions ⭢ location.partially_containedby | country.first_level_divisions ⭢ location.partially_contains | adjoining_relationship.adjoins ⭢ adjoining_relationship.adjoins ⭢ river.basin_countries | adjoining_relationship.adjoins ⭢ location.adjoin_s ⭢ river.basin_countries | imports_and_exports.imported_from ⭢ imports_and_exports.exported_to ⭢ river.basin_countries | location.adjoin_s ⭢ adjoining_relationship.adjoins ⭢ rive…
 ── France ──
-    --location.adjoin_s--> m.02nzg8j [adjoins: Italy] | m.02sd_yv [adjoins: Belgium] | m.02wrxl5 [adjoins: Germany] | m.03q9tk0 [adjoins: Spain] | m.03w5dqz [adjoins: Bay of Biscay] | m.046cs69 [adjoins: Switzerland] | m.046csbd [adjoins: Andorra] | m.046csbk [adjoins: Luxembourg] | m.046csbq [adjoi…
+    --location.adjoin_s--> m.02nzg8j [adjoins: Italy] | m.02sd_yv [adjoins: Belgium] | m.02wrxl5 [adjoins: Germany] | m.03q9tk0 [adjoins: Spain] | m.03w5dqz [adjoins: Bay of Biscay] | m.046cs69 [adjoins: Switzerland] | m.046csbd [adjoins: Andorra] | m.046csbk [adjoins: Luxembourg] | m.046csbq [adjoins: Monaco] | m.046csbw [adjoins: Mediterranean Sea] | m.046csc5 [adjoins: United Kingdom]
     --country.first_level_divisions--> French Southern and Antarctic Lands
-    --location.partially_contained_by--> m.0wg8l5l [partially_contained_by: Europe] | m.0wg91xs [partially_contained_by: North America] | m.0wg9796 [partially_contained_by: Indian Ocean] | m.0wg99tb [partially_contained_by: Pacific Ocean] | m.0wg9f8v [partially_contained_by: South America] | m.0wg9f…
-    --location.partially_contains--> Aiguille d'Argentière | Aiguille de Bionnassay | Aiguille de Scolette | Aiguille de la Grande Sassière | Aiguille des Glaciers | Allaine | Alps | Alps–Mediterranean Euroregion | Alzette | Arve | Balaïtous | Batoua SW | Bay of Biscay | Belfries of Belgium and Fran…
-    --location.partiallycontains--> m.0w_khkn [partially_contains: Dôme de Rochefort] | m.0wg8rkz [partially_contained_by: France] | m.0wg8rl4 [partially_contained_by: France] | m.0wg8rln [partially_contained_by: France] | m.0wg8rlt [partially_contained_by: France] | m.0wg8rm9 [partially_contains: A…
+    --location.partially_contained_by--> m.0wg8l5l [partially_contained_by: Europe] | m.0wg91xs [partially_contained_by: North America] | m.0wg9796 [partially_contained_by: Indian Ocean] | m.0wg99tb [partially_contained_by: Pacific Ocean] | m.0wg9f8v [partially_contained_by: South America] | m.0wg9fk6 [partially_contained_by: Windward Islands] | m.0wg9fkw [partially_contained_by: Leeward Islands] | m.0wg9fmc [partially_contained_by: Western Europe] | m.0wg9hg6 [partially_contained_by: Altitude]
+    --location.partially_contains--> Aiguille d'Argentière | Aiguille de Bionnassay | Aiguille de Scolette | Aiguille de la Grande Sassière | Aiguille des Glaciers | Allaine | Alps | Alps–Mediterranean Euroregion | Alzette | Arve | Balaïtous | Batoua SW | Bay of Biscay | Belfries of Belgium and France | Birsig | Cenischia | Chiers | Croix Scaille | Dent du Géant | Doubs | Dôme de Rochefort | Dôme du Goûter | EuRegio SaarLorLuxRhin | Euroregion East Sussex/Seine Maritime/Somme | Garonne | Grandes Jorasses | Haine | Leie | Meuse | Mont Agel | Mont Blanc | Mont Blanc de Courmayeur | Mont Maudit | Moselle | Normandy | Oise | Perdiguero | Pic Schrader | Pic de Médécourbe | Pica d'Estats …(+16) (to answer with ALL of them, include "#France::partially_contains" as one answer entity)
+    --location.partiallycontains--> m.0w_khkn [partially_contains: Dôme de Rochefort] | m.0wg8rkz [partially_contained_by: France] | m.0wg8rl4 [partially_contained_by: France] | m.0wg8rln [partially_contained_by: France] | m.0wg8rlt [partially_contained_by: France] | m.0wg8rm9 [partially_contains: Alps] | m.0wg8rmw [partially_contained_by: France] | m.0wg8rn0 [partially_contained_by: France] | m.0wg8rnj [partially_contained_by: France] | m.0wg8rnp [partially_contains: Bay of Biscay] | m.0wg8rp5 [partially_contained_by: France] | m.0wg8rpc [partially_contains: Rhône] | m.0wg8rpy [partially_contains: Puigmal] | m.0wg8rq2 [partially_contained_by: France] | m.0wg8rql [partially_contained_by: France] | m.0wg8rqr [partially_contained_by: France] | m.0wg8rqx [partially_contained_by: France] | m.0wg8rr2 [partially_contained_by: France] | m.0wg8rr7 [partially_contained_by: France] | m.0wg8rrd [partially_contains: Mont Agel] | m.0wg8rrk [partially_contains: Pointe Walker] | m.0wg8rrq [partially_…
     m.02nzg8j | m.02sd_yv | m.02wrxl5 | m.03q9tk0 | m.03w5dqz | m.046cs69 | m.046csbd | m.046csbk | m.046csbq | m.046csbw | m.046csc5 --adjoining_relationship.adjoins--> France
     Allaine | Alzette | Arve | Birsig | Cenischia | Chiers | Doubs | Garonne | Haine | Leie | Meuse | Moselle …(+8) (to answer with ALL of them, include "#Allaine::basin_countries" as one answer entity) --river.basin_countries--> France
     m.03brnh0 | m.062t8qh | m.0631kkd | m.0c1qd42 --casualties.combatant--> France
@@ -10239,7 +10240,7 @@ entities: France
     Overseas France --administrative_division.country--> France
     m.049377t | m.04bfg3r | m.04fhpg8 --imports_and_exports.exported_to--> France
     m.049377b | m.04bfg28 | m.04fhpjj | m.04fj_hp --imports_and_exports.imported_from--> France
-    Aiguille d'Argentière | Aiguille de Bionnassay | Aiguille de Scolette | Aiguille de la Grande Sassière | Aiguille des Glaciers | Alps | Alps–Mediterranean Euroregion | Balaïtous | Batoua SW | Belfries of Belgium and France | Croix Scaille | Dent du Géant …(+23) (to answer with ALL of them, inclu…
+    Aiguille d'Argentière | Aiguille de Bionnassay | Aiguille de Scolette | Aiguille de la Grande Sassière | Aiguille des Glaciers | Alps | Alps–Mediterranean Euroregion | Balaïtous | Batoua SW | Belfries of Belgium and France | Croix Scaille | Dent du Géant …(+23) (to answer with ALL of them, include "#Aiguille d'Argentière::partially_containedby" as one answer entity) --location.partially_containedby--> France
     Altitude | Europe | Indian Ocean | Leeward Islands | Mediterranean Sea | North America | Pacific Ocean | South America | Western Europe | Windward Islands --location.partially_contains--> France
     French arrondisement | French canton | French commune | French department | French municipal arrondisement | French overseas department | French overseas region | French region --administrative_area_type.sovereignty--> France
 ── Alzette ──
@@ -10300,8 +10301,8 @@ entities: France
     m.049377t --imports_and_exports.imported_from--> United States of America
     m.04bfg3r --imports_and_exports.imported_from--> Madagascar
     m.04fhpg8 --imports_and_exports.imported_from--> Algeria
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'location.adjoining_relationship.adjoins': {'direct': ['location.adjoining_relationship.adjoins'], 'bridge': ['location.imports_and_exports.imported_from', 'location.location.adjoin_s', 'location.location.partially_contained_by', 'location.location.partially_contains', 'military…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'location.adjoining_relationship.adjoins': {'direct': ['location.adjoining_relationship.adjoins'], 'bridge': ['location.imports_and_exports.imported_from', 'location.location.adjoin_s', 'location.location.partially_contained_by', 'location.location.partially_contains', 'military.casualties.combatant']}, 'location.location.partially_contained_by': {'direct': ['location.location.partially_contained_by'], 'bridge': ['geography.river.basin_countries', 'location.location.adjoin_s', 'location.location.partially_containedby', 'location.location.partially_contains', 'location.location.partiallycontains', 'location.partial_containment_relationship.partially_contained_by']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -10351,7 +10352,7 @@ question: which GDP deflator change rate does this country have
 ```text
 entities: Italy | Belgium | Germany | Spain | Switzerland | Andorra | Luxembourg | Monaco | United Kingdom
 question: which GDP deflator change rate does this country have
-candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.…
+candidate_relations: location.statistical_region.gdp_deflator_change | location.statistical_region.gdp_growth_rate | location.statistical_region.government_debt_percent_gdp | location.statistical_region.health_expenditure_as_percent_of_gdp | location.statistical_region.cpi_inflation_rate | location.statistical_region.trade_balance_as_percent_of_gdp | location.statistical_region.gross_savings_as_percent_of_gdp | location.statistical_region.gdp_nominal_per_capita | location.statistical_region.merchandise_trade_percent_of_gdp | location.statistical_region.gni_in_ppp_dollars | location.statistical_region.gni_per_capita_in_ppp_dollars | location.statistical_region.military_expenditure_percent_gdp | location.statistical_region.consumer_price_index | location.statistical_region.market_cap_of_listed_companies_as_percent_of_gdp | location.statistical_region.agriculture_as_percent_of_gdp
 grouped_relations:
   statistical_region.gdp_deflator_change ← location.statistical_region.gdp_deflator_change
   statistical_region.gdp_growth_rate ← location.statistical_region.gdp_growth_rate
@@ -10365,7 +10366,7 @@ grouped_relations:
   statistical_region.gni_in_ppp_dollars ← location.statistical_region.gni_in_ppp_dollars
   statistical_region.gni_per_capita_in_ppp_dollars ← location.statistical_region.gni_per_capita_in_ppp_dollars
   statistical_region.military_expenditure_percent_gdp ← location.statistical_region.military_expenditure_percent_gdp
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -10396,8 +10397,8 @@ entities: France  (sequence root; this layer applies to the frontier: Aiguille d
 ▸ patterns: imports_and_exports.imported_from
 ── France ──
     m.04fj_hp --imports_and_exports.imported_from--> France
-note: UNCHANGED EVIDENCE (repeat): these relations produced no NEW edges since your previous subgraph — the same evidence is displayed again so it stays in context. ACT on it (checkpoint / answer / move to the next fact); re-retrieving will return the same. SEQUENCE EXTENSION applied to several fron…
-anchor_sequence: France ⭢ administrative_area_type.sovereignty | river.basin_countries | adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_containedby | location.partially_contains | location.partiallycontain…
+note: UNCHANGED EVIDENCE (repeat): these relations produced no NEW edges since your previous subgraph — the same evidence is displayed again so it stays in context. ACT on it (checkpoint / answer / move to the next fact); re-retrieving will return the same. SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+anchor_sequence: France ⭢ administrative_area_type.sovereignty | river.basin_countries | adjoining_relationship.adjoins | imports_and_exports.imported_from | location.adjoin_s | location.partially_contained_by | location.partially_containedby | location.partially_contains | location.partiallycontains | partial_containment_relationship.partially_contained_by | casualties.combatant (92) ⭢ statistical_region.gdp_deflator_change (0)
 layer_action: extend
 ```
 **[10] 工具结果**:
@@ -10460,7 +10461,7 @@ entities: NONE
 ```
 **[12] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['Italy', 'Belgium', 'Germany', 'Spain']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?country=['Italy', 'Belgium', 'Germa…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['Italy', 'Belgium', 'Germany', 'Spain']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?country=['Italy', 'Belgium', 'Germany', 'Spain']. Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [13] assistant
 **思考（原文）**:
@@ -10514,7 +10515,7 @@ entities: NONE
 ```
 **[14] 工具结果**:
 ```text
-Second refusal — your ledger holds RETRIEVED FACTS: f1 ?country=['Italy', 'Belgium', 'Germany', 'Spain']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE correct after this, your next NONE submission is ACCEPTED as …
+Second refusal — your ledger holds RETRIEVED FACTS: f1 ?country=['Italy', 'Belgium', 'Germany', 'Spain']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE correct after this, your next NONE submission is ACCEPTED as the final answer.
 ```
 ## [15] assistant
 **思考（原文）**:
@@ -10647,7 +10648,7 @@ flow: {'id': 'f1', 'triple': '(Siege of Vicksburg | which people fought in this 
 entities: Siege of Vicksburg
 answer: ?person
 answer_type: person
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -10668,7 +10669,7 @@ question: which people fought in this battle
 ```text
 entities: Siege of Vicksburg
 question: which people fought in this battle
-candidate_relations: military.military_conflict.combatants | military.casualties.combatant | base.americancivilwar.battle.military_units_involved_in_this_conflict | military.military_conflict.military_personnel_involved | military.military_person.participated_in_conflicts | military.military_combata…
+candidate_relations: military.military_conflict.combatants | military.casualties.combatant | base.americancivilwar.battle.military_units_involved_in_this_conflict | military.military_conflict.military_personnel_involved | military.military_person.participated_in_conflicts | military.military_combatant.military_commanders | base.americancivilwar.military_unit.conflicts_participated_in | base.culturalevent.event.entity_involved | military.military_conflict.commanders | people.ethnicity.people | people.place_lived.person | military.military_combatant.casualties | people.deceased_person.date_of_death | base.argumentmaps.morally_disputed_activity.instance_of_abstract_moral_dispute | people.person.date_of_birth
 grouped_relations:
   military_conflict.combatants ← military.military_conflict.combatants
   casualties.combatant ← military.casualties.combatant
@@ -10682,7 +10683,7 @@ grouped_relations:
   ethnicity.people ← people.ethnicity.people
   place_lived.person ← people.place_lived.person
   military_combatant.casualties ← military.military_combatant.casualties
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -10720,13 +10721,13 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Siege of Vicksburg
-▸ patterns: event.entity_involved | military_combatant_group.conflict | military_command.military_conflict | military_conflict.combatants | military_conflict.commanders | military_conflict.military_personnel_involved | military_person.participated_in_conflicts | event.included_in_event | event.entit…
+▸ patterns: event.entity_involved | military_combatant_group.conflict | military_command.military_conflict | military_conflict.combatants | military_conflict.commanders | military_conflict.military_personnel_involved | military_person.participated_in_conflicts | event.included_in_event | event.entity_involved ⭢ military_person.participated_in_conflicts | military_conflict.military_personnel_involved ⭢ military_person.participated_in_conflicts | military_person.participated_in_conflicts ⭢ event.entity_involved | military_person.participated_in_conflicts ⭢ military_conflict.military_personnel_involved | event.included_in_event ⭢ military_combatant_group.conflict | event.included_in_event ⭢ military_command.military_conflict | event.included_in_event ⭢ military_conflict.combatants | event.included_in_event ⭢ military_conflict.commanders | event.includes_event ⭢ event.included_in_event | battle.military_units_involved_in_this_conflict ⭢ military_unit.conflicts_participated_in ⭢ military_co…
 ── Siege of Vicksburg ──
     --military_conflict.combatants--> m.049y2pc [combatants: Confederate States of America] | m.04fvcs7 [combatants: Union]
     --military_conflict.commanders--> m.049y2lz [military_combatant: Union; military_commander: Ulysses S. Grant] | m.049y2m5 [military_combatant: Confederate States of America; military_commander: John C. Pemberton]
     --event.entity_involved--> Confederate States of America | John C. Pemberton | Ulysses S. Grant | Union | United States of America
     --event.included_in_event--> American Civil War | Grant's Operations Against Vicksburg
-    --military_conflict.military_personnel_involved--> Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner | William F. D…
+    --military_conflict.military_personnel_involved--> Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner | William F. Draper
     --battle.military_units_involved_in_this_conflict--> 17th Louisiana Infantry Regiment | 31st Louisiana Infantry Regiment
     m.049y2pc --military_combatant_group.conflict--> Siege of Vicksburg
     m.04fvcs7 --military_combatant_group.conflict--> Siege of Vicksburg
@@ -10735,14 +10736,14 @@ entities: Siege of Vicksburg
     Grant's Operations Against Vicksburg --event.includes_event--> Siege of Vicksburg
     m.049y2lz --military_command.military_conflict--> Siege of Vicksburg
     m.049y2m5 --military_command.military_conflict--> Siege of Vicksburg
-    Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner …(+1) (to answer with ALL of them, include "#Carter L. Stevenson:…
+    Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner …(+1) (to answer with ALL of them, include "#Carter L. Stevenson::participated_in_conflicts" as one answer entity) --military_person.participated_in_conflicts--> Siege of Vicksburg
 ── Confederate States of America ──
-    --military_combatant.military_commanders--> m.048z_8v [military_commander: Robert E. Lee] | m.049y2vg [military_combatant: Confederate States of America; military_commander: P. G. T. Beauregard] | m.049y34w [military_combatant: Confederate States of America] | m.049yl34 [military_combatant: Conf…
-    American Civil War | Atlanta Campaign | Battle of Arkansas Post | Battle of Big Black River Bridge | Battle of Chickasaw Bayou | Battle of Fort Donelson | Battle of Fort Henry | Battle of Globe Tavern | Battle of Goodrich's Landing | Battle of Grand Gulf | Battle of Helena | Battle of Iuka …(+18…
+    --military_combatant.military_commanders--> m.048z_8v [military_commander: Robert E. Lee] | m.049y2vg [military_combatant: Confederate States of America; military_commander: P. G. T. Beauregard] | m.049y34w [military_combatant: Confederate States of America] | m.049yl34 [military_combatant: Confederate States of America] | m.049ylkz [military_commander: Joseph E. Johnston] | m.0dl56tp [military_combatant: Confederate States of America; military_commander: Robert E. Lee]
+    American Civil War | Atlanta Campaign | Battle of Arkansas Post | Battle of Big Black River Bridge | Battle of Chickasaw Bayou | Battle of Fort Donelson | Battle of Fort Henry | Battle of Globe Tavern | Battle of Goodrich's Landing | Battle of Grand Gulf | Battle of Helena | Battle of Iuka …(+18) (to answer with ALL of them, include "#American Civil War::entity_involved" as one answer entity) --event.entity_involved--> Confederate States of America
     m.049y2m5 --military_command.military_combatant--> Confederate States of America
 ── American Civil War ──
     --military_conflict.combatants--> m.03z965k [combatants: Union] | m.03z98d_ [combatants: Confederate States of America]
-    --military_conflict.commanders--> m.04fvgx2 [military_commander: Ulysses S. Grant] | m.04fvgx7 [military_commander: Robert E. Lee] | m.04h_gx9 [military_combatant: United States of America; military_commander: Abraham Lincoln] | m.0bm_2y8 [military_commander: P. G. T. Beauregard] | m.0bm_34q [mi…
+    --military_conflict.commanders--> m.04fvgx2 [military_commander: Ulysses S. Grant] | m.04fvgx7 [military_commander: Robert E. Lee] | m.04h_gx9 [military_combatant: United States of America; military_commander: Abraham Lincoln] | m.0bm_2y8 [military_commander: P. G. T. Beauregard] | m.0bm_34q [military_commander: George B. McClellan] | m.0bmyv1f [military_commander: Joseph E. Johnston] | m.0bmz024 [military_commander: Winfield Scott]
     --event.entity_involved--> Ulysses S. Grant
     m.03z965k --military_combatant_group.conflict--> American Civil War
     m.03z98d_ --military_combatant_group.conflict--> American Civil War
@@ -10816,8 +10817,8 @@ entities: Siege of Vicksburg
     Siege of Petersburg --event.entity_involved--> Ulysses S. Grant
     Ulysses S. Grant 1869 presidential inauguration --event.entity_involved--> Ulysses S. Grant
     Ulysses S. Grant 1873 presidential inauguration --event.entity_involved--> Ulysses S. Grant
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'military_conflict.combatants': {'direct': ['military.military_conflict.combatants'], 'bridge': ['time.event.included_in_event']}, 'military_person.participated_in_conflicts': {'direct': ['military.military_person.participated_in_conflicts'], 'bridge': ['base.culturalevent.event…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'military_conflict.combatants': {'direct': ['military.military_conflict.combatants'], 'bridge': ['time.event.included_in_event']}, 'military_person.participated_in_conflicts': {'direct': ['military.military_person.participated_in_conflicts'], 'bridge': ['base.culturalevent.event.entity_involved', 'military.military_command.military_conflict', 'military.military_conflict.commanders', 'military.military_conflict.military_personnel_involved', 'time.event.included_in_event']}, 'military_combatant.military_commanders': {'direct': ['military.military_combatant.military_commanders'], 'bridge': ['base.culturalevent.event.entity_involved', 'military.military_combatant_group.conflict', 'military.military_command.military_conflict', 'military.military_conflict.combatants', 'military.military_conflict.commanders']}, 'event.entity_involved': {'direct': ['base.culturalevent.event.entity_involved'], 'bridge': ['military.military_combatant_group.conflict', 'military.military_comma…
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -10867,7 +10868,7 @@ question: when did this person die
 ```text
 entities: Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner | William F. Draper
 question: when did this person die
-candidate_relations: people.deceased_person.cause_of_death | people.deceased_person.place_of_death | people.place_lived.person | people.deceased_person.place_of_burial | location.location.people_born_here | people.person.place_of_birth | people.person.places_lived | base.politicalconventions.preside…
+candidate_relations: people.deceased_person.cause_of_death | people.deceased_person.place_of_death | people.place_lived.person | people.deceased_person.place_of_burial | location.location.people_born_here | people.person.place_of_birth | people.person.places_lived | base.politicalconventions.presidential_nominee.nominated_at | people.person.nationality | people.place_of_interment.interred_here | people.person.spouse_s | base.famouspets.pet_ownership.owner | location.location.events | language.human_language.main_country | location.location.contains
 grouped_relations:
   deceased_person.cause_of_death ← people.deceased_person.cause_of_death
   deceased_person.place_of_death ← people.deceased_person.place_of_death
@@ -10881,7 +10882,7 @@ grouped_relations:
   place_of_interment.interred_here ← people.place_of_interment.interred_here
   person.spouse_s ← people.person.spouse_s
   pet_ownership.owner ← base.famouspets.pet_ownership.owner
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -10931,8 +10932,8 @@ sg: sg1
 ```text
 fact_id: sg1
 triples:
-entities: Siege of Vicksburg  (sequence root; this layer applies to the frontier: American Civil War | Carter L. Stevenson | Confederate States of America | David Farragut | Grant's Operations Against Vicksburg | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John C. Pemb…
-▸ patterns: event.entity_involved ⭢ pet_owner.pets_owned | event.entity_involved ⭢ pet_ownership.owner | event.entity_involved ⭢ topic.image | topic.image | location.people_born_here | deceased_person.place_of_burial | deceased_person.place_of_death | person.children | person.nationality | person.pl…
+entities: Siege of Vicksburg  (sequence root; this layer applies to the frontier: American Civil War | Carter L. Stevenson | Confederate States of America | David Farragut | Grant's Operations Against Vicksburg | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John C. Pemberton | John S. Bowen | Peter Joseph Osterhaus)
+▸ patterns: event.entity_involved ⭢ pet_owner.pets_owned | event.entity_involved ⭢ pet_ownership.owner | event.entity_involved ⭢ topic.image | topic.image | location.people_born_here | deceased_person.place_of_burial | deceased_person.place_of_death | person.children | person.nationality | person.place_of_birth | person.places_lived | namesake.named_after
 ── Siege of Vicksburg ──
     --event.entity_involved--> Ulysses S. Grant | Confederate States of America | John C. Pemberton | Union
 ── James B. McPherson ──
@@ -10990,9 +10991,9 @@ entities: Siege of Vicksburg  (sequence root; this layer applies to the frontier
     Peter Joseph Osterhaus --deceased_person.place_of_burial--> Berlin
     Peter Joseph Osterhaus --deceased_person.place_of_death--> Duisburg
     Union --topic.image--> USA Map 1864 including Civil War Divisions | United States 1860-1870
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'deceased_person.cause_of_death': {'direct': ['people.deceased_person.cause_of_death'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'deceased_person.place_of_death': {'direct': ['people.deceased_person.place_of_death'], 'bridge': ['common.topic.image', 'ficti…
-anchor_sequence: Siege of Vicksburg ⭢ event.entity_involved | military_combatant.military_commanders | military_combatant_group.conflict | military_command.military_conflict | military_conflict.combatants | military_conflict.commanders | military_conflict.military_personnel_involved | military_perso…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'deceased_person.cause_of_death': {'direct': ['people.deceased_person.cause_of_death'], 'bridge': ['fictional_universe.fictional_character.based_on']}, 'deceased_person.place_of_death': {'direct': ['people.deceased_person.place_of_death'], 'bridge': ['common.topic.image', 'fictional_universe.fictional_character.based_on', 'government.us_president.vice_president', 'people.person.places_lived']}, 'deceased_person.place_of_burial': {'direct': ['people.deceased_person.place_of_burial'], 'bridge': ['common.topic.image', 'fictional_universe.fictional_character.based_on', 'people.person.children']}, 'person.place_of_birth': {'direct': ['people.person.place_of_birth'], 'bridge': ['common.topic.image', 'fictional_universe.fictional_character.based_on', 'location.location.people_born_here', 'people.place_lived.person', 'symbols.namesake.named_after']}, 'person.places_lived': {'direct': ['people.person.places_lived'], 'bridge': ['common.topic.image', 'fictional_universe.ficti…
+anchor_sequence: Siege of Vicksburg ⭢ event.entity_involved | military_combatant.military_commanders | military_combatant_group.conflict | military_command.military_conflict | military_conflict.combatants | military_conflict.commanders | military_conflict.military_personnel_involved | military_person.participated_in_conflicts | event.included_in_event (19) ⭢ pet_owner.pets_owned | pet_ownership.owner | topic.image | fictional_character.based_on | us_president.vice_president | location.people_born_here | deceased_person.cause_of_death | deceased_person.place_of_burial | deceased_person.place_of_death | person.children | person.nationality | person.place_of_birth | person.places_lived | place_lived.person | place_of_interment.interred_here | namesake.named_after (0)
 layer_action: extend
 ```
 **[10] 工具结果**:
@@ -11138,7 +11139,7 @@ flow: {'id': 'f1', 'triple': '(Siege of Vicksburg | which people fought in this 
 entities: Siege of Vicksburg
 answer: ?person
 answer_type: person
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -11161,7 +11162,7 @@ question: which people fought in this battle
 ```text
 entities: Siege of Vicksburg
 question: which people fought in this battle
-candidate_relations: military.military_conflict.combatants | military.casualties.combatant | base.americancivilwar.battle.military_units_involved_in_this_conflict | military.military_conflict.military_personnel_involved | military.military_person.participated_in_conflicts | military.military_combata…
+candidate_relations: military.military_conflict.combatants | military.casualties.combatant | base.americancivilwar.battle.military_units_involved_in_this_conflict | military.military_conflict.military_personnel_involved | military.military_person.participated_in_conflicts | military.military_combatant.military_commanders | base.americancivilwar.military_unit.conflicts_participated_in | base.culturalevent.event.entity_involved | military.military_conflict.commanders | people.ethnicity.people | people.place_lived.person | military.military_combatant.casualties | people.deceased_person.date_of_death | base.argumentmaps.morally_disputed_activity.instance_of_abstract_moral_dispute | people.person.date_of_birth
 grouped_relations:
   military_conflict.combatants ← military.military_conflict.combatants
   casualties.combatant ← military.casualties.combatant
@@ -11175,7 +11176,7 @@ grouped_relations:
   ethnicity.people ← people.ethnicity.people
   place_lived.person ← people.place_lived.person
   military_combatant.casualties ← military.military_combatant.casualties
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -11216,13 +11217,13 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Siege of Vicksburg
-▸ patterns: event.entity_involved | military_combatant_group.conflict | military_command.military_conflict | military_conflict.combatants | military_conflict.commanders | military_conflict.military_personnel_involved | military_person.participated_in_conflicts | event.included_in_event | event.entit…
+▸ patterns: event.entity_involved | military_combatant_group.conflict | military_command.military_conflict | military_conflict.combatants | military_conflict.commanders | military_conflict.military_personnel_involved | military_person.participated_in_conflicts | event.included_in_event | event.entity_involved ⭢ military_person.participated_in_conflicts | military_conflict.military_personnel_involved ⭢ military_person.participated_in_conflicts | military_person.participated_in_conflicts ⭢ event.entity_involved | military_person.participated_in_conflicts ⭢ military_conflict.military_personnel_involved | event.included_in_event ⭢ military_combatant_group.conflict | event.included_in_event ⭢ military_command.military_conflict | event.included_in_event ⭢ military_conflict.combatants | event.included_in_event ⭢ military_conflict.commanders | event.includes_event ⭢ event.included_in_event | battle.military_units_involved_in_this_conflict ⭢ military_unit.conflicts_participated_in ⭢ military_co…
 ── Siege of Vicksburg ──
     --military_conflict.combatants--> m.049y2pc [combatants: Confederate States of America] | m.04fvcs7 [combatants: Union]
     --military_conflict.commanders--> m.049y2lz [military_combatant: Union; military_commander: Ulysses S. Grant] | m.049y2m5 [military_combatant: Confederate States of America; military_commander: John C. Pemberton]
     --event.entity_involved--> Confederate States of America | John C. Pemberton | Ulysses S. Grant | Union | United States of America
     --event.included_in_event--> American Civil War | Grant's Operations Against Vicksburg
-    --military_conflict.military_personnel_involved--> Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner | William F. D…
+    --military_conflict.military_personnel_involved--> Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner | William F. Draper
     --battle.military_units_involved_in_this_conflict--> 17th Louisiana Infantry Regiment | 31st Louisiana Infantry Regiment
     m.049y2pc --military_combatant_group.conflict--> Siege of Vicksburg
     m.04fvcs7 --military_combatant_group.conflict--> Siege of Vicksburg
@@ -11231,14 +11232,14 @@ entities: Siege of Vicksburg
     Grant's Operations Against Vicksburg --event.includes_event--> Siege of Vicksburg
     m.049y2lz --military_command.military_conflict--> Siege of Vicksburg
     m.049y2m5 --military_command.military_conflict--> Siege of Vicksburg
-    Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner …(+1) (to answer with ALL of them, include "#Carter L. Stevenson:…
+    Carter L. Stevenson | David Farragut | Henry Casey | Henry Dow | James B. McPherson | John Alexander McClernand | John S. Bowen | Peter Joseph Osterhaus | Ralph Pomeroy Buckland | Seth Barton | Ulysses S. Grant | William D. Turner …(+1) (to answer with ALL of them, include "#Carter L. Stevenson::participated_in_conflicts" as one answer entity) --military_person.participated_in_conflicts--> Siege of Vicksburg
 ── Confederate States of America ──
-    --military_combatant.military_commanders--> m.048z_8v [military_commander: Robert E. Lee] | m.049y2vg [military_combatant: Confederate States of America; military_commander: P. G. T. Beauregard] | m.049y34w [military_combatant: Confederate States of America] | m.049yl34 [military_combatant: Conf…
-    American Civil War | Atlanta Campaign | Battle of Arkansas Post | Battle of Big Black River Bridge | Battle of Chickasaw Bayou | Battle of Fort Donelson | Battle of Fort Henry | Battle of Globe Tavern | Battle of Goodrich's Landing | Battle of Grand Gulf | Battle of Helena | Battle of Iuka …(+18…
+    --military_combatant.military_commanders--> m.048z_8v [military_commander: Robert E. Lee] | m.049y2vg [military_combatant: Confederate States of America; military_commander: P. G. T. Beauregard] | m.049y34w [military_combatant: Confederate States of America] | m.049yl34 [military_combatant: Confederate States of America] | m.049ylkz [military_commander: Joseph E. Johnston] | m.0dl56tp [military_combatant: Confederate States of America; military_commander: Robert E. Lee]
+    American Civil War | Atlanta Campaign | Battle of Arkansas Post | Battle of Big Black River Bridge | Battle of Chickasaw Bayou | Battle of Fort Donelson | Battle of Fort Henry | Battle of Globe Tavern | Battle of Goodrich's Landing | Battle of Grand Gulf | Battle of Helena | Battle of Iuka …(+18) (to answer with ALL of them, include "#American Civil War::entity_involved" as one answer entity) --event.entity_involved--> Confederate States of America
     m.049y2m5 --military_command.military_combatant--> Confederate States of America
 ── American Civil War ──
     --military_conflict.combatants--> m.03z965k [combatants: Union] | m.03z98d_ [combatants: Confederate States of America]
-    --military_conflict.commanders--> m.04fvgx2 [military_commander: Ulysses S. Grant] | m.04fvgx7 [military_commander: Robert E. Lee] | m.04h_gx9 [military_combatant: United States of America; military_commander: Abraham Lincoln] | m.0bm_2y8 [military_commander: P. G. T. Beauregard] | m.0bm_34q [mi…
+    --military_conflict.commanders--> m.04fvgx2 [military_commander: Ulysses S. Grant] | m.04fvgx7 [military_commander: Robert E. Lee] | m.04h_gx9 [military_combatant: United States of America; military_commander: Abraham Lincoln] | m.0bm_2y8 [military_commander: P. G. T. Beauregard] | m.0bm_34q [military_commander: George B. McClellan] | m.0bmyv1f [military_commander: Joseph E. Johnston] | m.0bmz024 [military_commander: Winfield Scott]
     --event.entity_involved--> Ulysses S. Grant
     m.03z965k --military_combatant_group.conflict--> American Civil War
     m.03z98d_ --military_combatant_group.conflict--> American Civil War
@@ -11312,8 +11313,8 @@ entities: Siege of Vicksburg
     Siege of Petersburg --event.entity_involved--> Ulysses S. Grant
     Ulysses S. Grant 1869 presidential inauguration --event.entity_involved--> Ulysses S. Grant
     Ulysses S. Grant 1873 presidential inauguration --event.entity_involved--> Ulysses S. Grant
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'military_conflict.combatants': {'direct': ['military.military_conflict.combatants'], 'bridge': ['time.event.included_in_event']}, 'military_person.participated_in_conflicts': {'direct': ['military.military_person.participated_in_conflicts'], 'bridge': ['base.culturalevent.event…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'military_conflict.combatants': {'direct': ['military.military_conflict.combatants'], 'bridge': ['time.event.included_in_event']}, 'military_person.participated_in_conflicts': {'direct': ['military.military_person.participated_in_conflicts'], 'bridge': ['base.culturalevent.event.entity_involved', 'military.military_command.military_conflict', 'military.military_conflict.commanders', 'military.military_conflict.military_personnel_involved', 'time.event.included_in_event']}, 'military_combatant.military_commanders': {'direct': ['military.military_combatant.military_commanders'], 'bridge': ['base.culturalevent.event.entity_involved', 'military.military_combatant_group.conflict', 'military.military_command.military_conflict', 'military.military_conflict.combatants', 'military.military_conflict.commanders']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -11455,7 +11456,7 @@ flow: {'id': 'f1', 'triple': '(Lala Anthony | which city is this person from | ?
 entities: Lala Anthony
 answer: ?city
 answer_type: city
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -11501,8 +11502,8 @@ question: which city was this person born in | which city did this person live i
 **[3] 工具结果**:
 ```text
 entity_error: 'Lala Anthony' is not a confident graph entity.
-candidates: {'name': 'Daphne Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_value', 'people.person.sibling_s']} | {'name': 'Kiyan Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_no_value', 'freebase.valuenotation.has_value']}…
-note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for t…
+candidates: {'name': 'Daphne Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_value', 'people.person.sibling_s']} | {'name': 'Kiyan Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_no_value', 'freebase.valuenotation.has_value']} | {'name': 'Carmelo K. Anthony Basketball Center', 'neighbor_relations': ['location.location.geolocation', 'location.location.contains', 'location.location.containedby']} | {'name': 'Michelle Anthony', 'neighbor_relations': ['people.person.gender', 'people.person.parents', 'freebase.valuenotation.has_value']} | {'name': 'Mary Anthony', 'neighbor_relations': ['people.person.nationality', 'people.person.gender', 'people.person.ethnicity']}
+note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for this fact or continue from another question entity's evidence. CROSS-SUBGRAPH CENTER: if THIS fact's selected relations are right but its anchor entity is wrong, re-call retrieve_subgraph with a center BORROWED from any prior subgraph's evidence (e.g. an earlier fact's binding) plus this fact's relations — the boundary check accepts any retrieved entity as a center.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -11555,7 +11556,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Carmelo Anthony
-▸ patterns: person.place_of_birth | person.sibling_s | place_lived.person | sibling_relationship.sibling | namesake.named_after | person.place_of_birth ⭢ location.contains | name_source.namesakes ⭢ location.contains | namesake.named_after ⭢ location.contains | personal_film_appearance.person | film.…
+▸ patterns: person.place_of_birth | person.sibling_s | place_lived.person | sibling_relationship.sibling | namesake.named_after | person.place_of_birth ⭢ location.contains | name_source.namesakes ⭢ location.contains | namesake.named_after ⭢ location.contains | personal_film_appearance.person | film.executive_produced_by ⭢ film.produced_by ⭢ personal_film_appearance.person | film.produced_by ⭢ film.executive_produced_by ⭢ personal_film_appearance.person | producer.films_executive_produced ⭢ film.produced_by ⭢ personal_film_appearance.person
 ── Carmelo Anthony ──
     --producer.films_executive_produced--> Tyson
     --name_source.namesakes--> Carmelo K. Anthony Basketball Center
@@ -11582,8 +11583,8 @@ entities: Carmelo Anthony
     --location.contains--> Defonte's
 ── Michelle Anthony ──
     --person.sibling_s--> m.03zdx24 [sibling: Michelle Anthony]
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'people.person.sibling_s': {'direct': ['people.person.sibling_s'], 'bridge': ['people.sibling_relationship.sibling']}, 'location.location.contains': {'direct': ['location.location.contains'], 'bridge': ['people.person.place_of_birth', 'people.place_lived.person', 'symbols.namesa…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'people.person.sibling_s': {'direct': ['people.person.sibling_s'], 'bridge': ['people.sibling_relationship.sibling']}, 'location.location.contains': {'direct': ['location.location.contains'], 'bridge': ['people.person.place_of_birth', 'people.place_lived.person', 'symbols.namesake.named_after']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -11634,7 +11635,7 @@ question: which city was this person born in | which city did this person live i
 ```text
 entities: Carmelo Anthony
 question: which city was this person born in | which city did this person live in | which people are this person's siblings
-candidate_relations: location.location.people_born_here | fictional_universe.fictional_character.place_of_birth | people.person.place_of_birth | people.person.places_lived | people.person.sibling_s | people.sibling_relationship.sibling | fictional_universe.fictional_setting.fictional_characters_born…
+candidate_relations: location.location.people_born_here | fictional_universe.fictional_character.place_of_birth | people.person.place_of_birth | people.person.places_lived | people.person.sibling_s | people.sibling_relationship.sibling | fictional_universe.fictional_setting.fictional_characters_born_here | location.neighborhood.neighborhood_of | base.aareas.schema.administrative_area.administrative_children | people.person.parents | location.place_with_neighborhoods.neighborhoods | people.place_lived.person | people.person.nationality | people.marriage.spouse | people.place_lived.location
 grouped_relations:
   location.people_born_here ← location.location.people_born_here
   fictional_character.place_of_birth ← fictional_universe.fictional_character.place_of_birth
@@ -11648,7 +11649,7 @@ grouped_relations:
   person.parents ← people.person.parents
   place_with_neighborhoods.neighborhoods ← location.place_with_neighborhoods.neighborhoods
   place_lived.person ← people.place_lived.person
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -11702,7 +11703,7 @@ entities: Carmelo Anthony  (sequence root; this layer applies to the frontier: B
 ── New York City ──
     James Toback --person.place_of_birth--> New York City
     Nicholas Jarecki --person.place_of_birth--> New York City
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'people.person.place_of_birth': {'direct': ['people.person.place_of_birth'], 'bridge': ['people.marriage.spouse', 'people.person.places_lived']}}
 anchor_sequence: Carmelo Anthony ⭢ marriage.spouse | person.place_of_birth | person.places_lived (10)
 layer_action: update layer 1 (replaced symbols.namesake.named_after, location.location.contains, people.person.sibling_s, people.place_lived.person, people.sibling_relationship.sibling)
@@ -11742,7 +11743,7 @@ question: what is the located id of this city | what is the location id of this 
 ```text
 entities: Brooklyn
 question: what is the located id of this city | what is the location id of this place
-candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | people.person.places_lived | location.neighborhood.neighborhood_of | people.person.place_of_birth | location.country.administrative_divisions | base.aareas.schema.a…
+candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | people.person.places_lived | location.neighborhood.neighborhood_of | people.person.place_of_birth | location.country.administrative_divisions | base.aareas.schema.administrative_area.administrative_parent | base.locations.countries.states_provinces_within | location.place_with_neighborhoods.neighborhoods | location.location.containedby | organization.organization.geographic_scope | location.country.first_level_divisions | location.location.people_born_here
 grouped_relations:
   event.locations ← time.event.locations
   place_lived.location ← people.place_lived.location
@@ -11756,7 +11757,7 @@ grouped_relations:
   countries.states_provinces_within ← base.locations.countries.states_provinces_within
   place_with_neighborhoods.neighborhoods ← location.place_with_neighborhoods.neighborhoods
   location.containedby ← location.location.containedby
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [12] assistant
 **思考（原文）**:
@@ -11788,7 +11789,7 @@ entities: Carmelo Anthony  (sequence root; this layer applies to the frontier: B
 ── Brooklyn ──
     --place_with_neighborhoods.neighborhoods--> Red Hook
     m.04hvll4 --place_lived.location--> Brooklyn
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'location.location.geolocation': {'direct': ['location.location.geolocation'], 'bridge': ['location.place_with_neighborhoods.neighborhoods']}}
 anchor_sequence: Carmelo Anthony ⭢ marriage.spouse | person.place_of_birth | person.places_lived (8) ⭢ location.geolocation | place_with_neighborhoods.neighborhoods (0)
 layer_action: extend
@@ -11842,7 +11843,7 @@ question: what is the located id of this city | what is the location id of this 
 ```text
 entities: Brooklyn
 question: what is the located id of this city | what is the location id of this place | which administrative area contains this place
-candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | base.aareas.schema.administrative_area.administrative_parent | location.country.administrative_divisions | location.location.geolocation | location.neighborhood.neighborhood_of | location.location…
+candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | base.aareas.schema.administrative_area.administrative_parent | location.country.administrative_divisions | location.location.geolocation | location.neighborhood.neighborhood_of | location.location.containedby | people.person.places_lived | location.place_with_neighborhoods.neighborhoods | location.country.first_level_divisions | base.aareas.schema.administrative_area.administrative_children | base.lightweight.regional_dated_integer.region | base.lightweight.regional_dated_money_value.region | base.locations.countries.states_provinces_within
 grouped_relations:
   event.locations ← time.event.locations
   place_lived.location ← people.place_lived.location
@@ -11856,7 +11857,7 @@ grouped_relations:
   place_with_neighborhoods.neighborhoods ← location.place_with_neighborhoods.neighborhoods
   country.first_level_divisions ← location.country.first_level_divisions
   administrative_area.administrative_children ← base.aareas.schema.administrative_area.administrative_children
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [16] assistant
 **思考（原文）**:
@@ -11907,7 +11908,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Carmelo Anthony  (sequence root; this layer applies to the frontier: Baltimore | Brooklyn | La La | Marriage | New York City | Red Hook | To | Place lived)
-▸ patterns: person.place_of_birth ⭢ location.containedby | marriage.spouse ⭢ marriage.location_of_ceremony ⭢ administrative_area.administrative_parent | marriage.spouse ⭢ marriage.location_of_ceremony ⭢ location.containedby | administrative_area.administrative_parent | administrative_division.second…
+▸ patterns: person.place_of_birth ⭢ location.containedby | marriage.spouse ⭢ marriage.location_of_ceremony ⭢ administrative_area.administrative_parent | marriage.spouse ⭢ marriage.location_of_ceremony ⭢ location.containedby | administrative_area.administrative_parent | administrative_division.second_level_division_of | location.containedby
 ── Carmelo Anthony ──
     --person.place_of_birth--> Red Hook
     m.0hygqds --marriage.spouse--> Carmelo Anthony
@@ -11926,8 +11927,8 @@ entities: Carmelo Anthony  (sequence root; this layer applies to the frontier: B
 ── Brooklyn ──
     --location.containedby--> New York
     --administrative_division.second_level_division_of--> United States of America
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'base.aareas.schema.administrative_area.administrative_parent': {'direct': ['base.aareas.schema.administrative_area.administrative_parent'], 'bridge': ['location.administrative_division.second_level_division_of', 'location.location.containedby']}, 'base.locations.countries.state…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'base.aareas.schema.administrative_area.administrative_parent': {'direct': ['base.aareas.schema.administrative_area.administrative_parent'], 'bridge': ['location.administrative_division.second_level_division_of', 'location.location.containedby']}, 'base.locations.countries.states_provinces_within': {'direct': ['base.locations.countries.states_provinces_within'], 'bridge': ['location.administrative_division.second_level_division_of', 'location.location.containedby']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['location.administrative_division.second_level_division_of', 'location.place_with_neighborhoods.neighborhoods']}}
 anchor_sequence: Carmelo Anthony ⭢ marriage.spouse | person.place_of_birth | person.places_lived (8) ⭢ administrative_area.administrative_parent | administrative_division.second_level_division_of | location.containedby | location.geolocation | place_with_neighborhoods.neighborhoods (0)
 layer_action: extend
 ```
@@ -11978,7 +11979,7 @@ question: what is the located id of this city | what is the location id of this 
 ```text
 entities: Brooklyn
 question: what is the located id of this city | what is the location id of this place
-candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | people.person.places_lived | location.neighborhood.neighborhood_of | people.person.place_of_birth | location.country.administrative_divisions | base.aareas.schema.a…
+candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | people.person.places_lived | location.neighborhood.neighborhood_of | people.person.place_of_birth | location.country.administrative_divisions | base.aareas.schema.administrative_area.administrative_parent | base.locations.countries.states_provinces_within | location.place_with_neighborhoods.neighborhoods | location.location.containedby | organization.organization.geographic_scope | location.country.first_level_divisions | location.location.people_born_here
 grouped_relations:
   event.locations ← time.event.locations
   place_lived.location ← people.place_lived.location
@@ -11992,7 +11993,7 @@ grouped_relations:
   countries.states_provinces_within ← base.locations.countries.states_provinces_within
   place_with_neighborhoods.neighborhoods ← location.place_with_neighborhoods.neighborhoods
   location.containedby ← location.location.containedby
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [20] assistant
 **思考（原文）**:
@@ -12035,8 +12036,8 @@ entities: Carmelo Anthony  (sequence root; this layer applies to the frontier: D
 ── United States of America ──
     m.0110n_5d --regional_dated_integer.region--> United States of America
     Baltimore | Brooklyn | Onondaga County --administrative_division.second_level_division_of--> United States of America
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'location.location.geolocation': {'direct': ['location.location.geolocation'], 'bridge': ['location.place_with_neighborhoods.neighborhoods']}, 'base.lightweight.regional_dated_integer.region': {'direct': ['base.lightweight.regional_dated_integer.region'], 'bridge': ['location.ad…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'location.location.geolocation': {'direct': ['location.location.geolocation'], 'bridge': ['location.place_with_neighborhoods.neighborhoods']}, 'base.lightweight.regional_dated_integer.region': {'direct': ['base.lightweight.regional_dated_integer.region'], 'bridge': ['location.administrative_division.second_level_division_of']}}
 anchor_sequence: Carmelo Anthony ⭢ marriage.spouse | person.place_of_birth | person.places_lived (8) ⭢ regional_dated_integer.region | administrative_division.second_level_division_of | location.geolocation | place_with_neighborhoods.neighborhoods (8)
 layer_action: update layer 2 (replaced dministrative_area.administrative_parent, location.location.containedby)
 ```
@@ -12149,7 +12150,7 @@ question: what is the located id of this city | what is the location id of this 
 ```text
 entities: Brooklyn
 question: what is the located id of this city | what is the location id of this place | which region does this place belong to
-candidate_relations: time.event.locations | sports.sports_team.location | base.lightweight.regional_dated_integer.region | base.lightweight.regional_dated_money_value.region | location.country.administrative_divisions | location.location.geolocation | location.neighborhood.neighborhood_of | base.loc…
+candidate_relations: time.event.locations | sports.sports_team.location | base.lightweight.regional_dated_integer.region | base.lightweight.regional_dated_money_value.region | location.country.administrative_divisions | location.location.geolocation | location.neighborhood.neighborhood_of | base.locations.countries.states_provinces_within | organization.organization.geographic_scope | location.location.containedby | base.aareas.schema.administrative_area.administrative_parent | location.country.first_level_divisions | location.administrative_division.second_level_division_of | location.place_with_neighborhoods.neighborhoods | location.administrative_division.country
 grouped_relations:
   event.locations ← time.event.locations
   sports_team.location ← sports.sports_team.location
@@ -12163,7 +12164,7 @@ grouped_relations:
   location.containedby ← location.location.containedby
   administrative_area.administrative_parent ← base.aareas.schema.administrative_area.administrative_parent
   country.first_level_divisions ← location.country.first_level_divisions
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [27] assistant
 **思考（原文）**:
@@ -12370,11 +12371,11 @@ sg2.f1: Carmelo Anthony | which city is this person from/home to | ?city
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Lala Anthony | which city is this person from/home to | ?city)', 'subquestion': 'which city is this person from/home to'} | {'id': 'f2', 'triple': '(Carmelo Anthony | which city is this person from/home to | ?city)', 'subquestion': 'which city is this person from/home …
+flow: {'id': 'f1', 'triple': '(Lala Anthony | which city is this person from/home to | ?city)', 'subquestion': 'which city is this person from/home to'} | {'id': 'f2', 'triple': '(Carmelo Anthony | which city is this person from/home to | ?city)', 'subquestion': 'which city is this person from/home to'}
 entities: Lala Anthony | Carmelo Anthony
 answer: ?city
 answer_type: city
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -12408,8 +12409,8 @@ question: which city is this person from/home to
 **[3] 工具结果**:
 ```text
 entity_error: 'Lala Anthony' is not a confident graph entity.
-candidates: {'name': 'Daphne Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_value', 'people.person.sibling_s']} | {'name': 'Kiyan Anthony', 'neighbor_relations': ['people.person.gender', 'people.person.parents', 'people.person.children']} | {'name': 'Carmelo K. …
-note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for t…
+candidates: {'name': 'Daphne Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_value', 'people.person.sibling_s']} | {'name': 'Kiyan Anthony', 'neighbor_relations': ['people.person.gender', 'people.person.parents', 'people.person.children']} | {'name': 'Carmelo K. Anthony Basketball Center', 'neighbor_relations': ['location.location.contains', 'location.location.geolocation', 'location.location.street_address']} | {'name': 'Michelle Anthony', 'neighbor_relations': ['people.person.gender', 'people.person.parents', 'people.person.children']} | {'name': 'Mary Anthony', 'neighbor_relations': ['people.person.ethnicity', 'people.person.parents', 'people.person.nationality']}
+note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for this fact or continue from another question entity's evidence. CROSS-SUBGRAPH CENTER: if THIS fact's selected relations are right but its anchor entity is wrong, re-call retrieve_subgraph with a center BORROWED from any prior subgraph's evidence (e.g. an earlier fact's binding) plus this fact's relations — the boundary check accepts any retrieved entity as a center.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -12454,7 +12455,7 @@ question: which city is this person from/home to
 ```text
 entities: Carmelo Anthony
 question: which city is this person from/home to
-candidate_relations: fictional_universe.fictional_character.place_of_birth | people.person.place_of_birth | people.person.places_lived | location.location.people_born_here | location.neighborhood.neighborhood_of | people.place_lived.location | sports.sports_team.location | location.postal_code.count…
+candidate_relations: fictional_universe.fictional_character.place_of_birth | people.person.place_of_birth | people.person.places_lived | location.location.people_born_here | location.neighborhood.neighborhood_of | people.place_lived.location | sports.sports_team.location | location.postal_code.country | base.locations.states_and_provences.country | tv.tv_program.country_of_origin | people.person.nationality | location.location.street_address | location.location.geolocation | language.human_language.main_country | people.place_lived.person
 grouped_relations:
   fictional_character.place_of_birth ← fictional_universe.fictional_character.place_of_birth
   person.place_of_birth ← people.person.place_of_birth
@@ -12468,7 +12469,7 @@ grouped_relations:
   tv_program.country_of_origin ← tv.tv_program.country_of_origin
   person.nationality ← people.person.nationality
   location.street_address ← location.location.street_address
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -12504,7 +12505,7 @@ sg: sg2
 fact_id: sg2
 triples:
 entities: Carmelo Anthony
-▸ patterns: marriage.spouse | person.place_of_birth | person.places_lived | location.people_born_here ⭢ person.place_of_birth | person.children ⭢ marriage.spouse | person.parents ⭢ marriage.spouse | marriage.spouse ⭢ marriage.location_of_ceremony ⭢ person.place_of_birth | marriage.spouse ⭢ person.sp…
+▸ patterns: marriage.spouse | person.place_of_birth | person.places_lived | location.people_born_here ⭢ person.place_of_birth | person.children ⭢ marriage.spouse | person.parents ⭢ marriage.spouse | marriage.spouse ⭢ marriage.location_of_ceremony ⭢ person.place_of_birth | marriage.spouse ⭢ person.spouse_s ⭢ person.place_of_birth | person.places_lived ⭢ place_lived.location ⭢ person.place_of_birth | person.spouse_s
 ── Carmelo Anthony ──
     --person.parents--> Carmelo Iriarte
     --person.place_of_birth--> Red Hook
@@ -12528,7 +12529,7 @@ entities: Carmelo Anthony
     Busta Rhymes | Eli Wallach | Joe Gallo | Salvatore Cavaliere | Tazz --person.place_of_birth--> Red Hook
 ── La La ──
     --person.spouse_s--> m.0hygqds [has_no_value: To; location_of_ceremony: New York City; spouse: La La; type_of_union: Marriage]
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'people.person.place_of_birth': {'direct': ['people.person.place_of_birth'], 'bridge': ['people.marriage.spouse', 'people.person.places_lived']}}
 ```
 ## [8] assistant
@@ -12595,7 +12596,7 @@ question: what is the located ID of this location
 ```text
 entities: Brooklyn
 question: what is the located ID of this location
-candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | location.location.containedby | location.neighborhood.neighborhood_of | base.aareas.schema.administrative_area.administrative_parent | location.country.administrati…
+candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | location.location.containedby | location.neighborhood.neighborhood_of | base.aareas.schema.administrative_area.administrative_parent | location.country.administrative_divisions | organization.organization.geographic_scope | location.country.first_level_divisions | location.location.people_born_here | location.place_with_neighborhoods.neighborhoods | base.biblioness.bibs_location.state | base.lightweight.regional_dated_integer.region | location.location.contains
 grouped_relations:
   event.locations ← time.event.locations
   place_lived.location ← people.place_lived.location
@@ -12609,7 +12610,7 @@ grouped_relations:
   country.first_level_divisions ← location.country.first_level_divisions
   location.people_born_here ← location.location.people_born_here
   place_with_neighborhoods.neighborhoods ← location.place_with_neighborhoods.neighborhoods
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [10] assistant
 **思考（原文）**:
@@ -12646,7 +12647,7 @@ entities: Carmelo Anthony  (sequence root; this layer applies to the frontier: B
 ── Brooklyn ──
     --place_with_neighborhoods.neighborhoods--> Red Hook
     m.04hvll4 --place_lived.location--> Brooklyn
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'location.location.geolocation': {'direct': ['location.location.geolocation'], 'bridge': ['location.place_with_neighborhoods.neighborhoods']}}
 anchor_sequence: Carmelo Anthony ⭢ marriage.spouse | person.place_of_birth | person.places_lived (8) ⭢ location.geolocation | place_with_neighborhoods.neighborhoods (0)
 layer_action: extend
@@ -12709,13 +12710,13 @@ question: what is the located ID of this location
 ```
 **[13] 工具结果**:
 ```text
-⌗ SYSTEM JOIN over tool-side candidate pools: 2 subgraphs bind ?city (f2, sg2.f2) — EVERY constraint must hold. ?city = f2 ∩ sg2.f2 (walk candidate pools) = [Baltimore | Brooklyn | New York City | Red Hook]. Every walked constraint holds on these entities — but a too-narrow relation set on either si…
+⌗ SYSTEM JOIN over tool-side candidate pools: 2 subgraphs bind ?city (f2, sg2.f2) — EVERY constraint must hold. ?city = f2 ∩ sg2.f2 (walk candidate pools) = [Baltimore | Brooklyn | New York City | Red Hook]. Every walked constraint holds on these entities — but a too-narrow relation set on either side can shrink this intersection. Verify against both subgraphs' triples before finalizing (advisory).
 ```
 **[14] 工具结果**:
 ```text
 entities: Brooklyn
 question: what is the located ID of this location
-candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | location.location.containedby | location.neighborhood.neighborhood_of | base.aareas.schema.administrative_area.administrative_parent | location.country.administrati…
+candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | location.location.containedby | location.neighborhood.neighborhood_of | base.aareas.schema.administrative_area.administrative_parent | location.country.administrative_divisions | organization.organization.geographic_scope | location.country.first_level_divisions | location.location.people_born_here | location.place_with_neighborhoods.neighborhoods | base.biblioness.bibs_location.state | base.lightweight.regional_dated_integer.region | location.location.contains
 grouped_relations:
   event.locations ← time.event.locations
   place_lived.location ← people.place_lived.location
@@ -12729,7 +12730,7 @@ grouped_relations:
   country.first_level_divisions ← location.country.first_level_divisions
   location.people_born_here ← location.location.people_born_here
   place_with_neighborhoods.neighborhoods ← location.place_with_neighborhoods.neighborhoods
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [15] assistant
 **思考（原文）**:
@@ -12789,7 +12790,7 @@ entities: Carmelo Anthony
 ── Brooklyn ──
     --place_with_neighborhoods.neighborhoods--> Red Hook
     m.04hvll4 --place_lived.location--> Brooklyn
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'location.location.geolocation': {'direct': ['location.location.geolocation'], 'bridge': ['location.place_with_neighborhoods.neighborhoods']}}
 layer_action: repeat
 ```
@@ -12835,7 +12836,7 @@ question: what is the located ID of this location
 ```text
 entities: Brooklyn
 question: what is the located ID of this location
-candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | location.location.containedby | location.neighborhood.neighborhood_of | base.aareas.schema.administrative_area.administrative_parent | location.country.administrati…
+candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | location.location.containedby | location.neighborhood.neighborhood_of | base.aareas.schema.administrative_area.administrative_parent | location.country.administrative_divisions | organization.organization.geographic_scope | location.country.first_level_divisions | location.location.people_born_here | location.place_with_neighborhoods.neighborhoods | base.biblioness.bibs_location.state | base.lightweight.regional_dated_integer.region | location.location.contains
 grouped_relations:
   event.locations ← time.event.locations
   place_lived.location ← people.place_lived.location
@@ -12849,7 +12850,7 @@ grouped_relations:
   country.first_level_divisions ← location.country.first_level_divisions
   location.people_born_here ← location.location.people_born_here
   place_with_neighborhoods.neighborhoods ← location.place_with_neighborhoods.neighborhoods
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [19] assistant
 **思考（原文）**:
@@ -12899,7 +12900,7 @@ sg: sg2
 fact_id: sg2
 triples:
 entities: Carmelo Anthony  (sequence root; this layer applies to the frontier: Baltimore | Brooklyn | La La | Marriage | New York City | Red Hook | To | Place lived)
-▸ patterns: person.place_of_birth ⭢ location.containedby | marriage.spouse ⭢ marriage.location_of_ceremony ⭢ administrative_area.administrative_parent | marriage.spouse ⭢ marriage.location_of_ceremony ⭢ location.containedby | administrative_area.administrative_parent | administrative_division.second…
+▸ patterns: person.place_of_birth ⭢ location.containedby | marriage.spouse ⭢ marriage.location_of_ceremony ⭢ administrative_area.administrative_parent | marriage.spouse ⭢ marriage.location_of_ceremony ⭢ location.containedby | administrative_area.administrative_parent | administrative_division.second_level_division_of | location.containedby
 ── Carmelo Anthony ──
     --person.place_of_birth--> Red Hook
     m.0hygqds --marriage.spouse--> Carmelo Anthony
@@ -12918,8 +12919,8 @@ entities: Carmelo Anthony  (sequence root; this layer applies to the frontier: B
 ── Brooklyn ──
     --location.containedby--> New York
     --administrative_division.second_level_division_of--> United States of America
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'location.location.geolocation': {'direct': ['location.location.geolocation'], 'bridge': ['location.place_with_neighborhoods.neighborhoods']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['location.administrative_division.second_level…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'location.location.geolocation': {'direct': ['location.location.geolocation'], 'bridge': ['location.place_with_neighborhoods.neighborhoods']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['location.administrative_division.second_level_division_of', 'location.place_with_neighborhoods.neighborhoods']}, 'base.aareas.schema.administrative_area.administrative_parent': {'direct': ['base.aareas.schema.administrative_area.administrative_parent'], 'bridge': ['location.administrative_division.second_level_division_of', 'location.location.containedby']}}
 anchor_sequence: Carmelo Anthony ⭢ marriage.spouse | person.place_of_birth | person.places_lived (8) ⭢ administrative_area.administrative_parent | administrative_division.second_level_division_of | location.containedby | location.geolocation | place_with_neighborhoods.neighborhoods (0)
 layer_action: extend
 ```
@@ -12976,7 +12977,7 @@ question: what is the located ID of this location
 ```text
 entities: Brooklyn
 question: what is the located ID of this location
-candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | location.location.containedby | location.neighborhood.neighborhood_of | base.aareas.schema.administrative_area.administrative_parent | location.country.administrati…
+candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | location.location.containedby | location.neighborhood.neighborhood_of | base.aareas.schema.administrative_area.administrative_parent | location.country.administrative_divisions | organization.organization.geographic_scope | location.country.first_level_divisions | location.location.people_born_here | location.place_with_neighborhoods.neighborhoods | base.biblioness.bibs_location.state | base.lightweight.regional_dated_integer.region | location.location.contains
 grouped_relations:
   event.locations ← time.event.locations
   place_lived.location ← people.place_lived.location
@@ -12990,7 +12991,7 @@ grouped_relations:
   country.first_level_divisions ← location.country.first_level_divisions
   location.people_born_here ← location.location.people_born_here
   place_with_neighborhoods.neighborhoods ← location.place_with_neighborhoods.neighborhoods
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [23] assistant
 **思考（原文）**:
@@ -13038,7 +13039,7 @@ entities: Carmelo Anthony  (sequence root; this layer applies to the frontier: D
     --person.place_of_birth--> Red Hook
 ── Red Hook ──
     --location.contains--> Defonte's
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'location.location.geolocation': {'direct': ['location.location.geolocation'], 'bridge': ['location.place_with_neighborhoods.neighborhoods']}, 'location.location.contains': {'direct': ['location.location.contains'], 'bridge': ['location.place_with_neighborhoods.neighborhoods']}}
 anchor_sequence: Carmelo Anthony ⭢ marriage.spouse | person.place_of_birth | person.places_lived (8) ⭢ location.contains | location.geolocation | place_with_neighborhoods.neighborhoods (8)
 layer_action: update layer 2 (replaced dministrative_area.administrative_parent, rative_division.second_level_division_of, location.location.containedby)
@@ -13089,7 +13090,7 @@ question: what is the located ID of this location
 ```text
 entities: Brooklyn
 question: what is the located ID of this location
-candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | location.location.containedby | location.neighborhood.neighborhood_of | base.aareas.schema.administrative_area.administrative_parent | location.country.administrati…
+candidate_relations: time.event.locations | people.place_lived.location | sports.sports_team.location | location.location.geolocation | location.location.containedby | location.neighborhood.neighborhood_of | base.aareas.schema.administrative_area.administrative_parent | location.country.administrative_divisions | organization.organization.geographic_scope | location.country.first_level_divisions | location.location.people_born_here | location.place_with_neighborhoods.neighborhoods | base.biblioness.bibs_location.state | base.lightweight.regional_dated_integer.region | location.location.contains
 grouped_relations:
   event.locations ← time.event.locations
   place_lived.location ← people.place_lived.location
@@ -13103,7 +13104,7 @@ grouped_relations:
   country.first_level_divisions ← location.country.first_level_divisions
   location.people_born_here ← location.location.people_born_here
   place_with_neighborhoods.neighborhoods ← location.place_with_neighborhoods.neighborhoods
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [27] assistant
 **思考（原文）**:
@@ -13155,7 +13156,7 @@ entities: NONE
 ```
 **[28] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — sg2.f2 ?city=['Red Hook', 'Baltimore', 'Brooklyn', 'New York City']; f2 ?city=['Red Hook', 'Baltimore', 'Brooklyn', 'New York City']. These are retrieved facts; the answer should be given from the…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — sg2.f2 ?city=['Red Hook', 'Baltimore', 'Brooklyn', 'New York City']; f2 ?city=['Red Hook', 'Baltimore', 'Brooklyn', 'New York City']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?city=['Red Hook', 'Baltimore', 'Brooklyn', 'New York City']. Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [29] assistant
 **思考（原文）**:
@@ -13278,7 +13279,7 @@ flow: {'id': 'f1', 'triple': '(Lala Anthony | in which city does this person liv
 entities: Lala Anthony | Carmelo Anthony
 answer: ?city
 answer_type: city
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -13312,8 +13313,8 @@ question: in which city does this person live
 **[3] 工具结果**:
 ```text
 entity_error: 'Lala Anthony' is not a confident graph entity.
-candidates: {'name': 'Daphne Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_value', 'people.person.sibling_s']} | {'name': 'Kiyan Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_no_value', 'freebase.valuenotation.has_value']}…
-note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for t…
+candidates: {'name': 'Daphne Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_value', 'people.person.sibling_s']} | {'name': 'Kiyan Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_no_value', 'freebase.valuenotation.has_value']} | {'name': 'Carmelo K. Anthony Basketball Center', 'neighbor_relations': ['location.location.street_address', 'location.location.contains', 'location.location.geolocation']} | {'name': 'Michelle Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_value', 'people.person.children']} | {'name': 'Mary Anthony', 'neighbor_relations': ['people.person.nationality', 'people.person.ethnicity', 'people.person.gender']}
+note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for this fact or continue from another question entity's evidence. CROSS-SUBGRAPH CENTER: if THIS fact's selected relations are right but its anchor entity is wrong, re-call retrieve_subgraph with a center BORROWED from any prior subgraph's evidence (e.g. an earlier fact's binding) plus this fact's relations — the boundary check accepts any retrieved entity as a center.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -13360,7 +13361,7 @@ question: in which city does this person live
 ```text
 entities: Carmelo Anthony
 question: in which city does this person live
-candidate_relations: people.person.places_lived | fictional_universe.fictional_character.place_of_birth | location.neighborhood.neighborhood_of | location.location.people_born_here | people.place_lived.location | sports.sports_team.location | location.location.street_address | location.place_with_ne…
+candidate_relations: people.person.places_lived | fictional_universe.fictional_character.place_of_birth | location.neighborhood.neighborhood_of | location.location.people_born_here | people.place_lived.location | sports.sports_team.location | location.location.street_address | location.place_with_neighborhoods.neighborhoods | location.citytown.postal_codes | base.biblioness.bibs_location.country | location.postal_code.country | base.locations.states_and_provences.country | people.place_lived.person | location.location.geolocation | people.person.nationality
 grouped_relations:
   person.places_lived ← people.person.places_lived
   fictional_character.place_of_birth ← fictional_universe.fictional_character.place_of_birth
@@ -13374,7 +13375,7 @@ grouped_relations:
   bibs_location.country ← base.biblioness.bibs_location.country
   postal_code.country ← location.postal_code.country
   states_and_provences.country ← base.locations.states_and_provences.country
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -13429,7 +13430,7 @@ entities: Carmelo Anthony
     --person.place_of_birth--> Red Hook
     --person.places_lived--> m.03plgd9 [location: Baltimore] | m.04hvll4 [location: Brooklyn] | m.0kfxz8p [location: New York City]
     Carmelo K. Anthony Basketball Center --namesake.named_after--> Carmelo Anthony
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'location.location.geolocation': {'direct': ['location.location.geolocation'], 'bridge': ['people.person.place_of_birth', 'symbols.namesake.named_after']}}
 ```
 ## [8] assistant
@@ -13530,7 +13531,7 @@ question: which people are this person's siblings
 ```text
 entities: Michelle Anthony
 question: which people are this person's siblings
-candidate_relations: people.person.sibling_s | people.sibling_relationship.sibling | people.person.parents | people.marriage.spouse | people.person.spouse_s | film.personal_film_appearance.person | people.place_lived.person | tv.tv_guest_personal_appearance.person | symbols.name_source.namesakes | l…
+candidate_relations: people.person.sibling_s | people.sibling_relationship.sibling | people.person.parents | people.marriage.spouse | people.person.spouse_s | film.personal_film_appearance.person | people.place_lived.person | tv.tv_guest_personal_appearance.person | symbols.name_source.namesakes | location.location.people_born_here | tv.tv_actor.starring_roles | people.person.place_of_birth | people.person.children | people.person.nationality | people.person.places_lived
 grouped_relations:
   person.sibling_s ← people.person.sibling_s
   sibling_relationship.sibling ← people.sibling_relationship.sibling
@@ -13544,7 +13545,7 @@ grouped_relations:
   location.people_born_here ← location.location.people_born_here
   tv_actor.starring_roles ← tv.tv_actor.starring_roles
   person.place_of_birth ← people.person.place_of_birth
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [12] assistant
 **思考（原文）**:
@@ -13598,7 +13599,7 @@ entities: Carmelo Anthony
 ▸ patterns: person.places_lived
 ── Carmelo Anthony ──
     --person.places_lived--> m.03plgd9 [location: Baltimore] | m.04hvll4 [location: Brooklyn] | m.0kfxz8p [location: New York City]
-note: UNCHANGED EVIDENCE (repeat): these relations produced no NEW edges since your previous subgraph — the same evidence is displayed again so it stays in context. ACT on it (checkpoint / answer / move to the next fact); re-retrieving will return the same. SEQUENCE EXTENSION applied to several fron…
+note: UNCHANGED EVIDENCE (repeat): these relations produced no NEW edges since your previous subgraph — the same evidence is displayed again so it stays in context. ACT on it (checkpoint / answer / move to the next fact); re-retrieving will return the same. SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 layer_action: repeat
 ```
 ## [14] assistant
@@ -13742,7 +13743,7 @@ flow: {'id': 'f1', 'triple': '(Taylor Lautner | which films did this person act 
 entities: Taylor Lautner
 answer: ?movie
 answer_type: film
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -13772,7 +13773,7 @@ question: which films did this person act in
 ```text
 entities: Taylor Lautner
 question: which films did this person act in
-candidate_relations: film.film_character.portrayed_in_films | film.person_or_entity_appearing_in_film.films | film.film_series.films_in_series | film.film.film_series | tv.tv_actor.starring_roles | film.actor.film | film.performance.film | film.personal_film_appearance.film | film.film.starring | fi…
+candidate_relations: film.film_character.portrayed_in_films | film.person_or_entity_appearing_in_film.films | film.film_series.films_in_series | film.film.film_series | tv.tv_actor.starring_roles | film.actor.film | film.performance.film | film.personal_film_appearance.film | film.film.starring | film.film.directed_by | film.film.featured_film_locations | film.performance.actor | film.film.personal_appearances | film.personal_film_appearance.person | film.film.netflix_id
 grouped_relations:
   film_character.portrayed_in_films ← film.film_character.portrayed_in_films
   person_or_entity_appearing_in_film.films ← film.person_or_entity_appearing_in_film.films
@@ -13786,7 +13787,7 @@ grouped_relations:
   film.directed_by ← film.film.directed_by
   film.featured_film_locations ← film.film.featured_film_locations
   performance.actor ← film.performance.actor
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -13819,56 +13820,56 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Taylor Lautner
-▸ patterns: award_honor.award_winner | award_nomination.award_nominee | award_winner.awards_won | actor.film | performance.actor | tv_actor.starring_roles | award_honor.award_winner ⭢ award_winner.awards_won ⭢ award_nomination.award_nominee | award_honor.award_winner ⭢ award_winning_work.awards_won …
+▸ patterns: award_honor.award_winner | award_nomination.award_nominee | award_winner.awards_won | actor.film | performance.actor | tv_actor.starring_roles | award_honor.award_winner ⭢ award_winner.awards_won ⭢ award_nomination.award_nominee | award_honor.award_winner ⭢ award_winning_work.awards_won ⭢ performance.film | award_nomination.award_nominee ⭢ award_nominated_work.award_nominations ⭢ performance.film | award_nomination.award_nominee ⭢ award_nomination.award_nominee ⭢ award_honor.award_winner | award_nomination.award_nominee ⭢ award_nomination.nominated_for ⭢ performance.film | award_winner.awards_won ⭢ award_winning_work.awards_won ⭢ performance.film | celebrity.celebrity_friends ⭢ celebrity.celebrity_friends ⭢ award_honor.award_winner | celebrity.celebrity_friends ⭢ celebrity.celebrity_friends ⭢ award_nomination.award_nominee | celebrity.celebrity_friends ⭢ celebrity.celebrity_friends ⭢ award_winner.awards_won | friendship.friend ⭢ celebrity.celebrity_friends ⭢ award_honor.awa…
 ── Taylor Lautner ──
-    --award_winner.awards_won--> m.01086803 [award: Scream Awards for Male Breakout Performance; honored_for: Twilight] | m.09rpwdk [award: People's Choice Award for Favorite Breakout Movie Actor; ceremony: 36th People's Choice Awards; has_no_value: Winning work] | m.0g4t6qq [award: People's Choice …
+    --award_winner.awards_won--> m.01086803 [award: Scream Awards for Male Breakout Performance; honored_for: Twilight] | m.09rpwdk [award: People's Choice Award for Favorite Breakout Movie Actor; ceremony: 36th People's Choice Awards; has_no_value: Winning work] | m.0g4t6qq [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 37th People's Choice Awards; honored_for: Eclipse] | m.0kb9_qw [ceremony: 2012 Teen Choice Awards; honored_for: Abduction] | m.0nf3bp2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 36th People's Choice Awards; honored_for: The Twilight Saga] | m.0nfjtkv [award: Teen Choice Award for Choice Movie Breakout Star - Male; ceremony: 2009 Teen Choice Awards; honored_for: Twilight] | m.0r436z2 [award: Razzie Award for Worst Supporting Actor; ceremony: 33rd Golden Raspberry Awards; honored_for: The Twilight Saga: Breaking Daw…
     --celebrity.celebrity_friends--> m.07z2msz [friend: Kristen Stewart]
-    --actor.film--> m.012zk7ct [film: Run the Tide] | m.0131gszv [film: The Ridiculous Six] | m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.06z_2jg [character: Kismet (Child); film: Shadow Fury] | m.075wxc2 [character: …
-    --tv_actor.starring_roles--> m.04tz40k [character: Jack Spivey; seasons: My Own Worst Enemy - Season 1; series: My Own Worst Enemy] | m.0gwrl_1 [character: Boy on Beach; series: Summerland] | m.0gwrlx_ [character: Aaron; series: The Bernie Mac Show] | m.0gwrlyc [character: Reggie Wasserstein; se…
+    --actor.film--> m.012zk7ct [film: Run the Tide] | m.0131gszv [film: The Ridiculous Six] | m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.06z_2jg [character: Kismet (Child); film: Shadow Fury] | m.075wxc2 [character: Jacob Black; film: Eclipse] | m.0772zp4 [character: Willy; film: Valentine's Day] | m.0b68zn5 [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 1] | m.0djz10s [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 2] | m.0gvd5lx [character: Nathan Harper; film: Abduction] | m.0gwrkz0 [character: Mouseketeer; film: The Nick and Jessica Variety Hour] | m.0gwrkzm [character: Joe Agate; film: He's a Bully, Charlie Brown] | m.0gx8qdk [character: Finn; film: Incarceron] | m.0h7fzt3 [character: Iowa Farmer; film: Field of Dreams 2: Lockout] | m.0jw95q [character: Eliott Murtaugh; film: Cheaper by the Dozen 2] | m.0k490j [character: Sharkboy; film: The Adventures…
+    --tv_actor.starring_roles--> m.04tz40k [character: Jack Spivey; seasons: My Own Worst Enemy - Season 1; series: My Own Worst Enemy] | m.0gwrl_1 [character: Boy on Beach; series: Summerland] | m.0gwrlx_ [character: Aaron; series: The Bernie Mac Show] | m.0gwrlyc [character: Reggie Wasserstein; series: Duck Dodgers] | m.0gwrlyk [character: Tyrone; series: My Wife and Kids] | m.0gwrlyy [character: Dennis; series: What's New, Scooby-Doo?] | m.0gwrlz9 [character: Young Blood] | m.0gwrlzp [character: Oliver; series: Love, Inc.]
     m.012zk7ct | m.0131gszv | m.04z4zmg | m.05tflhw | m.06z_2jg | m.075wxc2 | m.0772zp4 | m.0b68zn5 | m.0djz10s | m.0gvd5lx | m.0gwrkz0 | m.0gwrkzm …(+7) (to answer with ALL of them, include "#m.012zk7ct::actor" as one answer entity) --performance.actor--> Taylor Lautner
     m.0110_kdb | m.09sfstk | m.09sftk2 | m.09tz609 | m.0_80vng | m.0b3tz45 | m.0c01vmb | m.0c02330 | m.0c032jc | m.0dlsjrg | m.0g8l2p6 | m.0hj8l0h …(+12) (to answer with ALL of them, include "#m.0110_kdb::award_nominee" as one answer entity) --award_nomination.award_nominee--> Taylor Lautner
     m.01086803 | m.09rpwdk | m.0g4t6qq | m.0kb9_qw | m.0nf3bp2 | m.0nfjtkv | m.0r436z2 | m.0r43x82 | m.0sgl4jf | m.0sglcdq | m.0sglwpm | m.0svpk2s …(+9) (to answer with ALL of them, include "#m.01086803::award_winner" as one answer entity) --award_honor.award_winner--> Taylor Lautner
     m.07z2msz --friendship.friend--> Taylor Lautner
 ── Kristen Stewart ──
-    --award_winner.awards_won--> m.0g4t6qq [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 37th People's Choice Awards; honored_for: Eclipse] | m.0nf3bp2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_…
+    --award_winner.awards_won--> m.0g4t6qq [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 37th People's Choice Awards; honored_for: Eclipse] | m.0nf3bp2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 36th People's Choice Awards; honored_for: The Twilight Saga] | m.0sglcdq [award: Blimp Award for Cutest Couple; award_winner: Kristen Stewart; ceremony: 2010 Kids' Choice Awards; honored_for: The Twilight Saga: New Moon] | m.0z8h7fw [award: Teen Choice Special Award — Ultimate Choice Award; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 2012 Teen Choice Awards; has_no_value: Winning work] | m.0zc41vm [award: Teen Choice Award for Choice Most Fanatic Fans; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 2010 Teen Choice Awards; honored_for: Eclipse]
     --celebrity.celebrity_friends--> m.07z2msz [friend: Kristen Stewart]
     m.09sftk2 | m.09tz609 | m.0dlsl0_ | m.0j2vj_g | m.0pc68dv | m.0sgl9q8 | m.0z87_06 | m.0zc41z3 --award_nomination.award_nominee--> Kristen Stewart
     m.0g4t6qq | m.0nf3bp2 | m.0sglcdq | m.0z8h7fw | m.0zc41vm --award_honor.award_winner--> Kristen Stewart
 ── Eclipse ──
-    --award_nominated_work.award_nominations--> m.0dlsjrg [award: People's Choice Award for Favorite Movie Actor; ceremony: 37th People's Choice Awards; nominated_for: Eclipse] | m.0g8l2p6 [award: Razzie Award for Worst Actor; ceremony: 31st Golden Raspberry Awards; nominated_for: Eclipse | Valentin…
+    --award_nominated_work.award_nominations--> m.0dlsjrg [award: People's Choice Award for Favorite Movie Actor; ceremony: 37th People's Choice Awards; nominated_for: Eclipse] | m.0g8l2p6 [award: Razzie Award for Worst Actor; ceremony: 31st Golden Raspberry Awards; nominated_for: Eclipse | Valentine's Day] | m.0pc68dv [award: MTV Movie Award for Best Kiss; award_nominee: Kristen Stewart; ceremony: 2011 MTV Movie Awards; nominated_for: Eclipse] | m.0pc6mm8 [award: MTV Movie Award for Best Male Performance; award_nominee: Taylor Lautner; ceremony: 2011 MTV Movie Awards] | m.0z87_06 [award: Teen Choice Award for Choice Movie: Liplock; award_nominee: Taylor Lautner; ceremony: 2011 Teen Choice Awards; nominated_for: Eclipse] | m.0z8vmjl [award: Teen Choice Award for Choice Summer Movie Star: Male; ceremony: 2010 Teen Choice Awards; nominated_for: Eclipse] | m.0dlsl0_ [award: People's Choice Award for Favorite On-Screen Chemistry; award_nominee: Robert Pattinson | Taylor Lautner; ceremony: …
     --award_winning_work.awards_won--> m.0g4t6qq [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 37th People's Choice Awards; honored_for: Eclipse]
     --film.starring--> m.075wxc2 [character: Jacob Black; film: Eclipse]
     m.075wxc2 --performance.film--> Eclipse
 ── The Twilight Saga: New Moon ──
-    --award_nominated_work.award_nominations--> m.09tz609 [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Kristen Stewart | Robert Pattinson; ceremony: 30th Golden Raspberry Awards; nominated_for: The Twilight Saga: New Moon] | m.0c02330 [award: MTV Movie Award for Best Male Pe…
+    --award_nominated_work.award_nominations--> m.09tz609 [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Kristen Stewart | Robert Pattinson; ceremony: 30th Golden Raspberry Awards; nominated_for: The Twilight Saga: New Moon] | m.0c02330 [award: MTV Movie Award for Best Male Performance; ceremony: 2010 MTV Movie Awards; nominated_for: The Twilight Saga: New Moon] | m.09sftk2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_nominee: Kristen Stewart | Robert Pattinson; ceremony: 36th People's Choice Awards; nominated_for: The Twilight Saga: New Moon] | m.0sgl6rq [award: Kids' Choice Award for Favorite Movie Actor; ceremony: 2010 Kids' Choice Awards; nominated_for: The Twilight Saga: New Moon] | m.0sgl9q8 [award: Blimp Award for Cutest Couple; award_nominee: Kristen Stewart; ceremony: 2010 Kids' Choice Awards; nominated_for: The Twilight Saga: New Moon] | m.0z8jj9c [award: Teen Choice Award for Choice Movie Actor: Fantasy; award_nominee: Taylor L…
     --award_winning_work.awards_won--> m.0sgl4jf [award: Kids' Choice Award for Favorite Movie Actor; ceremony: 2010 Kids' Choice Awards; honored_for: The Twilight Saga: New Moon]
     --film.starring--> m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon]
 ── Abduction ──
-    --award_nominated_work.award_nominations--> m.0hj8l0h [award: People's Choice Award for Favorite Action Movie Star; ceremony: 38th People's Choice Awards; nominated_for: Abduction] | m.0j2vjzw [award: Razzie Award for Worst Actor; award_nominee: Taylor Lautner; ceremony: 32nd Golden Raspberry Aw…
+    --award_nominated_work.award_nominations--> m.0hj8l0h [award: People's Choice Award for Favorite Action Movie Star; ceremony: 38th People's Choice Awards; nominated_for: Abduction] | m.0j2vjzw [award: Razzie Award for Worst Actor; award_nominee: Taylor Lautner; ceremony: 32nd Golden Raspberry Awards; nominated_for: The Twilight Saga: Breaking Dawn - Part 1] | m.0z837pz [ceremony: 2012 Teen Choice Awards; nominated_for: Abduction]
     --award_winning_work.awards_won--> m.0kb9_qw [ceremony: 2012 Teen Choice Awards; honored_for: Abduction]
     m.0gvd5lx --performance.film--> Abduction
     m.0hj8l0h --award_nomination.nominated_for--> Abduction
 ── Grown Ups 2 ──
-    --award_nominated_work.award_nominations--> m.0_80vng [award: Razzie Award for Worst Supporting Actor; ceremony: 34th Golden Raspberry Awards; nominated_for: Grown Ups 2] | m.0wjg9ly [award: Teen Choice Award for Choice Hissy Fit: Film; award_nominee: Taylor Lautner; ceremony: 2013 Teen Choice A…
+    --award_nominated_work.award_nominations--> m.0_80vng [award: Razzie Award for Worst Supporting Actor; ceremony: 34th Golden Raspberry Awards; nominated_for: Grown Ups 2] | m.0wjg9ly [award: Teen Choice Award for Choice Hissy Fit: Film; award_nominee: Taylor Lautner; ceremony: 2013 Teen Choice Awards]
     --award_winning_work.awards_won--> m.0wjgb97 [award: Teen Choice Award for Choice Hissy Fit: Film; ceremony: 2013 Teen Choice Awards; honored_for: Grown Ups 2]
     --film.starring--> m.0ngk01h [character: Frat Boy Andy; film: Grown Ups 2]
     m.0ngk01h --performance.film--> Grown Ups 2
 ── The Twilight Saga: Breaking Dawn - Part 2 ──
-    --award_nominated_work.award_nominations--> m.0pdgl_y [award: Razzie Award for Worst Supporting Actor; ceremony: 33rd Golden Raspberry Awards; nominated_for: The Twilight Saga: Breaking Dawn - Part 2] | m.0pdglz9 [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Mackenzie Foy…
+    --award_nominated_work.award_nominations--> m.0pdgl_y [award: Razzie Award for Worst Supporting Actor; ceremony: 33rd Golden Raspberry Awards; nominated_for: The Twilight Saga: Breaking Dawn - Part 2] | m.0pdglz9 [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Mackenzie Foy; ceremony: 33rd Golden Raspberry Awards; nominated_for: The Twilight Saga: Breaking Dawn - Part 2] | m.0r9hvx9 [award: MTV Movie Award for Best Shirtless Performance; award_nominee: Taylor Lautner; ceremony: 2013 MTV Movie Awards]
     m.0djz10s --performance.film--> The Twilight Saga: Breaking Dawn - Part 2
 ── Twilight ──
-    --award_nominated_work.award_nominations--> m.0b3tz45 [award: MTV Movie Award for Best Breakthrough Performance - Male; ceremony: 2009 MTV Movie Awards; nominated_for: Twilight] | m.0z8zbq7 [award: Teen Choice Award for Choice Movie Breakout Star - Male; award_nominee: Taylor Lautner; ceremony: …
+    --award_nominated_work.award_nominations--> m.0b3tz45 [award: MTV Movie Award for Best Breakthrough Performance - Male; ceremony: 2009 MTV Movie Awards; nominated_for: Twilight] | m.0z8zbq7 [award: Teen Choice Award for Choice Movie Breakout Star - Male; award_nominee: Taylor Lautner; ceremony: 2009 Teen Choice Awards]
     --film.starring--> m.04z4zmg [character: Jacob Black; film: Twilight]
     m.01086803 --award_honor.honored_for--> Twilight
 ── Valentine's Day ──
-    --award_nominated_work.award_nominations--> m.0c032jc [award: MTV Movie Award for Best Kiss; award_nominee: Taylor Swift; ceremony: 2010 MTV Movie Awards; nominated_for: Valentine's Day] | m.0ngmz7j [award: Teen Choice Award for Choice Movie: Chemistry; award_nominee: Taylor Swift; ceremony: 201…
+    --award_nominated_work.award_nominations--> m.0c032jc [award: MTV Movie Award for Best Kiss; award_nominee: Taylor Swift; ceremony: 2010 MTV Movie Awards; nominated_for: Valentine's Day] | m.0ngmz7j [award: Teen Choice Award for Choice Movie: Chemistry; award_nominee: Taylor Swift; ceremony: 2010 Teen Choice Awards; nominated_for: Valentine's Day]
     m.0772zp4 --performance.film--> Valentine's Day
 ── Robert Pattinson ──
     m.0dlsl0_ --award_nomination.award_nominee--> Robert Pattinson
     m.0g4t6qq --award_honor.award_winner--> Robert Pattinson
     m.0b68zn5 --performance.film--> The Twilight Saga: Breaking Dawn - Part 1
     m.0c032jc --award_nomination.award_nominee--> Taylor Swift
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.performance.film': {'direct': ['film.performance.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nomination.award_nominee', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.actor.film', 'film.performance.actor']}}
 ```
 ## [6] assistant
@@ -13904,11 +13905,11 @@ values: m.012zk7ct | m.0131gszv | m.04z4zmg | m.05tflhw | m.06z_2jg | m.075wxc2 
 ```
 **[7] 工具结果**:
 ```text
-⚠ Your checkpoint bound EVENT nodes (m./g. ids) as variable values. An event node is an abstract RECORD — it names no thing, so that binding was removed (see §7.5). The entities INSIDE the event's bracket are the world: SUBMIT those — re-declare the checkpoint binding, per variable, the attribute en…
+⚠ Your checkpoint bound EVENT nodes (m./g. ids) as variable values. An event node is an abstract RECORD — it names no thing, so that binding was removed (see §7.5). The entities INSIDE the event's bracket are the world: SUBMIT those — re-declare the checkpoint binding, per variable, the attribute entity whose KEY answers that variable (award question → the award= value, residence → location=, who played → actor=; a film performance → the film= or character= value).
 ```
 **[8] 工具结果**:
 ```text
-REJECTED: Wrong tool in the retrieve phase — and note the WORKFLOW ORDER: `retrieve_relations` must come BEFORE `retrieve_subgraph` for each fact. `retrieve_relations` finds relations for a NEW subgraph; `retrieve_subgraph` continues an existing tree (anchor + relations — the system walks the full c…
+REJECTED: Wrong tool in the retrieve phase — and note the WORKFLOW ORDER: `retrieve_relations` must come BEFORE `retrieve_subgraph` for each fact. `retrieve_relations` finds relations for a NEW subgraph; `retrieve_subgraph` continues an existing tree (anchor + relations — the system walks the full chain). Both are valid. facts: ✓f1 ⬜f2  (retrieved 1/2)
 ```
 ## [9] assistant
 **思考（原文）**:
@@ -13940,7 +13941,7 @@ question: what tvrage_id does this film have
 ```
 **[10] 工具结果**:
 ```text
-error: variable ?movie can NEVER bind: its declared values were EVENT nodes (m./g. ids) and events are not entities (§7.5) — re-declaring them returns here forever. The event's bracketed ATTRIBUTES are the entities (e.g. award_nominee=…). Close the stranded fact `[f1 ✗ moot]` (earlier evidence alrea…
+error: variable ?movie can NEVER bind: its declared values were EVENT nodes (m./g. ids) and events are not entities (§7.5) — re-declaring them returns here forever. The event's bracketed ATTRIBUTES are the entities (e.g. award_nominee=…). Close the stranded fact `[f1 ✗ moot]` (earlier evidence already shows its target inside the brackets) and continue the next fact with an ATTRIBUTE entity as the center.
 ```
 ## [11] assistant
 **思考（原文）**:
@@ -13993,7 +13994,7 @@ question: what tvrage_id does this film have
 ```text
 entities: Twilight
 question: what tvrage_id does this film have
-candidate_relations: film.film.film_series | film.film_series.films_in_series | film.film.sequel | film.film.starring | tv.tv_actor.starring_roles | film.film.prequel | location.location.contains_major_portion_of | award.award_nominated_work.award_nominations | award.award_nominee.award_nominations …
+candidate_relations: film.film.film_series | film.film_series.films_in_series | film.film.sequel | film.film.starring | tv.tv_actor.starring_roles | film.film.prequel | location.location.contains_major_portion_of | award.award_nominated_work.award_nominations | award.award_nominee.award_nominations | award.award_nomination.award | location.location.partially_contains | people.person.religion | film.film.country | tv.tv_actor.guest_roles | award.award_winner.awards_won
 grouped_relations:
   film.film_series ← film.film.film_series
   film_series.films_in_series ← film.film_series.films_in_series
@@ -14007,7 +14008,7 @@ grouped_relations:
   award_nomination.award ← award.award_nomination.award
   location.partially_contains ← location.location.partially_contains
   person.religion ← people.person.religion
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [13] assistant
 **思考（原文）**:
@@ -14057,16 +14058,16 @@ sg: sg1
 ```text
 fact_id: sg1
 triples:
-entities: Taylor Lautner  (sequence root; this layer applies to the frontier: 2009 MTV Movie Awards | 2009 Teen Choice Awards | 2010 Kids' Choice Awards | 2010 MTV Movie Awards | 2010 Teen Choice Awards | 2011 MTV Movie Awards | 2011 Teen Choice Awards | 2012 Kids' Choice Awards | 2012 Teen Choice A…
+entities: Taylor Lautner  (sequence root; this layer applies to the frontier: 2009 MTV Movie Awards | 2009 Teen Choice Awards | 2010 Kids' Choice Awards | 2010 MTV Movie Awards | 2010 Teen Choice Awards | 2011 MTV Movie Awards | 2011 Teen Choice Awards | 2012 Kids' Choice Awards | 2012 Teen Choice Awards | 2013 MTV Movie Awards | 2013 Teen Choice Awards | 2014 Young Hollywood Awards)
 ▸ patterns: award_honor.award_winner ⭢ award_winning_work.awards_won ⭢ film.prequel
 ── Taylor Lautner ──
     m.0g4t6qq --award_honor.award_winner--> Taylor Lautner
 ── Eclipse ──
     --award_winning_work.awards_won--> m.0g4t6qq [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 37th People's Choice Awards; honored_for: Eclipse]
     The Twilight Saga: Breaking Dawn - Part 1 --film.prequel--> Eclipse
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'award.award_nominated_work.award_nominations': {'direct': ['award.award_nominated_work.award_nominations'], 'bridge': ['film.film.prequel']}, 'award.award_nominee.award_nominations': {'direct': ['award.award_nominee.award_nominations'], 'bridge': ['award.award_honor.honored_for…
-anchor_sequence: Taylor Lautner ⭢ award_honor.award_winner | award_nomination.award_nominee | award_nominee.award_nominations | award_winner.awards_won | actor.film | performance.actor | performance.film | tv_actor.starring_roles (106) ⭢ award_honor.honored_for | award_nominated_work.award_nominatio…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'award.award_nominated_work.award_nominations': {'direct': ['award.award_nominated_work.award_nominations'], 'bridge': ['film.film.prequel']}, 'award.award_nominee.award_nominations': {'direct': ['award.award_nominee.award_nominations'], 'bridge': ['award.award_honor.honored_for', 'award.award_nominated_work.award_nominations', 'film.film.starring']}}
+anchor_sequence: Taylor Lautner ⭢ award_honor.award_winner | award_nomination.award_nominee | award_nominee.award_nominations | award_winner.awards_won | actor.film | performance.actor | performance.film | tv_actor.starring_roles (106) ⭢ award_honor.honored_for | award_nominated_work.award_nominations | film.prequel | film.starring (0)
 layer_action: extend
 ```
 **[15] 工具结果**:
@@ -14128,7 +14129,7 @@ question: what tvrage_id does this film have
 ```text
 entities: Twilight
 question: what tvrage_id does this film have
-candidate_relations: film.film.film_series | film.film_series.films_in_series | film.film.sequel | film.film.starring | tv.tv_actor.starring_roles | film.film.prequel | location.location.contains_major_portion_of | award.award_nominated_work.award_nominations | award.award_nominee.award_nominations …
+candidate_relations: film.film.film_series | film.film_series.films_in_series | film.film.sequel | film.film.starring | tv.tv_actor.starring_roles | film.film.prequel | location.location.contains_major_portion_of | award.award_nominated_work.award_nominations | award.award_nominee.award_nominations | award.award_nomination.award | location.location.partially_contains | people.person.religion | film.film.country | tv.tv_actor.guest_roles | award.award_winner.awards_won
 grouped_relations:
   film.film_series ← film.film.film_series
   film_series.films_in_series ← film.film_series.films_in_series
@@ -14142,7 +14143,7 @@ grouped_relations:
   award_nomination.award ← award.award_nomination.award
   location.partially_contains ← location.location.partially_contains
   person.religion ← people.person.religion
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [18] assistant
 **思考（原文）**:
@@ -14183,7 +14184,7 @@ sg: sg1
 ```text
 fact_id: sg1
 triples:
-entities: Taylor Lautner  (sequence root; this layer applies to the frontier: 2009 MTV Movie Awards | 2009 Teen Choice Awards | 2010 Kids' Choice Awards | 2010 MTV Movie Awards | 2010 Teen Choice Awards | 2011 MTV Movie Awards | 2011 Teen Choice Awards | 2012 Kids' Choice Awards | 2012 Teen Choice A…
+entities: Taylor Lautner  (sequence root; this layer applies to the frontier: 2009 MTV Movie Awards | 2009 Teen Choice Awards | 2010 Kids' Choice Awards | 2010 MTV Movie Awards | 2010 Teen Choice Awards | 2011 MTV Movie Awards | 2011 Teen Choice Awards | 2012 Kids' Choice Awards | 2012 Teen Choice Awards | 2013 MTV Movie Awards | 2013 Teen Choice Awards | 2014 Young Hollywood Awards)
 ▸ patterns: award_honor.award_winner ⭢ award_winning_work.awards_won ⭢ film.film_series | award_honor.award_winner ⭢ award_winning_work.awards_won ⭢ film.starring
 ── Taylor Lautner ──
     m.0g4t6qq | m.0kb9_qw | m.0nf3bp2 | m.0wjgb97 --award_honor.award_winner--> Taylor Lautner
@@ -14199,9 +14200,9 @@ entities: Taylor Lautner  (sequence root; this layer applies to the frontier: 20
 ── The Twilight Saga ──
     --award_winning_work.awards_won--> m.0nf3bp2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 36th People's Choice Awards; honored_for: The Twilight Saga]
     The Twilight Saga: Breaking Dawn - Part 1 --film.film_series--> The Twilight Saga
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.film_series.films_in_series': {'direct': ['film.film_series.films_in_series'], 'bridge': ['film.film.film_series', 'film.film.prequel']}, 'film.film.starring': {'direct': ['film.film.starring'], 'bridge': ['film.film.prequel']}}
-anchor_sequence: Taylor Lautner ⭢ award_honor.award_winner | award_nomination.award_nominee | award_nominee.award_nominations | award_winner.awards_won | actor.film | performance.actor | performance.film | tv_actor.starring_roles (106) ⭢ award_honor.honored_for | award_nominated_work.award_nominatio…
+anchor_sequence: Taylor Lautner ⭢ award_honor.award_winner | award_nomination.award_nominee | award_nominee.award_nominations | award_winner.awards_won | actor.film | performance.actor | performance.film | tv_actor.starring_roles (106) ⭢ award_honor.honored_for | award_nominated_work.award_nominations | film.film_series | film.prequel | film.starring | film_series.films_in_series (0)
 layer_action: extend
 ```
 ## [20] assistant
@@ -14246,7 +14247,7 @@ question: what tvrage_id does this film have
 ```text
 entities: Twilight
 question: what tvrage_id does this film have
-candidate_relations: film.film.film_series | film.film_series.films_in_series | film.film.sequel | film.film.starring | tv.tv_actor.starring_roles | film.film.prequel | location.location.contains_major_portion_of | award.award_nominated_work.award_nominations | award.award_nominee.award_nominations …
+candidate_relations: film.film.film_series | film.film_series.films_in_series | film.film.sequel | film.film.starring | tv.tv_actor.starring_roles | film.film.prequel | location.location.contains_major_portion_of | award.award_nominated_work.award_nominations | award.award_nominee.award_nominations | award.award_nomination.award | location.location.partially_contains | people.person.religion | film.film.country | tv.tv_actor.guest_roles | award.award_winner.awards_won
 grouped_relations:
   film.film_series ← film.film.film_series
   film_series.films_in_series ← film.film_series.films_in_series
@@ -14260,7 +14261,7 @@ grouped_relations:
   award_nomination.award ← award.award_nomination.award
   location.partially_contains ← location.location.partially_contains
   person.religion ← people.person.religion
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [22] assistant
 **思考（原文）**:
@@ -14295,7 +14296,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Taylor Lautner
-▸ patterns: award_honor.award_winner ⭢ award_winning_work.awards_won ⭢ film_series.films_in_series | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.film_series | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film_series.films_in_series | …
+▸ patterns: award_honor.award_winner ⭢ award_winning_work.awards_won ⭢ film_series.films_in_series | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.film_series | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film_series.films_in_series | performance.actor ⭢ film.starring ⭢ film_series.films_in_series
 ── Taylor Lautner ──
     --award_nominee.award_nominations--> m.0dlsjrg [award: People's Choice Award for Favorite Movie Actor; ceremony: 37th People's Choice Awards; nominated_for: Eclipse]
     m.075wxc2 --performance.actor--> Taylor Lautner
@@ -14308,8 +14309,8 @@ entities: Taylor Lautner
 ── The Twilight Saga ──
     --award_winning_work.awards_won--> m.0nf3bp2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 36th People's Choice Awards; honored_for: The Twilight Saga]
     --film_series.films_in_series--> The Twilight Saga: Breaking Dawn - Part 1
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'film.film_series.films_in_series': {'direct': ['film.film_series.films_in_series'], 'bridge': ['film.film.film_series', 'film.film.prequel']}, 'film.film.starring': {'direct': ['film.film.starring'], 'bridge': ['film.film.prequel']}, 'award.award_nominated_work.award_nomination…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.film_series.films_in_series': {'direct': ['film.film_series.films_in_series'], 'bridge': ['film.film.film_series', 'film.film.prequel']}, 'film.film.starring': {'direct': ['film.film.starring'], 'bridge': ['film.film.prequel']}, 'award.award_nominated_work.award_nominations': {'direct': ['award.award_nominated_work.award_nominations'], 'bridge': ['film.film.prequel']}}
 layer_action: repeat
 ```
 ## [24] assistant
@@ -14375,7 +14376,7 @@ entities: NONE
 ```
 **[25] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?movie=['Twilight', 'The Twilight Saga: New Moon', 'Eclipse', 'The Twilight Saga: Breaking Dawn - Part 1']. These are retrieved facts; the answer should be given from them (imperfect beats empt…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?movie=['Twilight', 'The Twilight Saga: New Moon', 'Eclipse', 'The Twilight Saga: Breaking Dawn - Part 1']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?movie=['Twilight', 'The Twilight Saga: New Moon', 'Eclipse', 'The Twilight Saga: Breaking Dawn - Part 1']. Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [26] assistant
 **思考（原文）**:
@@ -14417,7 +14418,7 @@ question: what tvrage_id does this film have
 ```text
 entities: Twilight
 question: what tvrage_id does this film have
-candidate_relations: film.film.film_series | film.film_series.films_in_series | film.film.sequel | film.film.starring | tv.tv_actor.starring_roles | film.film.prequel | location.location.contains_major_portion_of | award.award_nominated_work.award_nominations | award.award_nominee.award_nominations …
+candidate_relations: film.film.film_series | film.film_series.films_in_series | film.film.sequel | film.film.starring | tv.tv_actor.starring_roles | film.film.prequel | location.location.contains_major_portion_of | award.award_nominated_work.award_nominations | award.award_nominee.award_nominations | award.award_nomination.award | location.location.partially_contains | people.person.religion | film.film.country | tv.tv_actor.guest_roles | award.award_winner.awards_won
 grouped_relations:
   film.film_series ← film.film.film_series
   film_series.films_in_series ← film.film_series.films_in_series
@@ -14431,7 +14432,7 @@ grouped_relations:
   award_nomination.award ← award.award_nomination.award
   location.partially_contains ← location.location.partially_contains
   person.religion ← people.person.religion
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [28] assistant
 **思考（原文）**:
@@ -14480,7 +14481,7 @@ entities: NONE
 ```
 **[29] 工具结果**:
 ```text
-Second refusal — your ledger holds RETRIEVED FACTS: f1 ?movie=['Twilight', 'The Twilight Saga: New Moon', 'Eclipse', 'The Twilight Saga: Breaking Dawn - Part 1']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE corr…
+Second refusal — your ledger holds RETRIEVED FACTS: f1 ?movie=['Twilight', 'The Twilight Saga: New Moon', 'Eclipse', 'The Twilight Saga: Breaking Dawn - Part 1']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE correct after this, your next NONE submission is ACCEPTED as the final answer.
 ```
 ## [30] assistant
 **思考（原文）**:
@@ -14608,7 +14609,7 @@ flow: {'id': 'f1', 'triple': '(Charlie Hunnam | which movies did this person app
 entities: Charlie Hunnam
 answer: ?movie
 answer_type: movie
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -14631,7 +14632,7 @@ question: which movies did this person appear in
 ```text
 entities: Charlie Hunnam
 question: which movies did this person appear in
-candidate_relations: film.film_character.portrayed_in_films | tv.tv_character.appeared_in_tv_episodes | tv.tv_character.appeared_in_tv_program | tv.tv_actor.starring_roles | tv.tv_guest_role.episodes_appeared_in | film.film.starring | film.actor.film | film.film_regional_release_date.film | film.per…
+candidate_relations: film.film_character.portrayed_in_films | tv.tv_character.appeared_in_tv_episodes | tv.tv_character.appeared_in_tv_program | tv.tv_actor.starring_roles | tv.tv_guest_role.episodes_appeared_in | film.film.starring | film.actor.film | film.film_regional_release_date.film | film.performance.film | film.film.featured_film_locations | film.film.directed_by | film.performance.actor | tv.regular_tv_appearance.actor | tv.tv_guest_role.actor | media_common.netflix_title.netflix_genres
 grouped_relations:
   film_character.portrayed_in_films ← film.film_character.portrayed_in_films
   tv_character.appeared_in_tv_episodes ← tv.tv_character.appeared_in_tv_episodes
@@ -14645,7 +14646,7 @@ grouped_relations:
   film.featured_film_locations ← film.film.featured_film_locations
   film.directed_by ← film.film.directed_by
   performance.actor ← film.performance.actor
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -14682,13 +14683,13 @@ triples:
 entities: Charlie Hunnam
 ▸ patterns: actor.film | performance.actor | person.gender ⭢ fictional_character.gender ⭢ film_character.portrayed_in_films
 ── Charlie Hunnam ──
-    --actor.film--> m.0113ygm8 [character: Dr. Alan McMichael; film: Crimson Peak] | m.03jrm7w [character: Daz; film: Whatever Happened to Harold Smith?] | m.03js8v1 [character: Embry Larkin; film: Abandon] | m.040jwv4 [character: Nicholas Nickleby; film: Nicholas Nickleby] | m.046168c [character: P…
+    --actor.film--> m.0113ygm8 [character: Dr. Alan McMichael; film: Crimson Peak] | m.03jrm7w [character: Daz; film: Whatever Happened to Harold Smith?] | m.03js8v1 [character: Embry Larkin; film: Abandon] | m.040jwv4 [character: Nicholas Nickleby; film: Nicholas Nickleby] | m.046168c [character: Patric; film: Children of Men] | m.0gx5yc7 [character: Jay; film: Deadfall] | m.0gxp6xq [character: Gavin Nichols; film: The Ledge] | m.0h0yd7r [character: Raleigh Becket; film: Pacific Rim] | m.0h0ydlf [character: Frankie; film: Frankie Go Boom] | m.0jwksr [character: Bosie; film: Cold Mountain] | m.0jy_sj [character: Pete Dunham; film: Green Street]
     --person.gender--> Male
     m.0113ygm8 | m.03jrm7w | m.03js8v1 | m.040jwv4 | m.046168c | m.0gx5yc7 | m.0gxp6xq | m.0h0yd7r | m.0h0ydlf | m.0jwksr | m.0jy_sj --performance.actor--> Charlie Hunnam
 ── Frankie ──
     --fictional_character.gender--> Male
     --film_character.portrayed_in_films--> m.0h0ydlf [character: Frankie; film: Frankie Go Boom]
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.film_character.portrayed_in_films': {'direct': ['film.film_character.portrayed_in_films'], 'bridge': ['film.actor.film', 'film.performance.actor']}, 'film.performance.film': {'direct': ['film.performance.film'], 'bridge': ['film.actor.film', 'film.performance.actor']}}
 ```
 ## [6] assistant
@@ -14725,7 +14726,7 @@ facts: - sg1.f1 ✓ ?movie = Crimson Peak | Whatever Happened to Harold Smith? |
 ```
 **[7] 工具结果**:
 ```text
-REJECTED: Wrong tool in the retrieve phase — and note the WORKFLOW ORDER: `retrieve_relations` must come BEFORE `retrieve_subgraph` for each fact. `retrieve_relations` finds relations for a NEW subgraph; `retrieve_subgraph` continues an existing tree (anchor + relations — the system walks the full c…
+REJECTED: Wrong tool in the retrieve phase — and note the WORKFLOW ORDER: `retrieve_relations` must come BEFORE `retrieve_subgraph` for each fact. `retrieve_relations` finds relations for a NEW subgraph; `retrieve_subgraph` continues an existing tree (anchor + relations — the system walks the full chain). Both are valid. facts: ✓f1 ⬜f2  (retrieved 1/2)
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -14828,7 +14829,7 @@ question: when was this movie released
 ```text
 entities: Crimson Peak | Whatever Happened to Harold Smith? | Abandon | Nicholas Nickleby | Children of Men | Deadfall | The Ledge | Frankie Go Boom | Cold Mountain | Green Street
 question: when was this movie released
-candidate_relations: film.actor.film | film.performance.film | film.performance.actor | tv.regular_tv_appearance.actor | film.film.featured_film_locations | film.film.starring | media_common.netflix_title.netflix_genres | base.popstra.celebrity.dated | tv.tv_program.country_of_origin | location.loca…
+candidate_relations: film.actor.film | film.performance.film | film.performance.actor | tv.regular_tv_appearance.actor | film.film.featured_film_locations | film.film.starring | media_common.netflix_title.netflix_genres | base.popstra.celebrity.dated | tv.tv_program.country_of_origin | location.location.containedby | location.administrative_division.country | base.biblioness.bibs_location.country | film.film.country | people.person.gender | people.person.nationality
 grouped_relations:
   actor.film ← film.actor.film
   performance.film ← film.performance.film
@@ -14842,7 +14843,7 @@ grouped_relations:
   location.containedby ← location.location.containedby
   administrative_division.country ← location.administrative_division.country
   bibs_location.country ← base.biblioness.bibs_location.country
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [12] assistant
 **思考（原文）**:
@@ -14913,8 +14914,8 @@ entities: Charlie Hunnam  (sequence root; this layer applies to the frontier: Ab
     m.0gxp6xq --performance.character--> Gavin Nichols
     m.0gxp6xq --performance.film--> The Ledge
     m.0h0ydlf --performance.character--> Frankie
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'film.performance.actor': {'direct': ['film.performance.actor'], 'bridge': ['film.film.starring', 'film.performance.character', 'film.performance.film']}, 'film.actor.film': {'direct': ['film.actor.film'], 'bridge': ['film.film.starring', 'film.performance.character', 'film.perf…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.performance.actor': {'direct': ['film.performance.actor'], 'bridge': ['film.film.starring', 'film.performance.character', 'film.performance.film']}, 'film.actor.film': {'direct': ['film.actor.film'], 'bridge': ['film.film.starring', 'film.performance.character', 'film.performance.film']}}
 anchor_sequence: Charlie Hunnam ⭢ actor.film | film_character.portrayed_in_films | performance.actor | performance.film (22) ⭢ film.country | film.starring | performance.character (0)
 layer_action: extend
 ```
@@ -15116,11 +15117,11 @@ sg1.f2: Taylor Lautner | which television shows did this person appear in | ?tv_
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Taylor Lautner | which films did this person appear in | ?film)', 'subquestion': 'which films did this person appear in'} | {'id': 'f2', 'triple': '(Taylor Lautner | which television shows did this person appear in | ?tv_show)', 'subquestion': 'which television shows d…
+flow: {'id': 'f1', 'triple': '(Taylor Lautner | which films did this person appear in | ?film)', 'subquestion': 'which films did this person appear in'} | {'id': 'f2', 'triple': '(Taylor Lautner | which television shows did this person appear in | ?tv_show)', 'subquestion': 'which television shows did this person appear in'}
 entities: Taylor Lautner
 answer: ?longest_work
 answer_type: film | tv_show
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -15149,7 +15150,7 @@ question: which films did this person appear in
 ```text
 entities: Taylor Lautner
 question: which films did this person appear in
-candidate_relations: film.film_character.portrayed_in_films | film.film_series.films_in_series | film.person_or_entity_appearing_in_film.films | tv.tv_character.appeared_in_tv_episodes | film.film.film_series | tv.tv_actor.starring_roles | tv.tv_character.appeared_in_tv_program | film.actor.film | f…
+candidate_relations: film.film_character.portrayed_in_films | film.film_series.films_in_series | film.person_or_entity_appearing_in_film.films | tv.tv_character.appeared_in_tv_episodes | film.film.film_series | tv.tv_actor.starring_roles | tv.tv_character.appeared_in_tv_program | film.actor.film | film.performance.film | film.personal_film_appearance.film | film.film.starring | film.film.personal_appearances | film.film.featured_film_locations | film.film.directed_by | film.personal_film_appearance.type_of_appearance
 grouped_relations:
   film_character.portrayed_in_films ← film.film_character.portrayed_in_films
   film_series.films_in_series ← film.film_series.films_in_series
@@ -15163,7 +15164,7 @@ grouped_relations:
   personal_film_appearance.film ← film.personal_film_appearance.film
   film.starring ← film.film.starring
   film.personal_appearances ← film.film.personal_appearances
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -15215,9 +15216,9 @@ triples:
 entities: Taylor Lautner
 ▸ patterns: actor.film | tv_actor.starring_roles
 ── Taylor Lautner ──
-    --actor.film--> m.012zk7ct [film: Run the Tide] | m.0131gszv [film: The Ridiculous Six] | m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.06z_2jg [character: Kismet (Child); film: Shadow Fury] | m.075wxc2 [character: …
-    --tv_actor.starring_roles--> m.04tz40k [character: Jack Spivey; seasons: My Own Worst Enemy - Season 1; series: My Own Worst Enemy] | m.0gwrl_1 [character: Boy on Beach; series: Summerland] | m.0gwrlx_ [character: Aaron; series: The Bernie Mac Show] | m.0gwrlyc [character: Reggie Wasserstein; se…
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+    --actor.film--> m.012zk7ct [film: Run the Tide] | m.0131gszv [film: The Ridiculous Six] | m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.06z_2jg [character: Kismet (Child); film: Shadow Fury] | m.075wxc2 [character: Jacob Black; film: Eclipse] | m.0772zp4 [character: Willy; film: Valentine's Day] | m.0b68zn5 [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 1] | m.0djz10s [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 2] | m.0gvd5lx [character: Nathan Harper; film: Abduction] | m.0gwrkz0 [character: Mouseketeer; film: The Nick and Jessica Variety Hour] | m.0gwrkzm [character: Joe Agate; film: He's a Bully, Charlie Brown] | m.0gx8qdk [character: Finn; film: Incarceron] | m.0h7fzt3 [character: Iowa Farmer; film: Field of Dreams 2: Lockout] | m.0jw95q [character: Eliott Murtaugh; film: Cheaper by the Dozen 2] | m.0k490j [character: Sharkboy; film: The Adventures…
+    --tv_actor.starring_roles--> m.04tz40k [character: Jack Spivey; seasons: My Own Worst Enemy - Season 1; series: My Own Worst Enemy] | m.0gwrl_1 [character: Boy on Beach; series: Summerland] | m.0gwrlx_ [character: Aaron; series: The Bernie Mac Show] | m.0gwrlyc [character: Reggie Wasserstein; series: Duck Dodgers] | m.0gwrlyk [character: Tyrone; series: My Wife and Kids] | m.0gwrlyy [character: Dennis; series: What's New, Scooby-Doo?] | m.0gwrlz9 [character: Young Blood] | m.0gwrlzp [character: Oliver; series: Love, Inc.]
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -15263,7 +15264,7 @@ question: which television shows did this person appear in
 ```text
 entities: Taylor Lautner
 question: which television shows did this person appear in
-candidate_relations: tv.tv_character.appeared_in_tv_episodes | tv.tv_character.appeared_in_tv_program | tv.tv_guest_role.episodes_appeared_in | tv.tv_actor.starring_roles | tv.tv_program.air_date_of_first_episode | tv.tv_program.episodes | film.film_series.films_in_series | film.film.personal_appear…
+candidate_relations: tv.tv_character.appeared_in_tv_episodes | tv.tv_character.appeared_in_tv_program | tv.tv_guest_role.episodes_appeared_in | tv.tv_actor.starring_roles | tv.tv_program.air_date_of_first_episode | tv.tv_program.episodes | film.film_series.films_in_series | film.film.personal_appearances | film.film.film_series | tv.regular_tv_appearance.series | tv.tv_series_season.series | fictional_universe.character_occupation.characters_with_this_occupation | film.personal_film_appearance.type_of_appearance | award.award_winner.awards_won | film.personal_film_appearance.person
 grouped_relations:
   tv_character.appeared_in_tv_episodes ← tv.tv_character.appeared_in_tv_episodes
   tv_character.appeared_in_tv_program ← tv.tv_character.appeared_in_tv_program
@@ -15277,7 +15278,7 @@ grouped_relations:
   regular_tv_appearance.series ← tv.regular_tv_appearance.series
   tv_series_season.series ← tv.tv_series_season.series
   character_occupation.characters_with_this_occupation ← fictional_universe.character_occupation.characters_with_this_occupation
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -15311,7 +15312,7 @@ triples:
 entities: Taylor Lautner  (sequence root; this layer applies to the frontier: Aaron | Abduction | Boy on Beach | Cam | Cheaper by the Dozen 2 | Dennis | Duck Dodgers | Eclipse | Eliott Murtaugh | Field of Dreams 2: Lockout | Finn | Frat Boy Andy)
 ▸ patterns: regular_tv_appearance.actor | tv_actor.guest_roles | regular_tv_appearance.series | tv_character.appeared_in_tv_episodes | tv_character.appeared_in_tv_program
 ── Taylor Lautner ──
-    --tv_actor.guest_roles--> m.08nfhpl [character: Aaron; episodes_appeared_in: Bernie Mac Rope-a-Dope] | m.08nfhpz [character: Youngblood; episodes_appeared_in: Livin' Large] | m.08nfhq8 [episodes_appeared_in: MusicWeek: Day 1] | m.08nfhqh [character: Ned; episodes_appeared_in: A Terrifying Round …
+    --tv_actor.guest_roles--> m.08nfhpl [character: Aaron; episodes_appeared_in: Bernie Mac Rope-a-Dope] | m.08nfhpz [character: Youngblood; episodes_appeared_in: Livin' Large] | m.08nfhq8 [episodes_appeared_in: MusicWeek: Day 1] | m.08nfhqh [character: Ned; episodes_appeared_in: A Terrifying Round With A Menacing Metallic Clown] | m.08nfhr1 [character: Dennis; episodes_appeared_in: Camp Comeoniwannascareya] | m.08nfhrf [character: Reggie Wasserstein; episodes_appeared_in: A Lame Duck Mind] | m.0bmln_4 [episodes_appeared_in: Pirate Radio] | m.0bmq70h [episodes_appeared_in: The Fenton Menace] | m.0g01pvl [episodes_appeared_in: Heat Wave] | m.0ghmc0c [episodes_appeared_in: The 11th Annual Teen Choice Awards] | m.0ghn9tg [episodes_appeared_in: The 12th Annual Teen Choice Awards]
     m.04tz40k | m.0gwrl_1 | m.0gwrlx_ | m.0gwrlyc | m.0gwrlyk | m.0gwrlyy | m.0gwrlz9 | m.0gwrlzp --regular_tv_appearance.actor--> Taylor Lautner
 ── Duck Dodgers ──
     m.0gwrlyc --regular_tv_appearance.series--> Duck Dodgers
@@ -15333,8 +15334,8 @@ entities: Taylor Lautner  (sequence root; this layer applies to the frontier: Aa
     --tv_character.appeared_in_tv_program--> m.0gwrlz9 [character: Young Blood]
 ── Youngblood ──
     --tv_character.appeared_in_tv_episodes--> m.08nfhpz [character: Youngblood; episodes_appeared_in: Livin' Large]
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'tv.tv_character.appeared_in_tv_program': {'direct': ['tv.tv_character.appeared_in_tv_program'], 'bridge': ['tv.regular_tv_appearance.actor', 'tv.tv_actor.guest_roles', 'tv.tv_actor.starring_roles', 'tv.tv_guest_role.actor']}, 'tv.tv_character.appeared_in_tv_episodes': {'direct'…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'tv.tv_character.appeared_in_tv_program': {'direct': ['tv.tv_character.appeared_in_tv_program'], 'bridge': ['tv.regular_tv_appearance.actor', 'tv.tv_actor.guest_roles', 'tv.tv_actor.starring_roles', 'tv.tv_guest_role.actor']}, 'tv.tv_character.appeared_in_tv_episodes': {'direct': ['tv.tv_character.appeared_in_tv_episodes'], 'bridge': ['tv.regular_tv_appearance.actor', 'tv.tv_actor.guest_roles', 'tv.tv_actor.starring_roles', 'tv.tv_guest_role.actor']}, 'tv.regular_tv_appearance.series': {'direct': ['tv.regular_tv_appearance.series'], 'bridge': ['tv.regular_tv_appearance.actor', 'tv.tv_actor.starring_roles']}}
 anchor_sequence: Taylor Lautner ⭢ regular_tv_appearance.actor | regular_tv_appearance.series | tv_actor.guest_roles | tv_actor.starring_roles | tv_character.appeared_in_tv_episodes | tv_character.appeared_in_tv_program | tv_guest_role.actor (48)
 layer_action: update layer 1 (replaced film.actor.film)
 ```
@@ -15378,7 +15379,7 @@ question: which films did this person appear in and what are their run times
 ```text
 entities: Taylor Lautner
 question: which films did this person appear in and what are their run times
-candidate_relations: film.film_series.films_in_series | film.person_or_entity_appearing_in_film.films | film.film.film_series | film.actor.film | film.performance.film | film.personal_film_appearance.film | tv.tv_program.episode_running_time | tv.tv_actor.starring_roles | film.film.starring | film.f…
+candidate_relations: film.film_series.films_in_series | film.person_or_entity_appearing_in_film.films | film.film.film_series | film.actor.film | film.performance.film | film.personal_film_appearance.film | tv.tv_program.episode_running_time | tv.tv_actor.starring_roles | film.film.starring | film.film.personal_appearances | film.film.featured_film_locations | film.film.netflix_id | film.personal_film_appearance.type_of_appearance | film.performance.actor | film.personal_film_appearance.person
 grouped_relations:
   film_series.films_in_series ← film.film_series.films_in_series
   person_or_entity_appearing_in_film.films ← film.person_or_entity_appearing_in_film.films
@@ -15392,7 +15393,7 @@ grouped_relations:
   film.personal_appearances ← film.film.personal_appearances
   film.featured_film_locations ← film.film.featured_film_locations
   film.netflix_id ← film.film.netflix_id
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [13] assistant
 **思考（原文）**:
@@ -15459,7 +15460,7 @@ relations: tv.tv_program.episode_running_time | film.performance.film | film.per
 ```text
 entities: Taylor Lautner
 question: what are the run times of these films and TV shows
-candidate_relations: film.film_series.films_in_series | tv.tv_program.episode_running_time | film.film.film_series | film.film.netflix_id | tv.tv_program.episodes | tv.tv_program.air_date_of_first_episode | tv.tv_series_season.series | film.film.runtime | tv.tv_program.currently_in_production | film…
+candidate_relations: film.film_series.films_in_series | tv.tv_program.episode_running_time | film.film.film_series | film.film.netflix_id | tv.tv_program.episodes | tv.tv_program.air_date_of_first_episode | tv.tv_series_season.series | film.film.runtime | tv.tv_program.currently_in_production | film.film.initial_release_date | imdb.topic.title_id | award.award_winner.awards_won | award.award_winning_work.awards_won | film.film.prequel | location.location.contains_major_portion_of
 grouped_relations:
   film_series.films_in_series ← film.film_series.films_in_series
   tv_program.episode_running_time ← tv.tv_program.episode_running_time
@@ -15473,7 +15474,7 @@ grouped_relations:
   film.initial_release_date ← film.film.initial_release_date
   topic.title_id ← imdb.topic.title_id
   award_winner.awards_won ← award.award_winner.awards_won
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 **[15] 工具结果**:
 ```text
@@ -15535,8 +15536,8 @@ triples:
 entities: Taylor Lautner  (sequence root; this layer applies to the frontier: A Lame Duck Mind | A Terrifying Round With A Menacing Metallic Clown | Aaron | Bernie Mac Rope-a-Dope | Boy on Beach | Camp Comeoniwannascareya | Dennis | Duck Dodgers | Heat Wave | Jack Spivey | Livin' Large | Love, Inc.)
 ▸ patterns: actor.film
 ── Taylor Lautner ──
-    --actor.film--> m.012zk7ct [film: Run the Tide] | m.0131gszv [film: The Ridiculous Six] | m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.06z_2jg [character: Kismet (Child); film: Shadow Fury] | m.075wxc2 [character: …
-note: UNCHANGED EVIDENCE (repeat): these relations produced no NEW edges since your previous subgraph — the same evidence is displayed again so it stays in context. ACT on it (checkpoint / answer / move to the next fact); re-retrieving will return the same. SEQUENCE EXTENSION applied to several fron…
+    --actor.film--> m.012zk7ct [film: Run the Tide] | m.0131gszv [film: The Ridiculous Six] | m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.06z_2jg [character: Kismet (Child); film: Shadow Fury] | m.075wxc2 [character: Jacob Black; film: Eclipse] | m.0772zp4 [character: Willy; film: Valentine's Day] | m.0b68zn5 [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 1] | m.0djz10s [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 2] | m.0gvd5lx [character: Nathan Harper; film: Abduction] | m.0gwrkz0 [character: Mouseketeer; film: The Nick and Jessica Variety Hour] | m.0gwrkzm [character: Joe Agate; film: He's a Bully, Charlie Brown] | m.0gx8qdk [character: Finn; film: Incarceron] | m.0h7fzt3 [character: Iowa Farmer; film: Field of Dreams 2: Lockout] | m.0jw95q [character: Eliott Murtaugh; film: Cheaper by the Dozen 2] | m.0k490j [character: Sharkboy; film: The Adventures…
+note: UNCHANGED EVIDENCE (repeat): these relations produced no NEW edges since your previous subgraph — the same evidence is displayed again so it stays in context. ACT on it (checkpoint / answer / move to the next fact); re-retrieving will return the same. SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.film.runtime': {'direct': ['film.film.runtime'], 'bridge': ['film.actor.film']}, 'tv.tv_program.episode_running_time': {'direct': ['tv.tv_program.episode_running_time'], 'bridge': ['film.actor.film']}}
 anchor_sequence: Taylor Lautner ⭢ actor.film | tv_program.episode_running_time | film.runtime (29)
 layer_action: update layer 1 (replaced tv.regular_tv_appearance.series, tv.tv_actor.guest_roles, tv.tv_actor.starring_roles, tv.tv_character.appeared_in_tv_episodes, tv.tv_character.appeared_in_tv_program, tv.tv_guest_role.actor, tv.regular_tv_appearance.actor)
@@ -15591,7 +15592,7 @@ entities: NONE
 ```
 **[19] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?film=['Run the Tide', 'The Ridiculous Six', 'Twilight', 'The Twilight Saga: New Moon']; f2 ?tv_show=['My Own Worst Enemy', 'Summerland', 'The Bernie Mac Show', 'Duck Dodgers']. These are retri…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?film=['Run the Tide', 'The Ridiculous Six', 'Twilight', 'The Twilight Saga: New Moon']; f2 ?tv_show=['My Own Worst Enemy', 'Summerland', 'The Bernie Mac Show', 'Duck Dodgers']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: none yet (bindings of other variables may still advance the answer). Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [20] assistant
 **思考（原文）**:
@@ -15717,7 +15718,7 @@ question: what is the runtime of this film
 ```text
 entities: Twilight
 question: what is the runtime of this film
-candidate_relations: film.actor.film | film.performance.film | film.film.film_series | film.person_or_entity_appearing_in_film.films | film.film_series.films_in_series | film.film_character.portrayed_in_films | film.performance.actor | film.film.sequel | film.film.starring | film.film.prequel | film…
+candidate_relations: film.actor.film | film.performance.film | film.film.film_series | film.person_or_entity_appearing_in_film.films | film.film_series.films_in_series | film.film_character.portrayed_in_films | film.performance.actor | film.film.sequel | film.film.starring | film.film.prequel | film.performance.character | tv.tv_actor.guest_roles | location.country.languages_spoken | award.award_winner.awards_won | film.film.language
 grouped_relations:
   actor.film ← film.actor.film
   performance.film ← film.performance.film
@@ -15731,7 +15732,7 @@ grouped_relations:
   film.prequel ← film.film.prequel
   performance.character ← film.performance.character
   tv_actor.guest_roles ← tv.tv_actor.guest_roles
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [24] assistant
 **思考（原文）**:
@@ -15806,7 +15807,7 @@ entities: Taylor Lautner  (sequence root; this layer applies to the frontier: Ab
     m.0gwrkzm --performance.film--> He's a Bully, Charlie Brown
 ── Incarceron ──
     m.0gx8qdk --performance.film--> Incarceron
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.performance.film': {'direct': ['film.performance.film'], 'bridge': ['film.film.prequel']}}
 anchor_sequence: Taylor Lautner ⭢ actor.film | tv_program.episode_running_time | film.runtime (32) ⭢ film.prequel | performance.film (0)
 layer_action: extend
@@ -15986,7 +15987,7 @@ flow: {'id': 'f1', 'triple': '(Taylor Lautner | which films did this person appe
 entities: Taylor Lautner
 answer: ?movie
 answer_type: film
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -16016,7 +16017,7 @@ question: which films did this person appear in
 ```text
 entities: Taylor Lautner
 question: which films did this person appear in
-candidate_relations: film.film_character.portrayed_in_films | film.film_series.films_in_series | film.person_or_entity_appearing_in_film.films | tv.tv_character.appeared_in_tv_episodes | film.film.film_series | tv.tv_actor.starring_roles | tv.tv_character.appeared_in_tv_program | film.actor.film | f…
+candidate_relations: film.film_character.portrayed_in_films | film.film_series.films_in_series | film.person_or_entity_appearing_in_film.films | tv.tv_character.appeared_in_tv_episodes | film.film.film_series | tv.tv_actor.starring_roles | tv.tv_character.appeared_in_tv_program | film.actor.film | film.performance.film | film.personal_film_appearance.film | film.film.starring | film.film.personal_appearances | film.film.featured_film_locations | film.film.directed_by | film.personal_film_appearance.type_of_appearance
 grouped_relations:
   film_character.portrayed_in_films ← film.film_character.portrayed_in_films
   film_series.films_in_series ← film.film_series.films_in_series
@@ -16030,7 +16031,7 @@ grouped_relations:
   personal_film_appearance.film ← film.personal_film_appearance.film
   film.starring ← film.film.starring
   film.personal_appearances ← film.film.personal_appearances
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -16070,12 +16071,12 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Taylor Lautner
-▸ patterns: actor.film | person_or_entity_appearing_in_film.films | regular_tv_appearance.actor | tv_actor.guest_roles | tv_actor.starring_roles | tv_actor.guest_roles ⭢ tv_character.appeared_in_tv_episodes ⭢ tv_character.appeared_in_tv_program | tv_actor.guest_roles ⭢ tv_guest_role.character ⭢ tv_c…
+▸ patterns: actor.film | person_or_entity_appearing_in_film.films | regular_tv_appearance.actor | tv_actor.guest_roles | tv_actor.starring_roles | tv_actor.guest_roles ⭢ tv_character.appeared_in_tv_episodes ⭢ tv_character.appeared_in_tv_program | tv_actor.guest_roles ⭢ tv_guest_role.character ⭢ tv_character.appeared_in_tv_program | performance.actor
 ── Taylor Lautner ──
-    --actor.film--> m.012zk7ct [film: Run the Tide] | m.0131gszv [film: The Ridiculous Six] | m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.06z_2jg [character: Kismet (Child); film: Shadow Fury] | m.075wxc2 [character: …
+    --actor.film--> m.012zk7ct [film: Run the Tide] | m.0131gszv [film: The Ridiculous Six] | m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.06z_2jg [character: Kismet (Child); film: Shadow Fury] | m.075wxc2 [character: Jacob Black; film: Eclipse] | m.0772zp4 [character: Willy; film: Valentine's Day] | m.0b68zn5 [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 1] | m.0djz10s [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 2] | m.0gvd5lx [character: Nathan Harper; film: Abduction] | m.0gwrkz0 [character: Mouseketeer; film: The Nick and Jessica Variety Hour] | m.0gwrkzm [character: Joe Agate; film: He's a Bully, Charlie Brown] | m.0gx8qdk [character: Finn; film: Incarceron] | m.0h7fzt3 [character: Iowa Farmer; film: Field of Dreams 2: Lockout] | m.0jw95q [character: Eliott Murtaugh; film: Cheaper by the Dozen 2] | m.0k490j [character: Sharkboy; film: The Adventures…
     --person_or_entity_appearing_in_film.films--> m.0h0z90x [film: Ulalume: Howling at New Moon; type_of_appearance: Him/Herself]
-    --tv_actor.guest_roles--> m.08nfhpl [character: Aaron; episodes_appeared_in: Bernie Mac Rope-a-Dope] | m.08nfhpz [character: Youngblood; episodes_appeared_in: Livin' Large] | m.08nfhq8 [episodes_appeared_in: MusicWeek: Day 1] | m.08nfhqh [character: Ned; episodes_appeared_in: A Terrifying Round …
-    --tv_actor.starring_roles--> m.04tz40k [character: Jack Spivey; seasons: My Own Worst Enemy - Season 1; series: My Own Worst Enemy] | m.0gwrl_1 [character: Boy on Beach; series: Summerland] | m.0gwrlx_ [character: Aaron; series: The Bernie Mac Show] | m.0gwrlyc [character: Reggie Wasserstein; se…
+    --tv_actor.guest_roles--> m.08nfhpl [character: Aaron; episodes_appeared_in: Bernie Mac Rope-a-Dope] | m.08nfhpz [character: Youngblood; episodes_appeared_in: Livin' Large] | m.08nfhq8 [episodes_appeared_in: MusicWeek: Day 1] | m.08nfhqh [character: Ned; episodes_appeared_in: A Terrifying Round With A Menacing Metallic Clown] | m.08nfhr1 [character: Dennis; episodes_appeared_in: Camp Comeoniwannascareya] | m.08nfhrf [character: Reggie Wasserstein; episodes_appeared_in: A Lame Duck Mind] | m.0bmln_4 [episodes_appeared_in: Pirate Radio] | m.0bmq70h [episodes_appeared_in: The Fenton Menace] | m.0g01pvl [episodes_appeared_in: Heat Wave] | m.0ghmc0c [episodes_appeared_in: The 11th Annual Teen Choice Awards] | m.0ghn9tg [episodes_appeared_in: The 12th Annual Teen Choice Awards]
+    --tv_actor.starring_roles--> m.04tz40k [character: Jack Spivey; seasons: My Own Worst Enemy - Season 1; series: My Own Worst Enemy] | m.0gwrl_1 [character: Boy on Beach; series: Summerland] | m.0gwrlx_ [character: Aaron; series: The Bernie Mac Show] | m.0gwrlyc [character: Reggie Wasserstein; series: Duck Dodgers] | m.0gwrlyk [character: Tyrone; series: My Wife and Kids] | m.0gwrlyy [character: Dennis; series: What's New, Scooby-Doo?] | m.0gwrlz9 [character: Young Blood] | m.0gwrlzp [character: Oliver; series: Love, Inc.]
     m.012zk7ct | m.0131gszv | m.04tz40k | m.04z4zmg | m.05tflhw | m.06z_2jg | m.075wxc2 | m.0772zp4 | m.0b68zn5 | m.0djz10s | m.0gvd5lx | m.0gwrkz0 …(+15) (to answer with ALL of them, include "#m.012zk7ct::actor" as one answer entity) --regular_tv_appearance.actor--> Taylor Lautner
 ── Reggie Wasserstein ──
     --tv_character.appeared_in_tv_program--> m.0gwrlyc [character: Reggie Wasserstein; series: Duck Dodgers]
@@ -16086,7 +16087,7 @@ entities: Taylor Lautner
 ── Dennis ──
     --tv_character.appeared_in_tv_episodes--> m.08nfhr1 [character: Dennis; episodes_appeared_in: Camp Comeoniwannascareya]
     --tv_character.appeared_in_tv_program--> m.0gwrlyy [character: Dennis; series: What's New, Scooby-Doo?]
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'tv.tv_character.appeared_in_tv_program': {'direct': ['tv.tv_character.appeared_in_tv_program'], 'bridge': ['tv.regular_tv_appearance.actor', 'tv.tv_actor.guest_roles', 'tv.tv_actor.starring_roles', 'tv.tv_guest_role.actor']}}
 ```
 ## [6] assistant
@@ -16129,11 +16130,11 @@ question: what was the run time of this film
 ```
 **[7] 工具结果**:
 ```text
-⚠ Your checkpoint bound EVENT nodes (m./g. ids) as variable values. An event node is an abstract RECORD — it names no thing, so that binding was removed (see §7.5). The entities INSIDE the event's bracket are the world: SUBMIT those — re-declare the checkpoint binding, per variable, the attribute en…
+⚠ Your checkpoint bound EVENT nodes (m./g. ids) as variable values. An event node is an abstract RECORD — it names no thing, so that binding was removed (see §7.5). The entities INSIDE the event's bracket are the world: SUBMIT those — re-declare the checkpoint binding, per variable, the attribute entity whose KEY answers that variable (award question → the award= value, residence → location=, who played → actor=; a film performance → the film= or character= value).
 ```
 **[8] 工具结果**:
 ```text
-error: variable ?movie can NEVER bind: its declared values were EVENT nodes (m./g. ids) and events are not entities (§7.5) — re-declaring them returns here forever. The event's bracketed ATTRIBUTES are the entities (e.g. award_nominee=…). Close the stranded fact `[f1 ✗ moot]` (earlier evidence alrea…
+error: variable ?movie can NEVER bind: its declared values were EVENT nodes (m./g. ids) and events are not entities (§7.5) — re-declaring them returns here forever. The event's bracketed ATTRIBUTES are the entities (e.g. award_nominee=…). Close the stranded fact `[f1 ✗ moot]` (earlier evidence already shows its target inside the brackets) and continue the next fact with an ATTRIBUTE entity as the center.
 ```
 ## [9] assistant
 **思考（原文）**:
@@ -16194,7 +16195,7 @@ question: what was the run time of this film
 ```
 **[10] 工具结果**:
 ```text
-error: variable ?movie can NEVER bind: its declared values were EVENT nodes (m./g. ids) and events are not entities (§7.5) — re-declaring them returns here forever. The event's bracketed ATTRIBUTES are the entities (e.g. award_nominee=…). Close the stranded fact `[f1 ✗ moot]` (earlier evidence alrea…
+error: variable ?movie can NEVER bind: its declared values were EVENT nodes (m./g. ids) and events are not entities (§7.5) — re-declaring them returns here forever. The event's bracketed ATTRIBUTES are the entities (e.g. award_nominee=…). Close the stranded fact `[f1 ✗ moot]` (earlier evidence already shows its target inside the brackets) and continue the next fact with an ATTRIBUTE entity as the center.
 ```
 **[11] 工具结果**:
 ```text
@@ -16239,7 +16240,7 @@ question: what was the run time of this film
 ```text
 entities: Twilight
 question: what was the run time of this film
-candidate_relations: film.actor.film | film.performance.film | film.film.film_series | film.film_series.films_in_series | film.performance.actor | film.film.sequel | film.film.prequel | film.film.starring | location.location.contains_major_portion_of | film.performance.character | award.award_winner…
+candidate_relations: film.actor.film | film.performance.film | film.film.film_series | film.film_series.films_in_series | film.performance.actor | film.film.sequel | film.film.prequel | film.film.starring | location.location.contains_major_portion_of | film.performance.character | award.award_winner.awards_won | award.award_winning_work.awards_won | location.country.currency_used | location.country.languages_spoken | film.film.language
 grouped_relations:
   actor.film ← film.actor.film
   performance.film ← film.performance.film
@@ -16253,7 +16254,7 @@ grouped_relations:
   performance.character ← film.performance.character
   award_winner.awards_won ← award.award_winner.awards_won
   award_winning_work.awards_won ← award.award_winning_work.awards_won
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [14] assistant
 **思考（原文）**:
@@ -16300,48 +16301,48 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Taylor Lautner  (sequence root; this layer applies to the frontier: A Lame Duck Mind | A Terrifying Round With A Menacing Metallic Clown | Aaron | Abduction | Bernie Mac Rope-a-Dope | Boy on Beach | Cam | Camp Comeoniwannascareya | Cheaper by the Dozen 2 | Dennis | Duck Dodgers | Eclipse)
-▸ patterns: actor.film ⭢ film.starring ⭢ award_honor.honored_for | actor.film ⭢ film.starring ⭢ award_nominated_work.award_nominations | actor.film ⭢ performance.film ⭢ award_honor.honored_for | actor.film ⭢ performance.film ⭢ award_nominated_work.award_nominations | award_honor.honored_for | award_…
+▸ patterns: actor.film ⭢ film.starring ⭢ award_honor.honored_for | actor.film ⭢ film.starring ⭢ award_nominated_work.award_nominations | actor.film ⭢ performance.film ⭢ award_honor.honored_for | actor.film ⭢ performance.film ⭢ award_nominated_work.award_nominations | award_honor.honored_for | award_nominated_work.award_nominations | film.prequel | film.starring
 ── Taylor Lautner ──
-    --actor.film--> m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.075wxc2 [character: Jacob Black; film: Eclipse] | m.0ngk01h [character: Frat Boy Andy; film: Grown Ups 2] | m.0djz10s [character: Jacob Black; film: The …
+    --actor.film--> m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.075wxc2 [character: Jacob Black; film: Eclipse] | m.0ngk01h [character: Frat Boy Andy; film: Grown Ups 2] | m.0djz10s [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 2] | m.0gvd5lx [character: Nathan Harper; film: Abduction] | m.0772zp4 [character: Willy; film: Valentine's Day] | m.0b68zn5 [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 1]
 ── Eclipse ──
-    --award_nominated_work.award_nominations--> m.0dlsjrg [award: People's Choice Award for Favorite Movie Actor; award_nominee: Taylor Lautner; ceremony: 37th People's Choice Awards] | m.0dlsl0_ [award: People's Choice Award for Favorite On-Screen Chemistry; award_nominee: Kristen Stewart | Robert …
+    --award_nominated_work.award_nominations--> m.0dlsjrg [award: People's Choice Award for Favorite Movie Actor; award_nominee: Taylor Lautner; ceremony: 37th People's Choice Awards] | m.0dlsl0_ [award: People's Choice Award for Favorite On-Screen Chemistry; award_nominee: Kristen Stewart | Robert Pattinson | Taylor Lautner; ceremony: 37th People's Choice Awards] | m.0g8l2p6 [award: Razzie Award for Worst Actor; award_nominee: Taylor Lautner; ceremony: 31st Golden Raspberry Awards; nominated_for: Valentine's Day] | m.0pc68dv [award: MTV Movie Award for Best Kiss; award_nominee: Kristen Stewart | Taylor Lautner; ceremony: 2011 MTV Movie Awards] | m.0pc6mm8 [award: MTV Movie Award for Best Male Performance; award_nominee: Taylor Lautner; ceremony: 2011 MTV Movie Awards] | m.0z87_06 [award: Teen Choice Award for Choice Movie: Liplock; award_nominee: Kristen Stewart | Taylor Lautner; ceremony: 2011 Teen Choice Awards] | m.0z87vxq [award: Teen Choice Award for Choice Movie Actor - Sci-Fi/F…
     --film.prequel--> The Twilight Saga: New Moon
     --film.starring--> m.075wxc2 [character: Jacob Black; film: Eclipse]
     m.0g4t6qq | m.0z87vt9 | m.0zc41vm --award_honor.honored_for--> Eclipse
     The Twilight Saga: Breaking Dawn - Part 1 --film.prequel--> Eclipse
 ── The Twilight Saga: New Moon ──
-    --award_nominated_work.award_nominations--> m.09sftk2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_nominee: Kristen Stewart | Robert Pattinson | Taylor Lautner; ceremony: 36th People's Choice Awards] | m.09tz609 [award: Razzie Award for Worst Screen Couple/Ensemble; awar…
+    --award_nominated_work.award_nominations--> m.09sftk2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_nominee: Kristen Stewart | Robert Pattinson | Taylor Lautner; ceremony: 36th People's Choice Awards] | m.09tz609 [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Kristen Stewart | Robert Pattinson | Taylor Lautner; ceremony: 30th Golden Raspberry Awards] | m.0c02330 [award: MTV Movie Award for Best Male Performance; award_nominee: Taylor Lautner; ceremony: 2010 MTV Movie Awards] | m.0sgl6rq [award: Kids' Choice Award for Favorite Movie Actor; award_nominee: Taylor Lautner; ceremony: 2010 Kids' Choice Awards] | m.0sgl9q8 [award: Blimp Award for Cutest Couple; award_nominee: Kristen Stewart | Taylor Lautner; ceremony: 2010 Kids' Choice Awards] | m.0z8jj9c [award: Teen Choice Award for Choice Movie Actor: Fantasy; award_nominee: Taylor Lautner; ceremony: 2010 Teen Choice Awards]
     --film.starring--> m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon]
     m.0sgl4jf | m.0sglcdq | m.0z8jh9r --award_honor.honored_for--> The Twilight Saga: New Moon
 ── The Twilight Saga: Breaking Dawn - Part 2 ──
-    --award_nominated_work.award_nominations--> m.0pdgl_y [award: Razzie Award for Worst Supporting Actor; award_nominee: Taylor Lautner; ceremony: 33rd Golden Raspberry Awards] | m.0pdglz9 [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Mackenzie Foy | Taylor Lautner; ceremony…
+    --award_nominated_work.award_nominations--> m.0pdgl_y [award: Razzie Award for Worst Supporting Actor; award_nominee: Taylor Lautner; ceremony: 33rd Golden Raspberry Awards] | m.0pdglz9 [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Mackenzie Foy | Taylor Lautner; ceremony: 33rd Golden Raspberry Awards] | m.0r9hvx9 [award: MTV Movie Award for Best Shirtless Performance; award_nominee: Taylor Lautner; ceremony: 2013 MTV Movie Awards]
     m.0djz10s --performance.film--> The Twilight Saga: Breaking Dawn - Part 2
     m.0r436z2 | m.0r43x82 | m.0svpk2s --award_honor.honored_for--> The Twilight Saga: Breaking Dawn - Part 2
 ── Abduction ──
-    --award_nominated_work.award_nominations--> m.0hj8l0h [award: People's Choice Award for Favorite Action Movie Star; award_nominee: Taylor Lautner; ceremony: 38th People's Choice Awards] | m.0j2vjzw [award: Razzie Award for Worst Actor; award_nominee: Taylor Lautner; ceremony: 32nd Golden Raspber…
+    --award_nominated_work.award_nominations--> m.0hj8l0h [award: People's Choice Award for Favorite Action Movie Star; award_nominee: Taylor Lautner; ceremony: 38th People's Choice Awards] | m.0j2vjzw [award: Razzie Award for Worst Actor; award_nominee: Taylor Lautner; ceremony: 32nd Golden Raspberry Awards; nominated_for: The Twilight Saga: Breaking Dawn - Part 1] | m.0z837pz [award_nominee: Taylor Lautner; ceremony: 2012 Teen Choice Awards]
     --film.starring--> m.0gvd5lx [character: Nathan Harper; film: Abduction]
     m.0gvd5lx --performance.film--> Abduction
     m.0kb9_qw --award_honor.honored_for--> Abduction
 ── Twilight ──
-    --award_nominated_work.award_nominations--> m.0b3tz45 [award: MTV Movie Award for Best Breakthrough Performance - Male; award_nominee: Taylor Lautner; ceremony: 2009 MTV Movie Awards] | m.0z8zbq7 [award: Teen Choice Award for Choice Movie Breakout Star - Male; award_nominee: Taylor Lautner; cere…
+    --award_nominated_work.award_nominations--> m.0b3tz45 [award: MTV Movie Award for Best Breakthrough Performance - Male; award_nominee: Taylor Lautner; ceremony: 2009 MTV Movie Awards] | m.0z8zbq7 [award: Teen Choice Award for Choice Movie Breakout Star - Male; award_nominee: Taylor Lautner; ceremony: 2009 Teen Choice Awards]
     --film.starring--> m.04z4zmg [character: Jacob Black; film: Twilight]
     m.01086803 --award_honor.honored_for--> Twilight
     m.0nfjtkv --award_honor.honored_for--> Twilight
 ── Grown Ups 2 ──
-    --award_nominated_work.award_nominations--> m.0_80vng [award: Razzie Award for Worst Supporting Actor; award_nominee: Taylor Lautner; ceremony: 34th Golden Raspberry Awards] | m.0wjg9ly [award: Teen Choice Award for Choice Hissy Fit: Film; award_nominee: Taylor Lautner; ceremony: 2013 Teen Choic…
+    --award_nominated_work.award_nominations--> m.0_80vng [award: Razzie Award for Worst Supporting Actor; award_nominee: Taylor Lautner; ceremony: 34th Golden Raspberry Awards] | m.0wjg9ly [award: Teen Choice Award for Choice Hissy Fit: Film; award_nominee: Taylor Lautner; ceremony: 2013 Teen Choice Awards]
     --film.starring--> m.0ngk01h [character: Frat Boy Andy; film: Grown Ups 2]
     m.0wjgb97 --award_honor.honored_for--> Grown Ups 2
 ── Valentine's Day ──
-    --award_nominated_work.award_nominations--> m.0c032jc [award: MTV Movie Award for Best Kiss; award_nominee: Taylor Lautner | Taylor Swift; ceremony: 2010 MTV Movie Awards] | m.0ngmz7j [award: Teen Choice Award for Choice Movie: Chemistry; award_nominee: Taylor Lautner | Taylor Swift; ceremony: 2…
+    --award_nominated_work.award_nominations--> m.0c032jc [award: MTV Movie Award for Best Kiss; award_nominee: Taylor Lautner | Taylor Swift; ceremony: 2010 MTV Movie Awards] | m.0ngmz7j [award: Teen Choice Award for Choice Movie: Chemistry; award_nominee: Taylor Lautner | Taylor Swift; ceremony: 2010 Teen Choice Awards] | m.0g8l2p6 [award: Razzie Award for Worst Actor; award_nominee: Taylor Lautner; ceremony: 31st Golden Raspberry Awards; nominated_for: Valentine's Day]
     m.0772zp4 --performance.film--> Valentine's Day
 ── The Twilight Saga: Breaking Dawn - Part 1 ──
     --award_nominated_work.award_nominations--> m.0j2vj_g [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Kristen Stewart | Robert Pattinson | Taylor Lautner; ceremony: 32nd Golden Raspberry Awards]
     m.0b68zn5 --performance.film--> The Twilight Saga: Breaking Dawn - Part 1
 ── Cheaper by the Dozen 2 ──
     --film.starring--> m.0jw95q [actor: Taylor Lautner; character: Eliott Murtaugh]
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'film.performance.film': {'direct': ['film.performance.film'], 'bridge': ['film.film.prequel']}, 'film.performance.actor': {'direct': ['film.performance.actor'], 'bridge': ['award.award_honor.honored_for', 'award.award_nominated_work.award_nominations', 'film.film.starring']}, '…
-anchor_sequence: Taylor Lautner ⭢ actor.film | performance.actor | person_or_entity_appearing_in_film.films | regular_tv_appearance.actor | tv_actor.guest_roles | tv_actor.starring_roles | tv_character.appeared_in_tv_program | tv_guest_role.actor (63) ⭢ award_honor.honored_for | award_nominated_work…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.performance.film': {'direct': ['film.performance.film'], 'bridge': ['film.film.prequel']}, 'film.performance.actor': {'direct': ['film.performance.actor'], 'bridge': ['award.award_honor.honored_for', 'award.award_nominated_work.award_nominations', 'film.film.starring']}, 'film.film.starring': {'direct': ['film.film.starring'], 'bridge': ['film.film.prequel']}}
+anchor_sequence: Taylor Lautner ⭢ actor.film | performance.actor | person_or_entity_appearing_in_film.films | regular_tv_appearance.actor | tv_actor.guest_roles | tv_actor.starring_roles | tv_character.appeared_in_tv_program | tv_guest_role.actor (63) ⭢ award_honor.honored_for | award_nominated_work.award_nominations | film.prequel | film.starring | performance.film (0)
 layer_action: extend
 ```
 ## [16] assistant
@@ -16411,7 +16412,7 @@ question: what was the run time of this film
 ```text
 entities: Twilight
 question: what was the run time of this film
-candidate_relations: film.actor.film | film.performance.film | film.film.film_series | film.film_series.films_in_series | film.performance.actor | film.film.sequel | film.film.prequel | film.film.starring | location.location.contains_major_portion_of | film.performance.character | award.award_winner…
+candidate_relations: film.actor.film | film.performance.film | film.film.film_series | film.film_series.films_in_series | film.performance.actor | film.film.sequel | film.film.prequel | film.film.starring | location.location.contains_major_portion_of | film.performance.character | award.award_winner.awards_won | award.award_winning_work.awards_won | location.country.currency_used | location.country.languages_spoken | film.film.language
 grouped_relations:
   actor.film ← film.actor.film
   performance.film ← film.performance.film
@@ -16425,7 +16426,7 @@ grouped_relations:
   performance.character ← film.performance.character
   award_winner.awards_won ← award.award_winner.awards_won
   award_winning_work.awards_won ← award.award_winning_work.awards_won
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [19] assistant
 **思考（原文）**:
@@ -16468,11 +16469,11 @@ sg: sg1
 ```text
 fact_id: sg1
 triples:
-entities: Taylor Lautner  (sequence root; this layer applies to the frontier: 2009 MTV Movie Awards | 2009 Teen Choice Awards | 2010 Kids' Choice Awards | 2010 MTV Movie Awards | 2010 Teen Choice Awards | 2011 MTV Movie Awards | 2011 Teen Choice Awards | 2012 Teen Choice Awards | 2013 MTV Movie Awar…
+entities: Taylor Lautner  (sequence root; this layer applies to the frontier: 2009 MTV Movie Awards | 2009 Teen Choice Awards | 2010 Kids' Choice Awards | 2010 MTV Movie Awards | 2010 Teen Choice Awards | 2011 MTV Movie Awards | 2011 Teen Choice Awards | 2012 Teen Choice Awards | 2013 MTV Movie Awards | 2013 Teen Choice Awards | 30th Golden Raspberry Awards | 31st Golden Raspberry Awards)
 ▸ patterns: performance.actor
 ── Taylor Lautner ──
     m.0gwrkz0 --performance.actor--> Taylor Lautner
-note: UNCHANGED EVIDENCE (repeat): these relations produced no NEW edges since your previous subgraph — the same evidence is displayed again so it stays in context. ACT on it (checkpoint / answer / move to the next fact); re-retrieving will return the same. SEQUENCE EXTENSION applied to several fron…
+note: UNCHANGED EVIDENCE (repeat): these relations produced no NEW edges since your previous subgraph — the same evidence is displayed again so it stays in context. ACT on it (checkpoint / answer / move to the next fact); re-retrieving will return the same. SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.performance.duration': {'direct': ['film.performance.duration'], 'bridge': []}, 'film.film.length': {'direct': ['film.film.length'], 'bridge': []}}
 anchor_sequence: Taylor Lautner ⭢ actor.film | performance.actor | person_or_entity_appearing_in_film.films | regular_tv_appearance.actor | tv_actor.guest_roles | tv_actor.starring_roles | tv_character.appeared_in_tv_program | tv_guest_role.actor (63) ⭢ film.runtime (44)
 layer_action: update layer 2 (replaced film.performance.film, award.award_honor.honored_for, d.award_nominated_work.award_nominations, film.film.prequel, film.film.starring)
@@ -16592,7 +16593,7 @@ question: what was the run time of this film
 ```text
 entities: Twilight
 question: what was the run time of this film
-candidate_relations: film.actor.film | film.performance.film | film.film.film_series | film.film_series.films_in_series | film.performance.actor | film.film.sequel | film.film.prequel | film.film.starring | location.location.contains_major_portion_of | film.performance.character | award.award_winner…
+candidate_relations: film.actor.film | film.performance.film | film.film.film_series | film.film_series.films_in_series | film.performance.actor | film.film.sequel | film.film.prequel | film.film.starring | location.location.contains_major_portion_of | film.performance.character | award.award_winner.awards_won | award.award_winning_work.awards_won | location.country.currency_used | location.country.languages_spoken | film.film.language
 grouped_relations:
   actor.film ← film.actor.film
   performance.film ← film.performance.film
@@ -16606,7 +16607,7 @@ grouped_relations:
   performance.character ← film.performance.character
   award_winner.awards_won ← award.award_winner.awards_won
   award_winning_work.awards_won ← award.award_winning_work.awards_won
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [27] assistant
 **思考（原文）**:
@@ -16641,7 +16642,7 @@ question: what was the run time of this film
 ```
 **[28] 工具结果**:
 ```text
-REJECTED (repeat): ⚠ You already called `retrieve_relations` with these EXACT arguments, and the result was already returned to you — calling it again returns the same evidence and cannot advance the fact. Act on the result you already have, choosing the branch that fits: (a) SELECT a structural rel…
+REJECTED (repeat): ⚠ You already called `retrieve_relations` with these EXACT arguments, and the result was already returned to you — calling it again returns the same evidence and cannot advance the fact. Act on the result you already have, choosing the branch that fits: (a) SELECT a structural relation from the candidate_relations and call `retrieve_subgraph`; (b) if no relation advances this fact, CLOSE it — declare `- fid ✗ empty` — and move to the next fact; (c) if the evidence you ALREADY have answers the question (earlier facts may have delivered the terminal variable — declare `- fid ✗ moot` for the rest) — declare the bindings and call `answer`. Do not re-call `retrieve_relations` with the same arguments.
 ```
 ## [29] assistant
 **思考（原文）**:
@@ -16743,7 +16744,7 @@ entities: NONE
 ```
 **[32] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?movie=['Run the Tide', 'The Ridiculous Six', 'Twilight', 'The Twilight Saga: New Moon']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variabl…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?movie=['Run the Tide', 'The Ridiculous Six', 'Twilight', 'The Twilight Saga: New Moon']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?movie=['Run the Tide', 'The Ridiculous Six', 'Twilight', 'The Twilight Saga: New Moon']. Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [33] assistant
 **思考（原文）**:
@@ -16790,7 +16791,7 @@ question: what was the run time of this film
 ```text
 entities: Run the Tide
 question: what was the run time of this film
-candidate_relations: film.actor.film | film.performance.film | film.person_or_entity_appearing_in_film.films | film.performance.actor | tv.regular_tv_appearance.actor | tv.tv_guest_role.actor | film.film.starring | base.popstra.celebrity.canoodled | base.schemastaging.person_extra.net_worth | tv.tv_…
+candidate_relations: film.actor.film | film.performance.film | film.person_or_entity_appearing_in_film.films | film.performance.actor | tv.regular_tv_appearance.actor | tv.tv_guest_role.actor | film.film.starring | base.popstra.celebrity.canoodled | base.schemastaging.person_extra.net_worth | tv.tv_actor.starring_roles | award.award_winner.awards_won | base.popstra.celebrity.breakup | base.popstra.breakup.participant | base.popstra.canoodled.participant | award.award_honor.award_winner
 grouped_relations:
   actor.film ← film.actor.film
   performance.film ← film.performance.film
@@ -16804,7 +16805,7 @@ grouped_relations:
   tv_actor.starring_roles ← tv.tv_actor.starring_roles
   award_winner.awards_won ← award.award_winner.awards_won
   celebrity.breakup ← base.popstra.celebrity.breakup
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [35] assistant
 **思考（原文）**:
@@ -16849,7 +16850,7 @@ entities: NONE
 ```
 **[36] 工具结果**:
 ```text
-Second refusal — your ledger holds RETRIEVED FACTS: f1 ?movie=['Run the Tide', 'The Ridiculous Six', 'Twilight', 'The Twilight Saga: New Moon']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE correct after this, yo…
+Second refusal — your ledger holds RETRIEVED FACTS: f1 ?movie=['Run the Tide', 'The Ridiculous Six', 'Twilight', 'The Twilight Saga: New Moon']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE correct after this, your next NONE submission is ACCEPTED as the final answer.
 ```
 
 
@@ -16961,11 +16962,11 @@ sg1.f4: ?tv_show | what was the run time of this television show | ?runtime
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Taylor Lautner | which films did this person appear in | ?film)', 'subquestion': 'which films did this person appear in'} | {'id': 'f2', 'triple': '(Taylor Lautner | which television shows did this person appear in | ?tv_show)', 'subquestion': 'which television shows d…
+flow: {'id': 'f1', 'triple': '(Taylor Lautner | which films did this person appear in | ?film)', 'subquestion': 'which films did this person appear in'} | {'id': 'f2', 'triple': '(Taylor Lautner | which television shows did this person appear in | ?tv_show)', 'subquestion': 'which television shows did this person appear in'} | {'id': 'f3', 'triple': '(?film | what was the run time of this film | ?runtime)', 'subquestion': 'what was the run time of this film'} | {'id': 'f4', 'triple': '(?tv_show | what was the run time of this television show | ?runtime)', 'subquestion': 'what was the run time of this television show'}
 entities: Taylor Lautner
 answer: ?movie_tv_show
 answer_type: film | television_work
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -16996,7 +16997,7 @@ question: which films did this person appear in
 ```text
 entities: Taylor Lautner
 question: which films did this person appear in
-candidate_relations: film.film_character.portrayed_in_films | film.film_series.films_in_series | film.person_or_entity_appearing_in_film.films | tv.tv_character.appeared_in_tv_episodes | film.film.film_series | tv.tv_actor.starring_roles | tv.tv_character.appeared_in_tv_program | film.actor.film | f…
+candidate_relations: film.film_character.portrayed_in_films | film.film_series.films_in_series | film.person_or_entity_appearing_in_film.films | tv.tv_character.appeared_in_tv_episodes | film.film.film_series | tv.tv_actor.starring_roles | tv.tv_character.appeared_in_tv_program | film.actor.film | film.performance.film | film.personal_film_appearance.film | film.film.starring | film.film.personal_appearances | film.film.featured_film_locations | film.film.directed_by | film.personal_film_appearance.type_of_appearance
 grouped_relations:
   film_character.portrayed_in_films ← film.film_character.portrayed_in_films
   film_series.films_in_series ← film.film_series.films_in_series
@@ -17010,7 +17011,7 @@ grouped_relations:
   personal_film_appearance.film ← film.personal_film_appearance.film
   film.starring ← film.film.starring
   film.personal_appearances ← film.film.personal_appearances
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -17054,40 +17055,40 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Taylor Lautner
-▸ patterns: award_honor.award_winner | award_nomination.award_nominee | award_nominee.award_nominations | award_winner.awards_won | actor.film | performance.actor | award_honor.award_winner ⭢ award_winner.awards_won ⭢ award_nomination.award_nominee | award_honor.award_winner ⭢ award_winning_work.awa…
+▸ patterns: award_honor.award_winner | award_nomination.award_nominee | award_nominee.award_nominations | award_winner.awards_won | actor.film | performance.actor | award_honor.award_winner ⭢ award_winner.awards_won ⭢ award_nomination.award_nominee | award_honor.award_winner ⭢ award_winning_work.awards_won ⭢ film.starring | award_nomination.award_nominee ⭢ award_nomination.award_nominee ⭢ award_honor.award_winner | award_nomination.award_nominee ⭢ award_nomination.award_nominee ⭢ award_winner.awards_won | award_nominee.award_nominations ⭢ award_nominated_work.award_nominations ⭢ film.starring | award_nominee.award_nominations ⭢ award_nomination.nominated_for ⭢ film.starring | award_winner.awards_won ⭢ award_winning_work.awards_won ⭢ film.starring | celebrity.celebrity_friends ⭢ celebrity.celebrity_friends ⭢ award_honor.award_winner | celebrity.celebrity_friends ⭢ celebrity.celebrity_friends ⭢ award_nomination.award_nominee | celebrity.celebrity_friends ⭢ celebrity.celebrity_friends ⭢ a…
 ── Taylor Lautner ──
-    --award_nominee.award_nominations--> m.09sftk2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_nominee: Kristen Stewart | Robert Pattinson; ceremony: 36th People's Choice Awards; nominated_for: The Twilight Saga: New Moon] | m.0_80vng [award: Razzie Award for Worst Supporti…
-    --award_winner.awards_won--> m.01086803 [award: Scream Awards for Male Breakout Performance; honored_for: Twilight] | m.09rpwdk [award: People's Choice Award for Favorite Breakout Movie Actor; ceremony: 36th People's Choice Awards; has_no_value: Winning work] | m.0g4t6qq [award: People's Choice …
+    --award_nominee.award_nominations--> m.09sftk2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_nominee: Kristen Stewart | Robert Pattinson; ceremony: 36th People's Choice Awards; nominated_for: The Twilight Saga: New Moon] | m.0_80vng [award: Razzie Award for Worst Supporting Actor; ceremony: 34th Golden Raspberry Awards; nominated_for: Grown Ups 2] | m.0b3tz45 [award: MTV Movie Award for Best Breakthrough Performance - Male; ceremony: 2009 MTV Movie Awards; nominated_for: Twilight] | m.0dlsjrg [award: People's Choice Award for Favorite Movie Actor; ceremony: 37th People's Choice Awards; nominated_for: Eclipse] | m.0hj8l0h [award: People's Choice Award for Favorite Action Movie Star; ceremony: 38th People's Choice Awards; nominated_for: Abduction] | m.0j2vj_g [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Kristen Stewart | Robert Pattinson; ceremony: 32nd Golden Raspberry Awards; nominated_for: The Twilight Saga: Breaking Dawn - Part 1]
+    --award_winner.awards_won--> m.01086803 [award: Scream Awards for Male Breakout Performance; honored_for: Twilight] | m.09rpwdk [award: People's Choice Award for Favorite Breakout Movie Actor; ceremony: 36th People's Choice Awards; has_no_value: Winning work] | m.0g4t6qq [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 37th People's Choice Awards; honored_for: Eclipse] | m.0kb9_qw [ceremony: 2012 Teen Choice Awards; honored_for: Abduction] | m.0nf3bp2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 36th People's Choice Awards; honored_for: The Twilight Saga] | m.0nfjtkv [award: Teen Choice Award for Choice Movie Breakout Star - Male; ceremony: 2009 Teen Choice Awards; honored_for: Twilight] | m.0r436z2 [award: Razzie Award for Worst Supporting Actor; ceremony: 33rd Golden Raspberry Awards; honored_for: The Twilight Saga: Breaking Daw…
     --celebrity.celebrity_friends--> m.07z2msz [friend: Kristen Stewart]
-    --actor.film--> m.012zk7ct [film: Run the Tide] | m.0131gszv [film: The Ridiculous Six] | m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.06z_2jg [character: Kismet (Child); film: Shadow Fury] | m.075wxc2 [character: …
+    --actor.film--> m.012zk7ct [film: Run the Tide] | m.0131gszv [film: The Ridiculous Six] | m.04z4zmg [character: Jacob Black; film: Twilight] | m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon] | m.06z_2jg [character: Kismet (Child); film: Shadow Fury] | m.075wxc2 [character: Jacob Black; film: Eclipse] | m.0772zp4 [character: Willy; film: Valentine's Day] | m.0b68zn5 [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 1] | m.0djz10s [character: Jacob Black; film: The Twilight Saga: Breaking Dawn - Part 2] | m.0gvd5lx [character: Nathan Harper; film: Abduction] | m.0gwrkz0 [character: Mouseketeer; film: The Nick and Jessica Variety Hour] | m.0gwrkzm [character: Joe Agate; film: He's a Bully, Charlie Brown] | m.0gx8qdk [character: Finn; film: Incarceron] | m.0h7fzt3 [character: Iowa Farmer; film: Field of Dreams 2: Lockout] | m.0jw95q [character: Eliott Murtaugh; film: Cheaper by the Dozen 2] | m.0k490j [character: Sharkboy; film: The Adventures…
     m.012zk7ct | m.0131gszv | m.04z4zmg | m.05tflhw | m.06z_2jg | m.075wxc2 | m.0772zp4 | m.0b68zn5 | m.0djz10s | m.0gvd5lx | m.0gwrkz0 | m.0gwrkzm …(+7) (to answer with ALL of them, include "#m.012zk7ct::actor" as one answer entity) --performance.actor--> Taylor Lautner
     m.0110_kdb | m.09sfstk | m.09sftk2 | m.09tz609 | m.0_80vng | m.0b3tz45 | m.0c01vmb | m.0c02330 | m.0c032jc | m.0dlsjrg | m.0g8l2p6 | m.0hj8l0h …(+12) (to answer with ALL of them, include "#m.0110_kdb::award_nominee" as one answer entity) --award_nomination.award_nominee--> Taylor Lautner
     m.01086803 | m.09rpwdk | m.0g4t6qq | m.0kb9_qw | m.0nf3bp2 | m.0nfjtkv | m.0r436z2 | m.0r43x82 | m.0sgl4jf | m.0sglcdq | m.0sglwpm | m.0svpk2s …(+9) (to answer with ALL of them, include "#m.01086803::award_winner" as one answer entity) --award_honor.award_winner--> Taylor Lautner
     m.07z2msz --friendship.friend--> Taylor Lautner
 ── Kristen Stewart ──
-    --award_winner.awards_won--> m.0g4t6qq [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 37th People's Choice Awards; honored_for: Eclipse] | m.0nf3bp2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_…
+    --award_winner.awards_won--> m.0g4t6qq [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 37th People's Choice Awards; honored_for: Eclipse] | m.0nf3bp2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 36th People's Choice Awards; honored_for: The Twilight Saga] | m.0sglcdq [award: Blimp Award for Cutest Couple; award_winner: Kristen Stewart; ceremony: 2010 Kids' Choice Awards; honored_for: The Twilight Saga: New Moon] | m.0z8h7fw [award: Teen Choice Special Award — Ultimate Choice Award; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 2012 Teen Choice Awards; has_no_value: Winning work] | m.0zc41vm [award: Teen Choice Award for Choice Most Fanatic Fans; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 2010 Teen Choice Awards; honored_for: Eclipse]
     --celebrity.celebrity_friends--> m.07z2msz [friend: Kristen Stewart]
     m.09sftk2 | m.09tz609 | m.0dlsl0_ | m.0j2vj_g | m.0pc68dv | m.0sgl9q8 | m.0z87_06 | m.0zc41z3 --award_nomination.award_nominee--> Kristen Stewart
     m.0g4t6qq | m.0nf3bp2 | m.0sglcdq | m.0z8h7fw | m.0zc41vm --award_honor.award_winner--> Kristen Stewart
 ── Eclipse ──
-    --award_nominated_work.award_nominations--> m.0dlsjrg [award: People's Choice Award for Favorite Movie Actor; ceremony: 37th People's Choice Awards; nominated_for: Eclipse] | m.0g8l2p6 [award: Razzie Award for Worst Actor; ceremony: 31st Golden Raspberry Awards; nominated_for: Eclipse | Valentin…
+    --award_nominated_work.award_nominations--> m.0dlsjrg [award: People's Choice Award for Favorite Movie Actor; ceremony: 37th People's Choice Awards; nominated_for: Eclipse] | m.0g8l2p6 [award: Razzie Award for Worst Actor; ceremony: 31st Golden Raspberry Awards; nominated_for: Eclipse | Valentine's Day] | m.0pc68dv [award: MTV Movie Award for Best Kiss; award_nominee: Kristen Stewart; ceremony: 2011 MTV Movie Awards; nominated_for: Eclipse] | m.0pc6mm8 [award: MTV Movie Award for Best Male Performance; award_nominee: Taylor Lautner; ceremony: 2011 MTV Movie Awards] | m.0z87_06 [award: Teen Choice Award for Choice Movie: Liplock; award_nominee: Taylor Lautner; ceremony: 2011 Teen Choice Awards; nominated_for: Eclipse] | m.0z8vmjl [award: Teen Choice Award for Choice Summer Movie Star: Male; ceremony: 2010 Teen Choice Awards; nominated_for: Eclipse] | m.0dlsl0_ [award: People's Choice Award for Favorite On-Screen Chemistry; award_nominee: Robert Pattinson | Taylor Lautner; ceremony: …
     --award_winning_work.awards_won--> m.0g4t6qq [award: People's Choice Award for Favorite On-Screen Chemistry; award_winner: Kristen Stewart | Robert Pattinson; ceremony: 37th People's Choice Awards; honored_for: Eclipse]
     --film.starring--> m.075wxc2 [character: Jacob Black; film: Eclipse]
 ── The Twilight Saga: New Moon ──
-    --award_nominated_work.award_nominations--> m.09tz609 [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Kristen Stewart | Robert Pattinson; ceremony: 30th Golden Raspberry Awards; nominated_for: The Twilight Saga: New Moon] | m.0c02330 [award: MTV Movie Award for Best Male Pe…
+    --award_nominated_work.award_nominations--> m.09tz609 [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Kristen Stewart | Robert Pattinson; ceremony: 30th Golden Raspberry Awards; nominated_for: The Twilight Saga: New Moon] | m.0c02330 [award: MTV Movie Award for Best Male Performance; ceremony: 2010 MTV Movie Awards; nominated_for: The Twilight Saga: New Moon] | m.09sftk2 [award: People's Choice Award for Favorite On-Screen Chemistry; award_nominee: Kristen Stewart | Robert Pattinson; ceremony: 36th People's Choice Awards; nominated_for: The Twilight Saga: New Moon] | m.0sgl6rq [award: Kids' Choice Award for Favorite Movie Actor; ceremony: 2010 Kids' Choice Awards; nominated_for: The Twilight Saga: New Moon] | m.0sgl9q8 [award: Blimp Award for Cutest Couple; award_nominee: Kristen Stewart; ceremony: 2010 Kids' Choice Awards; nominated_for: The Twilight Saga: New Moon] | m.0z8jj9c [award: Teen Choice Award for Choice Movie Actor: Fantasy; award_nominee: Taylor L…
     --award_winning_work.awards_won--> m.0sgl4jf [award: Kids' Choice Award for Favorite Movie Actor; ceremony: 2010 Kids' Choice Awards; honored_for: The Twilight Saga: New Moon]
     --film.starring--> m.05tflhw [character: Jacob Black; film: The Twilight Saga: New Moon]
 ── Abduction ──
-    --award_nominated_work.award_nominations--> m.0hj8l0h [award: People's Choice Award for Favorite Action Movie Star; ceremony: 38th People's Choice Awards; nominated_for: Abduction] | m.0j2vjzw [award: Razzie Award for Worst Actor; award_nominee: Taylor Lautner; ceremony: 32nd Golden Raspberry Aw…
+    --award_nominated_work.award_nominations--> m.0hj8l0h [award: People's Choice Award for Favorite Action Movie Star; ceremony: 38th People's Choice Awards; nominated_for: Abduction] | m.0j2vjzw [award: Razzie Award for Worst Actor; award_nominee: Taylor Lautner; ceremony: 32nd Golden Raspberry Awards; nominated_for: The Twilight Saga: Breaking Dawn - Part 1]
     --award_winning_work.awards_won--> m.0kb9_qw [ceremony: 2012 Teen Choice Awards; honored_for: Abduction]
     --film.starring--> m.0gvd5lx [character: Nathan Harper; film: Abduction]
     m.0hj8l0h --award_nomination.nominated_for--> Abduction
 ── Grown Ups 2 ──
-    --award_nominated_work.award_nominations--> m.0_80vng [award: Razzie Award for Worst Supporting Actor; ceremony: 34th Golden Raspberry Awards; nominated_for: Grown Ups 2] | m.0wjg9ly [award: Teen Choice Award for Choice Hissy Fit: Film; award_nominee: Taylor Lautner; ceremony: 2013 Teen Choice A…
+    --award_nominated_work.award_nominations--> m.0_80vng [award: Razzie Award for Worst Supporting Actor; ceremony: 34th Golden Raspberry Awards; nominated_for: Grown Ups 2] | m.0wjg9ly [award: Teen Choice Award for Choice Hissy Fit: Film; award_nominee: Taylor Lautner; ceremony: 2013 Teen Choice Awards]
     --award_winning_work.awards_won--> m.0wjgb97 [award: Teen Choice Award for Choice Hissy Fit: Film; ceremony: 2013 Teen Choice Awards; honored_for: Grown Ups 2]
     --film.starring--> m.0ngk01h [character: Frat Boy Andy; film: Grown Ups 2]
 ── Twilight ──
-    --award_nominated_work.award_nominations--> m.0b3tz45 [award: MTV Movie Award for Best Breakthrough Performance - Male; ceremony: 2009 MTV Movie Awards; nominated_for: Twilight] | m.0z8zbq7 [award: Teen Choice Award for Choice Movie Breakout Star - Male; award_nominee: Taylor Lautner; ceremony: …
+    --award_nominated_work.award_nominations--> m.0b3tz45 [award: MTV Movie Award for Best Breakthrough Performance - Male; ceremony: 2009 MTV Movie Awards; nominated_for: Twilight] | m.0z8zbq7 [award: Teen Choice Award for Choice Movie Breakout Star - Male; award_nominee: Taylor Lautner; ceremony: 2009 Teen Choice Awards]
     --film.starring--> m.04z4zmg [character: Jacob Black; film: Twilight]
     m.01086803 --award_honor.honored_for--> Twilight
 ── Robert Pattinson ──
@@ -17099,8 +17100,8 @@ entities: Taylor Lautner
 ── Mackenzie Foy ──
     --award_nominee.award_nominations--> m.0pdglz9 [award: Razzie Award for Worst Screen Couple/Ensemble; award_nominee: Mackenzie Foy; ceremony: 33rd Golden Raspberry Awards; nominated_for: The Twilight Saga: Breaking Dawn - Part 2]
     --award_winner.awards_won--> m.0r43x82 [award: Razzie Award for Worst Screen Couple/Ensemble; award_winner: Mackenzie Foy; ceremony: 33rd Golden Raspberry Awards; honored_for: The Twilight Saga: Breaking Dawn - Part 2]
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'actor.film': {'direct': ['film.actor.film'], 'bridge': []}, 'film.starring': {'direct': ['film.film.starring'], 'bridge': ['award.award_honor.award_winner', 'award.award_nomination.award_nominee', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.a…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'actor.film': {'direct': ['film.actor.film'], 'bridge': []}, 'film.starring': {'direct': ['film.film.starring'], 'bridge': ['award.award_honor.award_winner', 'award.award_nomination.award_nominee', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.actor.film', 'film.performance.actor']}, 'film_character.portrayed_in_films': {'direct': ['film.film_character.portrayed_in_films'], 'bridge': ['film.actor.film', 'film.performance.actor']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -17152,7 +17153,7 @@ question: which television shows did this person appear in
 ```text
 entities: Taylor Lautner
 question: which television shows did this person appear in
-candidate_relations: tv.tv_character.appeared_in_tv_episodes | tv.tv_character.appeared_in_tv_program | tv.tv_guest_role.episodes_appeared_in | tv.tv_actor.starring_roles | tv.tv_program.air_date_of_first_episode | tv.tv_program.episodes | film.film_series.films_in_series | film.film.personal_appear…
+candidate_relations: tv.tv_character.appeared_in_tv_episodes | tv.tv_character.appeared_in_tv_program | tv.tv_guest_role.episodes_appeared_in | tv.tv_actor.starring_roles | tv.tv_program.air_date_of_first_episode | tv.tv_program.episodes | film.film_series.films_in_series | film.film.personal_appearances | film.film.film_series | tv.regular_tv_appearance.series | tv.tv_series_season.series | fictional_universe.character_occupation.characters_with_this_occupation | film.personal_film_appearance.type_of_appearance | award.award_winner.awards_won | film.personal_film_appearance.person
 grouped_relations:
   tv_character.appeared_in_tv_episodes ← tv.tv_character.appeared_in_tv_episodes
   tv_character.appeared_in_tv_program ← tv.tv_character.appeared_in_tv_program
@@ -17166,7 +17167,7 @@ grouped_relations:
   regular_tv_appearance.series ← tv.regular_tv_appearance.series
   tv_series_season.series ← tv.tv_series_season.series
   character_occupation.characters_with_this_occupation ← fictional_universe.character_occupation.characters_with_this_occupation
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -17197,14 +17198,14 @@ sg: sg2
 ```text
 fact_id: sg2
 triples:
-entities: Taylor Lautner  (sequence root; this layer applies to the frontier: 2009 MTV Movie Awards | 2009 Teen Choice Awards | 2010 Kids' Choice Awards | 2010 MTV Movie Awards | 2010 Teen Choice Awards | 2011 MTV Movie Awards | 2011 Teen Choice Awards | 2012 Kids' Choice Awards | 2012 Teen Choice A…
+entities: Taylor Lautner  (sequence root; this layer applies to the frontier: 2009 MTV Movie Awards | 2009 Teen Choice Awards | 2010 Kids' Choice Awards | 2010 MTV Movie Awards | 2010 Teen Choice Awards | 2011 MTV Movie Awards | 2011 Teen Choice Awards | 2012 Kids' Choice Awards | 2012 Teen Choice Awards | 2013 MTV Movie Awards | 2013 Teen Choice Awards | 2014 Young Hollywood Awards)
 ▸ patterns: regular_tv_appearance.actor | tv_actor.guest_roles | tv_actor.starring_roles
 ── Taylor Lautner ──
-    --tv_actor.guest_roles--> m.08nfhpl [character: Aaron; episodes_appeared_in: Bernie Mac Rope-a-Dope] | m.08nfhpz [character: Youngblood; episodes_appeared_in: Livin' Large] | m.08nfhq8 [episodes_appeared_in: MusicWeek: Day 1] | m.08nfhqh [character: Ned; episodes_appeared_in: A Terrifying Round …
-    --tv_actor.starring_roles--> m.04tz40k [character: Jack Spivey; seasons: My Own Worst Enemy - Season 1; series: My Own Worst Enemy] | m.0gwrl_1 [character: Boy on Beach; series: Summerland] | m.0gwrlx_ [character: Aaron; series: The Bernie Mac Show] | m.0gwrlyc [character: Reggie Wasserstein; se…
+    --tv_actor.guest_roles--> m.08nfhpl [character: Aaron; episodes_appeared_in: Bernie Mac Rope-a-Dope] | m.08nfhpz [character: Youngblood; episodes_appeared_in: Livin' Large] | m.08nfhq8 [episodes_appeared_in: MusicWeek: Day 1] | m.08nfhqh [character: Ned; episodes_appeared_in: A Terrifying Round With A Menacing Metallic Clown] | m.08nfhr1 [character: Dennis; episodes_appeared_in: Camp Comeoniwannascareya] | m.08nfhrf [character: Reggie Wasserstein; episodes_appeared_in: A Lame Duck Mind] | m.0bmln_4 [episodes_appeared_in: Pirate Radio] | m.0bmq70h [episodes_appeared_in: The Fenton Menace] | m.0g01pvl [episodes_appeared_in: Heat Wave] | m.0ghmc0c [episodes_appeared_in: The 11th Annual Teen Choice Awards] | m.0ghn9tg [episodes_appeared_in: The 12th Annual Teen Choice Awards]
+    --tv_actor.starring_roles--> m.04tz40k [character: Jack Spivey; seasons: My Own Worst Enemy - Season 1; series: My Own Worst Enemy] | m.0gwrl_1 [character: Boy on Beach; series: Summerland] | m.0gwrlx_ [character: Aaron; series: The Bernie Mac Show] | m.0gwrlyc [character: Reggie Wasserstein; series: Duck Dodgers] | m.0gwrlyk [character: Tyrone; series: My Wife and Kids] | m.0gwrlyy [character: Dennis; series: What's New, Scooby-Doo?] | m.0gwrlz9 [character: Young Blood] | m.0gwrlzp [character: Oliver; series: Love, Inc.]
     m.04tz40k | m.0gwrl_1 | m.0gwrlx_ | m.0gwrlyc | m.0gwrlyk | m.0gwrlyy | m.0gwrlz9 | m.0gwrlzp --regular_tv_appearance.actor--> Taylor Lautner
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'tv.tv_character.appeared_in_tv_episodes': {'direct': ['tv.tv_character.appeared_in_tv_episodes'], 'bridge': ['tv.regular_tv_appearance.actor', 'tv.tv_actor.guest_roles', 'tv.tv_actor.starring_roles', 'tv.tv_guest_role.actor']}, 'tv.tv_character.appeared_in_tv_program': {'direct…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'tv.tv_character.appeared_in_tv_episodes': {'direct': ['tv.tv_character.appeared_in_tv_episodes'], 'bridge': ['tv.regular_tv_appearance.actor', 'tv.tv_actor.guest_roles', 'tv.tv_actor.starring_roles', 'tv.tv_guest_role.actor']}, 'tv.tv_character.appeared_in_tv_program': {'direct': ['tv.tv_character.appeared_in_tv_program'], 'bridge': ['tv.regular_tv_appearance.actor', 'tv.tv_actor.guest_roles', 'tv.tv_actor.starring_roles', 'tv.tv_guest_role.actor']}, 'tv.tv_guest_role.episodes_appeared_in': {'direct': ['tv.tv_guest_role.episodes_appeared_in'], 'bridge': ['tv.tv_actor.guest_roles', 'tv.tv_guest_role.actor']}, 'tv.regular_tv_appearance.series': {'direct': ['tv.regular_tv_appearance.series'], 'bridge': ['tv.regular_tv_appearance.actor', 'tv.tv_actor.starring_roles']}}
 anchor_sequence: Taylor Lautner ⭢ regular_tv_appearance.actor | regular_tv_appearance.series | tv_actor.guest_roles | tv_actor.starring_roles | tv_character.appeared_in_tv_episodes | tv_character.appeared_in_tv_program | tv_guest_role.actor | tv_guest_role.episodes_appeared_in (90)
 layer_action: update layer 1 (replaced film.performance.actor, award.award_honor.award_winner, award.award_nomination.award_nominee, award.award_nominee.award_nominations, award.award_winner.awards_won, film.actor.film, film.film.starring, film.film_character.portrayed_in_films)
 ```
@@ -17249,7 +17250,7 @@ question: what was the run time of this film
 ```text
 entities: m.04z4zmg | m.05tflhw | m.075wxc2 | m.0b68zn5 | m.0djz10s | m.0gvd5lx | m.0gwrkz0 | m.0gwrkzm | m.0gx8qdk | m.0h7fzt3 | m.0jw95q | m.0k490j | m.0ngj__g | m.0ngk01h | m.0wc86jj | m.012zk7ct | m.0131gszv | m.06z_2jg | m.0772zp4
 question: what was the run time of this film
-candidate_relations: tv.tv_program.episode_running_time | film.actor.film | film.performance.film | film.film.film_series | film.person_or_entity_appearing_in_film.films | film.film_series.films_in_series | film.film.runtime | film.film.directed_by | film.film_character.portrayed_in_films | tv.tv_pr…
+candidate_relations: tv.tv_program.episode_running_time | film.actor.film | film.performance.film | film.film.film_series | film.person_or_entity_appearing_in_film.films | film.film_series.films_in_series | film.film.runtime | film.film.directed_by | film.film_character.portrayed_in_films | tv.tv_program.currently_in_production | tv.tv_program.air_date_of_first_episode | film.film.initial_release_date | film.film.featured_film_locations | film.performance.actor | tv.tv_guest_role.actor
 grouped_relations:
   tv_program.episode_running_time ← tv.tv_program.episode_running_time
   actor.film ← film.actor.film
@@ -17263,7 +17264,7 @@ grouped_relations:
   tv_program.currently_in_production ← tv.tv_program.currently_in_production
   tv_program.air_date_of_first_episode ← tv.tv_program.air_date_of_first_episode
   film.initial_release_date ← film.film.initial_release_date
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [12] assistant
 **思考（原文）**:
@@ -17311,7 +17312,7 @@ triples:
 entities: m.04z4zmg | m.05tflhw | m.075wxc2 | m.0b68zn5 | m.0djz10s | m.0gvd5lx | m.0gwrkz0 | m.0gwrkzm | m.0gx8qdk | m.0h7fzt3 | m.0jw95q | m.0k490j | m.0ngj__g | m.0ngk01h | m.0wc86jj | m.012zk7ct | m.0131gszv | m.06z_2jg | m.0772zp4
 ▸ patterns: performance.film | actor.film | film.starring | performance.actor | performance.actor ⭢ actor.film
 ── Taylor Lautner ──
-    --actor.film--> m.012zk7ct [actor: Taylor Lautner] | m.0131gszv [actor: Taylor Lautner] | m.04z4zmg [actor: Taylor Lautner; character: Jacob Black] | m.05tflhw [actor: Taylor Lautner; character: Jacob Black] | m.06z_2jg [actor: Taylor Lautner; character: Kismet (Child)] | m.075wxc2 [actor: Taylo…
+    --actor.film--> m.012zk7ct [actor: Taylor Lautner] | m.0131gszv [actor: Taylor Lautner] | m.04z4zmg [actor: Taylor Lautner; character: Jacob Black] | m.05tflhw [actor: Taylor Lautner; character: Jacob Black] | m.06z_2jg [actor: Taylor Lautner; character: Kismet (Child)] | m.075wxc2 [actor: Taylor Lautner; character: Jacob Black] | m.0772zp4 [actor: Taylor Lautner; character: Willy] | m.0b68zn5 [actor: Taylor Lautner; character: Jacob Black] | m.0djz10s [actor: Taylor Lautner; character: Jacob Black] | m.0gvd5lx [actor: Taylor Lautner; character: Nathan Harper] | m.0gwrkz0 [actor: Taylor Lautner; character: Mouseketeer] | m.0gwrkzm [actor: Taylor Lautner; character: Joe Agate] | m.0gx8qdk [actor: Taylor Lautner; character: Finn] | m.0h7fzt3 [actor: Taylor Lautner; character: Iowa Farmer] | m.0jw95q [actor: Taylor Lautner; character: Eliott Murtaugh] | m.0k490j [actor: Taylor Lautner; character: Sharkboy] | m.0ngj__g [actor: Taylor Lautner; character: Cam] | m.0ngk01h [actor: Taylor …
     m.012zk7ct | m.0131gszv | m.04z4zmg | m.05tflhw | m.06z_2jg | m.075wxc2 | m.0772zp4 | m.0b68zn5 | m.0djz10s | m.0gvd5lx | m.0gwrkz0 | m.0gwrkzm …(+7) (to answer with ALL of them, include "#m.012zk7ct::actor" as one answer entity) --performance.actor--> Taylor Lautner
 ── The Nick and Jessica Variety Hour ──
     --film.starring--> m.0gwrkz0 [actor: Taylor Lautner; character: Mouseketeer]
@@ -17342,7 +17343,7 @@ entities: m.04z4zmg | m.05tflhw | m.075wxc2 | m.0b68zn5 | m.0djz10s | m.0gvd5lx 
     m.0djz10s --performance.film--> The Twilight Saga: Breaking Dawn - Part 2
     m.0k490j --performance.film--> The Adventures of Sharkboy and Lavagirl
     m.0ngj__g --performance.film--> Tracers
-note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER an…
+note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'film.runtime': {'direct': ['film.film.runtime'], 'bridge': ['film.performance.film']}}
 ```
 ## [14] assistant
@@ -17391,7 +17392,7 @@ tool: checkpoint
 ```
 **[15] 工具结果**:
 ```text
-⚠ Your checkpoint bound EVENT nodes (m./g. ids) as variable values. An event node is an abstract RECORD — it names no thing, so that binding was removed (see §7.5). The entities INSIDE the event's bracket are the world: SUBMIT those — re-declare the checkpoint binding, per variable, the attribute en…
+⚠ Your checkpoint bound EVENT nodes (m./g. ids) as variable values. An event node is an abstract RECORD — it names no thing, so that binding was removed (see §7.5). The entities INSIDE the event's bracket are the world: SUBMIT those — re-declare the checkpoint binding, per variable, the attribute entity whose KEY answers that variable (award question → the award= value, residence → location=, who played → actor=; a film performance → the film= or character= value).
 ```
 **[16] 工具结果**:
 ```text
@@ -17500,11 +17501,11 @@ sg2.f2: ?sibling | which city does this person live in | ?city
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Stringer Bell | which city did this person live in | ?city)', 'subquestion': 'which city did this person live in'} | {'id': 'f2', 'triple': "(Carmelo Anthony | which people are this person's siblings | ?sibling)", 'subquestion': "which people are this person's siblings…
+flow: {'id': 'f1', 'triple': '(Stringer Bell | which city did this person live in | ?city)', 'subquestion': 'which city did this person live in'} | {'id': 'f2', 'triple': "(Carmelo Anthony | which people are this person's siblings | ?sibling)", 'subquestion': "which people are this person's siblings"} | {'id': 'f3', 'triple': '(?sibling | which city does this person live in | ?city)', 'subquestion': 'which city does this person live in'}
 entities: Stringer Bell | Carmelo Anthony
 answer: ?city
 answer_type: city
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -17540,7 +17541,7 @@ question: which city did this person live in
 ```text
 entities: Stringer Bell
 question: which city did this person live in
-candidate_relations: people.person.places_lived | people.person.place_of_birth | location.neighborhood.neighborhood_of | people.place_lived.location | location.metropolitan_area_anchor.metropolitan_area | location.metropolitan_area.anchor_city | location.location.nearby_airports | location.citytown.…
+candidate_relations: people.person.places_lived | people.person.place_of_birth | location.neighborhood.neighborhood_of | people.place_lived.location | location.metropolitan_area_anchor.metropolitan_area | location.metropolitan_area.anchor_city | location.location.nearby_airports | location.citytown.postal_codes | people.person.nationality | location.place_with_neighborhoods.neighborhoods | people.place_lived.person | location.location.geolocation | location.statistical_region.rent50_0 | tv.tv_location.tv_shows_filmed_here | people.person.ethnicity
 grouped_relations:
   person.places_lived ← people.person.places_lived
   person.place_of_birth ← people.person.place_of_birth
@@ -17554,7 +17555,7 @@ grouped_relations:
   place_with_neighborhoods.neighborhoods ← location.place_with_neighborhoods.neighborhoods
   place_lived.person ← people.place_lived.person
   location.geolocation ← location.location.geolocation
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -17586,7 +17587,7 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Stringer Bell
-▸ patterns: fictional_character.character_created_by | fictional_character.places_lived | fictional_character.character_created_by ⭢ person.places_lived | fictional_character.places_lived ⭢ place_lived.location | fictional_character_creator.fictional_characters_created ⭢ fictional_character.characte…
+▸ patterns: fictional_character.character_created_by | fictional_character.places_lived | fictional_character.character_created_by ⭢ person.places_lived | fictional_character.places_lived ⭢ place_lived.location | fictional_character_creator.fictional_characters_created ⭢ fictional_character.character_created_by | fictional_character_creator.fictional_characters_created ⭢ person.places_lived | fictional_setting.characters_that_have_lived_here ⭢ place_lived.location | the_wire_beat.characters_with_this_beat ⭢ the_wire_character.the_beat ⭢ fictional_character.character_created_by | the_wire_character.the_beat ⭢ the_wire_beat.characters_with_this_beat ⭢ fictional_character.character_created_by | fictional_character.gender ⭢ person.gender ⭢ person.places_lived | fictional_character.places_lived ⭢ neighborhood.neighborhood_of ⭢ place_lived.location
 ── Stringer Bell ──
     --fictional_character.character_created_by--> David Simon
     --fictional_character.gender--> Male
@@ -17598,7 +17599,7 @@ entities: Stringer Bell
 ── David Simon ──
     --person.gender--> Male
     --person.places_lived--> m.03plhtm [location: Baltimore] | m.03pq5qg [location: Washington, D.C.]
-    Alma Gutierrez | Augustus Haynes | Avon Barksdale | Beadie Russell | Bodie Broadus | Bubbles | Bunk Moreland | Butchie | Cedric Daniels | Cheese Wagstaff | Chris Partlow | Clarence Royce …(+42) (to answer with ALL of them, include "#Alma Gutierrez::character_created_by" as one answer entity) --f…
+    Alma Gutierrez | Augustus Haynes | Avon Barksdale | Beadie Russell | Bodie Broadus | Bubbles | Bunk Moreland | Butchie | Cedric Daniels | Cheese Wagstaff | Chris Partlow | Clarence Royce …(+42) (to answer with ALL of them, include "#Alma Gutierrez::character_created_by" as one answer entity) --fictional_character.character_created_by--> David Simon
 ── Baltimore ──
     m.03plgd9 --place_lived.location--> Baltimore
     m.03plhtm --place_lived.location--> Baltimore
@@ -17611,8 +17612,8 @@ entities: Stringer Bell
 ── The Street ──
     --the_wire_beat.characters_with_this_beat--> Avon Barksdale
     Avon Barksdale --the_wire_character.the_beat--> The Street
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'people.person.places_lived': {'direct': ['people.person.places_lived'], 'bridge': ['fictional_universe.fictional_character.character_created_by']}, 'people.place_lived.location': {'direct': ['people.place_lived.location'], 'bridge': ['fictional_universe.fictional_character.plac…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'people.person.places_lived': {'direct': ['people.person.places_lived'], 'bridge': ['fictional_universe.fictional_character.character_created_by']}, 'people.place_lived.location': {'direct': ['people.place_lived.location'], 'bridge': ['fictional_universe.fictional_character.places_lived']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -17658,7 +17659,7 @@ question: which people are this person's siblings
 ```text
 entities: Carmelo Anthony
 question: which people are this person's siblings
-candidate_relations: people.person.sibling_s | people.sibling_relationship.sibling | people.person.parents | base.aareas.schema.administrative_area.administrative_children | people.marriage.spouse | people.person.spouse_s | fictional_universe.character_occupation.characters_with_this_occupation | pe…
+candidate_relations: people.person.sibling_s | people.sibling_relationship.sibling | people.person.parents | base.aareas.schema.administrative_area.administrative_children | people.marriage.spouse | people.person.spouse_s | fictional_universe.character_occupation.characters_with_this_occupation | people.place_lived.person | tv.tv_guest_personal_appearance.person | base.aareas.schema.administrative_area.administrative_parent | fictional_universe.fictional_setting.fictional_characters_born_here | people.person.place_of_birth | tv.tv_guest_personal_appearance.appearance_type | people.person.children | people.person.nationality
 grouped_relations:
   person.sibling_s ← people.person.sibling_s
   sibling_relationship.sibling ← people.sibling_relationship.sibling
@@ -17672,7 +17673,7 @@ grouped_relations:
   administrative_area.administrative_parent ← base.aareas.schema.administrative_area.administrative_parent
   fictional_setting.fictional_characters_born_here ← fictional_universe.fictional_setting.fictional_characters_born_here
   person.place_of_birth ← people.person.place_of_birth
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -17718,7 +17719,7 @@ entities: Carmelo Anthony
     m.03zdx2h --sibling_relationship.sibling--> Wilford Anthony
 ── Michelle Anthony ──
     --person.sibling_s--> m.03zdx24 [sibling: Michelle Anthony]
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'people.person.sibling_s': {'direct': ['people.person.sibling_s'], 'bridge': ['people.sibling_relationship.sibling']}, 'people.sibling_relationship.sibling': {'direct': ['people.sibling_relationship.sibling'], 'bridge': ['people.person.sibling_s']}}
 ```
 ## [10] assistant
@@ -17748,7 +17749,7 @@ question: which city does this person live in
 ```text
 entities: m.03zdx1t | m.03zdx24 | m.03zdx2h | m.0j2m2rv
 question: which city does this person live in
-candidate_relations: people.person.places_lived | people.person.place_of_birth | location.location.people_born_here | people.place_lived.person | tv.tv_guest_personal_appearance.person | olympics.olympic_athlete.country | people.person.nationality | people.marriage.spouse | people.person.spouse_s | …
+candidate_relations: people.person.places_lived | people.person.place_of_birth | location.location.people_born_here | people.place_lived.person | tv.tv_guest_personal_appearance.person | olympics.olympic_athlete.country | people.person.nationality | people.marriage.spouse | people.person.spouse_s | base.schemastaging.person_extra.net_worth | people.person.ethnicity | people.person.sibling_s | education.education.student | basketball.basketball_player_stats.player | sports.sports_team_roster.player
 grouped_relations:
   person.places_lived ← people.person.places_lived
   person.place_of_birth ← people.person.place_of_birth
@@ -17762,7 +17763,7 @@ grouped_relations:
   person_extra.net_worth ← base.schemastaging.person_extra.net_worth
   person.ethnicity ← people.person.ethnicity
   person.sibling_s ← people.person.sibling_s
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [12] assistant
 **思考（原文）**:
@@ -17812,7 +17813,7 @@ entities: m.03zdx1t | m.03zdx24 | m.03zdx2h | m.0j2m2rv
 ── Wilford Anthony ──
     --person.sibling_s--> m.03zdx2h [sibling: Wilford Anthony]
     m.03zdx2h --sibling_relationship.sibling--> Wilford Anthony
-note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER an…
+note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'people.person.places_lived': {'direct': ['people.person.places_lived'], 'bridge': ['people.person.sibling_s', 'people.sibling_relationship.sibling']}}
 ```
 ## [14] assistant
@@ -17947,11 +17948,11 @@ sg1.f2: ?country | what is the size of this country's army | ?army_size
 ```
 **[1] 工具结果**:
 ```text
-flow: {'id': 'f1', 'triple': '(Caribbean | which countries are located in this region | ?country)', 'subquestion': 'which countries are located in this region'} | {'id': 'f2', 'triple': "(?country | what is the size of this country's army | ?army_size)", 'subquestion': "what is the size of this coun…
+flow: {'id': 'f1', 'triple': '(Caribbean | which countries are located in this region | ?country)', 'subquestion': 'which countries are located in this region'} | {'id': 'f2', 'triple': "(?country | what is the size of this country's army | ?army_size)", 'subquestion': "what is the size of this country's army"}
 entities: Caribbean
 answer: ?country
 answer_type: country
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -17974,7 +17975,7 @@ question: which countries are located in this region
 ```text
 entities: Caribbean
 question: which countries are located in this region
-candidate_relations: base.locations.continents.countries_within | language.human_language.region | language.human_language.main_country | base.aareas.schema.administrative_area_type.iso_country | language.human_language.countries_spoken_in | base.locations.countries.continent | location.administrati…
+candidate_relations: base.locations.continents.countries_within | language.human_language.region | language.human_language.main_country | base.aareas.schema.administrative_area_type.iso_country | language.human_language.countries_spoken_in | base.locations.countries.continent | location.administrative_division.country | location.country.languages_spoken | base.aareas.schema.administrative_area.administrative_area_type | location.partial_containment_relationship.partially_contained_by | location.location.partially_containedby | location.country.administrative_divisions | location.location.containedby | location.location.partially_contains | location.partial_containment_relationship.partially_contains
 grouped_relations:
   continents.countries_within ← base.locations.continents.countries_within
   human_language.region ← language.human_language.region
@@ -17988,7 +17989,7 @@ grouped_relations:
   partial_containment_relationship.partially_contained_by ← location.partial_containment_relationship.partially_contained_by
   location.partially_containedby ← location.location.partially_containedby
   country.administrative_divisions ← location.country.administrative_divisions
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -18020,19 +18021,19 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Caribbean
-▸ patterns: book_subject.works | written_work.subjects | location.containedby | location.contains | location.partially_contained_by | location.partially_contains | partial_containment_relationship.partially_contains | casino.theme ⭢ location.containedby | casino_theme.casinos_in_this_theme ⭢ locatio…
+▸ patterns: book_subject.works | written_work.subjects | location.containedby | location.contains | location.partially_contained_by | location.partially_contains | partial_containment_relationship.partially_contains | casino.theme ⭢ location.containedby | casino_theme.casinos_in_this_theme ⭢ location.containedby | book_subject.works ⭢ continents.countries_within | written_work.subjects ⭢ continents.countries_within | written_work.subjects ⭢ book_subject.works | location.containedby ⭢ continents.countries_within | location.containedby ⭢ book_subject.works | location.containedby ⭢ written_work.subjects | location.containedby ⭢ location.partially_contained_by | location.containedby ⭢ location.partially_contains | location.containedby ⭢ partial_containment_relationship.partially_contains | location.contains ⭢ book_subject.works | location.contains ⭢ written_work.subjects | location.contains ⭢ location.containedby | location.contains ⭢ location.partially_contained_by | location.contains ⭢ p…
 ── Caribbean ──
     --casino_theme.casinos_in_this_theme--> Treasure Island Hotel and Casino
     --location.containedby--> Americas | Caribbean Sea | North America
-    --location.contains--> Anguilla | Antilles | Aureus University School of Medicine | Barbados | Bridgetown | British Virgin Islands | British West Indies | Bronte International University | Caribbean special municipalities of the Netherlands | Collectivity of Saint Martin | Grace University, main…
+    --location.contains--> Anguilla | Antilles | Aureus University School of Medicine | Barbados | Bridgetown | British Virgin Islands | British West Indies | Bronte International University | Caribbean special municipalities of the Netherlands | Collectivity of Saint Martin | Grace University, main campus | Higher Institute of Medical Sciences. main campus | Leeward Islands | Lesser Antilles | Netherlands Antilles | Puerto Rico | Saint Kitts and Nevis | Saint Lucia | Saint Martin (Island) | Saint Thomas | School of Business and Computer Science, Champs Fleurs | School of Business and Computer Science, Port of Spain | School of Business and Computer Science, San Fernando | School of Business and Computer Science, Trincity | St. Martinus University School of Medicine, main campus | University of Medicine and Health Sciences | University of the West Indies | Viceroy Anguilla
     --location.partially_contained_by--> m.0wg9fxr [partially_contained_by: Latin America]
-    --book_subject.works--> A mi hija con amor | Aguafuertes Portenas | An Island Called Home | Antologia | Aztec Empire, The | Beyond Slavery | Beyond the Mexique Bay | Borges in 90 Minutes | British Virgin Islands Alive Guide | Canto General | Che Guervara and the FBI | Cien Sonetos de Amor | Cosm…
-    Anguilla | Antilles | Aureus University School of Medicine | Barbados | Bridgetown | British Virgin Islands | British West Indies | Bronte International University | Caribbean special municipalities of the Netherlands | Chances Peak | Clarendon Parish | Collectivity of Saint Martin …(+23) (to an…
+    --book_subject.works--> A mi hija con amor | Aguafuertes Portenas | An Island Called Home | Antologia | Aztec Empire, The | Beyond Slavery | Beyond the Mexique Bay | Borges in 90 Minutes | British Virgin Islands Alive Guide | Canto General | Che Guervara and the FBI | Cien Sonetos de Amor | Cosmic Canticle | Cuba | Cuba in War Time | Cuban Kids | Culture and Customs of Jamaica | Dark swirl | Daughter of Fortune | De La Realidad A La Literatura | Drawing Down a Daughter | Drive: The First Quartet | Drumblair | Early Spanish American Narrative | El Amor Brujo | El Anfitrion | El Futuro Del Pasado | El Tramo Ancla | El Whisky De Los Poetas | El arte de la fuga | El astillero | Engravings Torn from Insomnia | Eva Luna | Ficciones | Fidel Castro | From the Lightning | Fuera del Juego | Garcia Marquez in 90 Minutes | Haiti | Havana Before Castro: When Cuba was a Tropical Playground …(+37) (to answer with ALL of them, include "#Caribbean::works" as one answer entity)
+    Anguilla | Antilles | Aureus University School of Medicine | Barbados | Bridgetown | British Virgin Islands | British West Indies | Bronte International University | Caribbean special municipalities of the Netherlands | Chances Peak | Clarendon Parish | Collectivity of Saint Martin …(+23) (to answer with ALL of them, include "#Anguilla::containedby" as one answer entity) --location.containedby--> Caribbean
     Americas --location.contains--> Caribbean
     Caribbean Sea --location.contains--> Caribbean
     Latin America --location.partially_contains--> Caribbean
     m.0wg9fxr --partial_containment_relationship.partially_contains--> Caribbean
-    A mi hija con amor | Aguafuertes Portenas | An Island Called Home | Antologia | Aztec Empire, The | Beyond Slavery | Beyond the Mexique Bay | Borges in 90 Minutes | British Virgin Islands Alive Guide | Canto General | Che Guervara and the FBI | Cien Sonetos de Amor …(+65) (to answer with ALL of …
+    A mi hija con amor | Aguafuertes Portenas | An Island Called Home | Antologia | Aztec Empire, The | Beyond Slavery | Beyond the Mexique Bay | Borges in 90 Minutes | British Virgin Islands Alive Guide | Canto General | Che Guervara and the FBI | Cien Sonetos de Amor …(+65) (to answer with ALL of them, include "#A mi hija con amor::subjects" as one answer entity) --written_work.subjects--> Caribbean
     Treasure Island Hotel and Casino --casino.theme--> Caribbean
 ── Saint Martin (Island) ──
     --location.partially_contained_by--> m.0wg9fvg [partially_contained_by: Sint Maarten]
@@ -18044,22 +18045,22 @@ entities: Caribbean
 ── British Virgin Islands ──
     --location.containedby--> Virgin Islands
     --book_subject.works--> British Virgin Islands Alive Guide
-    Anegada | Beef Island | Carvel Rock | Cooper Island | Dead Chest Island, British Virgin Islands | East Seal Dog Island | Eustatia Island | Fallen Jerusalem Island | Ginger Island | Great Camanoe | Great Thatch | Great Tobago Island …(+20) (to answer with ALL of them, include "#Anegada::contained…
+    Anegada | Beef Island | Carvel Rock | Cooper Island | Dead Chest Island, British Virgin Islands | East Seal Dog Island | Eustatia Island | Fallen Jerusalem Island | Ginger Island | Great Camanoe | Great Thatch | Great Tobago Island …(+20) (to answer with ALL of them, include "#Anegada::containedby" as one answer entity) --location.containedby--> British Virgin Islands
     British Virgin Islands Alive Guide --written_work.subjects--> British Virgin Islands
 ── Anguilla ──
     --location.containedby--> Atlantic Ocean | United Kingdom, with Dependencies and Territories
     --book_subject.works--> Anguilla: Tranquil Isle of the Caribbean | Frommer's Portable St. Maarten/St. Martin, Anguilla & St. Barts
-    Anguilla Great House | Anguilla Main Island | Anguillita | Banana Wind | Blowing Rock | Caribella Resort | Cayo Sur | Cove Cay | Crocus Cay | CuisinArt Resort and Spa | Dog Island, Anguilla | Little Island …(+15) (to answer with ALL of them, include "#Anguilla Great House::containedby" as one an…
+    Anguilla Great House | Anguilla Main Island | Anguillita | Banana Wind | Blowing Rock | Caribella Resort | Cayo Sur | Cove Cay | Crocus Cay | CuisinArt Resort and Spa | Dog Island, Anguilla | Little Island …(+15) (to answer with ALL of them, include "#Anguilla Great House::containedby" as one answer entity) --location.containedby--> Anguilla
     Anguilla: Tranquil Isle of the Caribbean --written_work.subjects--> Anguilla
     Frommer's Portable St. Maarten/St. Martin, Anguilla & St. Barts --written_work.subjects--> Anguilla
 ── Latin America ──
-    Aguafuertes Portenas | An Island Called Home | Beyond the Mexique Bay | Che Guervara and the FBI | Cuba in War Time | Culture and Customs of Jamaica | Dark swirl | Drumblair | Early Spanish American Narrative | El astillero | Haiti | Havana Before Castro: When Cuba was a Tropical Playground …(+1…
+    Aguafuertes Portenas | An Island Called Home | Beyond the Mexique Bay | Che Guervara and the FBI | Cuba in War Time | Culture and Customs of Jamaica | Dark swirl | Drumblair | Early Spanish American Narrative | El astillero | Haiti | Havana Before Castro: When Cuba was a Tropical Playground …(+14) (to answer with ALL of them, include "#Aguafuertes Portenas::subjects" as one answer entity) --written_work.subjects--> Latin America
 ── North America ──
     --continents.countries_within--> Cuba | Antigua and Barbuda | Bahamas | Belize | Costa Rica | Dominica | Dominican Republic | El Salvador | Grenada | Guatemala | Haiti | Honduras | Jamaica | Mexico | Nicaragua | Panama | Trinidad and Tobago | United States of America
     --location.partially_contains--> United States of America
 ── British West Indies ──
     --location.containedby--> West Indies
-    --book_subject.works--> A cumulative index to the nine volumes of the Symbolae Antillanae, seu Fundamenta florae Indiae Occidenttalis, edited by Ignatius Urban | A preliminary essay, on the oppression of the exiled sons of Africa | Bucaniers of America, or, A true account of the most remarkable …
+    --book_subject.works--> A cumulative index to the nine volumes of the Symbolae Antillanae, seu Fundamenta florae Indiae Occidenttalis, edited by Ignatius Urban | A preliminary essay, on the oppression of the exiled sons of Africa | Bucaniers of America, or, A true account of the most remarkable assaults committed of late years upon the coasts of the West-Indies | Caribbean treasure | Evidence for the survival of African prosodies in West Indian Creoles | On the relations of the flora and fauna of Santa Cruz, West Indies | Outline of the geology of the northeastern West India islands | The History, Civil and Commercial, of the British West Indies | The West Indies | The West-Indies, and other poems | The iguana's tail | Volcanic eruptions on Martinique and St. Vincent
     On the relations of the flora and fauna of Santa Cruz, West Indies --written_work.subjects--> British West Indies
     The History, Civil and Commercial, of the British West Indies --written_work.subjects--> British West Indies
 ── Lesser Antilles ──
@@ -18098,8 +18099,8 @@ entities: Caribbean
     Sand for Snow --written_work.subjects--> Barbados
     South America --book_subject.works--> Eva Luna
     West Africa --book_subject.works--> Beyond Slavery
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'base.locations.continents.countries_within': {'direct': ['base.locations.continents.countries_within'], 'bridge': ['book.book_subject.works', 'book.written_work.subjects', 'location.location.containedby', 'location.location.contains']}, 'location.location.partially_contains': {…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'base.locations.continents.countries_within': {'direct': ['base.locations.continents.countries_within'], 'bridge': ['book.book_subject.works', 'book.written_work.subjects', 'location.location.containedby', 'location.location.contains']}, 'location.location.partially_contains': {'direct': ['location.location.partially_contains'], 'bridge': ['location.location.containedby', 'location.location.contains', 'location.location.partially_contained_by']}, 'location.partial_containment_relationship.partially_contains': {'direct': ['location.partial_containment_relationship.partially_contains'], 'bridge': ['location.location.containedby', 'location.location.contains']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -18138,13 +18139,13 @@ question: what is the size of this country's army
 ```
 **[7] 工具结果**:
 ```text
-⚠ Your checkpoint bound EVENT nodes (m./g. ids) as variable values. An event node is an abstract RECORD — it names no thing, so that binding was removed (see §7.5). The entities INSIDE the event's bracket are the world: SUBMIT those — re-declare the checkpoint binding, per variable, the attribute en…
+⚠ Your checkpoint bound EVENT nodes (m./g. ids) as variable values. An event node is an abstract RECORD — it names no thing, so that binding was removed (see §7.5). The entities INSIDE the event's bracket are the world: SUBMIT those — re-declare the checkpoint binding, per variable, the attribute entity whose KEY answers that variable (award question → the award= value, residence → location=, who played → actor=; a film performance → the film= or character= value). The standing bindings for f1 (?country) remain: Anguilla | Antilles | Aureus University School of Medicine | Barbados | Bridgetown | British Virgin Islands | British West Indies | Bronte International University | Caribbean special municipalities of the Netherlands | Collectivity of Saint Martin | Grace University, main campus | Higher Institute of Medical Sciences. main campus ….
 ```
 **[8] 工具结果**:
 ```text
 entity_error: 'Dutch Caribbean' is not a confident graph entity.
-candidates: {'name': 'Caribbean special municipalities of the Netherlands', 'neighbor_relations': ['location.statistical_region.population', 'location.country.internet_tld', 'location.location.geolocation']} | {'name': 'Island region of the Caribbean Netherlands', 'neighbor_relations': ['base.aareas…
-note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for t…
+candidates: {'name': 'Caribbean special municipalities of the Netherlands', 'neighbor_relations': ['location.statistical_region.population', 'location.country.internet_tld', 'location.location.geolocation']} | {'name': 'Island region of the Caribbean Netherlands', 'neighbor_relations': ['base.aareas.schema.administrative_area.administrative_area_type', 'base.aareas.schema.administrative_area.pertinent_type', 'base.aareas.schema.administrative_area.subdividing_type']} | {'name': 'Dutch West Indies campaign', 'neighbor_relations': ['location.location.events', 'base.culturalevent.event.entity_involved', 'time.event.locations']} | {'name': 'Dutch Republic', 'neighbor_relations': ['military.military_combatant_group.combatants', 'base.culturalevent.event.entity_involved', 'common.topic.notable_types']} | {'name': 'Estates of the Netherlands Antilles', 'neighbor_relations': ['government.governmental_jurisdiction.government_bodies']}
+note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for this fact or continue from another question entity's evidence. CROSS-SUBGRAPH CENTER: if THIS fact's selected relations are right but its anchor entity is wrong, re-call retrieve_subgraph with a center BORROWED from any prior subgraph's evidence (e.g. an earlier fact's binding) plus this fact's relations — the boundary check accepts any retrieved entity as a center.
 ```
 ## [9] assistant
 **思考（原文）**:
@@ -18192,8 +18193,8 @@ sg: sg1
 **[10] 工具结果**:
 ```text
 entity_error: 'Dutch Caribbean' is not an entity in the graph.
-candidates: {'name': 'Caribbean special municipalities of the Netherlands', 'neighbor_relations': ['common.topic.notable_for', 'finance.currency.countries_used', 'base.aareas.schema.administrative_area.subdividing_type']} | {'name': 'Island region of the Caribbean Netherlands', 'neighbor_relations':…
-note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate). Re-call THIS retrieve_subgraph with the correct entity + your selected relations. CROSS-SUBGRAPH CENTER: if this fact's RELATIONS are right but its anchor entity is wrong, re-call with a center BORROWED …
+candidates: {'name': 'Caribbean special municipalities of the Netherlands', 'neighbor_relations': ['common.topic.notable_for', 'finance.currency.countries_used', 'base.aareas.schema.administrative_area.subdividing_type']} | {'name': 'Island region of the Caribbean Netherlands', 'neighbor_relations': ['base.aareas.schema.administrative_area.pertinent_type', 'base.aareas.schema.administrative_area.administrative_area_type', 'base.aareas.schema.administrative_area.subdividing_type']} | {'name': 'Dutch West Indies campaign', 'neighbor_relations': ['location.location.events', 'time.event.locations', 'base.culturalevent.event.entity_involved']} | {'name': 'Dutch Republic', 'neighbor_relations': ['military.military_combatant_group.combatants', 'common.topic.notable_types', 'base.culturalevent.event.entity_involved']} | {'name': 'Estates of the Netherlands Antilles', 'neighbor_relations': ['government.governmental_jurisdiction.government_bodies']}
+note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate). Re-call THIS retrieve_subgraph with the correct entity + your selected relations. CROSS-SUBGRAPH CENTER: if this fact's RELATIONS are right but its anchor entity is wrong, re-call with a center BORROWED from any prior subgraph's evidence (e.g. an earlier fact's binding) plus these relations. WORKFLOW: retrieve_relations → retrieve_subgraph per fact.
 ```
 **[11] 工具结果**:
 ```text
@@ -18283,7 +18284,7 @@ entities: NONE
 ```
 **[13] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['Anguilla', 'Antilles', 'Aureus University School of Medicine', 'Barbados']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: …
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['Anguilla', 'Antilles', 'Aureus University School of Medicine', 'Barbados']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?country=['Anguilla', 'Antigua and Barbuda', 'Argentina', 'Aruba']. Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [14] assistant
 **思考（原文）**:
@@ -18336,7 +18337,7 @@ entities: Anguilla | Antigua and Barbuda | Argentina | Aruba | Bahamas | Belize 
 ```
 **[15] 工具结果**:
 ```text
-{"entities": ["Anguilla", "Antigua and Barbuda", "Argentina", "Aruba", "Bahamas", "Belize", "Bolivia", "Bonaire", "Chile", "Costa Rica", "Cuba", "Curaçao", "Dominica", "Dominican Republic", "El Salvador", "Grenada", "Guatemala", "Guyana", "Honduras", "Jamaica", "Mexico", "Nicaragua", "Panama", "Trin…
+{"entities": ["Anguilla", "Antigua and Barbuda", "Argentina", "Aruba", "Bahamas", "Belize", "Bolivia", "Bonaire", "Chile", "Costa Rica", "Cuba", "Curaçao", "Dominica", "Dominican Republic", "El Salvador", "Grenada", "Guatemala", "Guyana", "Honduras", "Jamaica", "Mexico", "Nicaragua", "Panama", "Trinidad and Tobago", "United States of America"]}
 ```
 
 
@@ -18421,7 +18422,7 @@ flow: {'id': 'f1', 'triple': '(Caribbean | which countries are in this region | 
 entities: Caribbean
 answer: ?country
 answer_type: country
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -18466,7 +18467,7 @@ question: which countries are in this region
 ```text
 entities: Caribbean
 question: which countries are in this region
-candidate_relations: base.locations.continents.countries_within | language.human_language.region | language.human_language.main_country | base.aareas.schema.administrative_area_type.iso_country | finance.currency.countries_formerly_used | language.human_language.countries_spoken_in | base.locations.…
+candidate_relations: base.locations.continents.countries_within | language.human_language.region | language.human_language.main_country | base.aareas.schema.administrative_area_type.iso_country | finance.currency.countries_formerly_used | language.human_language.countries_spoken_in | base.locations.countries.continent | location.administrative_division.country | organization.organization.geographic_scope | location.country.languages_spoken | location.partial_containment_relationship.partially_contained_by | base.aareas.schema.administrative_area.administrative_area_type | location.location.partially_containedby | location.country.administrative_divisions | location.statistical_region.population
 grouped_relations:
   continents.countries_within ← base.locations.continents.countries_within
   human_language.region ← language.human_language.region
@@ -18480,7 +18481,7 @@ grouped_relations:
   country.languages_spoken ← location.country.languages_spoken
   partial_containment_relationship.partially_contained_by ← location.partial_containment_relationship.partially_contained_by
   administrative_area.administrative_area_type ← base.aareas.schema.administrative_area.administrative_area_type
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -18506,17 +18507,17 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Caribbean
-▸ patterns: book_subject.works | written_work.subjects | location.containedby | location.contains | casino.theme ⭢ location.containedby | casino_theme.casinos_in_this_theme ⭢ location.containedby | book_subject.works ⭢ continents.countries_within | written_work.subjects ⭢ continents.countries_within…
+▸ patterns: book_subject.works | written_work.subjects | location.containedby | location.contains | casino.theme ⭢ location.containedby | casino_theme.casinos_in_this_theme ⭢ location.containedby | book_subject.works ⭢ continents.countries_within | written_work.subjects ⭢ continents.countries_within | written_work.subjects ⭢ book_subject.works | location.containedby ⭢ continents.countries_within | location.containedby ⭢ book_subject.works | location.containedby ⭢ written_work.subjects | location.contains ⭢ book_subject.works | location.contains ⭢ written_work.subjects | location.contains ⭢ location.containedby | location.partially_contains ⭢ written_work.subjects
 ── Caribbean ──
     --casino_theme.casinos_in_this_theme--> Treasure Island Hotel and Casino
     --location.containedby--> Americas | Caribbean Sea | North America
-    --location.contains--> Anguilla | Antilles | Aureus University School of Medicine | Barbados | Bridgetown | British Virgin Islands | British West Indies | Bronte International University | Caribbean special municipalities of the Netherlands | Collectivity of Saint Martin | Grace University, main…
-    --book_subject.works--> A mi hija con amor | Aguafuertes Portenas | An Island Called Home | Antologia | Aztec Empire, The | Beyond Slavery | Beyond the Mexique Bay | Borges in 90 Minutes | British Virgin Islands Alive Guide | Canto General | Che Guervara and the FBI | Cien Sonetos de Amor | Cosm…
-    Anguilla | Antilles | Aureus University School of Medicine | Barbados | Bridgetown | British Virgin Islands | British West Indies | Bronte International University | Caribbean special municipalities of the Netherlands | Chances Peak | Clarendon Parish | Collectivity of Saint Martin …(+23) (to an…
+    --location.contains--> Anguilla | Antilles | Aureus University School of Medicine | Barbados | Bridgetown | British Virgin Islands | British West Indies | Bronte International University | Caribbean special municipalities of the Netherlands | Collectivity of Saint Martin | Grace University, main campus | Higher Institute of Medical Sciences. main campus | Leeward Islands | Lesser Antilles | Netherlands Antilles | Puerto Rico | Saint Kitts and Nevis | Saint Lucia | Saint Thomas | School of Business and Computer Science, Champs Fleurs | School of Business and Computer Science, Port of Spain | School of Business and Computer Science, San Fernando | School of Business and Computer Science, Trincity | St. Martinus University School of Medicine, main campus | University of Medicine and Health Sciences | University of the West Indies | Viceroy Anguilla
+    --book_subject.works--> A mi hija con amor | Aguafuertes Portenas | An Island Called Home | Antologia | Aztec Empire, The | Beyond Slavery | Beyond the Mexique Bay | Borges in 90 Minutes | British Virgin Islands Alive Guide | Canto General | Che Guervara and the FBI | Cien Sonetos de Amor | Cosmic Canticle | Cuba | Cuba in War Time | Cuban Kids | Culture and Customs of Jamaica | Dark swirl | Daughter of Fortune | De La Realidad A La Literatura | Drawing Down a Daughter | Drive: The First Quartet | Drumblair | Early Spanish American Narrative | El Amor Brujo | El Anfitrion | El Futuro Del Pasado | El Tramo Ancla | El Whisky De Los Poetas | El arte de la fuga | El astillero | Engravings Torn from Insomnia | Eva Luna | Ficciones | Fidel Castro | From the Lightning | Fuera del Juego | Garcia Marquez in 90 Minutes | Haiti | Havana Before Castro: When Cuba was a Tropical Playground …(+37) (to answer with ALL of them, include "#Caribbean::works" as one answer entity)
+    Anguilla | Antilles | Aureus University School of Medicine | Barbados | Bridgetown | British Virgin Islands | British West Indies | Bronte International University | Caribbean special municipalities of the Netherlands | Chances Peak | Clarendon Parish | Collectivity of Saint Martin …(+23) (to answer with ALL of them, include "#Anguilla::containedby" as one answer entity) --location.containedby--> Caribbean
     Americas --location.contains--> Caribbean
     Caribbean Sea --location.contains--> Caribbean
     Latin America --location.partially_contains--> Caribbean
-    A mi hija con amor | Aguafuertes Portenas | An Island Called Home | Antologia | Aztec Empire, The | Beyond Slavery | Beyond the Mexique Bay | Borges in 90 Minutes | British Virgin Islands Alive Guide | Canto General | Che Guervara and the FBI | Cien Sonetos de Amor …(+65) (to answer with ALL of …
+    A mi hija con amor | Aguafuertes Portenas | An Island Called Home | Antologia | Aztec Empire, The | Beyond Slavery | Beyond the Mexique Bay | Borges in 90 Minutes | British Virgin Islands Alive Guide | Canto General | Che Guervara and the FBI | Cien Sonetos de Amor …(+65) (to answer with ALL of them, include "#A mi hija con amor::subjects" as one answer entity) --written_work.subjects--> Caribbean
     Treasure Island Hotel and Casino --casino.theme--> Caribbean
 ── Americas ──
     --location.containedby--> Western Hemisphere
@@ -18524,21 +18525,21 @@ entities: Caribbean
 ── British Virgin Islands ──
     --location.containedby--> Virgin Islands
     --book_subject.works--> British Virgin Islands Alive Guide
-    Anegada | Beef Island | Carvel Rock | Cooper Island | Dead Chest Island, British Virgin Islands | East Seal Dog Island | Eustatia Island | Fallen Jerusalem Island | Ginger Island | Great Camanoe | Great Thatch | Great Tobago Island …(+20) (to answer with ALL of them, include "#Anegada::contained…
+    Anegada | Beef Island | Carvel Rock | Cooper Island | Dead Chest Island, British Virgin Islands | East Seal Dog Island | Eustatia Island | Fallen Jerusalem Island | Ginger Island | Great Camanoe | Great Thatch | Great Tobago Island …(+20) (to answer with ALL of them, include "#Anegada::containedby" as one answer entity) --location.containedby--> British Virgin Islands
     British Virgin Islands Alive Guide --written_work.subjects--> British Virgin Islands
 ── Anguilla ──
     --location.containedby--> Atlantic Ocean | United Kingdom, with Dependencies and Territories
     --book_subject.works--> Anguilla: Tranquil Isle of the Caribbean | Frommer's Portable St. Maarten/St. Martin, Anguilla & St. Barts
-    Anguilla Great House | Anguilla Main Island | Anguillita | Banana Wind | Blowing Rock | Caribella Resort | Cayo Sur | Cove Cay | Crocus Cay | CuisinArt Resort and Spa | Dog Island, Anguilla | Little Island …(+15) (to answer with ALL of them, include "#Anguilla Great House::containedby" as one an…
+    Anguilla Great House | Anguilla Main Island | Anguillita | Banana Wind | Blowing Rock | Caribella Resort | Cayo Sur | Cove Cay | Crocus Cay | CuisinArt Resort and Spa | Dog Island, Anguilla | Little Island …(+15) (to answer with ALL of them, include "#Anguilla Great House::containedby" as one answer entity) --location.containedby--> Anguilla
     Anguilla: Tranquil Isle of the Caribbean --written_work.subjects--> Anguilla
     Frommer's Portable St. Maarten/St. Martin, Anguilla & St. Barts --written_work.subjects--> Anguilla
 ── Latin America ──
-    Aguafuertes Portenas | An Island Called Home | Beyond the Mexique Bay | Che Guervara and the FBI | Cuba in War Time | Culture and Customs of Jamaica | Dark swirl | Drumblair | Early Spanish American Narrative | El astillero | Haiti | Havana Before Castro: When Cuba was a Tropical Playground …(+1…
+    Aguafuertes Portenas | An Island Called Home | Beyond the Mexique Bay | Che Guervara and the FBI | Cuba in War Time | Culture and Customs of Jamaica | Dark swirl | Drumblair | Early Spanish American Narrative | El astillero | Haiti | Havana Before Castro: When Cuba was a Tropical Playground …(+14) (to answer with ALL of them, include "#Aguafuertes Portenas::subjects" as one answer entity) --written_work.subjects--> Latin America
 ── North America ──
     --continents.countries_within--> Cuba | Antigua and Barbuda | Bahamas | Belize | Costa Rica | Dominica | Dominican Republic | El Salvador | Grenada | Guatemala | Haiti | Honduras | Jamaica | Mexico | Nicaragua | Panama | Trinidad and Tobago | United States of America
 ── British West Indies ──
     --location.containedby--> West Indies
-    --book_subject.works--> A cumulative index to the nine volumes of the Symbolae Antillanae, seu Fundamenta florae Indiae Occidenttalis, edited by Ignatius Urban | A preliminary essay, on the oppression of the exiled sons of Africa | Bucaniers of America, or, A true account of the most remarkable …
+    --book_subject.works--> A cumulative index to the nine volumes of the Symbolae Antillanae, seu Fundamenta florae Indiae Occidenttalis, edited by Ignatius Urban | A preliminary essay, on the oppression of the exiled sons of Africa | Bucaniers of America, or, A true account of the most remarkable assaults committed of late years upon the coasts of the West-Indies | Caribbean treasure | Evidence for the survival of African prosodies in West Indian Creoles | On the relations of the flora and fauna of Santa Cruz, West Indies | Outline of the geology of the northeastern West India islands | The History, Civil and Commercial, of the British West Indies | The West Indies | The West-Indies, and other poems | The iguana's tail | Volcanic eruptions on Martinique and St. Vincent
     On the relations of the flora and fauna of Santa Cruz, West Indies --written_work.subjects--> British West Indies
     The History, Civil and Commercial, of the British West Indies --written_work.subjects--> British West Indies
 ── Antilles ──
@@ -18579,7 +18580,7 @@ entities: Caribbean
     School of Business and Computer Science, Champs Fleurs --location.containedby--> Champs Fleurs
     South America --book_subject.works--> Eva Luna
     West Africa --book_subject.works--> Beyond Slavery
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 relation_expansion: {'base.locations.continents.countries_within': {'direct': ['base.locations.continents.countries_within'], 'bridge': ['book.book_subject.works', 'book.written_work.subjects', 'location.location.containedby', 'location.location.contains']}}
 ```
 ## [6] assistant
@@ -18622,8 +18623,8 @@ question: what is the size of this country's army
 **[7] 工具结果**:
 ```text
 entity_error: 'Cayman Islands' is not a confident graph entity.
-candidates: {'name': 'Lucayan Archipelago', 'neighbor_relations': ['location.statistical_region.population', 'location.partial_containment_relationship.partially_contained_by', 'geography.geographical_feature_category.features']} | {'name': 'Mid Cay', 'neighbor_relations': ['location.location.contai…
-note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for t…
+candidates: {'name': 'Lucayan Archipelago', 'neighbor_relations': ['location.statistical_region.population', 'location.partial_containment_relationship.partially_contained_by', 'geography.geographical_feature_category.features']} | {'name': 'Mid Cay', 'neighbor_relations': ['location.location.containedby', 'location.location.contains', 'geography.island_group.islands_in_group']} | {'name': 'Crocus Cay', 'neighbor_relations': ['location.location.containedby', 'location.location.contains', 'geography.island.island_group']} | {'name': 'Cove Cay', 'neighbor_relations': ['location.location.containedby', 'location.location.contains', 'geography.island.island_group']} | {'name': 'Sandy Cay', 'neighbor_relations': ['location.location.containedby', 'location.location.contains', 'geography.island.island_group']}
+note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for this fact or continue from another question entity's evidence. CROSS-SUBGRAPH CENTER: if THIS fact's selected relations are right but its anchor entity is wrong, re-call retrieve_subgraph with a center BORROWED from any prior subgraph's evidence (e.g. an earlier fact's binding) plus this fact's relations — the boundary check accepts any retrieved entity as a center.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -18726,8 +18727,8 @@ entities: Caribbean  (sequence root; this layer applies to the frontier: A mi hi
     Aureus University School of Medicine --location.containedby--> Aruba | North America
     Aztec Empire, The --written_work.subjects--> Art | History | Museum
     Lesser Antilles --location.containedby--> Antilles
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'base.locations.countries.continent': {'direct': ['base.locations.countries.continent'], 'bridge': ['book.written_work.subjects']}, 'location.country.administrative_divisions': {'direct': ['location.country.administrative_divisions'], 'bridge': ['book.written_work.subjects']}, '…
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'base.locations.countries.continent': {'direct': ['base.locations.countries.continent'], 'bridge': ['book.written_work.subjects']}, 'location.country.administrative_divisions': {'direct': ['location.country.administrative_divisions'], 'bridge': ['book.written_work.subjects']}, 'location.location.partially_contains': {'direct': ['location.location.partially_contains'], 'bridge': ['base.locations.countries.continent', 'book.written_work.subjects', 'location.location.containedby', 'location.location.contains']}}
 anchor_sequence: Caribbean ⭢ continents.countries_within | book_subject.works | written_work.subjects | location.containedby | location.contains (115) ⭢ countries.continent | geographical_feature_category.features | country.administrative_divisions | location.partially_contains (0)
 layer_action: extend
 ```
@@ -18793,7 +18794,7 @@ entities: NONE
 ```
 **[12] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['Anguilla', 'Antigua and Barbuda', 'Aruba', 'Bahamas']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?country=['Anguilla',…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?country=['Anguilla', 'Antigua and Barbuda', 'Aruba', 'Bahamas']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?country=['Anguilla', 'Antigua and Barbuda', 'Aruba', 'Bahamas']. Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [13] assistant
 **思考（原文）**:
@@ -18841,7 +18842,7 @@ question: what is the size of this country's army
 ```text
 entities: Bahamas
 question: what is the size of this country's army
-candidate_relations: base.locations.continents.countries_within | language.human_language.main_country | location.statistical_region.population | language.human_language.countries_spoken_in | olympics.olympic_games.participating_countries | organization.organization.geographic_scope | language.human…
+candidate_relations: base.locations.continents.countries_within | language.human_language.main_country | location.statistical_region.population | language.human_language.countries_spoken_in | olympics.olympic_games.participating_countries | organization.organization.geographic_scope | language.human_language.region | government.form_of_government.countries | location.country.form_of_government | base.locations.countries.continent | location.country.languages_spoken | location.location.contains_major_portion_of | location.location.geolocation | travel.tourist_attraction.near_travel_destination | location.location.containedby
 grouped_relations:
   continents.countries_within ← base.locations.continents.countries_within
   human_language.main_country ← language.human_language.main_country
@@ -18855,7 +18856,7 @@ grouped_relations:
   countries.continent ← base.locations.countries.continent
   country.languages_spoken ← location.country.languages_spoken
   location.contains_major_portion_of ← location.location.contains_major_portion_of
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [15] assistant
 **思考（原文）**:
@@ -18914,7 +18915,7 @@ entities: NONE
 ```
 **[16] 工具结果**:
 ```text
-Second refusal — your ledger holds RETRIEVED FACTS: f1 ?country=['Anguilla', 'Antigua and Barbuda', 'Aruba', 'Bahamas']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE correct after this, your next NONE submission …
+Second refusal — your ledger holds RETRIEVED FACTS: f1 ?country=['Anguilla', 'Antigua and Barbuda', 'Aruba', 'Bahamas']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE correct after this, your next NONE submission is ACCEPTED as the final answer.
 ```
 ## [17] assistant
 **思考（原文）**:
@@ -19085,7 +19086,7 @@ flow: {'id': 'f1', 'triple': '(Ron Howard | which films did this person direct |
 entities: Ron Howard
 answer: ?film
 answer_type: film
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -19116,7 +19117,7 @@ question: which films did this person direct
 ```text
 entities: Ron Howard
 question: which films did this person direct
-candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.pr…
+candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.producer.films_executive_produced | film.film_genre.films_in_this_genre | film.actor.film | film.director.film | film.film_film_distributor_relationship.film | film.film_regional_release_date.film | film.film.cinematography | film.film.film_series
 grouped_relations:
   film_casting_director.films_casting_directed ← film.film_casting_director.films_casting_directed
   film_art_director.films_art_directed ← film.film_art_director.films_art_directed
@@ -19130,7 +19131,7 @@ grouped_relations:
   actor.film ← film.actor.film
   director.film ← film.director.film
   film_film_distributor_relationship.film ← film.film_film_distributor_relationship.film
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -19159,24 +19160,24 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Ron Howard
-▸ patterns: award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | producer.film | producer.films_executive_produced | director.film ⭢ producer.films_executive_produced | film.directed_by ⭢ producer.films_executive_produced | film.ex…
+▸ patterns: award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | producer.film | producer.films_executive_produced | director.film ⭢ producer.films_executive_produced | film.directed_by ⭢ producer.films_executive_produced | film.executive_produced_by ⭢ director.film | film.executive_produced_by ⭢ film.directed_by | film.produced_by ⭢ film.directed_by | film.written_by ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_honor.award_winner | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_winner.awards_won | award_nominee.award_nominations ⭢ award_nominee.award_nominations ⭢ award_honor.award_winner | award_nominee.award_nominations ⭢ award_nominee.award_nominations ⭢ award_winner.awards_won | award_nomination.award_nominee | film.directed_by ⭢ award_nominated_work.award_nominations | film.executive_produced_by ⭢ award_nominated_work.awa…
 ── Ron Howard ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Direc…
-    --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.03mlsw7 [award: Academy Award for Best Director; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.04kcph9 …
-    --producer.film--> A Beautiful Mind | Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reu…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Director; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Eric Fellner; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.07zqyp3 [award: BAFTA Award for Best Direction; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film…
+    --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.03mlsw7 [award: Academy Award for Best Director; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.04kcph9 [award: Primetime Emmy Award for Outstanding Comedy Series; award_winner: Barbie Adler | Brian Grazer | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz; ceremony: 56th Primetime Emmy Awards; honored_for: Arrested Development] | m.08pc389 [award_winner: Henry Winkler; ceremony: 35th Golden Globe Awards; honored_for: Happy Days] | m.09dyy55 [ceremony: 54th Directors Guild of America Awards; honored_for: A Beautiful Mind] | m.09dyymh [ceremony: 48th Directors Guild of America Awards; honored_for: Apollo 13] | m.09k3ns1 [award: Critics' Choice Movie Award for Best Director; ceremony: 7th Critics' Choice Awards; honored_for: A Beautiful Mind] | m.0jyzxxs [award: Saturn Award for …
+    --producer.film--> A Beautiful Mind | Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | Rush | The Dark Tower | The Dilemma | The Lost Symbol | The Paper | Willow | Beyond the Mat | Changeling | Clean and Sober | Closet Land | Cowboys & Aliens | Curious George 2: Follow That Monkey! | Inside Deep Throat | Inventing the Abbotts | J. Edgar | Katy Perry: Part of Me | Problem Child | Restless | Sky High | The 'Burbs | The Alamo | The Chamber | The Good Lie
     --producer.films_executive_produced--> Leo and Loree
     m.010g1d9b | m.05bkyhb | m.05bm2lq | m.090y4n1 | m.0k1j58y | m.0ltshlx | m.0lv464x | m.0m_1x_7 | m.0mwh9_v | m.0n4t7bh | m.0n5lv65 | m.0swwxv8 …(+1) (to answer with ALL of them, include "#m.010g1d9b::award_nominee" as one answer entity) --award_nomination.award_nominee--> Ron Howard
     m.03mlppw | m.03mlsw7 | m.04kcph9 | m.08pc389 | m.09dyy55 | m.09dyymh | m.09k3ns1 | m.0jyzxxs | m.0lts_jr | m.0mvjqsr | m.0mwh6d0 | m.0mzc0vk …(+4) (to answer with ALL of them, include "#m.03mlppw::award_winner" as one answer entity) --award_honor.award_winner--> Ron Howard
-    A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto …(+17) (to answer with ALL of them, include "#A Beautiful Mind::directed_by" as one answer entity…
+    A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto …(+17) (to answer with ALL of them, include "#A Beautiful Mind::directed_by" as one answer entity) --film.directed_by--> Ron Howard
     Arrested Development | Leo and Loree | The 'Burbs --film.executive_produced_by--> Ron Howard
-    A Beautiful Mind | Angels & Demons | Beyond the Mat | Changeling | Cinderella Man | Clean and Sober | Closet Land | Curious George | Far and Away | Frost/Nixon | Rush | The 'Burbs …(+4) (to answer with ALL of them, include "#A Beautiful Mind::produced_by" as one answer entity) --film.produced_by…
+    A Beautiful Mind | Angels & Demons | Beyond the Mat | Changeling | Cinderella Man | Clean and Sober | Closet Land | Curious George | Far and Away | Frost/Nixon | Rush | The 'Burbs …(+4) (to answer with ALL of them, include "#A Beautiful Mind::produced_by" as one answer entity) --film.produced_by--> Ron Howard
     Cotton Candy --film.written_by--> Ron Howard
 ── A Beautiful Mind ──
-    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful …
+    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.095h1h2 [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 59th Golden Globe Awards; nominated_for: A Beautiful Mind] | m.09k3p5_ [award: Critics' Choice Movie Award for Best Director; award_nominee: Ron Howard; ceremony: 7th Critics' Choice Awards] | m.09sc2vl [award_nominee: Ron Howard; ceremony: 54th Directors Guild of America Awards] | m.0nbbh6b [award: Australian Film Institute …
     Karen Kehela --producer.films_executive_produced--> A Beautiful Mind
     Todd Hallowell --producer.films_executive_produced--> A Beautiful Mind
 ── Brian Grazer ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Pictu…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.0lv464x [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz | Richard A. Rosenstock; ceremony: 56th Primetime Emmy Awards; nominated_for: Arrested Development]
     --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.0n4xc5_ [award: PGA Milestone Award; award_winner: Brian Grazer; ceremony: Producers Guild of America Awards 2008]
     --producer.films_executive_produced--> Backdraft
     m.0n4xc5_ --award_honor.award_winner--> Brian Grazer
@@ -19184,9 +19185,9 @@ entities: Ron Howard
     --award_nominated_work.award_nominations--> m.0zt2kls [award_nominee: Hans Zimmer; nominated_for: Frost/Nixon]
     Dan Brown --producer.films_executive_produced--> Angels & Demons
 ── Cocoon ──
-    --award_nominated_work.award_nominations--> m.097kbf7 [award_nominee: David Brown] | m.0b6b38g [ceremony: 38th Directors Guild of America Awards; nominated_for: Cocoon] | m.0ncynk_ [award_nominee: Tom Benedek] | m.0yj9zzq [award: Hugo Award for Best Dramatic Presentation; award_nominee: David Sa…
+    --award_nominated_work.award_nominations--> m.097kbf7 [award_nominee: David Brown] | m.0b6b38g [ceremony: 38th Directors Guild of America Awards; nominated_for: Cocoon] | m.0ncynk_ [award_nominee: Tom Benedek] | m.0yj9zzq [award: Hugo Award for Best Dramatic Presentation; award_nominee: David Saperstein | Tom Benedek; ceremony: 1986 Hugo Awards; nominated_for: Cocoon]
 ── Apollo 13 ──
-    --award_nominated_work.award_nominations--> m.095h15z [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 53rd Golden Globe Awards; nominated_for: Apollo 13] | m.0b6b2xw [award_nominee: Ron Howard; ceremony: 48th Directors Guild of America Awards] | m.0ycq_cj [award: Hugo Aw…
+    --award_nominated_work.award_nominations--> m.095h15z [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 53rd Golden Globe Awards; nominated_for: Apollo 13] | m.0b6b2xw [award_nominee: Ron Howard; ceremony: 48th Directors Guild of America Awards] | m.0ycq_cj [award: Hugo Award for Best Dramatic Presentation; award_nominee: Jeffrey Kluger | Jim Lovell | Ron Howard | William Broyles, Jr.; ceremony: 1996 Hugo Awards; nominated_for: Apollo 13]
 ── Far and Away ──
     --award_nominated_work.award_nominations--> m.0q2rj82 [award_nominee: Enya]
 ── Mitchell Hurwitz ──
@@ -19220,8 +19221,8 @@ entities: Ron Howard
     m.0lts_jr --award_honor.award_winner--> Carol Greenwald | David Wilcox | Ellen Cockrill | Matthew Baughman
     m.0mvjqsr --award_honor.award_winner--> Bruce Richmond | John P. Melfi | Michael Bostick | Tom Hanks | Tony To
     m.0mwh6d0 --award_honor.award_winner--> Patty Jausoro
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': […
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.director.film', 'film.producer.film', 'film.producer.films_executive_produced']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -19248,7 +19249,7 @@ facts: - sg1.f1 ✓ ?film = A Beautiful Mind | Angels & Demons | Apollo 13 | Bac
 ```
 **[7] 工具结果**:
 ```text
-REJECTED: Wrong tool in the retrieve phase — and note the WORKFLOW ORDER: `retrieve_relations` must come BEFORE `retrieve_subgraph` for each fact. `retrieve_relations` finds relations for a NEW subgraph; `retrieve_subgraph` continues an existing tree (anchor + relations — the system walks the full c…
+REJECTED: Wrong tool in the retrieve phase — and note the WORKFLOW ORDER: `retrieve_relations` must come BEFORE `retrieve_subgraph` for each fact. `retrieve_relations` finds relations for a NEW subgraph; `retrieve_subgraph` continues an existing tree (anchor + relations — the system walks the full chain). Both are valid. facts: ✓f1 ⬜f2  (retrieved 1/2)
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -19295,20 +19296,20 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Ron Howard
-▸ patterns: film.executive_produced_by ⭢ film.directed_by | film.produced_by ⭢ film.directed_by | film.written_by ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_honor.award_winner | award_nomination.award_nominee ⭢ award_nominee.award_n…
+▸ patterns: film.executive_produced_by ⭢ film.directed_by | film.produced_by ⭢ film.directed_by | film.written_by ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_honor.award_winner | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_winner.awards_won | award_nomination.award_nominee | film.produced_by ⭢ award_nominated_work.award_nominations
 ── Ron Howard ──
     m.010g1d9b | m.05bkyhb | m.05bm2lq | m.090y4n1 | m.0k1j58y | m.0ltshlx | m.0lv464x | m.0m_1x_7 | m.0mwh9_v | m.0n4t7bh | m.0n5lv65 | m.0swwxv8 …(+1) (to answer with ALL of them, include "#m.010g1d9b::award_nominee" as one answer entity) --award_nomination.award_nominee--> Ron Howard
     Arrested Development | Leo and Loree | The 'Burbs --film.executive_produced_by--> Ron Howard
-    A Beautiful Mind | Angels & Demons | Beyond the Mat | Changeling | Cinderella Man | Clean and Sober | Closet Land | Curious George | Far and Away | Frost/Nixon | Rush | The 'Burbs …(+4) (to answer with ALL of them, include "#A Beautiful Mind::produced_by" as one answer entity) --film.produced_by…
+    A Beautiful Mind | Angels & Demons | Beyond the Mat | Changeling | Cinderella Man | Clean and Sober | Closet Land | Curious George | Far and Away | Frost/Nixon | Rush | The 'Burbs …(+4) (to answer with ALL of them, include "#A Beautiful Mind::produced_by" as one answer entity) --film.produced_by--> Ron Howard
     Cotton Candy --film.written_by--> Ron Howard
 ── Frost/Nixon ──
-    --award_nominated_work.award_nominations--> m.05bkr1w [award: Academy Award for Best Director; award_nominee: Ron Howard; ceremony: 81st Academy Awards] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Eric Fellner; ceremony: 81st Academy Awards; nominated_for: F…
+    --award_nominated_work.award_nominations--> m.05bkr1w [award: Academy Award for Best Director; award_nominee: Ron Howard; ceremony: 81st Academy Awards] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Eric Fellner; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.07zqyp3 [award: BAFTA Award for Best Direction; award_nominee: Ron Howard; ceremony: 62nd British Academy Film Awards] | m.08lby3g [award: BAFTA Award for Best Film; award_nominee: Brian Grazer | Eric Fellner | Ron Howard | Tim Bevan; ceremony: 62nd British Academy Film Awards] | m.095h1tj [award: Golden Globe Award for Best Director - Motion Picture; award_nominee: Ron Howard; ceremony: 66th Golden Globe Awards] | m.09k3nwh [award: Critics' Choice Movie Award for Best Director; award_nominee: Ron Howard; ceremony: 14th Critics' Choice Awards] | m.09sc2mb [award_nominee: Ron Howard; ceremony: 61st Directors Guild of America Awards] | m.09tjrrf [award: Satellite Award for Best…
 ── A Beautiful Mind ──
-    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Ron Howard; ceremony: 74th Academy Awards] | m.07zqyxh …
+    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Ron Howard; ceremony: 74th Academy Awards] | m.07zqyxh [award: BAFTA Award for Best Direction; award_nominee: Ron Howard; ceremony: 55th British Academy Film Awards] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer | Ron Howard; ceremony: 55th British Academy Film Awards] | m.095h1h2 [award: Golden Globe Award for Best Director - Motion Picture; award_nominee: Ron Howard; ceremony: 59th Golden Globe Awards] | m.09k3p5_ [award: Critics' Choice Movie Award for Best Director; award_nominee: Ron Howard; ceremony: 7th Critics' Choice Awards] | m.09sc2vl [award_nominee: Ron Howard; ceremony: 54th Directors Guild of America Awards] | m.0nbbh6b [award: Australian Film Institute Award for Best Foreign Film; award_nominee: Brian …
 ── Curious George ──
-    --award_nominated_work.award_nominations--> m.010g1d9b [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0k1j58y [award_nominee: Brian Grazer | Ca…
+    --award_nominated_work.award_nominations--> m.010g1d9b [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0k1j58y [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill; ceremony: 39th Daytime Emmy Awards; nominated_for: Curious George] | m.0lmtm8f [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill; ceremony: 38th Daytime Creative Arts Emmy Awards] | m.0ltshlx [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | David Wilcox | Dorothea Gillim | Ellen Cockrill; ceremony: 37th Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.0m0bwv0 [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | David Wilcox | Ellen Cockrill | Jacqui Deegan; ceremony: 36th Daytime Creative Arts …
 ── Rush ──
-    --award_nominated_work.award_nominations--> m.0zgztlt [award: Golden Globe Award for Best Motion Picture – Drama; award_nominee: Ron Howard; ceremony: 71st Golden Globe Awards] | m.0zrlfxd [award: Satellite Award for Best Director; award_nominee: Ron Howard; ceremony: 18th Satellite Awards] | m.…
+    --award_nominated_work.award_nominations--> m.0zgztlt [award: Golden Globe Award for Best Motion Picture – Drama; award_nominee: Ron Howard; ceremony: 71st Golden Globe Awards] | m.0zrlfxd [award: Satellite Award for Best Director; award_nominee: Ron Howard; ceremony: 18th Satellite Awards] | m.0zxmxhf [award: BAFTA Award for Best British Film; award_nominee: Andrew Eaton | Peter Morgan | Ron Howard; ceremony: 67th British Academy Film Awards]
 ── Beyond the Mat ──
     --award_nominated_work.award_nominations--> m.09sfcdl [award_nominee: Barry W. Blaustein]
     --film.directed_by--> Barry W. Blaustein
@@ -19331,8 +19332,8 @@ entities: Ron Howard
     The 'Burbs --film.directed_by--> Joe Dante
     The Alamo --film.directed_by--> John Lee Hancock
     The Lost Symbol --film.directed_by--> Mark Romanek
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': […
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.director.film', 'film.producer.film', 'film.producer.films_executive_produced']}}
 layer_action: repeat
 ```
 ## [10] assistant
@@ -19518,8 +19519,8 @@ entities: Ron Howard
     --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Brian Grazer | Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George]
     --award_winner.awards_won--> m.0n4xc5_ [award: PGA Milestone Award; award_winner: Ron Howard; ceremony: Producers Guild of America Awards 2008]
     m.0n4xc5_ --award_honor.award_winner--> Brian Grazer
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are …
-relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': […
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.director.film', 'film.producer.film', 'film.producer.films_executive_produced']}}
 layer_action: repeat
 ```
 ## [18] assistant
@@ -19769,7 +19770,7 @@ flow: {'id': 'f1', 'triple': '(Ron Howard | which films did this person direct |
 entities: Ron Howard
 answer: ?film
 answer_type: film
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -19800,7 +19801,7 @@ question: which films did this person direct
 ```text
 entities: Ron Howard
 question: which films did this person direct
-candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.pr…
+candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.producer.films_executive_produced | film.film_genre.films_in_this_genre | film.actor.film | film.director.film | film.film_film_distributor_relationship.film | film.film_regional_release_date.film | film.film.cinematography | film.film.film_series
 grouped_relations:
   film_casting_director.films_casting_directed ← film.film_casting_director.films_casting_directed
   film_art_director.films_art_directed ← film.film_art_director.films_art_directed
@@ -19814,7 +19815,7 @@ grouped_relations:
   actor.film ← film.actor.film
   director.film ← film.director.film
   film_film_distributor_relationship.film ← film.film_film_distributor_relationship.film
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -19843,24 +19844,24 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Ron Howard
-▸ patterns: award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | producer.film | producer.films_executive_produced | director.film ⭢ producer.films_executive_produced | film.directed_by ⭢ producer.films_executive_produced | film.ex…
+▸ patterns: award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | producer.film | producer.films_executive_produced | director.film ⭢ producer.films_executive_produced | film.directed_by ⭢ producer.films_executive_produced | film.executive_produced_by ⭢ director.film | film.executive_produced_by ⭢ film.directed_by | film.produced_by ⭢ film.directed_by | film.written_by ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_honor.award_winner | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_winner.awards_won | award_nominee.award_nominations ⭢ award_nominee.award_nominations ⭢ award_honor.award_winner | award_nominee.award_nominations ⭢ award_nominee.award_nominations ⭢ award_winner.awards_won | award_nomination.award_nominee | film.directed_by ⭢ award_nominated_work.award_nominations | film.executive_produced_by ⭢ award_nominated_work.awa…
 ── Ron Howard ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Direc…
-    --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.03mlsw7 [award: Academy Award for Best Director; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.04kcph9 …
-    --producer.film--> A Beautiful Mind | Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reu…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Director; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Eric Fellner; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.07zqyp3 [award: BAFTA Award for Best Direction; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film…
+    --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.03mlsw7 [award: Academy Award for Best Director; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.04kcph9 [award: Primetime Emmy Award for Outstanding Comedy Series; award_winner: Barbie Adler | Brian Grazer | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz; ceremony: 56th Primetime Emmy Awards; honored_for: Arrested Development] | m.08pc389 [award_winner: Henry Winkler; ceremony: 35th Golden Globe Awards; honored_for: Happy Days] | m.09dyy55 [ceremony: 54th Directors Guild of America Awards; honored_for: A Beautiful Mind] | m.09dyymh [ceremony: 48th Directors Guild of America Awards; honored_for: Apollo 13] | m.09k3ns1 [award: Critics' Choice Movie Award for Best Director; ceremony: 7th Critics' Choice Awards; honored_for: A Beautiful Mind] | m.0jyzxxs [award: Saturn Award for …
+    --producer.film--> A Beautiful Mind | Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | Rush | The Dark Tower | The Dilemma | The Lost Symbol | The Paper | Willow | Beyond the Mat | Changeling | Clean and Sober | Closet Land | Cowboys & Aliens | Curious George 2: Follow That Monkey! | Inside Deep Throat | Inventing the Abbotts | J. Edgar | Katy Perry: Part of Me | Problem Child | Restless | Sky High | The 'Burbs | The Alamo | The Chamber | The Good Lie
     --producer.films_executive_produced--> Leo and Loree
     m.010g1d9b | m.05bkyhb | m.05bm2lq | m.090y4n1 | m.0k1j58y | m.0ltshlx | m.0lv464x | m.0m_1x_7 | m.0mwh9_v | m.0n4t7bh | m.0n5lv65 | m.0swwxv8 …(+1) (to answer with ALL of them, include "#m.010g1d9b::award_nominee" as one answer entity) --award_nomination.award_nominee--> Ron Howard
     m.03mlppw | m.03mlsw7 | m.04kcph9 | m.08pc389 | m.09dyy55 | m.09dyymh | m.09k3ns1 | m.0jyzxxs | m.0lts_jr | m.0mvjqsr | m.0mwh6d0 | m.0mzc0vk …(+4) (to answer with ALL of them, include "#m.03mlppw::award_winner" as one answer entity) --award_honor.award_winner--> Ron Howard
-    A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto …(+17) (to answer with ALL of them, include "#A Beautiful Mind::directed_by" as one answer entity…
+    A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto …(+17) (to answer with ALL of them, include "#A Beautiful Mind::directed_by" as one answer entity) --film.directed_by--> Ron Howard
     Arrested Development | Leo and Loree | The 'Burbs --film.executive_produced_by--> Ron Howard
-    A Beautiful Mind | Angels & Demons | Beyond the Mat | Changeling | Cinderella Man | Clean and Sober | Closet Land | Curious George | Far and Away | Frost/Nixon | Rush | The 'Burbs …(+4) (to answer with ALL of them, include "#A Beautiful Mind::produced_by" as one answer entity) --film.produced_by…
+    A Beautiful Mind | Angels & Demons | Beyond the Mat | Changeling | Cinderella Man | Clean and Sober | Closet Land | Curious George | Far and Away | Frost/Nixon | Rush | The 'Burbs …(+4) (to answer with ALL of them, include "#A Beautiful Mind::produced_by" as one answer entity) --film.produced_by--> Ron Howard
     Cotton Candy --film.written_by--> Ron Howard
 ── A Beautiful Mind ──
-    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful …
+    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.095h1h2 [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 59th Golden Globe Awards; nominated_for: A Beautiful Mind] | m.09k3p5_ [award: Critics' Choice Movie Award for Best Director; award_nominee: Ron Howard; ceremony: 7th Critics' Choice Awards] | m.09sc2vl [award_nominee: Ron Howard; ceremony: 54th Directors Guild of America Awards] | m.0nbbh6b [award: Australian Film Institute …
     Karen Kehela --producer.films_executive_produced--> A Beautiful Mind
     Todd Hallowell --producer.films_executive_produced--> A Beautiful Mind
 ── Brian Grazer ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Pictu…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.0lv464x [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz | Richard A. Rosenstock; ceremony: 56th Primetime Emmy Awards; nominated_for: Arrested Development]
     --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.0n4xc5_ [award: PGA Milestone Award; award_winner: Brian Grazer; ceremony: Producers Guild of America Awards 2008]
     --producer.films_executive_produced--> Backdraft
     m.0n4xc5_ --award_honor.award_winner--> Brian Grazer
@@ -19868,9 +19869,9 @@ entities: Ron Howard
     --award_nominated_work.award_nominations--> m.0zt2kls [award_nominee: Hans Zimmer; nominated_for: Frost/Nixon]
     Dan Brown --producer.films_executive_produced--> Angels & Demons
 ── Cocoon ──
-    --award_nominated_work.award_nominations--> m.097kbf7 [award_nominee: David Brown] | m.0b6b38g [ceremony: 38th Directors Guild of America Awards; nominated_for: Cocoon] | m.0ncynk_ [award_nominee: Tom Benedek] | m.0yj9zzq [award: Hugo Award for Best Dramatic Presentation; award_nominee: David Sa…
+    --award_nominated_work.award_nominations--> m.097kbf7 [award_nominee: David Brown] | m.0b6b38g [ceremony: 38th Directors Guild of America Awards; nominated_for: Cocoon] | m.0ncynk_ [award_nominee: Tom Benedek] | m.0yj9zzq [award: Hugo Award for Best Dramatic Presentation; award_nominee: David Saperstein | Tom Benedek; ceremony: 1986 Hugo Awards; nominated_for: Cocoon]
 ── Apollo 13 ──
-    --award_nominated_work.award_nominations--> m.095h15z [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 53rd Golden Globe Awards; nominated_for: Apollo 13] | m.0b6b2xw [award_nominee: Ron Howard; ceremony: 48th Directors Guild of America Awards] | m.0ycq_cj [award: Hugo Aw…
+    --award_nominated_work.award_nominations--> m.095h15z [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 53rd Golden Globe Awards; nominated_for: Apollo 13] | m.0b6b2xw [award_nominee: Ron Howard; ceremony: 48th Directors Guild of America Awards] | m.0ycq_cj [award: Hugo Award for Best Dramatic Presentation; award_nominee: Jeffrey Kluger | Jim Lovell | Ron Howard | William Broyles, Jr.; ceremony: 1996 Hugo Awards; nominated_for: Apollo 13]
 ── Far and Away ──
     --award_nominated_work.award_nominations--> m.0q2rj82 [award_nominee: Enya]
 ── Mitchell Hurwitz ──
@@ -19904,8 +19905,8 @@ entities: Ron Howard
     m.0lts_jr --award_honor.award_winner--> Carol Greenwald | David Wilcox | Ellen Cockrill | Matthew Baughman
     m.0mvjqsr --award_honor.award_winner--> Bruce Richmond | John P. Melfi | Michael Bostick | Tom Hanks | Tony To
     m.0mwh6d0 --award_honor.award_winner--> Patty Jausoro
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': […
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.director.film', 'film.producer.film', 'film.producer.films_executive_produced']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -19933,9 +19934,9 @@ question: when was this film released
 ```
 **[7] 工具结果**:
 ```text
-entities: A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Inventing the Abbotts | J. Edgar | Katy Perry: Part of Me | Problem Child | Restless | Sk…
+entities: A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Inventing the Abbotts | J. Edgar | Katy Perry: Part of Me | Problem Child | Restless | Sky High | The 'Burbs | The Alamo | The Chamber | The Good Lie | Willow | Beyond the Mat | Changeling | Clean and Sober | Closet Land | Curious George | Inside Deep Throat | Night Shift | Parenthood | Presidential Reunion | Ransom | Rush | Splash | The Da Vinci Code | The Missing | Paul Chibe | Peter Morgan | Richard Sadler | Sarah Bradshaw | Sidney Beaumont | Steve Stoute
 question: when was this film released
-candidate_relations: film.film.release_date_s | film.film_casting_director.films_casting_directed | film.film_genre.films_in_this_genre | film.film_regional_release_date.film_release_region | film.actor.film | film.director.film | film.film_regional_release_date.film | film.performance.film | film.f…
+candidate_relations: film.film.release_date_s | film.film_casting_director.films_casting_directed | film.film_genre.films_in_this_genre | film.film_regional_release_date.film_release_region | film.actor.film | film.director.film | film.film_regional_release_date.film | film.performance.film | film.film.film_casting_director | film.film.directed_by | film.film.produced_by | film.film_regional_release_date.film_regional_debut_venue | film.film.executive_produced_by | film.film.film_production_design_by | film.film.genre
 grouped_relations:
   film.release_date_s ← film.film.release_date_s
   film_casting_director.films_casting_directed ← film.film_casting_director.films_casting_directed
@@ -19949,7 +19950,7 @@ grouped_relations:
   film.directed_by ← film.film.directed_by
   film.produced_by ← film.film.produced_by
   film_regional_release_date.film_regional_debut_venue ← film.film_regional_release_date.film_regional_debut_venue
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [8] assistant
 **思考（原文）**:
@@ -19978,8 +19979,8 @@ sg: sg1
 ```text
 fact_id: sg1
 triples:
-entities: Ron Howard | Paul Chibe | Richard Sadler | Sarah Bradshaw | Sidney Beaumont | Steve Stoute  (sequence root; this layer applies to the frontier: 11th Critics' Choice Awards | 13th Satellite Awards | 14th Critics' Choice Awards | 18th Satellite Awards | 1986 Hugo Awards | 1989 Hugo Awards | …
-▸ patterns: film.executive_produced_by | producer.films_executive_produced | film.executive_produced_by ⭢ topic.image | film.executive_produced_by ⭢ film.release_date_s | film.executive_produced_by ⭢ film_regional_release_date.film | film.executive_produced_by ⭢ producer.films_executive_produced | p…
+entities: Ron Howard | Paul Chibe | Richard Sadler | Sarah Bradshaw | Sidney Beaumont | Steve Stoute  (sequence root; this layer applies to the frontier: 11th Critics' Choice Awards | 13th Satellite Awards | 14th Critics' Choice Awards | 18th Satellite Awards | 1986 Hugo Awards | 1989 Hugo Awards | 1996 Hugo Awards | 2005 ESPY Awards | 20th Screen Actors Guild Awards | 21st People's Choice Awards | 27th Golden Raspberry Awards | 34th Daytime Creative Arts Emmy Awards)
+▸ patterns: film.executive_produced_by | producer.films_executive_produced | film.executive_produced_by ⭢ topic.image | film.executive_produced_by ⭢ film.release_date_s | film.executive_produced_by ⭢ film_regional_release_date.film | film.executive_produced_by ⭢ producer.films_executive_produced | producer.films_executive_produced ⭢ topic.image | producer.films_executive_produced ⭢ film.executive_produced_by | producer.films_executive_produced ⭢ film.release_date_s | producer.films_executive_produced ⭢ film_regional_release_date.film | award_honor.award_winner ⭢ award_honor.honored_for ⭢ film.executive_produced_by | award_honor.award_winner ⭢ award_winner.awards_won ⭢ film.executive_produced_by | award_honor.award_winner ⭢ award_winning_work.awards_won ⭢ film.executive_produced_by | film.executive_produced_by ⭢ director.film ⭢ topic.image | film.executive_produced_by ⭢ film.directed_by ⭢ topic.image | film.executive_produced_by ⭢ film.directed_by ⭢ producer.films_executive_produced | f…
 ── Ron Howard ──
     --director.film--> In the Heart of the Sea | Jay-Z: Made in America
     --producer.films_executive_produced--> Arrested Development | Gung Ho | Leo and Loree | The 'Burbs
@@ -20057,9 +20058,9 @@ entities: Ron Howard | Paul Chibe | Richard Sadler | Sarah Bradshaw | Sidney Bea
     The Chamber --film.executive_produced_by--> Karen Kehela
     The Da Vinci Code --film.executive_produced_by--> Dan Brown | Todd Hallowell
     The Dark Tower --film.executive_produced_by--> Erica Huggins
-note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, …
-relation_expansion: {'film.film.release_date_s': {'direct': ['film.film.release_date_s'], 'bridge': ['common.topic.image', 'film.film.executive_produced_by', 'film.film.soundtrack', 'film.producer.films_executive_produced', 'music.soundtrack.film']}, 'film.film_regional_release_date.film': {'direct'…
-anchor_sequence: Ron Howard ⭢ award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | producer.film | producer.films_executive_produced (236) ⭢ topic.image | film.executive_produced_by | film.release_date_s | film.soundtrack | film_re…
+note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.film.release_date_s': {'direct': ['film.film.release_date_s'], 'bridge': ['common.topic.image', 'film.film.executive_produced_by', 'film.film.soundtrack', 'film.producer.films_executive_produced', 'music.soundtrack.film']}, 'film.film_regional_release_date.film': {'direct': ['film.film_regional_release_date.film'], 'bridge': ['common.topic.image', 'film.film.executive_produced_by', 'film.film.soundtrack', 'film.producer.films_executive_produced', 'music.soundtrack.film']}}
+anchor_sequence: Ron Howard ⭢ award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | producer.film | producer.films_executive_produced (236) ⭢ topic.image | film.executive_produced_by | film.release_date_s | film.soundtrack | film_regional_release_date.film | soundtrack.film (0)
 layer_action: extend
 ```
 **[10] 工具结果**:
@@ -20252,7 +20253,7 @@ flow: {'id': 'f1', 'triple': '(Ron Howard | which films did this person direct |
 entities: Ron Howard
 answer: ?film
 answer_type: film
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -20275,7 +20276,7 @@ question: which films did this person direct
 ```text
 entities: Ron Howard
 question: which films did this person direct
-candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.pr…
+candidate_relations: film.film_casting_director.films_casting_directed | film.film_art_director.films_art_directed | film.film.film_casting_director | film.film.directed_by | film.film.film_art_direction_by | film.film_subject.films | film.film_production_designer.films_production_designed | film.producer.films_executive_produced | film.film_genre.films_in_this_genre | film.actor.film | film.director.film | film.film_film_distributor_relationship.film | film.film_regional_release_date.film | film.film.cinematography | film.film.film_series
 grouped_relations:
   film_casting_director.films_casting_directed ← film.film_casting_director.films_casting_directed
   film_art_director.films_art_directed ← film.film_art_director.films_art_directed
@@ -20289,7 +20290,7 @@ grouped_relations:
   actor.film ← film.actor.film
   director.film ← film.director.film
   film_film_distributor_relationship.film ← film.film_film_distributor_relationship.film
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -20318,24 +20319,24 @@ sg: sg1
 fact_id: sg1
 triples:
 entities: Ron Howard
-▸ patterns: award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | producer.film | producer.films_executive_produced | director.film ⭢ producer.films_executive_produced | film.directed_by ⭢ producer.films_executive_produced | film.ex…
+▸ patterns: award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | producer.film | producer.films_executive_produced | director.film ⭢ producer.films_executive_produced | film.directed_by ⭢ producer.films_executive_produced | film.executive_produced_by ⭢ director.film | film.executive_produced_by ⭢ film.directed_by | film.produced_by ⭢ film.directed_by | film.written_by ⭢ producer.films_executive_produced | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_honor.award_winner | award_nomination.award_nominee ⭢ award_nominee.award_nominations ⭢ award_winner.awards_won | award_nominee.award_nominations ⭢ award_nominee.award_nominations ⭢ award_honor.award_winner | award_nominee.award_nominations ⭢ award_nominee.award_nominations ⭢ award_winner.awards_won | award_nomination.award_nominee | film.directed_by ⭢ award_nominated_work.award_nominations | film.executive_produced_by ⭢ award_nominated_work.awa…
 ── Ron Howard ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Direc…
-    --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.03mlsw7 [award: Academy Award for Best Director; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.04kcph9 …
-    --producer.film--> A Beautiful Mind | Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reu…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05bkr1w [award: Academy Award for Best Director; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05bm2lq [award: Academy Award for Best Picture; award_nominee: Brian Grazer | Eric Fellner; ceremony: 81st Academy Awards; nominated_for: Frost/Nixon] | m.07zqyp3 [award: BAFTA Award for Best Direction; ceremony: 62nd British Academy Film Awards; nominated_for: Frost/Nixon] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film…
+    --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.03mlsw7 [award: Academy Award for Best Director; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.04kcph9 [award: Primetime Emmy Award for Outstanding Comedy Series; award_winner: Barbie Adler | Brian Grazer | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz; ceremony: 56th Primetime Emmy Awards; honored_for: Arrested Development] | m.08pc389 [award_winner: Henry Winkler; ceremony: 35th Golden Globe Awards; honored_for: Happy Days] | m.09dyy55 [ceremony: 54th Directors Guild of America Awards; honored_for: A Beautiful Mind] | m.09dyymh [ceremony: 48th Directors Guild of America Awards; honored_for: Apollo 13] | m.09k3ns1 [award: Critics' Choice Movie Award for Best Director; ceremony: 7th Critics' Choice Awards; honored_for: A Beautiful Mind] | m.0jyzxxs [award: Saturn Award for …
+    --producer.film--> A Beautiful Mind | Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | Rush | The Dark Tower | The Dilemma | The Lost Symbol | The Paper | Willow | Beyond the Mat | Changeling | Clean and Sober | Closet Land | Cowboys & Aliens | Curious George 2: Follow That Monkey! | Inside Deep Throat | Inventing the Abbotts | J. Edgar | Katy Perry: Part of Me | Problem Child | Restless | Sky High | The 'Burbs | The Alamo | The Chamber | The Good Lie
     --producer.films_executive_produced--> Leo and Loree
     m.010g1d9b | m.05bkyhb | m.05bm2lq | m.090y4n1 | m.0k1j58y | m.0ltshlx | m.0lv464x | m.0m_1x_7 | m.0mwh9_v | m.0n4t7bh | m.0n5lv65 | m.0swwxv8 …(+1) (to answer with ALL of them, include "#m.010g1d9b::award_nominee" as one answer entity) --award_nomination.award_nominee--> Ron Howard
     m.03mlppw | m.03mlsw7 | m.04kcph9 | m.08pc389 | m.09dyy55 | m.09dyymh | m.09k3ns1 | m.0jyzxxs | m.0lts_jr | m.0mvjqsr | m.0mwh6d0 | m.0mzc0vk …(+4) (to answer with ALL of them, include "#m.03mlppw::award_winner" as one answer entity) --award_honor.award_winner--> Ron Howard
-    A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto …(+17) (to answer with ALL of them, include "#A Beautiful Mind::directed_by" as one answer entity…
+    A Beautiful Mind | Angels & Demons | Apollo 13 | Backdraft | Cinderella Man | Cocoon | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto …(+17) (to answer with ALL of them, include "#A Beautiful Mind::directed_by" as one answer entity) --film.directed_by--> Ron Howard
     Arrested Development | Leo and Loree | The 'Burbs --film.executive_produced_by--> Ron Howard
-    A Beautiful Mind | Angels & Demons | Beyond the Mat | Changeling | Cinderella Man | Clean and Sober | Closet Land | Curious George | Far and Away | Frost/Nixon | Rush | The 'Burbs …(+4) (to answer with ALL of them, include "#A Beautiful Mind::produced_by" as one answer entity) --film.produced_by…
+    A Beautiful Mind | Angels & Demons | Beyond the Mat | Changeling | Cinderella Man | Clean and Sober | Closet Land | Curious George | Far and Away | Frost/Nixon | Rush | The 'Burbs …(+4) (to answer with ALL of them, include "#A Beautiful Mind::produced_by" as one answer entity) --film.produced_by--> Ron Howard
     Cotton Candy --film.written_by--> Ron Howard
 ── A Beautiful Mind ──
-    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful …
+    --award_nominated_work.award_nominations--> m.05bkyhb [award: Academy Award for Best Director; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.07zqyxh [award: BAFTA Award for Best Direction; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.08lbx1t [award: BAFTA Award for Best Film; award_nominee: Brian Grazer; ceremony: 55th British Academy Film Awards; nominated_for: A Beautiful Mind] | m.095h1h2 [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 59th Golden Globe Awards; nominated_for: A Beautiful Mind] | m.09k3p5_ [award: Critics' Choice Movie Award for Best Director; award_nominee: Ron Howard; ceremony: 7th Critics' Choice Awards] | m.09sc2vl [award_nominee: Ron Howard; ceremony: 54th Directors Guild of America Awards] | m.0nbbh6b [award: Australian Film Institute …
     Karen Kehela --producer.films_executive_produced--> A Beautiful Mind
     Todd Hallowell --producer.films_executive_produced--> A Beautiful Mind
 ── Brian Grazer ──
-    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Pictu…
+    --award_nominee.award_nominations--> m.010g1d9b [award_nominee: Carol Greenwald | David Kirschner | Dorothea Gillim | Ellen Cockrill | Jon Shapiro | Matthew Baughman; ceremony: 41st Daytime Creative Arts Emmy Awards; nominated_for: Curious George] | m.05brffw [award: Academy Award for Best Picture; award_nominee: Ron Howard; ceremony: 74th Academy Awards; nominated_for: A Beautiful Mind] | m.0lv464x [award: Primetime Emmy Award for Outstanding Comedy Series; award_nominee: Barbie Adler | Chuck Martin | David Nevins | John Levenstein | Mitchell Hurwitz | Richard A. Rosenstock; ceremony: 56th Primetime Emmy Awards; nominated_for: Arrested Development]
     --award_winner.awards_won--> m.03mlppw [award: Academy Award for Best Picture; award_winner: Brian Grazer; ceremony: 74th Academy Awards; honored_for: A Beautiful Mind] | m.0n4xc5_ [award: PGA Milestone Award; award_winner: Brian Grazer; ceremony: Producers Guild of America Awards 2008]
     --producer.films_executive_produced--> Backdraft
     m.0n4xc5_ --award_honor.award_winner--> Brian Grazer
@@ -20343,9 +20344,9 @@ entities: Ron Howard
     --award_nominated_work.award_nominations--> m.0zt2kls [award_nominee: Hans Zimmer; nominated_for: Frost/Nixon]
     Dan Brown --producer.films_executive_produced--> Angels & Demons
 ── Cocoon ──
-    --award_nominated_work.award_nominations--> m.097kbf7 [award_nominee: David Brown] | m.0b6b38g [ceremony: 38th Directors Guild of America Awards; nominated_for: Cocoon] | m.0ncynk_ [award_nominee: Tom Benedek] | m.0yj9zzq [award: Hugo Award for Best Dramatic Presentation; award_nominee: David Sa…
+    --award_nominated_work.award_nominations--> m.097kbf7 [award_nominee: David Brown] | m.0b6b38g [ceremony: 38th Directors Guild of America Awards; nominated_for: Cocoon] | m.0ncynk_ [award_nominee: Tom Benedek] | m.0yj9zzq [award: Hugo Award for Best Dramatic Presentation; award_nominee: David Saperstein | Tom Benedek; ceremony: 1986 Hugo Awards; nominated_for: Cocoon]
 ── Apollo 13 ──
-    --award_nominated_work.award_nominations--> m.095h15z [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 53rd Golden Globe Awards; nominated_for: Apollo 13] | m.0b6b2xw [award_nominee: Ron Howard; ceremony: 48th Directors Guild of America Awards] | m.0ycq_cj [award: Hugo Aw…
+    --award_nominated_work.award_nominations--> m.095h15z [award: Golden Globe Award for Best Director - Motion Picture; ceremony: 53rd Golden Globe Awards; nominated_for: Apollo 13] | m.0b6b2xw [award_nominee: Ron Howard; ceremony: 48th Directors Guild of America Awards] | m.0ycq_cj [award: Hugo Award for Best Dramatic Presentation; award_nominee: Jeffrey Kluger | Jim Lovell | Ron Howard | William Broyles, Jr.; ceremony: 1996 Hugo Awards; nominated_for: Apollo 13]
 ── Far and Away ──
     --award_nominated_work.award_nominations--> m.0q2rj82 [award_nominee: Enya]
 ── Mitchell Hurwitz ──
@@ -20379,8 +20380,8 @@ entities: Ron Howard
     m.0lts_jr --award_honor.award_winner--> Carol Greenwald | David Wilcox | Ellen Cockrill | Matthew Baughman
     m.0mvjqsr --award_honor.award_winner--> Bruce Richmond | John P. Melfi | Michael Bostick | Tom Hanks | Tony To
     m.0mwh6d0 --award_honor.award_winner--> Patty Jausoro
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
-relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': […
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.producer.film', 'film.producer.films_executive_produced']}, 'film.film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['award.award_honor.award_winner', 'award.award_nominee.award_nominations', 'award.award_winner.awards_won', 'film.director.film', 'film.producer.film', 'film.producer.films_executive_produced']}}
 ```
 ## [6] assistant
 **思考（原文）**:
@@ -20436,7 +20437,7 @@ tool: checkpoint
 ```
 **[9] 工具结果**:
 ```text
-REJECTED: Wrong tool in the retrieve phase — and note the WORKFLOW ORDER: `retrieve_relations` must come BEFORE `retrieve_subgraph` for each fact. `retrieve_relations` finds relations for a NEW subgraph; `retrieve_subgraph` continues an existing tree (anchor + relations — the system walks the full c…
+REJECTED: Wrong tool in the retrieve phase — and note the WORKFLOW ORDER: `retrieve_relations` must come BEFORE `retrieve_subgraph` for each fact. `retrieve_relations` finds relations for a NEW subgraph; `retrieve_subgraph` continues an existing tree (anchor + relations — the system walks the full chain). Both are valid. facts: ✓f1 ⬜f2  (retrieved 1/2)
 ```
 ## [10] assistant
 **思考（原文）**:
@@ -20461,9 +20462,9 @@ question: when was this film released
 ```
 **[11] 工具结果**:
 ```text
-entities: A Beautiful Mind | Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom…
+entities: A Beautiful Mind | Angels & Demons | Backdraft | Cotton Candy | Dr. Seuss' How the Grinch Stole Christmas | EDtv | Far and Away | Frost/Nixon | Grand Theft Auto | Gung Ho | In the Heart of the Sea | Inferno | Jay-Z: Made in America | Night Shift | Parenthood | Presidential Reunion | Ransom | Rush | The Dark Tower | The Dilemma | The Lost Symbol | The Paper | Willow | Beyond the Mat | Changeling | Clean and Sober | Closet Land | Cowboys & Aliens | Curious George 2: Follow That Monkey! | Inside Deep Throat | Inventing the Abbotts | J. Edgar | Katy Perry: Part of Me | Problem Child | Restless | Sky High | The 'Burbs | The Alamo | The Chamber | The Good Lie | Paul Chibe | Peter Morgan | Richard Sadler | Sarah Bradshaw | Sidney Beaumont | Steve Stoute
 question: when was this film released
-candidate_relations: film.film.release_date_s | film.film_casting_director.films_casting_directed | film.film_genre.films_in_this_genre | film.film_regional_release_date.film_release_region | film.actor.film | film.director.film | film.film_regional_release_date.film | film.performance.film | film.f…
+candidate_relations: film.film.release_date_s | film.film_casting_director.films_casting_directed | film.film_genre.films_in_this_genre | film.film_regional_release_date.film_release_region | film.actor.film | film.director.film | film.film_regional_release_date.film | film.performance.film | film.film.film_casting_director | film.film.directed_by | film.film.produced_by | film.film_regional_release_date.film_regional_debut_venue | film.film.executive_produced_by | film.film.film_production_design_by | film.film.genre
 grouped_relations:
   film.release_date_s ← film.film.release_date_s
   film_casting_director.films_casting_directed ← film.film_casting_director.films_casting_directed
@@ -20477,7 +20478,7 @@ grouped_relations:
   film.directed_by ← film.film.directed_by
   film.produced_by ← film.film.produced_by
   film_regional_release_date.film_regional_debut_venue ← film.film_regional_release_date.film_regional_debut_venue
-note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL rela…
+note: Identify ALL question-relevant groups below — typically ≤3, max 5. Submit the TYPED NAME (e.g. relations: baseball_division.teams | producer.film) — it expands to that group's relations. ≡ marks semantic equivalents: submit them TOGETHER. A BARE attribute (relations: teams) expands to ALL relations with that attribute across types.
 ```
 ## [12] assistant
 **思考（原文）**:
@@ -20499,8 +20500,8 @@ sg: sg1
 ```text
 fact_id: sg1
 triples:
-entities: Ron Howard | Paul Chibe | Richard Sadler | Sarah Bradshaw | Sidney Beaumont | Steve Stoute  (sequence root; this layer applies to the frontier: 11th Critics' Choice Awards | 13th Satellite Awards | 14th Critics' Choice Awards | 18th Satellite Awards | 1986 Hugo Awards | 1989 Hugo Awards | …
-▸ patterns: film.executive_produced_by | producer.films_executive_produced | film.executive_produced_by ⭢ topic.image | film.executive_produced_by ⭢ film.release_date_s | film.executive_produced_by ⭢ film_regional_release_date.film | film.executive_produced_by ⭢ producer.films_executive_produced | p…
+entities: Ron Howard | Paul Chibe | Richard Sadler | Sarah Bradshaw | Sidney Beaumont | Steve Stoute  (sequence root; this layer applies to the frontier: 11th Critics' Choice Awards | 13th Satellite Awards | 14th Critics' Choice Awards | 18th Satellite Awards | 1986 Hugo Awards | 1989 Hugo Awards | 1996 Hugo Awards | 2005 ESPY Awards | 20th Screen Actors Guild Awards | 21st People's Choice Awards | 27th Golden Raspberry Awards | 34th Daytime Creative Arts Emmy Awards)
+▸ patterns: film.executive_produced_by | producer.films_executive_produced | film.executive_produced_by ⭢ topic.image | film.executive_produced_by ⭢ film.release_date_s | film.executive_produced_by ⭢ film_regional_release_date.film | film.executive_produced_by ⭢ producer.films_executive_produced | producer.films_executive_produced ⭢ topic.image | producer.films_executive_produced ⭢ film.executive_produced_by | producer.films_executive_produced ⭢ film.release_date_s | producer.films_executive_produced ⭢ film_regional_release_date.film | award_honor.award_winner ⭢ award_honor.honored_for ⭢ film.executive_produced_by | award_honor.award_winner ⭢ award_winner.awards_won ⭢ film.executive_produced_by | award_honor.award_winner ⭢ award_winning_work.awards_won ⭢ film.executive_produced_by | film.executive_produced_by ⭢ director.film ⭢ topic.image | film.executive_produced_by ⭢ film.directed_by ⭢ topic.image | film.executive_produced_by ⭢ film.directed_by ⭢ producer.films_executive_produced | f…
 ── Ron Howard ──
     --director.film--> In the Heart of the Sea | Jay-Z: Made in America
     --producer.films_executive_produced--> Arrested Development | Gung Ho | Leo and Loree | The 'Burbs
@@ -20578,9 +20579,9 @@ entities: Ron Howard | Paul Chibe | Richard Sadler | Sarah Bradshaw | Sidney Bea
     The Chamber --film.executive_produced_by--> Karen Kehela
     The Da Vinci Code --film.executive_produced_by--> Dan Brown | Todd Hallowell
     The Dark Tower --film.executive_produced_by--> Erica Huggins
-note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, …
-relation_expansion: {'film.film.release_date_s': {'direct': ['film.film.release_date_s'], 'bridge': ['common.topic.image', 'film.film.executive_produced_by', 'film.film.soundtrack', 'film.producer.films_executive_produced', 'music.soundtrack.film']}, 'film.film_regional_release_date.film': {'direct'…
-anchor_sequence: Ron Howard ⭢ award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | producer.film | producer.films_executive_produced (236) ⭢ topic.image | film.executive_produced_by | film.release_date_s | film.soundtrack | film_re…
+note: Multiple centers retrieved with one shared relation set — COMPARE them via the triples (an edge '--to--> (incumbent)' marks the current holder). SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'film.film.release_date_s': {'direct': ['film.film.release_date_s'], 'bridge': ['common.topic.image', 'film.film.executive_produced_by', 'film.film.soundtrack', 'film.producer.films_executive_produced', 'music.soundtrack.film']}, 'film.film_regional_release_date.film': {'direct': ['film.film_regional_release_date.film'], 'bridge': ['common.topic.image', 'film.film.executive_produced_by', 'film.film.soundtrack', 'film.producer.films_executive_produced', 'music.soundtrack.film']}}
+anchor_sequence: Ron Howard ⭢ award_honor.award_winner | award_nominee.award_nominations | award_winner.awards_won | director.film | film.directed_by | producer.film | producer.films_executive_produced (236) ⭢ topic.image | film.executive_produced_by | film.release_date_s | film.soundtrack | film_regional_release_date.film | soundtrack.film (0)
 layer_action: extend
 ```
 **[14] 工具结果**:
@@ -20648,7 +20649,7 @@ entities: NONE
 ```
 **[16] 工具结果**:
 ```text
-REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?film=['A Beautiful Mind', 'Angels & Demons', 'Backdraft', 'Cotton Candy']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?film=['A B…
+REMINDER (not a verdict — your own checkpoint ledger is the authority): your facts RETRIEVED bindings — f1 ?film=['A Beautiful Mind', 'Angels & Demons', 'Backdraft', 'Cotton Candy']. These are retrieved facts; the answer should be given from them (imperfect beats empty). Answer-variable: ?film=['A Beautiful Mind', 'Angels & Demons', 'Backdraft', 'Cotton Candy']. Re-select relations once if a missing discriminator could still be retrieved; otherwise answer from the current support.
 ```
 ## [17] assistant
 **思考（原文）**:
@@ -20713,7 +20714,7 @@ entities: NONE
 ```
 **[18] 工具结果**:
 ```text
-Second refusal — your ledger holds RETRIEVED FACTS: f1 ?film=['A Beautiful Mind', 'Angels & Demons', 'Backdraft', 'Cotton Candy']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE correct after this, your next NONE s…
+Second refusal — your ledger holds RETRIEVED FACTS: f1 ?film=['A Beautiful Mind', 'Angels & Demons', 'Backdraft', 'Cotton Candy']. These are facts you retrieved; give an answer from them (an imperfect answer from facts beats an empty one). If you still judge NONE correct after this, your next NONE submission is ACCEPTED as the final answer.
 ```
 ## [19] assistant
 **思考（原文）**:
@@ -20837,7 +20838,7 @@ flow: {'id': 'f1', 'triple': "(Lala Anthony | which city is this person's home |
 entities: Lala Anthony
 answer: ?city
 answer_type: city
-note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three check…
+note: Iterative subgraph retrieval. For EACH OPEN fact: call retrieve_relations to find question-RELEVANT relations (all that match, typically ≤3, max 5 — not just the single best), then retrieve_subgraph with ALL of them together. After each retrieve_subgraph, close the fact with ONE of three checkpoints: resolve it `- fid ✓ ?var = v1 | v2`; close it EMPTY `- fid ✗ empty` when no candidate relation advances it; close it MOOT `[fid ✗ moot]` when earlier evidence already bound its target. MULTI-TREE (question names SEVERAL entities): prefer a separate anchor view per entity when the entities provide independent constraints, and let the system JOIN them (an entity reachable from both sides intersects the candidate sets); an entity that adds no independent constraint does not need its own tree. For later facts continuing the SAME tree, just pass the ANCHOR or any retrieved entity + the new relation — the system walks the full chain from the root automatically. Fact-1 center = the literal …
 ```
 ## [2] assistant
 **思考（原文）**:
@@ -20864,8 +20865,8 @@ question: which city is this person's home
 **[3] 工具结果**:
 ```text
 entity_error: 'Lala Anthony' is not a confident graph entity.
-candidates: {'name': 'Daphne Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_value', 'people.person.sibling_s']} | {'name': 'Kiyan Anthony', 'neighbor_relations': ['people.person.gender', 'people.person.parents', 'freebase.valuenotation.has_no_value']} | {'name':…
-note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for t…
+candidates: {'name': 'Daphne Anthony', 'neighbor_relations': ['people.person.gender', 'freebase.valuenotation.has_value', 'people.person.sibling_s']} | {'name': 'Kiyan Anthony', 'neighbor_relations': ['people.person.gender', 'people.person.parents', 'freebase.valuenotation.has_no_value']} | {'name': 'Carmelo K. Anthony Basketball Center', 'neighbor_relations': ['location.location.geolocation', 'location.location.contains', 'location.location.street_address']} | {'name': 'Michelle Anthony', 'neighbor_relations': ['people.person.gender', 'people.person.parents', 'people.person.children']} | {'name': 'Mary Anthony', 'neighbor_relations': ['people.person.nationality', 'people.person.ethnicity', 'people.person.gender']}
+note: Pick the correct entity from `candidates` (each shows NEIGHBOR relations to disambiguate) and RE-CALL with THAT name (a different name passes the repeat gate). If NONE of the candidates is the right entity, do NOT re-call with the same name (it will be rejected) — declare `- fid ✗ empty` for this fact or continue from another question entity's evidence. CROSS-SUBGRAPH CENTER: if THIS fact's selected relations are right but its anchor entity is wrong, re-call retrieve_subgraph with a center BORROWED from any prior subgraph's evidence (e.g. an earlier fact's binding) plus this fact's relations — the boundary check accepts any retrieved entity as a center.
 ```
 ## [4] assistant
 **思考（原文）**:
@@ -20925,7 +20926,7 @@ entities: Carmelo K. Anthony Basketball Center
 ▸ patterns: location.contains
 ── Carmelo K. Anthony Basketball Center ──
     13210 --location.contains--> Carmelo K. Anthony Basketball Center
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes…
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
 ```
 ## [6] assistant
 **思考（原文）**:

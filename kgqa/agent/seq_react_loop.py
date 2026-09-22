@@ -2319,6 +2319,19 @@ class SeqReactCase:
                     "entities) MOST likely to answer the question from the evidence you have "
                     f"and call `answer` again. Candidate pool: {pool[:40]}."})
                 return "continue"
+            if tool_name == "answer" and \
+                    "answer entities NOT in the retrieved evidence" in result_str[:200]:
+                # OFF-POOL BOUNCE (user review 2026-09-22, 2209-s0 specimen):
+                # the answer tool's one-shot legality rejection (answer ⊆
+                # retrieved evidence) used to land as the episode's LAST
+                # message — the case closed with the REJECTED answer recorded
+                # verbatim and the model never saw its correction turn. Roll
+                # the state back (mirror of the empty bounce above) so the
+                # corrected re-answer is legal; the tool's own retry flag
+                # guarantees a second off-pool submission sanitizes instead
+                # of erroring, so this bounce cannot loop.
+                self.state.state = "RETRIEVE"
+                return "continue"
             self.done = True
             return "done"
         return "continue"
