@@ -8,12 +8,123 @@ lineage/cls + pathway 裁决/必要)与 RSCC 概率(p_ref→p_cf,ratio,
 
 
 
+========== CASE WebQTrn-2316_b8e16d5f4985c5ab2a3c75e7bc8c9e1a|s0 ==========
+Q: Who is the illustrator of the book Feu de joie and the person who influenced Jackson Pollock's work?
+gold=['Pablo Picasso']  实际answer='Pablo Picasso' f1=1.0
+p0=0.005592  pF=0.2854  pG*(收缩后)=-
+子图独立概率 [Feu de joie] = 0.2692
+子图独立概率 [Jackson Pollock] = 0.002315
+
+## 块 #0 [msg 5]  分支=feu de joie
+调用命令:
+```text
+tool: retrieve_subgraph
+center: Feu de joie
+relations: book.illustrator.books_illustrated | book.book.interior_illustrations_by
+sg: sg1
+```
+工具结果(完整,未截断):
+```text
+fact_id: sg1
+triples:
+entities: Feu de joie
+▸ patterns: book.interior_illustrations_by | illustrator.books_illustrated | book.interior_illustrations_by ⭢ influence_node.influenced ⭢ illustrator.books_illustrated | illustrator.books_illustrated ⭢ influence_node.influenced_by ⭢ book.interior_illustrations_by | school_or_movement.associated_works ⭢ written_work.school_or_movement ⭢ book.interior_illustrations_by | school_or_movement.associated_works ⭢ art_period_movement.associated_artists ⭢ illustrator.books_illustrated | school_or_movement.associated_works ⭢ visual_artist.associated_periods_or_movements ⭢ book.interior_illustrations_by | school_or_movement.associated_works ⭢ visual_artist.associated_periods_or_movements ⭢ illustrator.books_illustrated
+── Feu de joie ──
+    --book.interior_illustrations_by--> Pablo Picasso
+    Dada --school_or_movement.associated_works--> Feu de joie
+    Pablo Picasso --illustrator.books_illustrated--> Feu de joie
+── Dada ──
+    --art_period_movement.associated_artists--> Hans Arp | Joan Mir | Max Ernst
+    Hans Arp | Joan Mir | Max Ernst --visual_artist.associated_periods_or_movements--> Dada
+    Cinéma calendrier du coeur abstrait. maisons --written_work.school_or_movement--> Dada
+    L'antitête, vol. III: Le Désespéranto --written_work.school_or_movement--> Dada
+── Hans Arp ──
+    --illustrator.books_illustrated--> Cinéma calendrier du coeur abstrait. maisons | Vingt-cinq poèmes | Vingt-cinq-et-un poèmes
+    Cinéma calendrier du coeur abstrait. maisons | Vingt-cinq poèmes | Vingt-cinq-et-un poèmes --book.interior_illustrations_by--> Hans Arp
+── Joan Mir ──
+    --illustrator.books_illustrated--> L'antitête, vol. III: Le Désespéranto
+    --influence_node.influenced_by--> Pablo Picasso
+    Pablo Picasso --influence_node.influenced--> Joan Mir
+    L'antitête, vol. III: Le Désespéranto --book.interior_illustrations_by--> Joan Mir
+── Max Ernst ──
+    --illustrator.books_illustrated--> L'antitête, vol. I: Monsieur Aa l'Antiphilosophe
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'book.illustrator.books_illustrated': {'direct': ['book.illustrator.books_illustrated'], 'bridge': ['book.book.interior_illustrations_by']}}
+```
+(送评归属文本: 15 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
+◆ 旧标记: cls=effective d=0.2521 l=0.3333 f=0.2521 N=1.0 g=★ lineage=- necessary=yes
+◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
+
+## 块 #1 [msg 10]  分支=jackson pollock
+调用命令:
+```text
+tool: retrieve_subgraph
+center: Jackson Pollock
+relations: influence.influence_node.influenced_by | base.inspiration.inspiration.inspired_by
+sg: sg2
+```
+工具结果(完整,未截断):
+```text
+fact_id: sg2
+triples:
+entities: Jackson Pollock
+▸ patterns: influence_node.influenced | influence_node.influenced_by | influence_node.peers | marriage.spouse | person.ethnicity | person.nationality | exhibition.subjects ⭢ exhibition_subject.exhibitions_created_about_this_subject ⭢ influence_node.influenced_by | exhibition_subject.exhibitions_created_about_this_subject ⭢ exhibition.subjects ⭢ influence_node.influenced_by | artwork.artist ⭢ visual_artist.artworks ⭢ influence_node.influenced_by | client.related_patron ⭢ patron.related_client ⭢ person.nationality ⭢ inspiration.inspired_by | patron_client_relationship.client ⭢ patron.related_client ⭢ person.nationality ⭢ inspiration.inspired_by | peer_relationship.peers ⭢ peer_relationship.peers ⭢ person.nationality ⭢ inspiration.inspired_by
+── Jackson Pollock ──
+    --person.ethnicity--> Americans
+    --exhibition_subject.exhibitions_created_about_this_subject--> Action/Abstraction: Pollock, de Kooning, and American Art, 1940-1976
+    --influence_node.influenced--> Allan Kaprow | Chuck Connelly | Cleve Gray | Frank Stella | Helen Frankenthaler | Ho Ho Ying | Jan-Hein Arens | Jeanine Heller | Kenneth Noland | Merlin Carpenter | Morris Louis | Robert Ryman | Ronnie Landfield | Roy Ascott
+    --influence_node.influenced_by--> Carl Jung | Joan Mir | John D. Graham | Mark Tobey | Max Ernst | Pablo Picasso | Thomas Hart Benton
+    --person.nationality--> United States of America
+    --influence_node.peers--> m.03ysr_r [peers: Willem de Kooning]
+    --client.related_patron--> m.0c1pjwj [patron: Peggy Guggenheim]
+    Untitled --artwork.artist--> Jackson Pollock
+    m.0c1pjwj --patron_client_relationship.client--> Jackson Pollock
+    Carl Jung | Joan Mir | John D. Graham | Mark Tobey | Max Ernst | Pablo Picasso | Thomas Hart Benton --influence_node.influenced--> Jackson Pollock
+    Allan Kaprow | Chuck Connelly | Cleve Gray | Frank Stella | Helen Frankenthaler | Ho Ho Ying | Jan-Hein Arens | Jeanine Heller | Kenneth Noland | Merlin Carpenter | Morris Louis | Robert Ryman …(+2) (to answer with ALL of them, include "#Allan Kaprow::influenced_by" as one answer entity) --influence_node.influenced_by--> Jackson Pollock
+    m.03ysr_r --peer_relationship.peers--> Jackson Pollock
+    m.025dmkz --marriage.spouse--> Jackson Pollock
+    Action/Abstraction: Pollock, de Kooning, and American Art, 1940-1976 --exhibition.subjects--> Jackson Pollock
+── Willem de Kooning ──
+    --exhibition_subject.exhibitions_created_about_this_subject--> Action/Abstraction: Pollock, de Kooning, and American Art, 1940-1976
+    --influence_node.influenced_by--> Allan Kaprow | John D. Graham | Josef Albers | Louise Nevelson | Vincent van Gogh
+    --person.nationality--> United States of America
+    Chuck Connelly | Franz Kline | Jasper Johns | Robert Ryman | Ronnie Landfield --influence_node.influenced_by--> Willem de Kooning
+    m.03ysr_r --peer_relationship.peers--> Willem de Kooning
+    Action/Abstraction: Pollock, de Kooning, and American Art, 1940-1976 --exhibition.subjects--> Willem de Kooning
+── Lee Krasner ──
+    m.025dmkz --marriage.spouse--> Lee Krasner
+── Robert Ryman ──
+    --visual_artist.artworks--> Untitled
+    --influence_node.influenced_by--> Barnett Newman | Clyfford Still | Mark Rothko
+── Morris Louis ──
+    --visual_artist.artworks--> Untitled
+    --influence_node.influenced_by--> Clement Greenberg | Helen Frankenthaler
+    Kenneth Noland --influence_node.influenced_by--> Morris Louis
+── United States of America ──
+    \"History dressed up in the glow of love’s kiss turned grief into beauty.\" --inspiration.inspired_by--> United States of America
+    Peggy Guggenheim --person.nationality--> United States of America
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'influence.influence_node.influenced_by': {'direct': ['influence.influence_node.influenced_by'], 'bridge': ['influence.influence_node.influenced', 'influence.influence_node.peers', 'people.marriage.spouse']}, 'base.inspiration.inspiration.inspired_by': {'direct': ['base.inspiration.inspiration.inspired_by'], 'bridge': ['people.person.ethnicity', 'people.person.nationality']}}
+```
+(送评归属文本: 15 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
+◆ 旧标记: cls=effective d=0.07902 l=0.07902 f=-0.002111 N=1.0 g=- lineage=- necessary=yes
+◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
+
+── RSCC 倒序收缩逐步概率迹（概率变化 + 结构必要性）──
+  初始状态: p=0.2854 (块 [0, 1])
+  块#0 [Feu de joie]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
+  块#1 [Jackson Pollock]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
+  终态 p=-
+  双通道小结: 结构必要块=['0', '1'] | 概率移除块=无 | 两通道无冲突
+
+
+
 ========== CASE WebQTrn-2784_b64250ae3c9d6c724133d09dad5593ec|s2 ==========
 Q: What movie featuring Tupac was directed by Kirk M. Petruccelli?
 gold=['Poetic Justice']  实际answer='Poetic Justice' f1=1.0
-p0=0.01329  pF=0.4657  pG*(收缩后)=-
-子图独立概率 [Tupac Shakur] = 0.3404
-子图独立概率 [Kirk M. Petruccelli] = 0.2621
+p0=0.01358  pF=0.526  pG*(收缩后)=-
+子图独立概率 [Tupac Shakur] = 0.3814
+子图独立概率 [Kirk M. Petruccelli] = 0.2769
 
 ## 块 #0 [msg 5]  分支=tupac shakur
 调用命令:
@@ -50,7 +161,7 @@ note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails
 relation_expansion: {'film.actor.film': {'direct': ['film.actor.film'], 'bridge': ['fictional_universe.person_in_fiction.representations_in_fiction']}, 'film.person_or_entity_appearing_in_film.films': {'direct': ['film.person_or_entity_appearing_in_film.films'], 'bridge': ['fictional_universe.person_in_fiction.representations_in_fiction']}, 'film.performance.film': {'direct': ['film.performance.film'], 'bridge': ['award.award_nomination.award_nominee', 'film.actor.film', 'film.performance.actor', 'music.producer.releases_produced']}}
 ```
 (送评归属文本: 15 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.6006 l=0.3038 f=0.6006 N=1.0 g=★ lineage=- necessary=yes
+◆ 旧标记: cls=effective d=0.6003 l=0.3038 f=0.6003 N=1.0 g=★ lineage=- necessary=yes
 ◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
 
 ## 块 #1 [msg 9]  分支=kirk m petruccelli
@@ -105,11 +216,11 @@ note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails
 relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'bridge': ['award.award_nominee.award_nominations', 'film.film.film_production_design_by', 'film.film_art_director.films_art_directed', 'film.film_production_designer.films_production_designed']}, 'film.film.directed_by': {'direct': ['film.film.directed_by'], 'bridge': ['award.award_nominee.award_nominations', 'film.film.film_art_direction_by', 'film.film.film_production_design_by', 'film.film_art_director.films_art_directed', 'film.film_production_designer.films_production_designed']}}
 ```
 (送评归属文本: 14 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.0803 l=0.0803 f=0.3745 N=1.0 g=- lineage=- necessary=yes
+◆ 旧标记: cls=effective d=0.0803 l=0.0803 f=0.3742 N=1.0 g=- lineage=- necessary=yes
 ◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
 
 ── RSCC 倒序收缩逐步概率迹（概率变化 + 结构必要性）──
-  初始状态: p=0.4657 (块 [0, 1])
+  初始状态: p=0.526 (块 [0, 1])
   块#0 [Tupac Shakur]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
   块#1 [Kirk M. Petruccell]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
   终态 p=-
@@ -117,12 +228,81 @@ relation_expansion: {'film.director.film': {'direct': ['film.director.film'], 'b
 
 
 
+========== CASE WebQTrn-21_6671d5347b1b3cfe482cf5894cc6a05a|s0 ==========
+Q: Who is the prime minister of where the currency used in the country, is Ethiopian birr?
+gold=['Hailemariam Desalegn']  实际answer='Haile Selassie | Hailemariam Desalegn' f1=0.667
+p0=0.4208  pF=0.7435  pG*(收缩后)=0.7418
+子图独立概率 [Ethiopian birr] = 0.3807
+子图独立概率 [Ethiopia] = 0.7418
+
+## 块 #0 [msg 5]  分支=ethiopian birr
+调用命令:
+```text
+tool: retrieve_subgraph
+center: Ethiopian birr
+relations: location.country.currency_used | finance.currency.countries_used
+sg: sg1
+```
+工具结果(完整,未截断):
+```text
+fact_id: sg1
+triples:
+entities: Ethiopian birr
+▸ patterns: currency.countries_used | country.currency_used
+── Ethiopian birr ──
+    --currency.countries_used--> Ethiopia
+    Ethiopia --country.currency_used--> Ethiopian birr
+note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+```
+(送评归属文本: 3 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
+◆ 旧标记: cls=effective d=0.2189 l=0.009404 f=0.2189 N=1.0 g=- lineage=✓ necessary=n/a
+◆ RSCC: p 0.7435 → 移除后 0.7418  Δp=-0.001631 (-0.2%)  ratio=0.9978 → 移除  [结构: necessary=n/a pathway=ethiopian birr]
+
+## 块 #1 [msg 9]  分支=ethiopian birr
+调用命令:
+```text
+tool: retrieve_subgraph
+center: Ethiopia
+relations: government.government.government_for | government.politician.government_positions_held
+sg: sg1
+```
+工具结果(完整,未截断):
+```text
+fact_id: sg1
+triples:
+entities: Ethiopian birr  (sequence root; this layer applies to the frontier: Ethiopia)
+▸ patterns: currency.countries_used ⭢ government.government_for | currency.countries_used ⭢ government_position_held.jurisdiction_of_office | currency.countries_used ⭢ governmental_jurisdiction.governing_officials | government.government_for | government_position_held.jurisdiction_of_office | person.nationality
+── Ethiopian birr ──
+    --currency.countries_used--> Ethiopia
+── Ethiopia ──
+    --governmental_jurisdiction.governing_officials--> m.010g4gn8 [basic_title: Prime minister] | m.010pzwzw [office_holder: Haile Selassie] | m.0kmspfs [governmental_body: House of Peoples' Representatives] | m.0l0j4x3 | m.0n1nqyj [basic_title: Prime minister; from: 2012-09-21-08:00; has_no_value: To; office_holder: Hailemariam Desalegn; office_position_or_title: Prime Minister of Ethiopia]
+    Government of Ethiopia --government.government_for--> Ethiopia
+    m.010g4gn8 | m.010pzwzw | m.0kmspfs | m.0l0j4x3 | m.0n1nqyj --government_position_held.jurisdiction_of_office--> Ethiopia
+    Baeda Maryam I | Demetros | Gebre Krestos | Gigar | Tekle Giyorgis I | Tekle Haymanot II --person.nationality--> Ethiopia
+note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
+relation_expansion: {'government.politician.government_positions_held': {'direct': ['government.politician.government_positions_held'], 'bridge': ['government.government_position_held.jurisdiction_of_office', 'government.governmental_jurisdiction.governing_officials', 'people.person.nationality']}}
+anchor_sequence: Ethiopian birr ⭢ currency.countries_used | country.currency_used (1) ⭢ government.government_for | government_position_held.jurisdiction_of_office | governmental_jurisdiction.governing_officials | person.nationality (0)
+layer_action: extend
+```
+(送评归属文本: 6 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
+◆ 旧标记: cls=effective d=0.1368 l=0.1368 f=0.3393 N=0.944 g=★ lineage=- necessary=n/a
+◆ RSCC: p 0.7418 → 移除后 0.4375  Δp=-0.3044 (-41.0%)  ratio=0.5897 → 保留  [结构: necessary=n/a pathway=ethiopian birr]
+
+── RSCC 倒序收缩逐步概率迹（概率变化 + 结构必要性）──
+  初始状态: p=0.7435 (块 [0, 1])
+  块#0 [Ethiopian birr] 结构=n/a(通路未达): p 0.7435 → 0.7418  Δp=-0.001631 (-0.2%)  ratio=0.9978 ⇒ Redundant-valid → 移除
+  块#1 [Ethiopia] 结构=n/a(通路未达): p 0.7418 → 0.4375  Δp=-0.3044 (-41.0%)  ratio=0.5897 ⇒ Informative → 保留
+  终态 p=0.7418 (整体变化 -0.2%)
+  双通道小结: 结构必要块=无 | 概率移除块=['0'] | 两通道无冲突
+
+
+
 ========== CASE WebQTest-626_01ad90831a03b6c5ef17898ccd80a639|s0 ==========
 Q: What setting of the fictional universe Tempus Unbound is bisected by the Missouri River?
 gold=['Kansas']  实际answer='Kansas' f1=1.0
-p0=0.00386  pF=0.1826  pG*(收缩后)=-
-子图独立概率 [Tempus Unbound] = 0.3361
-子图独立概率 [Missouri River] = 0.2472
+p0=0.00386  pF=0.2413  pG*(收缩后)=-
+子图独立概率 [Tempus Unbound] = 0.373
+子图独立概率 [Missouri River] = 0.1994
 
 ## 块 #0 [msg 5]  分支=tempus unbound
 调用命令:
@@ -176,7 +356,7 @@ note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails
 relation_expansion: {'fictional_universe.work_of_fiction.setting': {'direct': ['fictional_universe.work_of_fiction.setting'], 'bridge': ['base.militaryinfiction.location_in_fiction.works_set_here', 'book.written_work.next_in_series', 'fictional_universe.fictional_character.appears_in_these_fictional_universes', 'fictional_universe.fictional_setting.works_set_here', 'fictional_universe.fictional_universe.works_set_here']}, 'fictional_universe.fictional_setting.universe': {'direct': ['fictional_universe.fictional_setting.universe'], 'bridge': ['base.militaryinfiction.location_in_fiction.works_set_here', 'book.written_work.next_in_series', 'fictional_universe.fictional_setting.works_set_here', 'fictional_universe.fictional_universe.works_set_here', 'fictional_universe.work_of_fiction.setting']}, 'fictional_universe.fictional_setting.contained_by': {'direct': ['fictional_universe.fictional_setting.contained_by'], 'bridge': ['base.militaryinfiction.location_in_fiction.works_set_here', 'base.militaryinfiction.military_command_in_fiction.mentioned_in_works', 'book.written_work.next_in_series', 'fictional_universe.fictional_setting.works_set_here', 'fictional_universe.work_of_fiction.setting']}}
 ```
 (送评归属文本: 15 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.3354 l=0.142 f=0.3352 N=1.0 g=★ lineage=- necessary=yes
+◆ 旧标记: cls=effective d=0.3354 l=0.1437 f=0.3352 N=1.0 g=★ lineage=- necessary=yes
 ◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
 
 ## 块 #1 [msg 10]  分支=missouri river
@@ -235,82 +415,13 @@ note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails
 relation_expansion: {'location.partiallycontains': {'direct': ['location.location.partiallycontains'], 'bridge': ['location.location.partially_contained_by', 'location.location.partially_containedby', 'location.location.partially_contains', 'location.partial_containment_relationship.partially_contains']}, 'location.location.contains_major_portion_of': {'direct': ['location.location.contains_major_portion_of'], 'bridge': ['location.location.containedby']}, 'location.location.containedby': {'direct': ['location.location.containedby'], 'bridge': ['geography.body_of_water.bridges', 'geography.river.mouth', 'location.location.partially_containedby', 'location.partial_containment_relationship.partially_contains', 'transportation.bridge.body_of_water_spanned', 'travel.travel_destination.tourist_attractions']}}
 ```
 (送评归属文本: 15 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.07733 l=0.04822 f=0.2291 N=1.0 g=- lineage=- necessary=yes
+◆ 旧标记: cls=effective d=0.07733 l=0.007353 f=0.2394 N=1.0 g=- lineage=- necessary=yes
 ◆ RSCC: 结构必要 → 结构优先保留(不进概率删除)
 
 ── RSCC 倒序收缩逐步概率迹（概率变化 + 结构必要性）──
-  初始状态: p=0.1826 (块 [0, 1])
+  初始状态: p=0.2413 (块 [0, 1])
   块#0 [Tempus Unbound]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
   块#1 [Missouri River]: 结构必要(删除断链) → 结构优先保留 (结构必要=是(删除断链))
   终态 p=-
   双通道小结: 结构必要块=['0', '1'] | 概率移除块=无 | 两通道无冲突
-
-
-
-========== CASE WebQTrn-21_6671d5347b1b3cfe482cf5894cc6a05a|s0 ==========
-Q: Who is the prime minister of where the currency used in the country, is Ethiopian birr?
-gold=['Hailemariam Desalegn']  实际answer='Haile Selassie | Hailemariam Desalegn' f1=0.667
-p0=0.4208  pF=0.7195  pG*(收缩后)=0.7388
-子图独立概率 [Ethiopian birr] = 0.3479
-子图独立概率 [Ethiopia] = 0.7388
-
-## 块 #0 [msg 5]  分支=ethiopian birr
-调用命令:
-```text
-tool: retrieve_subgraph
-center: Ethiopian birr
-relations: location.country.currency_used | finance.currency.countries_used
-sg: sg1
-```
-工具结果(完整,未截断):
-```text
-fact_id: sg1
-triples:
-entities: Ethiopian birr
-▸ patterns: currency.countries_used | country.currency_used
-── Ethiopian birr ──
-    --currency.countries_used--> Ethiopia
-    Ethiopia --country.currency_used--> Ethiopian birr
-note: Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
-```
-(送评归属文本: 3 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.2189 l=0.009404 f=0.2189 N=1.0 g=- lineage=✓ necessary=n/a
-◆ RSCC: p 0.7195 → 移除后 0.7388  Δp=0.01929 (+2.7%)  ratio=1.027 → 移除  [结构: necessary=n/a pathway=ethiopian birr]
-
-## 块 #1 [msg 9]  分支=ethiopian birr
-调用命令:
-```text
-tool: retrieve_subgraph
-center: Ethiopia
-relations: government.government.government_for | government.politician.government_positions_held
-sg: sg1
-```
-工具结果(完整,未截断):
-```text
-fact_id: sg1
-triples:
-entities: Ethiopian birr  (sequence root; this layer applies to the frontier: Ethiopia)
-▸ patterns: currency.countries_used ⭢ government.government_for | currency.countries_used ⭢ government_position_held.jurisdiction_of_office | currency.countries_used ⭢ governmental_jurisdiction.governing_officials | government.government_for | government_position_held.jurisdiction_of_office | person.nationality
-── Ethiopian birr ──
-    --currency.countries_used--> Ethiopia
-── Ethiopia ──
-    --governmental_jurisdiction.governing_officials--> m.010g4gn8 [basic_title: Prime minister] | m.010pzwzw [office_holder: Haile Selassie] | m.0kmspfs [governmental_body: House of Peoples' Representatives] | m.0l0j4x3 | m.0n1nqyj [basic_title: Prime minister; from: 2012-09-21-08:00; has_no_value: To; office_holder: Hailemariam Desalegn; office_position_or_title: Prime Minister of Ethiopia]
-    Government of Ethiopia --government.government_for--> Ethiopia
-    m.010g4gn8 | m.010pzwzw | m.0kmspfs | m.0l0j4x3 | m.0n1nqyj --government_position_held.jurisdiction_of_office--> Ethiopia
-    Baeda Maryam I | Demetros | Gebre Krestos | Gigar | Tekle Giyorgis I | Tekle Haymanot II --person.nationality--> Ethiopia
-note: SEQUENCE EXTENSION applied to several frontier members — the new layer's edges are per-candidate: COMPARE them across the candidates (values, dates, ids) and declare the values the evidence supports (any non-empty count). Final discrimination happens at answer analysis. Mid-chain entities are HOPS, not answers. Evidence blocks group triples by entity: 'h --rel--> t1 | t2' merges tails, 'h1 | h2 --rel--> t' merges heads. m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; use their named ATTRIBUTES (actor, character, office holder, jurisdiction), shown inline in brackets. Discriminator attributes (dates, incumbent) appear as their own edges — compare them to pick. Pick the next center FROM these triples.
-relation_expansion: {'government.politician.government_positions_held': {'direct': ['government.politician.government_positions_held'], 'bridge': ['government.government_position_held.jurisdiction_of_office', 'government.governmental_jurisdiction.governing_officials', 'people.person.nationality']}}
-anchor_sequence: Ethiopian birr ⭢ currency.countries_used | country.currency_used (1) ⭢ government.government_for | government_position_held.jurisdiction_of_office | governmental_jurisdiction.governing_officials | person.nationality (0)
-layer_action: extend
-```
-(送评归属文本: 6 行 = 本块独有新边; 其余行为上一轮已走路径的重渲染,已按三元组归属移除)
-◆ 旧标记: cls=effective d=0.1368 l=0.1368 f=0.3393 N=0.944 g=★ lineage=- necessary=n/a
-◆ RSCC: p 0.7388 → 移除后 0.3502  Δp=-0.3886 (-52.6%)  ratio=0.474 → 保留  [结构: necessary=n/a pathway=ethiopian birr]
-
-── RSCC 倒序收缩逐步概率迹（概率变化 + 结构必要性）──
-  初始状态: p=0.7195 (块 [0, 1])
-  块#0 [Ethiopian birr] 结构=n/a(通路未达): p 0.7195 → 0.7388  Δp=0.01929 (+2.7%)  ratio=1.027 ⇒ Redundant-valid → 移除
-  块#1 [Ethiopia] 结构=n/a(通路未达): p 0.7388 → 0.3502  Δp=-0.3886 (-52.6%)  ratio=0.474 ⇒ Informative → 保留
-  终态 p=0.7388 (整体变化 +2.7%)
-  双通道小结: 结构必要块=无 | 概率移除块=['0'] | 两通道无冲突
 
