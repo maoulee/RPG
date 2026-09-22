@@ -1,0 +1,615 @@
+{
+ "WebQTest-1379_255da87c2560e4248091e82a1c0686c5|s0": {
+  "gold": [
+   "Priest"
+  ],
+  "n_blocks": 3,
+  "branches": {
+   "franz liszt": [
+    0,
+    1,
+    2
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "franz liszt",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": true,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": -0.008913805733511245,
+    "p_ref": 0.010391900317243427,
+    "p_cf": 0.0228027038607793,
+    "ratio": 2.194276615889247,
+    "d_rscc": -0.012410803543535872,
+    "removed": true
+   },
+   "1": {
+    "branch": "franz liszt",
+    "idx": 11,
+    "necessary": "no",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": -0.005611140850773875,
+    "p_ref": 0.004780759466469552,
+    "p_cf": 0.009300774486077261,
+    "ratio": 1.9454596181442287,
+    "d_rscc": -0.004520015019607709,
+    "removed": true
+   },
+   "2": {
+    "branch": "franz liszt",
+    "idx": 17,
+    "necessary": "no",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": 0.0027091353428070823,
+    "p_ref": 0.004780759466469552,
+    "p_cf": 0.0018261004091024353,
+    "ratio": 0.38196868550070684,
+    "d_rscc": 0.002954659057367117,
+    "removed": false
+   }
+  },
+  "p0": null,
+  "pF": 0.004780759466469552,
+  "pGstar": 0.025195884298450825
+ },
+ "WebQTest-1797_2fb9e2823ccf35d2103fa8846d6f2ca8|s1": {
+  "gold": [
+   "John C. Pemberton"
+  ],
+  "n_blocks": 1,
+  "branches": {
+   "siege of vicksburg": [
+    0
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "siege of vicksburg",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": 0.33676538532589556,
+    "p_ref": 0.44945982873483825,
+    "p_cf": 0.11738298925519842,
+    "ratio": 0.26116458413116445,
+    "d_rscc": 0.33207683947963984,
+    "removed": false
+   }
+  },
+  "p0": null,
+  "pF": 0.4576576795836226,
+  "pGstar": null
+ },
+ "WebQTrn-567_11fd073d11dbb5448b6e6ef3f85999f1|s0": {
+  "gold": [
+   "The Journey"
+  ],
+  "n_blocks": 3,
+  "branches": {
+   "ron howard": [
+    0,
+    1,
+    2
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "ron howard",
+    "idx": 5,
+    "necessary": "n/a",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": 1.8993880804265e-05,
+    "p_ref": 0.00017067792533960127,
+    "p_cf": 8.417444868794491e-05,
+    "ratio": 0.4931771259842849,
+    "d_rscc": 8.650347665165636e-05,
+    "removed": false
+   },
+   "1": {
+    "branch": "ron howard",
+    "idx": 9,
+    "necessary": "n/a",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": -3.18607896633437e-05,
+    "p_ref": 0.00017067792533960127,
+    "p_cf": 0.00012639498206863233,
+    "ratio": 0.740546745088105,
+    "d_rscc": 4.428294327096894e-05,
+    "removed": false
+   },
+   "2": {
+    "branch": "ron howard",
+    "idx": 17,
+    "necessary": "n/a",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": -3.371763397429155e-05,
+    "p_ref": 0.00014114480539363812,
+    "p_cf": 0.00017067792533960127,
+    "ratio": 1.2092398644328308,
+    "d_rscc": -2.9533119945963145e-05,
+    "removed": true
+   }
+  },
+  "p0": null,
+  "pF": 0.00014114480539363812,
+  "pGstar": 0.0001776594483533993
+ },
+ "WebQTrn-567_df97b91c1a9dfe15bdad689feb59f791|s0": {
+  "gold": [
+   "Village of the Giants"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "ron howard": [
+    0,
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "ron howard",
+    "idx": 5,
+    "necessary": "n/a",
+    "lineage": true,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": -0.03062522446732021,
+    "p_ref": 0.03699377098339007,
+    "p_cf": 0.05838829584623417,
+    "ratio": 1.5783277642187405,
+    "d_rscc": -0.0213945248628441,
+    "removed": true
+   },
+   "1": {
+    "branch": "ron howard",
+    "idx": 9,
+    "necessary": "n/a",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": 0.0328172983833947,
+    "p_ref": 0.03699377098339007,
+    "p_cf": 0.003983200993274943,
+    "ratio": 0.10767220770932952,
+    "d_rscc": 0.03301056999011513,
+    "removed": false
+   }
+  },
+  "p0": null,
+  "pF": 0.03657692444394956,
+  "pGstar": 0.06525010164748868
+ },
+ "WebQTrn-2784_b64250ae3c9d6c724133d09dad5593ec|s2": {
+  "gold": [
+   "Poetic Justice"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "tupac shakur": [
+    0
+   ],
+   "kirk m petruccelli": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "tupac shakur",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": -0.07273517643516292,
+    "p_ref": 0.6299220510154641,
+    "p_cf": 0.6968699129257269,
+    "ratio": 1.1062795972967443,
+    "d_rscc": -0.06694786191026281,
+    "removed": true
+   },
+   "1": {
+    "branch": "kirk m petruccelli",
+    "idx": 9,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": 0.00827604397581494,
+    "p_ref": 0.7054860606082421,
+    "p_cf": 0.013058910913504498,
+    "ratio": 0.018510515859442526,
+    "d_rscc": 0.6924271496947376,
+    "removed": false
+   }
+  },
+  "p0": null,
+  "pF": 0.6327508841730792,
+  "pGstar": 0.6968699129257269
+ },
+ "WebQTrn-21_6671d5347b1b3cfe482cf5894cc6a05a|s0": {
+  "gold": [
+   "Hailemariam Desalegn"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "ethiopian birr": [
+    0,
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "ethiopian birr",
+    "idx": 5,
+    "necessary": "n/a",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": 0.008839793717144717,
+    "p_ref": 0.7765155320018485,
+    "p_cf": 0.7601111729099658,
+    "ratio": 0.9788743966915994,
+    "d_rscc": 0.01640435909188276,
+    "removed": true
+   },
+   "1": {
+    "branch": "ethiopian birr",
+    "idx": 9,
+    "necessary": "n/a",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": 0.1458397282908176,
+    "p_ref": 0.7765155320018485,
+    "p_cf": 0.6301116738916935,
+    "ratio": 0.8114604897435503,
+    "d_rscc": 0.146403858110155,
+    "removed": false
+   }
+  },
+  "p0": null,
+  "pF": 0.7759514021825111,
+  "pGstar": 0.7601111729099658
+ },
+ "WebQTrn-2209_c1374f388d9cc7a78365860c91218362|s0": {
+  "gold": [
+   "1957 NBA Finals",
+   "1964 NBA Finals",
+   "1966 NBA Finals",
+   "1968 NBA Finals",
+   "1969 NBA Finals",
+   "1974 NBA Finals",
+   "1981 NBA Finals",
+   "1984 NBA Finals"
+  ],
+  "n_blocks": 3,
+  "branches": {
+   "brad stevens": [
+    0,
+    1,
+    2
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "brad stevens",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": 0.043508699755419156,
+    "p_ref": 0.4243743790267751,
+    "p_cf": 0.3998634992525475,
+    "ratio": 0.9422423195518098,
+    "d_rscc": 0.024510879774227612,
+    "removed": true
+   },
+   "1": {
+    "branch": "brad stevens",
+    "idx": 9,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": 0.0059182555193758035,
+    "p_ref": 0.4295345576930064,
+    "p_cf": 0.42549523064183076,
+    "ratio": 0.990596037085187,
+    "d_rscc": 0.004039327051175656,
+    "removed": true
+   },
+   "2": {
+    "branch": "brad stevens",
+    "idx": 15,
+    "necessary": "no",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": 0.13641835165285426,
+    "p_ref": 0.4295345576930064,
+    "p_cf": 0.2945238034967056,
+    "ratio": 0.6856812757477952,
+    "d_rscc": 0.13501075419630082,
+    "removed": false
+   }
+  },
+  "p0": null,
+  "pF": 0.42990804666174454,
+  "pGstar": 0.3973639067111128
+ },
+ "WebQTrn-2316_b8e16d5f4985c5ab2a3c75e7bc8c9e1a|s0": {
+  "gold": [
+   "Pablo Picasso"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "feu de joie": [
+    0,
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "feu de joie",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": 0.21539933317793147,
+    "p_ref": 0.4176383534855123,
+    "p_cf": 0.005592166113374921,
+    "ratio": 0.013389972608367998,
+    "d_rscc": 0.4120461873721374,
+    "removed": false
+   },
+   "1": {
+    "branch": "feu de joie",
+    "idx": 12,
+    "necessary": "no",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": -0.1721414607106733,
+    "p_ref": 0.24612741358730178,
+    "p_cf": 0.4410710742217727,
+    "ratio": 1.7920436728000806,
+    "d_rscc": -0.19494366063447094,
+    "removed": true
+   }
+  },
+  "p0": null,
+  "pF": 0.24549689277483902,
+  "pGstar": 0.4176383534855123
+ },
+ "WebQTrn-1731_4eea981607dbe17b040580ce4cd93ec4|s0": {
+  "gold": [
+   "Bass guitar",
+   "Vocals"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "randy jackson": [
+    0
+   ],
+   "eclipse tour": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "randy jackson",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": 0.05088983920702993,
+    "p_ref": 0.05748699515625196,
+    "p_cf": 0.000277595568274863,
+    "ratio": 0.00482884115825409,
+    "d_rscc": 0.0572093995879771,
+    "removed": false
+   },
+   "1": {
+    "branch": "eclipse tour",
+    "idx": 11,
+    "necessary": "n/a",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": -0.13392846832600547,
+    "p_ref": 0.051151263922771674,
+    "p_cf": 0.18507769178649028,
+    "ratio": 3.618242788016365,
+    "d_rscc": -0.1339264278637186,
+    "removed": true
+   }
+  },
+  "p0": null,
+  "pF": 0.05116694337807042,
+  "pGstar": 0.1850954117040759
+ },
+ "WebQTrn-2784_b64250ae3c9d6c724133d09dad5593ec|s0": {
+  "gold": [
+   "Poetic Justice"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "tupac shakur": [
+    0
+   ],
+   "kirk m petruccelli": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "tupac shakur",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": 0.08570980159086716,
+    "p_ref": 0.6194048354810843,
+    "p_cf": 0.5406203173344069,
+    "ratio": 0.8728060976703768,
+    "d_rscc": 0.07878451814667742,
+    "removed": false
+   },
+   "1": {
+    "branch": "kirk m petruccelli",
+    "idx": 10,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": 0.21714703130134894,
+    "p_ref": 0.6194048354810843,
+    "p_cf": 0.4253524510513816,
+    "ratio": 0.6867115441890528,
+    "d_rscc": 0.19405238442970268,
+    "removed": false
+   }
+  },
+  "p0": null,
+  "pF": 0.6312657675451958,
+  "pGstar": null
+ },
+ "WebQTest-626_01ad90831a03b6c5ef17898ccd80a639|s0": {
+  "gold": [
+   "Kansas"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "tempus unbound": [
+    0
+   ],
+   "missouri river": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "tempus unbound",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": 0.1347575809258802,
+    "p_ref": 0.13627439871641733,
+    "p_cf": 0.0010474733183817274,
+    "ratio": 0.007686501120151599,
+    "d_rscc": 0.1352269253980356,
+    "removed": false
+   },
+   "1": {
+    "branch": "missouri river",
+    "idx": 9,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": -0.11906520400506701,
+    "p_ref": 0.13627439871641733,
+    "p_cf": 0.2739958471170613,
+    "ratio": 2.010618646626634,
+    "d_rscc": -0.137721448400644,
+    "removed": true
+   }
+  },
+  "p0": null,
+  "pF": 0.1359688289444587,
+  "pGstar": 0.24885310268906105
+ },
+ "WebQTrn-2576_872253e47dd6ddaa213ff31eeda8783b|s0": {
+  "gold": [
+   "Americas"
+  ],
+  "n_blocks": 3,
+  "branches": {
+   "falkland islands": [
+    0,
+    1,
+    2
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "falkland islands",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": true,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": -0.017529542543488347,
+    "p_ref": 0.02117047326578076,
+    "p_cf": 0.027774174034215778,
+    "ratio": 1.3119297658361289,
+    "d_rscc": -0.0066037007684350175,
+    "removed": true
+   },
+   "1": {
+    "branch": "falkland islands",
+    "idx": 9,
+    "necessary": "no",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": -0.006693937369494437,
+    "p_ref": 0.016310459708496827,
+    "p_cf": 0.02117047326578076,
+    "ratio": 1.2979691341717452,
+    "d_rscc": -0.004860013557283934,
+    "removed": true
+   },
+   "2": {
+    "branch": "falkland islands",
+    "idx": 13,
+    "necessary": "no",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": 0.0012621777418229587,
+    "p_ref": 0.016310459708496827,
+    "p_cf": 0.012164573399552714,
+    "ratio": 0.7458142576579653,
+    "d_rscc": 0.004145886308944113,
+    "removed": false
+   }
+  },
+  "p0": null,
+  "pF": 0.014476535896286323,
+  "pGstar": 0.027915964831419057
+ }
+}
