@@ -1,5 +1,16 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-22 被拦 case 回填+RSCC P2 启动:局部重跑代替全量,四臂全量运行中
+- **user 裁定**:不重跑全量,只更新被 off-pool 拦过的 case 轨迹。
+  被拦 3 case(2209×2/1923×1/1379×2 共 5 采样)重跑回填;
+  **1379-s0 恢复 Priest 1.0(池修复直接收益)**;2209-s1/1379-s1 采样
+  摆失(1→0);更新后 v23_final=0.6616/74.3%/NONE15。
+- **RSCC P2**:rscc_credit 重构为四臂(Reverse/Forward/Random×3seed
+  多数票/Static LOO,同规则:空块移除/结构优先/绝对 Δp/V3 护栏),
+  d_fwd/d_rand/rand_removed 入模块记录;全量 144 轨迹后台运行中
+  (reports/v23_final_48x3.json 打分,logs/rscc_p2.log)。
+
+
 ### 2026-09-22 池收割修正(结构化,user 复核):三元组记录为准,不解析文本
 - **user 复核**:修复不能用文本层解析(渲染/解析都有边角问题),要用
   文本层对应的**三元组信息**含 CVT 展开信息。
