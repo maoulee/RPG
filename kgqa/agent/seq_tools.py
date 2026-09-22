@@ -3823,6 +3823,9 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     # forward validation enforces path consistency and reach stops needing
     # bridges-as-termini.
     _multistep = {}
+    _ms_cov = {}                 # (center_idx, pattern) -> step coverage
+    _ast = {}                    # anchor tree layers (guarded: REL_SEQ may be off)
+    _root_of = {}
     # UNCONDITIONAL INIT (crash fix 2026-09-19): the return at the end of
     # _sg_prepare references these unconditionally; they used to be born
     # inside the SEQ_MULTISTEP block, so SEQ_MULTISTEP=0 (e.g. replay
@@ -4066,22 +4069,35 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                     _multistep[_ci] = _declared[_ci]
                     continue
                 _sem = os.environ.get("SEQ_PAT_SEMANTIC", "1") == "1"
-                _der = _derive_multistep_seq(
-                    _ix, ctx, _ci, _fam, topk=0 if _sem else 3)
+                # STEP-COVERAGE (user ruling 2026-09-22): the ranking's
+                # PRIMARY key is how many of the anchor tree's accumulated
+                # step relation-sets the pattern path hits — a pattern
+                # covering step1 AND step2 outranks one covering only
+                # step2; semantics rank WITHIN equal coverage. Hit count
+                # counts STEPS, never entities.
+                _steps_now = None
+                _root = _root_of.get(_ci, _ci) if isinstance(_root_of, dict) else _ci
+                _steps_now = (_ast.get(_root) if isinstance(_ast, dict) else None)
+                _der, _der_cov = _derive_multistep_seq(
+                    _ix, ctx, _ci, _fam, topk=0 if _sem else 3,
+                    steps=_steps_now)
                 if _der:
                     _multistep[_ci] = _der
+                    for _pk, _cv in (_der_cov or {}).items():
+                        _ms_cov[(_ci, _pk)] = _cv
         except Exception:
             _multistep = {}
     return {"kind": "sg", "corr": bad_name, "centers": centers, "skipped": skipped,
             "rel_idxs": rel_idxs, "rel_names": rel_names, "fid": fid,
             "entities": entities, "nudge": _nudge, "attr_expansion": _fam_echo,
             "prefix": _prefix, "var_name": _var_name, "multistep": _multistep,
+            "multistep_cov": _ms_cov,
             "anchor_seq": _seq_echo, "cont_compare": _cont_compare,
             "cont_frontier": _cont_frontier, "layer_action": _layer_action,
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
-def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
+def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3, steps=None):
     """PATTERN-LEVEL enumeration (user design 2026-09-11, corrected): distinct
     relation-sequences (r1, …, rk→family) from ci — pure relation pairs, not
     entity BFS. One hop = the pattern set; GTE/support ranks within the same
@@ -4200,8 +4216,18 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
                             continue
                         if node2 in ix.fwd[f] or node2 in ix.rev[f]:
                             patterns.add((r1, r2, f))
+    # STEP COVERAGE (user ruling 2026-09-22): primary rank = number of the
+    # tree's accumulated step relation-SETS the pattern hits (step1 then
+    # step2 beats step2-only); semantics rank within equal coverage (B
+    # phase). Counting STEPS, never entities.
+    def _cov(pk):
+        if not steps:
+            return 0
+        return sum(1 for st in steps
+                   if any(r in st for r in pk))
+    cov = {pk: _cov(pk) for pk in patterns}
     if not patterns:
-        return None
+        return None, None
     # ORDERING: (hops, name) — length first, semantics second (B phase);
     # support never influences selection.
     # ENUMERATION CEILING (user audit 2026-09-19): topk=0 (semantic mode)
@@ -4213,7 +4239,7 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3):
     _cap = max(topk, 0) or 60
     ranked = sorted(patterns, key=lambda p: (len(p), p))[:_cap]
     out = {p: tuple(frozenset([r]) for r in p) for p in ranked}
-    return out
+    return out, cov
 
 
 # ───────────────── RECONSTRUCTION LANE (user ruling 2026-09-19) ─────────────────
@@ -4577,15 +4603,22 @@ async def _sg_execute(treq, ctx, session):
                          for i, r in enumerate(_rows or [])}
             _sel = {}
             _per_term = {}
-            # ranking = length first, then GTE semantics (user ruling
-            # 2026-09-13); 顺延 = walk down the ranking until the quota
-            # fills. QUOTA IS PER SUBMITTED TERMINAL RELATION (user ruling
-            # 2026-09-13, Charlie-Hunnam specimen: two submitted relations
-            # must EACH get their share — a per-center quota let one
-            # relation's patterns crowd the other out entirely)
+            _cov = treq.get("multistep_cov") or {}
+            # ranking = STEP COVERAGE first (user ruling 2026-09-22: a
+            # pattern hitting step1 AND step2 outranks one hitting only
+            # step2 — layer-2 calls have no direct connection so multi-hop
+            # is the norm and through-chain coverage is the signal), then
+            # GTE semantics WITHIN equal coverage, then length; 顺延 = walk
+            # down the ranking until the quota fills. QUOTA IS PER
+            # SUBMITTED TERMINAL RELATION (user ruling 2026-09-13,
+            # Charlie-Hunnam specimen: two submitted relations must EACH
+            # get their share — a per-center quota let one relation's
+            # patterns crowd the other out entirely)
             for (_ci, _s) in sorted(
                     _cmap,
-                    key=lambda k: (len(_cmap[k]), _rank.get(k[1], 999), k[1], k[0])):
+                    key=lambda k: (-_cov.get(k, 0),
+                                   _rank.get(k[1], 999),
+                                   len(_cmap[k]), k[1], k[0])):
                 _term = _cmap[(_ci, _s)][-1]     # terminal relation idx
                 n = _per_term.get((_ci, _term), 0)
                 if n >= 3:
