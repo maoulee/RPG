@@ -2150,6 +2150,48 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
     pool = list(getattr(ctx, "all_candidates", []) or [])
     pool += [e for e in (getattr(ctx, "walk_seen_entities", []) or [])
              if e not in pool]
+    # DISPLAY HARVEST (user ruling 2026-09-22, 1379-s0 specimen): every
+    # entity that APPEARED in the displayed evidence — edge endpoints AND
+    # CVT bracket attribute values — is a legal answer. The off-pool
+    # check's core purpose is barring content OUTSIDE the evidence; the
+    # model can only answer what it SAW, so the display itself is the
+    # authority. The walk-side pools demonstrably missed same-edge values
+    # (the specimen: one rendered profession line carried Composer AND
+    # Priest; Composer was pool-legal, Priest off-pool — the model's
+    # CORRECT answer was rejected and it re-answered a wrong pool member).
+    import re as _re_hv
+    _harv = set()
+    for _m in (getattr(ctx, "trajectory", None) or []):
+        if not isinstance(_m, dict) or _m.get("role") != "tool":
+            continue
+        _c = _m.get("content") or ""
+        for _ln in _c.split("\n"):
+            if ("-->" not in _ln and "──" not in _ln
+                    and not _ln.startswith("entities:")):
+                continue
+            # CVT bracket attribute values first: k: v pairs → v (the
+            # attribute entities themselves are legal)
+            for _bm in _re_hv.finditer(r"\[([^\]]+)\]", _ln):
+                for _part in _bm.group(1).split(";"):
+                    _v = _part.split(":", 1)[1] if ":" in _part else _part
+                    for _tok in _v.split("|"):
+                        _tok = _tok.strip()
+                        if 1 < len(_tok) < 80 and _tok[:2] not in ("m.", "g."):
+                            _harv.add(_tok)
+            # line endpoints: strip brackets, drop the arrow's relation
+            # segment, split on the separators
+            _core = _re_hv.sub(r"\[[^\]]+\]", " ", _ln.split("note:")[0])
+            _core = _re_hv.sub(r"--[^>-]*-->", " ", _core)
+            for _chunk in _re_hv.split(r"\||──|⭢|:", _core):
+                _tok = _chunk.strip(" ──›\t>*-")
+                if (_tok.startswith(("entities", "fact_id", "triples",
+                                     "relations", "center"))
+                        or not (1 < len(_tok) < 80)
+                        or _tok[:2] in ("m.", "g.") or "…" in _tok
+                        or "..." in _tok):
+                    continue
+                _harv.add(_tok)
+    pool += [e for e in _harv if e not in pool]
     if entities and pool:
         offpool = [e for e in entities if not candidate_hit(pool, [e])]
         if offpool:
