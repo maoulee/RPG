@@ -1,5 +1,18 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-22 打分偏差诊断(2316 标本,user 点出):合取题无推理惩罚+桥接句采纳
+- **现象**:2316 答对(首边即 gold)pF 仅 0.143;2784 反例答错时曾 0.63
+  ——证据充分性排序失真。
+- **三因量化**:①teacher-forcing 无 CoT 空间,合取题最伤(交集算不了);
+  ②gold token 稀有度/长度偏置(Pablo vs Poetic)——**跨轨迹 pF 不可比**;
+  ③per-token 几何均值语义(0.143/token=整串 2%)。
+- **桥接句采纳**(口径尾部加"evidence sufficient; answer = entity
+  satisfying ALL conditions"):2316 per-token 0.143→0.283(+98%),
+  整串 2%→8%;2784 0.52→0.60。合取惩罚减半。
+- **使用规则**:pF/p0 只做**轨迹内**相对比较(同 gold 消除 token 偏置);
+  P2 四臂判决全部轨迹内,结论不变。
+
+
 ### 2026-09-22 RSCC P2 四臂全量判决(f8156cc):价值中心=结构通道,顺序臂收敛
 - **判决(specs/rscc_p2_report_2026-09-22.md)**:144 轨迹 317 块。
   ①gold 承答块 209 个中 **190(91%) necessary=yes 被结构通道保护**
