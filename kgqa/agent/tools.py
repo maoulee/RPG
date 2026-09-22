@@ -2150,48 +2150,34 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
     pool = list(getattr(ctx, "all_candidates", []) or [])
     pool += [e for e in (getattr(ctx, "walk_seen_entities", []) or [])
              if e not in pool]
-    # DISPLAY HARVEST (user ruling 2026-09-22, 1379-s0 specimen): every
-    # entity that APPEARED in the displayed evidence — edge endpoints AND
-    # CVT bracket attribute values — is a legal answer. The off-pool
-    # check's core purpose is barring content OUTSIDE the evidence; the
-    # model can only answer what it SAW, so the display itself is the
-    # authority. The walk-side pools demonstrably missed same-edge values
-    # (the specimen: one rendered profession line carried Composer AND
-    # Priest; Composer was pool-legal, Priest off-pool — the model's
-    # CORRECT answer was rejected and it re-answered a wrong pool member).
-    import re as _re_hv
-    _harv = set()
-    for _m in (getattr(ctx, "trajectory", None) or []):
-        if not isinstance(_m, dict) or _m.get("role") != "tool":
-            continue
-        _c = _m.get("content") or ""
-        for _ln in _c.split("\n"):
-            if ("-->" not in _ln and "──" not in _ln
-                    and not _ln.startswith("entities:")):
+    # STRUCTURED HARVEST (user ruling 2026-09-22, revision — never parse
+    # rendered text): the pool is built from the TRIPLES the text layer
+    # renders. Sources: (a) the accumulated delivered triples — including
+    # the CVT-expansion pass-through edges; (b) the case-graph expansion
+    # around every delivered CVT node — the structured form of the bracket
+    # attribute values the renderer shows. Origin: 1379-s0, where the
+    # walk-side pool missed a same-edge value (Composer legal, Priest
+    # off-pool on ONE rendered profession line) — the delivered-triple
+    # record is the authority the display renders from.
+    from kgqa.traversal.cvt import is_cvt_like as _icl_hv
+    _named_extra, _cvts = set(), set()
+    for _h, _r, _t in (getattr(ctx, "accumulated_triples", None) or set()):
+        for _x in (_h, _t):
+            _xs = str(_x) if _x is not None else ""
+            if not _xs:
                 continue
-            # CVT bracket attribute values first: k: v pairs → v (the
-            # attribute entities themselves are legal)
-            for _bm in _re_hv.finditer(r"\[([^\]]+)\]", _ln):
-                for _part in _bm.group(1).split(";"):
-                    _v = _part.split(":", 1)[1] if ":" in _part else _part
-                    for _tok in _v.split("|"):
-                        _tok = _tok.strip()
-                        if 1 < len(_tok) < 80 and _tok[:2] not in ("m.", "g."):
-                            _harv.add(_tok)
-            # line endpoints: strip brackets, drop the arrow's relation
-            # segment, split on the separators
-            _core = _re_hv.sub(r"\[[^\]]+\]", " ", _ln.split("note:")[0])
-            _core = _re_hv.sub(r"--[^>-]*-->", " ", _core)
-            for _chunk in _re_hv.split(r"\||──|⭢|:", _core):
-                _tok = _chunk.strip(" ──›\t>*-")
-                if (_tok.startswith(("entities", "fact_id", "triples",
-                                     "relations", "center"))
-                        or not (1 < len(_tok) < 80)
-                        or _tok[:2] in ("m.", "g.") or "…" in _tok
-                        or "..." in _tok):
-                    continue
-                _harv.add(_tok)
-    pool += [e for e in _harv if e not in pool]
+            if _icl_hv(_xs):
+                _cvts.add(_xs)
+            else:
+                _named_extra.add(_xs)
+    if _cvts:
+        _adj_hv = _full_adj(ctx)
+        for _cv in _cvts:
+            for _r2, _w in _adj_hv.get(_cv, ()):
+                _wn = ctx.ents[_w] if 0 <= _w < len(ctx.ents) else ""
+                if _wn and not _icl_hv(str(_wn)):
+                    _named_extra.add(str(_wn))
+    pool += [e for e in _named_extra if e not in pool]
     if entities and pool:
         offpool = [e for e in entities if not candidate_hit(pool, [e])]
         if offpool:
