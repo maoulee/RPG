@@ -1728,11 +1728,30 @@ class SeqReactCase:
                 # prevented the tail-side signal from EVER firing).
                 self.ctx._analysis_pending = False
                 self.ctx._analysis_done = True
-                self.messages.append({"role": "user", "content":
-                    "ANSWER_READY — submit the final answer now from your analysis. "
-                    "COUNT CONTRACT: CASE A = ALL fully-supported; CASE B = single best. "
-                    "(FINAL_BINDINGS, then the answer call). Flat format:\n"
-                    "tool: answer\nentities: A | B"})
+                # ANSWER_READY PING-PONG GUARD (user review 2026-09-22,
+                # 2576-s0 specimen): a model holding a NONE belief can loop
+                # ANSWER_ANALYSIS ↔ ANSWER_READY until the round cap WITHOUT
+                # ever calling `tool: answer` — dodging the refusal ladder
+                # entirely (it only intercepts answer calls). Program-state
+                # fact: N consecutive analyses with zero answer calls. On
+                # the 3rd bounce, escalate to a fill-in template that makes
+                # the tool call the ONLY next move (NONE included — the
+                # ladder then handles it).
+                self._answer_ready_n = getattr(self, "_answer_ready_n", 0) + 1
+                if self._answer_ready_n >= 3:
+                    _msg = ("ANSWER_READY (3rd analysis with NO answer call — "
+                            "further analysis turns will be rejected). Emit "
+                            "NOW, and nothing else, exactly this form:\n"
+                            "tool: answer\nentities: <your FINAL_BINDINGS "
+                            "values separated by | >\n(or entities: NONE if "
+                            "the ledger truly holds zero bindings — the "
+                            "environment will process that submission)")
+                else:
+                    _msg = ("ANSWER_READY — submit the final answer now from your analysis. "
+                            "COUNT CONTRACT: CASE A = ALL fully-supported; CASE B = single best. "
+                            "(FINAL_BINDINGS, then the answer call). Flat format:\n"
+                            "tool: answer\nentities: A | B")
+                self.messages.append({"role": "user", "content": _msg})
                 self.ctx.trajectory.append({"role": "tool", "content": "ANSWER_READY signal"})
                 self._last_tool_sig = None; self._tool_repeat = 0
                 return {"ret": "continue"}
