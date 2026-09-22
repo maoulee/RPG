@@ -1,5 +1,15 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-22 池完备性修复(98ed878,user 裁定:显示层收割):off-pool 放宽到证据出现实体+CVT 属性值
+- **裁定**:off-pool 的核心=不让模型用**证据外**内容回答;池=证据(渲染)
+  出现的所有实体+CVT 括号属性实体本身;且 Composer/Priest 同一条边不
+  可能一在池一不在——1379-s0 实证:同一渲染行 person.profession-->
+  Composer|...|Pianist|Priest,走层池只收了 Composer,模型答对的
+  Priest 被拒、被迫改答池内 Composer。
+- **修**:answer 池构建加**显示层收割**(trajectory tool 消息的证据行
+  端点+CVT 括号 k:v 值,剥 m./g. 中位、截断标记)。同行值天然对称。
+  实测:1379 调用序列下 answer Priest 直接过。153 绿。
+
 ### 2026-09-22 终跑判决(v23_final,06e7f15 后):0.6686/75.0% 平手,目标家族大胜,两新伤亡待修
 - **结果**:mean f1 0.6686 / hit 75.0% / NONE 15 / turns 8.0 / failed 0
   (对照 v23_unified 0.6832/76.4%/NONE18;基线 0.7177/81.9%)。机制触发:
