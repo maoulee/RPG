@@ -3835,30 +3835,45 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
         try:
             from kgqa.traversal.pattern_walk import get_pattern_index
             _ix = get_pattern_index(ctx)
-            # derivation FAMILY = the MATCHED relations only (bridges expanded
-            # into rel_idxs under BT1 must not become pattern terminals)
+            # PATTERN FAMILY = the SUBMITTED relations, resolved by name
+            # (user ruling 2026-09-22, design realignment): single-hop
+            # paths are DIRECTLY PERCEIVABLE — a full submitted name
+            # resolves to itself, and the derivation enumerates 1..3-hop
+            # realizable sequences ending in a submitted relation, ranked
+            # by (length, semantics). The expansion's direct/bridge BUCKETS
+            # are name-resolution + reachability machinery for the WALK
+            # layer; they must never feed the pattern layer (the 567
+            # specimen: 'film.director.film | film.film.directed_by'
+            # expanded to a 7-relation pool whose bridge relations became
+            # pattern terminals → 60 enumerated patterns, 20+ rendered —
+            # vs the design's direct + ≤3/terminal ≈ a handful).
+            # Resolution precedence: (1) exact full name; (2) family/bare
+            # name → the expansion's direct members (the bucket's intended
+            # use — typed groups and bare attributes have no exact match);
+            # (3) short-name equivalence. Bridges are never terminals.
             _matched = set()
-            _echoed = set()
-            _submitted_names_cache = list(rel_names)
-            for _rs, _exp in (_fam_echo or {}).items():
-                _echoed.add(str(_rs))
-                for _dn in (_exp.get("direct") or []):
-                    if _dn in ctx.rels:
-                        _matched.add(ctx.rels.index(_dn))
-            # echo-less submissions (full names with no bridges attached —
-            # Charlie-Hunnam specimen: 'tv.tv_actor.starring_roles' never
-            # echoed, so the SECOND submitted relation vanished from the
-            # pattern family entirely) match by name directly
             _l1 = lambda rn: str(rn).rsplit(".", 1)[-1]
-            for _rs in _submitted_names_cache:
-                if str(_rs) in _echoed:
-                    continue
+            _resolved_any = False
+            for _rs in [str(r) for r in (args.get("relations") or [])]:
                 for _ri, _rn in enumerate(ctx.rels):
-                    if (str(_rn) == str(_rs) or _l1(_rn) == str(_rs)
-                            or _l1(_rs) == _l1(_rn)):
+                    if str(_rn) == _rs:
                         _matched.add(_ri)
+                        _resolved_any = True
                         break
-            _fam = _matched or set(rel_idxs)
+                else:
+                    _exp = (_fam_echo or {}).get(_rs) or {}
+                    _got = False
+                    for _dn in (_exp.get("direct") or []):
+                        if _dn in ctx.rels:
+                            _matched.add(ctx.rels.index(_dn))
+                            _got = _resolved_any = True
+                    if not _got:
+                        for _ri, _rn in enumerate(ctx.rels):
+                            if _l1(_rn) == _rs or _l1(_rs) == _l1(_rn):
+                                _matched.add(_ri)
+                                _resolved_any = True
+                                break
+            _fam = _matched if _resolved_any else set(rel_idxs)
             # RELATION-SEQUENCE ACCUMULATION (SEQ_REL_SEQ, user ruling
             # 2026-09-15: DEFAULT-ON TREE CONTINUATION): accumulation is a
             # SYSTEM behavior, not a call form the model opts into. A call
