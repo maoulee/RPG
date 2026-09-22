@@ -410,6 +410,30 @@ def validate(state: SeqAgentState, tool_calls, ready: bool = False,
     # ── RETRIEVE: retrieve_relations / retrieve_subgraph / answer ──
     if state.state == RETRIEVE:
         if name == "retrieve_relations":
+            # RR PER-CENTER BUDGET (user ruling 2026-09-22, cap 3): the
+            # retrieve_relations call is deterministic (same center +
+            # question → same GTE candidate list) and used to be entirely
+            # unmetered — the repeat audit found trajectories burning 4+
+            # identical rr calls on one center (2576-s2) while the sg budget
+            # had no lever. Count by the call's declared center; exhaustion
+            # blocks only that center's rr, with the submission-first
+            # directive of the sg budget gate.
+            _rrc = args.get("center") or args.get("entities") or []
+            if isinstance(_rrc, str):
+                _rrc = [_rrc]
+            _rc0 = str(_rrc[0]).strip() if _rrc else ""
+            if _rc0:
+                _rkey = f"rr:{_rc0.lower()[:60]}"
+                state.sg_calls[_rkey] = state.sg_calls.get(_rkey, 0) + 1
+                if state.sg_calls[_rkey] > 3:
+                    return (False, (f"retrieve_relations on center '{_rc0}' used "
+                                    f"{state.sg_calls[_rkey]} calls (budget 3 — the "
+                                    f"candidate list for one center does not change "
+                                    f"between calls). Further rr FROM THIS CENTER is "
+                                    f"rejected. NEXT: call retrieve_subgraph with "
+                                    f"relations from the candidate list you already "
+                                    f"have, or move to another center / the answer."),
+                            state)
             return (True, "", state)                       # no state change
         if name == "retrieve_subgraph":
             state.n_subgraphs += 1

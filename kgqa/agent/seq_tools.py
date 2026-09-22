@@ -4023,32 +4023,35 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             # (root, relation-set) — if already served this rollout, return
             # the cached result with a note instead of re-walking.
             _sem_key = tuple(sorted((ci, frozenset(rel_idxs))
-                                    for ci, _n in centers))
+                                    for _n, ci in centers))
             _served = getattr(ctx, "_sg_served", None)
             if _served is None:
                 _served = {}
                 ctx._sg_served = _served
             _hit = _served.get(_sem_key)
             if _hit and os.environ.get("SEQ_SEM_IDEMPOTENT", "1") == "1":
-                # CACHED EVIDENCE (Wave-2, 2026-09-20): _sg_served stores the
-                # finalize RESULT STRING (capped, see _sg_finalize), so the
-                # repeat reply carries the earlier walk's evidence inline —
-                # the model can act without the pre-restart / earlier-turn
-                # context it may no longer hold.
-                _cached = (_hit if isinstance(_hit, str) else "")[:_SG_SERVED_CAP]
+                # KEY-ORDER FIX (user review 2026-09-22, repeat-audit
+                # finding): the check used to read the centers tuple's
+                # FIRST element (the NAME) while the mark read the SECOND
+                # (the INDEX) — str vs int keys never matched, so the
+                # idempotency cache was structurally dead. Both sides now
+                # key on the center INDEX (canonical across surface forms).
+                # RESPONSE (user ruling): do NOT re-paste cached evidence —
+                # a byte-identical re-call is information-less (its scoring
+                # block is removed at evaluation time); one concise
+                # submission-first note is the whole reply.
                 _rep = {
                     "evidence_repeat": True,
-                    "note": ("This retrieval produces the SAME evidence as your "
-                             "previous call (same walk root + same relations after "
-                             "name resolution). Re-calling with different surface "
-                             "forms (typed entities vs ?variable, short vs full "
-                             "relation name) does not change the result. ACT on the "
-                             "evidence in cached_evidence below: discriminate the "
-                             "candidates from the values/dates/symbols in those "
-                             "subgraph blocks, or pick a DIFFERENT relation / move "
-                             "to the next fact.")}
-                if _cached:
-                    _rep["cached_evidence"] = _cached
+                    "note": ("This retrieval is IDENTICAL to your previous "
+                             "call (same centers + same resolved relations — "
+                             "surface-form changes do not alter it) and "
+                             "returns nothing new. The evidence from that "
+                             "call is already in your context. NEXT, one of: "
+                             "(1) discriminate the candidates using the "
+                             "values/dates/symbols already displayed; (2) "
+                             "submit the answer from the standing bindings; "
+                             "(3) pick a DIFFERENT relation or move to the "
+                             "next fact.")}
                 return {"kind": "done", "result": _json_result(_rep)}
             for _cn, _ci in centers:
                 if not (0 <= _ci < len(ctx.ents)):

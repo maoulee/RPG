@@ -943,6 +943,33 @@ those bindings is MANDATORY — an unverified constraint never empties the
 ledger. `entities: NONE` is correct ONLY when the ledger holds zero
 bindings for the answer variable AND nothing relevant was retrieved.
 
+Worked example (CASE B — discriminator UNKNOWN, bindings in hand):
+
+```text
+Question: Which country bordering France has a GDP deflator change
+rate of 0.05?
+
+Retrieved:  sg1.f1 ✓ ?country = Italy | Belgium | Germany | Spain |
+            Switzerland | Andorra | Luxembourg | Monaco | United Kingdom
+            sg1.f2 ✗ empty   (the rate relation returned no bindings)
+
+WRONG (abstention):  FINAL_BINDINGS: NONE — "no candidate is confirmed
+  to have rate 0.05". The ledger HOLDS nine bindings; an unverified
+  rate never empties it. This NONE is a protocol violation.
+WRONG (union dump):  entities: Italy | Belgium | Germany | ... | UK
+  — submitting every candidate without discriminating.
+
+RIGHT: CONSTRAINT_CHECK — the rate discriminator is UNKNOWN (closed
+  empty), not FAIL. Judge from the retrieved evidence: names carry
+  usable evidence (Andorra/Luxembourg/Monaco are the microstates whose
+  economic indicators are extreme), the smallest well-supported subset
+  wins. Submit the best-supported subset, e.g.
+  entities: Monaco   (or the tight subset the evidence favors).
+```
+
+UNKNOWN ≠ FAIL: a constraint whose fact closed empty gives no positive
+support AND no disproof — it never converts a held binding into NONE.
+
 When you submit NONE, the environment may offer one relation re-selection
 round and one case restart; a restart begins with a fresh `plan`. These
 are exploration options, not verdicts on your evidence.
