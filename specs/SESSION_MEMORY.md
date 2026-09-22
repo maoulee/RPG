@@ -1,5 +1,22 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-22 打分口径勘误+绝对判据(3f31bd2,user 两裁定):裸拼接是原始设计,协议前缀是后加偏离
+- **"答对但概率低"归因(用户提问)**:主因=打分口径被污染。实证:IG 引擎
+  原始前缀是**裸拼接** Question+Evidence+"\n\nAnswer: "+gold
+  (seq_advantage.py:289-308,380-410——用户记忆正确);8000 字协议前缀是
+  2026-09-17 score_layer_op_probs.rules_prefix 引入的偏离(把 trainer 侧
+  build_messages 的 system 截断误带进 IG 打分侧),压制 P(gold) 案例间
+  3-12.6×(1379 Priest 0.0048→0.060 裸)。chat 接口测不了(模板下首 token
+  83% 是 "Thinking",答案位无法 teacher-force)。次因:pF 是 per-token
+  几何平均(长度去偏设计),非整串概率。
+- **两裁定落地**:①判据改**绝对差距为主**(TAU_ABS=0.05,ratio 并列);
+  ②口径恢复裸拼接(RSCC_PREFIX=proto 可回旧口径)。**注意:裸口径数值
+  与 2026-09-17 以来 layer_op_probs 历史数字不可比,历史对照需重打分**。
+- **V3 全局护栏激活**(pG*<0.90×pF 整体回退=概率通道弃权):2576 微概率
+  全删案例正确回退;**1731 join 块被护栏保住(删它-10.1%)——与四代理
+  审计的人工裁决(join 连接器有价值)一致,好收敛**。
+- dump v3(裸口径+双通道逐步迹+冲突标注):specs/rscc_p1_dump_2026-09-22.md。
+
 ### 2026-09-22 四智能体行为审计(specs/behavior_audit_team_2026-09-22.md):解耦成立,误标39%,两个真bug
 - **①IG 标记词汇**:病根=结构域与概率域被级联焊死、"effective"一词三义;
   映射:necessary=yes 保留结构通道与概率分账(2576 GLN V1 冲突解法);
