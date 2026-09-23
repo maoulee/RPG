@@ -1308,6 +1308,7 @@ class SeqReactCase:
         if hit is None:
             return None
         # backtrack to the nearest A-side node, then render named hops
+        # WITH their relations — the full shortest-bridge path
         path, node = [hit], hit
         while node not in sa and node in parent:
             node = parent[node]
@@ -1316,9 +1317,17 @@ class SeqReactCase:
         named = [i for i in path if not _cvtl(i)]
         if len(named) < 2:
             return None
-        segs = [str(self.ctx.ents[i]) for i in named[:6]]
-        return " ⭢ ".join(segs) + (
-            f"  ({len(named)} named hops; walk this bridge to merge the subgraphs)")
+        segs = [str(self.ctx.ents[named[0]])]
+        for a, b in zip(named, named[1:]):
+            _rel = None
+            for rr, other in (adj[a] if 0 <= a < len(adj) else ()):
+                if other == b:
+                    _rel = str(self.ctx.rels[rr]) if 0 <= rr < len(self.ctx.rels) else ""
+                    break
+            _rs = ".".join(_rel.rsplit(".", 2)[-2:]) if _rel else "?"
+            segs.append(f" --{_rs}--> {self.ctx.ents[b]}")
+        return "".join(segs)[:600] + (
+            f"  ({len(named)-1} hop(s); walk this bridge to merge the subgraphs)")
 
     def _name_idx(self, name):
         nm = str(name)
@@ -1847,6 +1856,36 @@ class SeqReactCase:
                             "COUNT CONTRACT: CASE A = ALL fully-supported; CASE B = single best. "
                             "(FINAL_BINDINGS, then the answer call). Flat format:\n"
                             "tool: answer\nentities: A | B")
+                # PRE-ANSWER JOIN SELF-CHECK (user ruling 2026-09-23, 567
+                # specimen): the SYSTEM JOIN fires on checkpoint
+                # declarations — but a model reaching ANSWER_ANALYSIS
+                # without declaring bypasses it, so two subgraphs' pools
+                # never intersect and the rescue never runs. When ≥2
+                # fact pools exist and no join was delivered yet, run it
+                # HERE: intersect the tool-side pools (advisory result) or,
+                # empty, search the shortest bridge.
+                try:
+                    _fcp = getattr(self.ctx, "fact_candidate_pool", None) or {}
+                    if len(_fcp) >= 2 and not getattr(self.ctx, "join_flag", None) \
+                            and not getattr(self.ctx, "_join_selfcheck_done", False):
+                        self.ctx._join_selfcheck_done = True
+                        _fids = list(_fcp.keys())[:2]
+                        _sets = [set(_fcp.get(f) or ()) for f in _fids]
+                        _inter = set.intersection(*_sets) if len(_sets) == 2 else set()
+                        if _inter:
+                            _msg = (f"⌗ SYSTEM JOIN (pre-answer self-check): "
+                                    f"{_fids[0]} ∩ {_fids[1]} = "
+                                    f"[{' | '.join(sorted(_inter)[:20])}] — "
+                                    "verify against both subgraphs' triples, "
+                                    "then finalize.\n" + _msg)
+                        else:
+                            _r = self._join_path_rescue(_fids)
+                            if _r:
+                                _msg = ("⌗ SYSTEM JOIN (pre-answer self-check): "
+                                        f"{_fids[0]} ∩ {_fids[1]} = EMPTY.\n"
+                                        + _r + "\n" + _msg)
+                except Exception:
+                    pass
                 self.messages.append({"role": "user", "content": _msg})
                 self.ctx.trajectory.append({"role": "tool", "content": "ANSWER_READY signal"})
                 self._last_tool_sig = None; self._tool_repeat = 0
