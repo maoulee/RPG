@@ -2404,6 +2404,11 @@ def join_path_rescue(ctx, fids, max_hops=3, reveal=False):
             segs.append(f" --{_rs}-->")
         elif _rs == "object.name":
             continue          # id-node → same-name node, never info
+        elif not reveal and b == path[-1]:
+            # ANSWER-LEAK GUARD (user ruling 2026-09-23): the landing node
+            # IS the merge point (the answer) — the harness never reveals
+            # it. Mind-map form: full relation chain, hidden endpoint.
+            segs.append(f" --{_rs}--> ?")
         else:
             segs.append(f" --{_rs}--> {ctx.ents[b]}")
     out = "".join(segs)[:600]
