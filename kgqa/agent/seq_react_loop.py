@@ -1257,6 +1257,35 @@ class SeqReactCase:
                 return i
         return None
 
+
+    def _maybe_merge_note(self):
+        """REASONING-TIME merge note (user ruling 2026-09-23): when the
+        model starts its final reasoning (ANSWER_ANALYSIS detected) and the
+        walked pools never merged while a bridge exists, deliver the
+        EXISTENCE note ONCE as an informational message — no interruption,
+        no redo demand, no per-subgraph repetition."""
+        try:
+            ctx = self.ctx
+            if getattr(ctx, "_merge_noted", False):
+                return
+            fcp = getattr(ctx, "fact_candidate_pool", None) or {}
+            if len(fcp) < 2:
+                return
+            ks = list(fcp.keys())
+            if set(fcp.get(ks[0]) or ()) & set(fcp.get(ks[1]) or ()):
+                return
+            from kgqa.agent.tools import join_path_rescue
+            if not join_path_rescue(ctx, ks[:2]):
+                return
+            ctx._merge_noted = True
+            msg = ("NOTE (informational): your subgraphs' walked pools have "
+                   "not merged; an unretrieved connecting path EXISTS "
+                   "between their centers.")
+            self.messages.append({"role": "user", "content": msg})
+            self.ctx.trajectory.append({"role": "tool", "content": msg})
+        except Exception:
+            pass
+
     def _last_answer_entities(self) -> list:
         """Best-effort answer recovery from the trajectory, newest first:
         1. the LAST `tool: answer` call's entities arg (JSON array or flat list),
@@ -1749,6 +1778,7 @@ class SeqReactCase:
             if _diag:
                 fmt_nudge = _diag
             elif re.search(r"ANSWER_ANALYSIS", raw_response):
+                self._maybe_merge_note()
                 # The two-stage ANALYSIS turn is a LEGAL declaration, not garbage
                 # — signal READY immediately (this early-return previously
                 # prevented the tail-side signal from EVER firing).
