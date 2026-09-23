@@ -1246,6 +1246,87 @@ class SeqReactCase:
         ctx.llm_answer_str = " | ".join(ents)
         self._rescued = True
 
+    def _join_path_rescue(self, fids, max_hops=3):
+        """Shortest bridge between two subgraphs' walked endpoint sets
+        (JOIN-PATH RESCUE, user ruling 2026-09-23): bidirectional BFS over
+        the case graph from side A's pool to side B's pool; returns a
+        rendered 'A --rel--> ... --rel--> B' line, or None. CVT/id transit
+        nodes are transparent (same named-hop semantics as the pool)."""
+        if len(fids) < 2:
+            return None
+        from kgqa.agent.tools import _full_adj
+        adj = _full_adj(self.ctx)
+        n = len(self.ctx.ents)
+        import re as _re_id
+        def _cvtl(i):
+            nm = str(self.ctx.ents[i]) if 0 <= i < n else ""
+            return nm.startswith(("m.", "g.")) or (
+                len(nm) <= 24 and " " not in nm
+                and bool(_re_id.search(r"\d{2,}", nm)))
+        pools = {}
+        for _fid in fids[:2]:
+            pl = (getattr(self.ctx, "fact_candidate_pool", None) or {}).get(_fid)
+            if not pl:
+                pl = set(getattr(self.ctx, "fact_evidence", {}).get(_fid, ()))
+            if pl:
+                pools[_fid] = {self._name_idx(p) for p in pl}
+        if len(pools) < 2:
+            return None
+        (ka, sa), (kb, sb) = pools.items()
+        sa, sb = {i for i in sa if i is not None}, {i for i in sb if i is not None}
+        if sa & sb:
+            shared = sa & sb
+            return f"(pools already share: {' | '.join(str(self.ctx.ents[i]) for i in list(sorted(shared))[:5])})"
+        # BFS from A's pool, target B's pool; named-hop cost, transit free
+        parent = {}
+        seen = set(sa)
+        frontier, cost = set(sa), 0
+        hit = None
+        while frontier and cost < max_hops and hit is None:
+            nxt = set()
+            stack = list(frontier)
+            while stack:
+                i = stack.pop()
+                for _rr, other in (adj[i] if 0 <= i < len(adj) else ()):
+                    if other in seen or not (0 <= other < n):
+                        continue
+                    seen.add(other)
+                    if other in sb:
+                        parent[other] = i
+                        hit = other
+                        break
+                    if _cvtl(other):
+                        stack.append(other)
+                        parent.setdefault(other, i)
+                    else:
+                        parent[other] = i
+                        nxt.add(other)
+                if hit is not None:
+                    break
+            frontier = nxt
+            cost += 1
+        if hit is None:
+            return None
+        # backtrack to the nearest A-side node, then render named hops
+        path, node = [hit], hit
+        while node not in sa and node in parent:
+            node = parent[node]
+            path.append(node)
+        path.reverse()
+        named = [i for i in path if not _cvtl(i)]
+        if len(named) < 2:
+            return None
+        segs = [str(self.ctx.ents[i]) for i in named[:6]]
+        return " ⭢ ".join(segs) + (
+            f"  ({len(named)} named hops; walk this bridge to merge the subgraphs)")
+
+    def _name_idx(self, name):
+        nm = str(name)
+        for i, e in enumerate(self.ctx.ents):
+            if str(e) == nm:
+                return i
+        return None
+
     def _last_answer_entities(self) -> list:
         """Best-effort answer recovery from the trajectory, newest first:
         1. the LAST `tool: answer` call's entities arg (JSON array or flat list),
@@ -1690,6 +1771,21 @@ class SeqReactCase:
                           "re-retrieve the weaker side with a broader relation "
                           "set) and answer by your own discrimination; do not "
                           "dump one side's list.")
+                # JOIN-PATH RESCUE (user ruling 2026-09-23, mechanism return —
+                # the 2026-09-20 shallow-join rescue was lost in edc8004's
+                # revert): when the pools fail to intersect, the harness
+                # searches the SHORTEST BRIDGE between the two anchors'
+                # completion sets and renders it — two independent pathways
+                # that never met get their connecting evidence from the
+                # environment instead of an empty-intersection dead end.
+                try:
+                    _rescue = self._join_path_rescue(_fids)
+                    if _rescue:
+                        _j_msg += "\nJOIN-PATH RESCUE — shortest bridge " \
+                                  "between the two subgraphs' endpoints:\n" \
+                                  + _rescue
+                except Exception:
+                    pass
             self.messages.append({"role": "user", "content": _j_msg})
             self.ctx.trajectory.append({"role": "tool", "content": _j_msg})
 
