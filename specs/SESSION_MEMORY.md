@@ -11351,3 +11351,11 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   1 跳桥应命中;疑 _join_path_rescue 内异常被 except 吞或 pool 键
   (f1/sg2.f2)与 fact_candidate_pool 键不匹配)。下轮第一步:rescue 调试
   (去掉 except pass 打日志本地复现)。
+- **rescue GTE 排序+CVT 桥修复**(fa46b35):候选=落层全收集,排序=跳数优先
+  +同跳 GTE 余弦(问题 vs 关系链,同步 embed 一次性);**渲染 bug 修复**——
+  命名对直边查不到 CVT 中转桥(567:Ron Howard⭢performance CVT⭢Village 无
+  直边)导致全弃,现回溯保 CVT 段逐边关系。本地复现验证输出正确:
+  "Ron Howard --performance.actor--> --performance.film--> Village of the
+  Giants (GTE-ranked)"。**567 探针 f1=0.50 保持但真实轨迹 rescue 0 渲染**
+  ——函数级 ✓、集成触发点未到(疑 _fcp 键/时序,ANSWER_READY 分支与
+  join_flag 空交集分支的调用路径需日志),下轮第一优先。
