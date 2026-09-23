@@ -122,7 +122,14 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
             for _ch in _chains:
                 _rel_t = tuple(str(ctx.rels[_r])
                                for (_h, _r, _t) in _ch["edges"])
-                if _rel_t:
+                # FULL-DEPTH ONLY (user ruling 2026-09-23): a chain whose
+                # edge sequence is SHORTER than the pattern's hop count is
+                # an expansion remnant (hop landed on a CVT, passthrough
+                # satisfied the last-hop "found" without instantiating the
+                # submitted relation — 567: [award_winner⭢directed_by]'s
+                # hop-1-only chain minted the bare `award_winner` label).
+                # Remnants never become independent render groups.
+                if _rel_t and len(_rel_t) == len(_names):
                     _s.add(_rel_t)
     _key_count = {}
     _shown = []
