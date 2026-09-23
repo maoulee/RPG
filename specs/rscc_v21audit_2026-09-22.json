@@ -1,0 +1,2175 @@
+{
+ "WebQTest-1379_255da87c2560e4248091e82a1c0686c5|s0": {
+  "gold": [
+   "Priest"
+  ],
+  "n_blocks": 3,
+  "branches": {
+   "Franz Liszt": [
+    0
+   ],
+   "Life of Franz Liszt": [
+    1
+   ],
+   "Freemasonry": [
+    2
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "franz liszt",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     0.238114595413208
+    ],
+    "d_loo_max": 0.238114595413208,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 0.238114595413208,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "franz liszt",
+    "idx": 11,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     10.196426153182983
+    ],
+    "d_loo_max": 10.196426153182983,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 10.196426153182983,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "2": {
+    "branch": "franz liszt",
+    "idx": 15,
+    "necessary": "no",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     0.11376070976257324
+    ],
+    "d_loo_max": 0.11376070976257324,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 0.11376070976257324,
+    "d": [
+     -5.656200408935547
+    ],
+    "d_max": -5.656200408935547,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "l_ref": [
+     -14.711420059204102
+    ],
+    "l_cf": [
+     -9.055219650268555
+    ],
+    "note": null,
+    "removed": true,
+    "d_fwd": -5.587320327758789,
+    "fwd_removed": true,
+    "d_rand": -5.580676396687825,
+    "rand_removed": false
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 1.3377948414237393e-05,
+   "pF": 0.00023662446326387215,
+   "modules": {
+    "0": {
+     "d": -1.223e-05,
+     "l": -0.0009432,
+     "f": -1.233e-05,
+     "p_minus": 0.00118,
+     "p_alone": 1.049e-06,
+     "g": false,
+     "N": 1.0,
+     "lineage": true,
+     "cls": "effective"
+    },
+    "1": {
+     "d": 0.0006215,
+     "l": 0.0002342,
+     "f": 0.001091,
+     "p_minus": 2.402e-06,
+     "p_alone": 0.001104,
+     "g": true,
+     "N": 0.935,
+     "lineage": false,
+     "cls": "effective"
+    },
+    "2": {
+     "d": -0.0002467,
+     "l": -0.0001592,
+     "f": -1.284e-05,
+     "p_minus": 0.0003958,
+     "p_alone": 5.364e-07,
+     "g": false,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "redundant_irr"
+    }
+   }
+  },
+  "p0": [
+   -9.147688865661621
+  ],
+  "pF": [
+   -2.170564889907837
+  ],
+  "pGstar": {
+   "Franz Liszt": null,
+   "Life of Franz Liszt": null,
+   "Freemasonry": [
+    -9.147688865661621
+   ]
+  },
+  "branch_alone": {
+   "Franz Liszt": [
+    -13.412247657775879
+   ],
+   "Life of Franz Liszt": [
+    -3.2054378986358643
+   ],
+   "Freemasonry": [
+    -14.711420059204102
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Franz Liszt",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 1,
+    "branch": "Life of Franz Liszt",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 2,
+    "branch": "Freemasonry",
+    "d": [
+     -5.656200408935547
+    ],
+    "d_max": -5.656200408935547,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "verdict": "harmful → 移除"
+   }
+  ]
+ },
+ "WebQTest-1797_2fb9e2823ccf35d2103fa8846d6f2ca8|s1": {
+  "gold": [
+   "John C. Pemberton"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "Siege of Vicksburg": [
+    0
+   ],
+   "Carter L. Stevenson": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "siege of vicksburg",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": true,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     0.43007730659883237
+    ],
+    "d_loo_max": 0.43007730659883237,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 0.43007730659883237,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "siege of vicksburg",
+    "idx": 15,
+    "necessary": "no",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     3.4851992705007433
+    ],
+    "d_loo_max": 3.4851992705007433,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 3.4851992705007433,
+    "d": [
+     7.055361187434755
+    ],
+    "d_max": 7.055361187434755,
+    "cov": 1.0,
+    "d_pos": 7.055361187434755,
+    "label": "informative",
+    "mixed": false,
+    "l_ref": [
+     -1.5106161989970133
+    ],
+    "l_cf": [
+     -8.565977386431769
+    ],
+    "note": null,
+    "removed": false,
+    "d_fwd": 7.063227377599105,
+    "fwd_removed": false,
+    "d_rand": 7.060605314210989,
+    "rand_removed": true
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.11801365485088969,
+   "pF": 0.7563999363175677,
+   "modules": {
+    "0": {
+     "d": 0.4209,
+     "l": -0.06237,
+     "f": 0.4209,
+     "p_minus": 0.8188,
+     "p_alone": 0.5389,
+     "g": true,
+     "N": 1.0,
+     "lineage": true,
+     "cls": "effective"
+    },
+    "1": {
+     "d": 0.2103,
+     "l": 0.2154,
+     "f": 0.7008,
+     "p_minus": 0.5409,
+     "p_alone": 0.8188,
+     "g": false,
+     "N": 0.75,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   -8.573843576596119
+  ],
+  "pF": [
+   -1.080538892398181
+  ],
+  "pGstar": {
+   "Siege of Vicksburg": null,
+   "Carter L. Stevenson": null
+  },
+  "branch_alone": {
+   "Siege of Vicksburg": [
+    -4.609135246428195
+   ],
+   "Carter L. Stevenson": [
+    -1.5106161989970133
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Siege of Vicksburg",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 1,
+    "branch": "Carter L. Stevenson",
+    "d": [
+     7.055361187434755
+    ],
+    "d_max": 7.055361187434755,
+    "cov": 1.0,
+    "d_pos": 7.055361187434755,
+    "label": "informative",
+    "mixed": false,
+    "verdict": "Informative → 保留"
+   }
+  ]
+ },
+ "WebQTrn-567_11fd073d11dbb5448b6e6ef3f85999f1|s0": {
+  "gold": [
+   "The Journey"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "Ron Howard": [
+    0
+   ],
+   "?film": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "ron howard",
+    "idx": 5,
+    "necessary": "n/a",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -0.5554585456848145
+    ],
+    "d_loo_max": -0.5554585456848145,
+    "d_loo_cov": 0.0,
+    "d_loo_pos": 0.0,
+    "d": [
+     -3.296259641647339
+    ],
+    "d_max": -3.296259641647339,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "l_ref": [
+     -15.255285501480103
+    ],
+    "l_cf": [
+     -11.959025859832764
+    ],
+    "note": null,
+    "removed": true,
+    "d_fwd": -3.233715295791626,
+    "fwd_removed": true,
+    "d_rand": -3.2329203287760415,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "ron howard",
+    "idx": 10,
+    "necessary": "n/a",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -2.1107630729675293
+    ],
+    "d_loo_max": -2.1107630729675293,
+    "d_loo_cov": 0.0,
+    "d_loo_pos": 0.0,
+    "d": [
+     -4.696053504943848
+    ],
+    "d_max": -4.696053504943848,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "l_ref": [
+     -16.829007148742676
+    ],
+    "l_cf": [
+     -12.132953643798828
+    ],
+    "note": null,
+    "removed": true,
+    "d_fwd": -4.7855939865112305,
+    "fwd_removed": true,
+    "d_rand": -4.814280033111572,
+    "rand_removed": false
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.0010738396538092648,
+   "pF": 0.00041306483197155793,
+   "modules": {
+    "0": {
+     "d": -0.0004679,
+     "l": 0.0002958,
+     "f": -0.0004034,
+     "p_minus": 0.0001173,
+     "p_alone": 0.0006705,
+     "g": false,
+     "N": 1.0,
+     "lineage": true,
+     "cls": "effective"
+    },
+    "1": {
+     "d": -0.0002236,
+     "l": -0.0001929,
+     "f": -0.0009565,
+     "p_minus": 0.000606,
+     "p_alone": 0.0001173,
+     "g": false,
+     "N": 0.0,
+     "lineage": false,
+     "cls": "redundant_dup"
+    }
+   }
+  },
+  "p0": [
+   -11.906276226043701
+  ],
+  "pF": [
+   -17.547281742095947
+  ],
+  "pGstar": {
+   "Ron Howard": [
+    -12.021570205688477
+   ],
+   "?film": [
+    -11.976420879364014
+   ]
+  },
+  "branch_alone": {
+   "Ron Howard": [
+    -15.255285501480103
+   ],
+   "?film": [
+    -16.829007148742676
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Ron Howard",
+    "d": [
+     -3.296259641647339
+    ],
+    "d_max": -3.296259641647339,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "verdict": "harmful → 移除"
+   },
+   {
+    "blk": 1,
+    "branch": "?film",
+    "d": [
+     -4.696053504943848
+    ],
+    "d_max": -4.696053504943848,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "verdict": "harmful → 移除"
+   }
+  ]
+ },
+ "WebQTrn-567_df97b91c1a9dfe15bdad689feb59f791|s0": {
+  "gold": [
+   "Village of the Giants"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "Ron Howard": [
+    0
+   ],
+   "Child prodigy": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "ron howard",
+    "idx": 5,
+    "necessary": "n/a",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -0.6459419429011177
+    ],
+    "d_loo_max": -0.6459419429011177,
+    "d_loo_cov": 0.0,
+    "d_loo_pos": 0.0,
+    "d": [
+     -4.321024086326361
+    ],
+    "d_max": -4.321024086326361,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "l_ref": [
+     -20.627674143761396
+    ],
+    "l_cf": [
+     -16.306650057435036
+    ],
+    "note": null,
+    "removed": true,
+    "d_fwd": -4.3184367176145315,
+    "fwd_removed": true,
+    "d_rand": -4.285900368665655,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "child prodigy",
+    "idx": 9,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     18.430525643372675
+    ],
+    "d_loo_max": 18.430525643372675,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 18.430525643372675,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.01470691835551828,
+   "pF": 0.5578370017862855,
+   "modules": {
+    "0": {
+     "d": -0.008602,
+     "l": -0.25,
+     "f": -0.008602,
+     "p_minus": 0.8079,
+     "p_alone": 0.006105,
+     "g": false,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "harmful"
+    },
+    "1": {
+     "d": 0.5517,
+     "l": 0.5517,
+     "f": 0.7931,
+     "p_minus": 0.006105,
+     "p_alone": 0.8079,
+     "g": true,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   -16.306650057435036
+  ],
+  "pF": [
+   -1.8559488322644029
+  ],
+  "pGstar": {
+   "Ron Howard": [
+    -16.338275189511478
+   ],
+   "Child prodigy": null
+  },
+  "branch_alone": {
+   "Ron Howard": [
+    -20.627674143761396
+   ],
+   "Child prodigy": [
+    -1.3748593502677977
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Ron Howard",
+    "d": [
+     -4.321024086326361
+    ],
+    "d_max": -4.321024086326361,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "verdict": "harmful → 移除"
+   },
+   {
+    "blk": 1,
+    "branch": "Child prodigy",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   }
+  ]
+ },
+ "WebQTrn-2784_b64250ae3c9d6c724133d09dad5593ec|s2": {
+  "gold": [
+   "Poetic Justice"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "Tupac Shakur": [
+    0
+   ],
+   "Kirk M. Petruccelli": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "tupac shakur",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     1.7692181602469645
+    ],
+    "d_loo_max": 1.7692181602469645,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 1.7692181602469645,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "kirk m petruccelli",
+    "idx": 9,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     0.3634821826708503
+    ],
+    "d_loo_max": 0.3634821826708503,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 0.3634821826708503,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.01321162015206122,
+   "pF": 0.6941908704718938,
+   "modules": {
+    "0": {
+     "d": 0.6007,
+     "l": 0.3038,
+     "f": 0.6007,
+     "p_minus": 0.3904,
+     "p_alone": 0.6139,
+     "g": true,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    },
+    "1": {
+     "d": 0.0803,
+     "l": 0.0803,
+     "f": 0.3735,
+     "p_minus": 0.6139,
+     "p_alone": 0.3867,
+     "g": false,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   -9.386544566601515
+  ],
+  "pF": [
+   -2.3826362498220988
+  ],
+  "pGstar": {
+   "Tupac Shakur": null,
+   "Kirk M. Petruccelli": null
+  },
+  "branch_alone": {
+   "Tupac Shakur": [
+    -2.7724688720772974
+   ],
+   "Kirk M. Petruccelli": [
+    -4.151854410069063
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Tupac Shakur",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 1,
+    "branch": "Kirk M. Petruccelli",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   }
+  ]
+ },
+ "WebQTrn-21_6671d5347b1b3cfe482cf5894cc6a05a|s0": {
+  "gold": [
+   "Hailemariam Desalegn"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "Ethiopian birr": [
+    0
+   ],
+   "Ethiopia": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "ethiopian birr",
+    "idx": 5,
+    "necessary": "n/a",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     0.7682679180870764
+    ],
+    "d_loo_max": 0.7682679180870764,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 0.7682679180870764,
+    "d": [
+     -8.859355809516273
+    ],
+    "d_max": -8.859355809516273,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "l_ref": [
+     -14.666251136688516
+    ],
+    "l_cf": [
+     -5.806895327172242
+    ],
+    "note": null,
+    "removed": true,
+    "d_fwd": -8.859355809516273,
+    "fwd_removed": true,
+    "d_rand": -8.860364620981272,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "ethiopian birr",
+    "idx": 9,
+    "necessary": "n/a",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     13.20803225317286
+    ],
+    "d_loo_max": 13.20803225317286,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 13.20803225317286,
+    "d": [
+     3.5889818775794993
+    ],
+    "d_max": 3.5889818775794993,
+    "cov": 1.0,
+    "d_pos": 3.5889818775794993,
+    "label": "informative",
+    "mixed": false,
+    "l_ref": [
+     -2.213703021956462
+    ],
+    "l_cf": [
+     -5.8026848995359614
+    ],
+    "note": null,
+    "removed": false,
+    "d_fwd": 3.622537174527679,
+    "fwd_removed": false,
+    "d_rand": 3.5951229422874653,
+    "rand_removed": true
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.4247063076952094,
+   "pF": 0.7765155320018485,
+   "modules": {
+    "0": {
+     "d": 0.215,
+     "l": 0.009404,
+     "f": 0.2154,
+     "p_minus": 0.7671,
+     "p_alone": 0.6401,
+     "g": false,
+     "N": 1.0,
+     "lineage": true,
+     "cls": "effective"
+    },
+    "1": {
+     "d": 0.1347,
+     "l": 0.1364,
+     "f": 0.3424,
+     "p_minus": 0.6401,
+     "p_alone": 0.7671,
+     "g": true,
+     "N": 0.944,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   -5.806895327172242
+  ],
+  "pF": [
+   -1.3315076341641543
+  ],
+  "pGstar": {
+   "Ethiopian birr": [
+    -5.812687238387298
+   ],
+   "Ethiopia": null
+  },
+  "branch_alone": {
+   "Ethiopian birr": [
+    -14.666251136688516
+   ],
+   "Ethiopia": [
+    -2.213703021956462
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Ethiopian birr",
+    "d": [
+     -8.859355809516273
+    ],
+    "d_max": -8.859355809516273,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "verdict": "harmful → 移除"
+   },
+   {
+    "blk": 1,
+    "branch": "Ethiopia",
+    "d": [
+     3.5889818775794993
+    ],
+    "d_max": 3.5889818775794993,
+    "cov": 1.0,
+    "d_pos": 3.5889818775794993,
+    "label": "informative",
+    "mixed": false,
+    "verdict": "Informative → 保留"
+   }
+  ]
+ },
+ "WebQTrn-2209_c1374f388d9cc7a78365860c91218362|s0": {
+  "gold": [
+   "1957 NBA Finals",
+   "1959 NBA Finals",
+   "1960 NBA Finals",
+   "1961 NBA Finals",
+   "1962 NBA Finals",
+   "1963 NBA Finals",
+   "1964 NBA Finals",
+   "1965 NBA Finals",
+   "1966 NBA Finals",
+   "1968 NBA Finals",
+   "1969 NBA Finals",
+   "1974 NBA Finals",
+   "1976 NBA Finals",
+   "1981 NBA Finals",
+   "1984 NBA Finals",
+   "1986 NBA Finals",
+   "2008 NBA Finals"
+  ],
+  "n_blocks": 3,
+  "branches": {
+   "Brad Stevens": [
+    0
+   ],
+   "Butler Bulldogs men's basketball": [
+    1
+   ],
+   "1957 NBA Finals": [
+    2
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "brad stevens",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -0.6439927630708553,
+     -0.9776529719529208,
+     -0.9918145574629307,
+     -0.543752636120189,
+     -0.18148318328894675,
+     -1.5030674249865115,
+     -0.03426255995873362,
+     -0.02246936468873173,
+     0.3032194202532992,
+     -0.17876037285896018,
+     -0.07228889619000256,
+     -0.8118873540661298,
+     -0.9378366587916389,
+     -0.3786331146839075,
+     -1.0768710894044489,
+     0.12674622185295448,
+     0.12203912826953456
+    ],
+    "d_loo_max": 0.3032194202532992,
+    "d_loo_cov": 0.17647058823529413,
+    "d_loo_pos": 0.18400159012526274,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "brad stevens",
+    "idx": 9,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     1.1008862956659868,
+     -0.035125169204548,
+     0.17996578593738377,
+     -0.523765196732711,
+     -0.9802136953221634,
+     -0.43938105419510975,
+     -0.4465018544578925,
+     -0.4873574987286702,
+     0.3638520431704819,
+     1.2039023964316584,
+     -0.3603882738389075,
+     -0.8624394352082163,
+     0.08366308605764061,
+     -0.7029689765186049,
+     0.31984602415468544,
+     0.9096602718927898,
+     1.2613842854043469
+    ],
+    "d_loo_max": 1.2613842854043469,
+    "d_loo_cov": 0.47058823529411764,
+    "d_loo_pos": 0.6778950235893717,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "2": {
+    "branch": "brad stevens",
+    "idx": 13,
+    "necessary": "no",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -1.5288297037477605,
+     2.595038456725888,
+     3.431453571189195,
+     0.6360086291679181,
+     -1.1644791217986494,
+     3.7687280135578476,
+     -1.4910304724471644,
+     -1.9782533370889723,
+     -2.628767865826376,
+     2.291924071556423,
+     -2.3993084355606697,
+     -0.9782133687986061,
+     0.48449032951612025,
+     -0.6266204804414883,
+     -0.9622338411863893,
+     -0.9240779557731003,
+     -2.640153932326939
+    ],
+    "d_loo_max": 3.7687280135578476,
+    "d_loo_cov": 0.35294117647058826,
+    "d_loo_pos": 2.201273845285565,
+    "d": [
+     12.65665011445526,
+     14.757845844957046,
+     14.529767577070743,
+     13.418727758340538,
+     10.546790450578555,
+     14.801453003310598,
+     10.458923776866868,
+     9.211135603254661,
+     8.474601050838828,
+     15.957645661197603,
+     9.98197583167348,
+     8.062477865023538,
+     9.405601920327172,
+     10.966663210187107,
+     10.848381894407794,
+     10.228415552875958,
+     8.270592908374965
+    ],
+    "d_max": 15.957645661197603,
+    "cov": 1.0,
+    "d_pos": 11.328097060220042,
+    "label": "informative",
+    "mixed": false,
+    "l_ref": [
+     -5.927277993760072,
+     -3.999781180289574,
+     -4.139623712282628,
+     -6.106090319342911,
+     -9.333209082717076,
+     -4.901973730302416,
+     -9.33572822320275,
+     -10.738694466883317,
+     -10.982153633609414,
+     -3.2578461254015565,
+     -8.383663989021443,
+     -10.506188235478476,
+     -8.416695190826431,
+     -7.14547531446442,
+     -6.541090009035543,
+     -6.7805301655316725,
+     -4.791156136663631
+    ],
+    "l_cf": [
+     -18.583928108215332,
+     -18.75762702524662,
+     -18.66939128935337,
+     -19.52481807768345,
+     -19.87999953329563,
+     -19.703426733613014,
+     -19.79465200006962,
+     -19.949830070137978,
+     -19.456754684448242,
+     -19.21549178659916,
+     -18.365639820694923,
+     -18.568666100502014,
+     -17.822297111153603,
+     -18.112138524651527,
+     -17.389471903443336,
+     -17.00894571840763,
+     -13.061749045038596
+    ],
+    "note": null,
+    "removed": false,
+    "d_fwd": 15.957645661197603,
+    "fwd_removed": false,
+    "d_rand": 15.957905289096137,
+    "rand_removed": true
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.08077455748775351,
+   "pF": 0.4126081101994392,
+   "modules": {
+    "0": {
+     "d": 0.05418,
+     "l": 0.02154,
+     "f": 0.05387,
+     "p_minus": 0.3911,
+     "p_alone": 0.1346,
+     "g": false,
+     "N": 1.0,
+     "lineage": true,
+     "cls": "effective"
+    },
+    "1": {
+     "d": 0.1863,
+     "l": -0.01321,
+     "f": 0.219,
+     "p_minus": 0.4258,
+     "p_alone": 0.2998,
+     "g": true,
+     "N": 0.935,
+     "lineage": false,
+     "cls": "effective"
+    },
+    "2": {
+     "d": 0.08858,
+     "l": 0.0945,
+     "f": 0.3157,
+     "p_minus": 0.3181,
+     "p_alone": 0.3965,
+     "g": false,
+     "N": 0.516,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   -18.65108773112297,
+   -18.87782347202301,
+   -18.773697465658188,
+   -19.795447438955307,
+   -20.161785453557968,
+   -19.862865179777145,
+   -20.011067122220993,
+   -19.935330122709274,
+   -19.456754684448242,
+   -19.21588122844696,
+   -18.269935712218285,
+   -18.266673550009727,
+   -17.867525443434715,
+   -18.059243008494377,
+   -17.07241825759411,
+   -17.153445571660995,
+   -13.266091681085527
+  ],
+  "pF": [
+   -5.430865505360998,
+   -5.43572484923061,
+   -5.076593967853114,
+   -6.379834348743316,
+   -9.837612530798651,
+   -5.796146883803885,
+   -9.46735446259845,
+   -10.445668875356205,
+   -10.048617515945807,
+   -5.08538160281023,
+   -8.27261194656603,
+   -10.756387263303623,
+   -8.757009004824795,
+   -7.374941475049127,
+   -6.785328477039002,
+   -6.27550694643287,
+   -4.543735807179473
+  ],
+  "pGstar": {
+   "Brad Stevens": null,
+   "Butler Bulldogs men's basketball": null,
+   "1957 NBA Finals": null
+  },
+  "branch_alone": {
+   "Brad Stevens": [
+    -22.656804397702217,
+    -22.647599294781685,
+    -22.752904653549194,
+    -23.71864739060402,
+    -23.41234590113163,
+    -22.68196001648903,
+    -23.199109092354774,
+    -23.18522511422634,
+    -22.289921179413795,
+    -22.441670298576355,
+    -22.082347944378853,
+    -23.15762549638748,
+    -22.35025705397129,
+    -22.824387446045876,
+    -21.524276331067085,
+    -21.866079792380333,
+    -17.18041896633804
+   ],
+   "Butler Bulldogs men's basketball": [
+    -2.717762314423453,
+    -7.266615586762782,
+    -7.053276760037988,
+    -6.567694118828513,
+    -8.377776657638606,
+    -8.569705025816802,
+    -7.8121640119934455,
+    -8.379900182539131,
+    -6.932695590890944,
+    -7.3747241407691035,
+    -5.651814496552106,
+    -7.208806105656549,
+    -7.31719334598165,
+    -6.139249548024964,
+    -4.398459153773729,
+    -4.124598996015266,
+    -2.4465171443589497
+   ],
+   "1957 NBA Finals": [
+    -5.927277993760072,
+    -3.999781180289574,
+    -4.139623712282628,
+    -6.106090319342911,
+    -9.333209082717076,
+    -4.901973730302416,
+    -9.33572822320275,
+    -10.738694466883317,
+    -10.982153633609414,
+    -3.2578461254015565,
+    -8.383663989021443,
+    -10.506188235478476,
+    -8.416695190826431,
+    -7.14547531446442,
+    -6.541090009035543,
+    -6.7805301655316725,
+    -4.791156136663631
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Brad Stevens",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 1,
+    "branch": "Butler Bulldogs men's basketball",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 2,
+    "branch": "1957 NBA Finals",
+    "d": [
+     12.65665011445526,
+     14.757845844957046,
+     14.529767577070743,
+     13.418727758340538,
+     10.546790450578555,
+     14.801453003310598,
+     10.458923776866868,
+     9.211135603254661,
+     8.474601050838828,
+     15.957645661197603,
+     9.98197583167348,
+     8.062477865023538,
+     9.405601920327172,
+     10.966663210187107,
+     10.848381894407794,
+     10.228415552875958,
+     8.270592908374965
+    ],
+    "d_max": 15.957645661197603,
+    "cov": 1.0,
+    "d_pos": 11.328097060220042,
+    "label": "informative",
+    "mixed": false,
+    "verdict": "Informative → 保留"
+   }
+  ]
+ },
+ "WebQTrn-2316_b8e16d5f4985c5ab2a3c75e7bc8c9e1a|s0": {
+  "gold": [
+   "Pablo Picasso"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "Feu de joie": [
+    0
+   ],
+   "Jackson Pollock": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "feu de joie",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     2.4581836336292326
+    ],
+    "d_loo_max": 2.4581836336292326,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 2.4581836336292326,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "jackson pollock",
+    "idx": 10,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -0.3480556416325271
+    ],
+    "d_loo_max": -0.3480556416325271,
+    "d_loo_cov": 0.0,
+    "d_loo_pos": 0.0,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.005316627276942157,
+   "pF": 0.3367298196428578,
+   "modules": {
+    "0": {
+     "d": 0.2558,
+     "l": 0.3335,
+     "f": 0.2524,
+     "p_minus": 0.003211,
+     "p_alone": 0.2577,
+     "g": true,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    },
+    "1": {
+     "d": 0.07564,
+     "l": 0.07564,
+     "f": -0.001914,
+     "p_minus": 0.2611,
+     "p_alone": 0.003402,
+     "g": false,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   -8.48147538676858
+  ],
+  "pF": [
+   -1.9994508773088455
+  ],
+  "pGstar": {
+   "Feu de joie": null,
+   "Jackson Pollock": null
+  },
+  "branch_alone": {
+   "Feu de joie": [
+    -1.580393394920975
+   ],
+   "Jackson Pollock": [
+    -4.431013420689851
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Feu de joie",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 1,
+    "branch": "Jackson Pollock",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   }
+  ]
+ },
+ "WebQTrn-1731_4eea981607dbe17b040580ce4cd93ec4|s0": {
+  "gold": [
+   "Bass guitar",
+   "Vocals"
+  ],
+  "n_blocks": 3,
+  "branches": {
+   "Randy Jackson": [
+    0
+   ],
+   "Eclipse Tour": [
+    1,
+    2
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "randy jackson",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     7.924237395636737,
+     0.63161641638726
+    ],
+    "d_loo_max": 7.924237395636737,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 4.277926906011999,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "eclipse tour",
+    "idx": 12,
+    "necessary": "n/a",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -0.6648535551503301,
+     -2.3268445902504027
+    ],
+    "d_loo_max": -0.6648535551503301,
+    "d_loo_cov": 0.0,
+    "d_loo_pos": 0.0,
+    "d": [
+     -4.521961947903037,
+     -2.9639454965945333
+    ],
+    "d_max": -2.9639454965945333,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "l_ref": [
+     -10.41941006295383,
+     -13.24518398893997
+    ],
+    "l_cf": [
+     -5.897448115050793,
+     -10.281238492345437
+    ],
+    "note": null,
+    "removed": true,
+    "d_fwd": -3.148208112339489,
+    "fwd_removed": true,
+    "d_rand": -3.122685199137777,
+    "rand_removed": false
+   },
+   "2": {
+    "branch": "eclipse tour",
+    "idx": 16,
+    "necessary": "n/a",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     2.0375536577776074,
+     0.9709925488568842
+    ],
+    "d_loo_max": 2.0375536577776074,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 1.5042731033172458,
+    "d": [
+     8.40922729857266,
+     3.031360419932753
+    ],
+    "d_max": 8.40922729857266,
+    "cov": 1.0,
+    "d_pos": 5.720293859252706,
+    "label": "informative",
+    "mixed": false,
+    "l_ref": [
+     -10.41941006295383,
+     -13.24518398893997
+    ],
+    "l_cf": [
+     -18.82863736152649,
+     -16.276544408872724
+    ],
+    "note": null,
+    "removed": false,
+    "d_fwd": 3.49087265599519,
+    "fwd_removed": false,
+    "d_rand": 6.760024113270144,
+    "rand_removed": true
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.0012389321501257006,
+   "pF": 0.1914491843016957,
+   "modules": {
+    "0": {
+     "d": 0.1999,
+     "l": 0.09124,
+     "f": 0.1999,
+     "p_minus": 0.1002,
+     "p_alone": 0.2011,
+     "g": true,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    },
+    "1": {
+     "d": -0.02772,
+     "l": -0.02158,
+     "f": -0.0005155,
+     "p_minus": 0.213,
+     "p_alone": 0.0007235,
+     "g": false,
+     "N": 1.0,
+     "lineage": true,
+     "cls": "effective"
+    },
+    "2": {
+     "d": 0.01249,
+     "l": 0.006449,
+     "f": 0.1094,
+     "p_minus": 0.185,
+     "p_alone": 0.1106,
+     "g": false,
+     "N": 0.9,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   -9.969719529151917,
+   -10.416849114466459
+  ],
+  "pF": [
+   -2.4951726673170924,
+   -12.568560394924134
+  ],
+  "pGstar": {
+   "Randy Jackson": null,
+   "Eclipse Tour": [
+    -6.985198809765279,
+    -10.357872739783488
+   ]
+  },
+  "branch_alone": {
+   "Randy Jackson": [
+    -3.808249406516552,
+    -12.979095340706408
+   ],
+   "Eclipse Tour": [
+    -10.41941006295383,
+    -13.24518398893997
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Randy Jackson",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 2,
+    "branch": "Eclipse Tour",
+    "d": [
+     8.40922729857266,
+     3.031360419932753
+    ],
+    "d_max": 8.40922729857266,
+    "cov": 1.0,
+    "d_pos": 5.720293859252706,
+    "label": "informative",
+    "mixed": false,
+    "verdict": "Informative → 保留"
+   },
+   {
+    "blk": 1,
+    "branch": "Eclipse Tour",
+    "d": [
+     -4.521961947903037,
+     -2.9639454965945333
+    ],
+    "d_max": -2.9639454965945333,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "verdict": "harmful → 移除"
+   }
+  ]
+ },
+ "WebQTrn-2784_b64250ae3c9d6c724133d09dad5593ec|s0": {
+  "gold": [
+   "Poetic Justice"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "Tupac Shakur": [
+    0
+   ],
+   "Kirk M. Petruccelli": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "tupac shakur",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     1.5341188131133094
+    ],
+    "d_loo_max": 1.5341188131133094,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 1.5341188131133094,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "kirk m petruccelli",
+    "idx": 10,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     0.7457479989388958
+    ],
+    "d_loo_max": 0.7457479989388958,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 0.7457479989388958,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.013583227407165912,
+   "pF": 0.7151330709644248,
+   "modules": {
+    "0": {
+     "d": 0.5423,
+     "l": 0.3248,
+     "f": 0.5529,
+     "p_minus": 0.3904,
+     "p_alone": 0.5665,
+     "g": true,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    },
+    "1": {
+     "d": 0.162,
+     "l": 0.1593,
+     "f": 0.3768,
+     "p_minus": 0.5559,
+     "p_alone": 0.3904,
+     "g": false,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   -9.386544566601515
+  ],
+  "pF": [
+   -2.617735596955754
+  ],
+  "pGstar": {
+   "Tupac Shakur": null,
+   "Kirk M. Petruccelli": null
+  },
+  "branch_alone": {
+   "Tupac Shakur": [
+    -3.383259693509899
+   ],
+   "Kirk M. Petruccelli": [
+    -4.099625629954971
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Tupac Shakur",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 1,
+    "branch": "Kirk M. Petruccelli",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   }
+  ]
+ },
+ "WebQTest-626_01ad90831a03b6c5ef17898ccd80a639|s0": {
+  "gold": [
+   "Kansas"
+  ],
+  "n_blocks": 2,
+  "branches": {
+   "Tempus Unbound": [
+    0
+   ],
+   "Missouri River": [
+    1
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "tempus unbound",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     -0.27610039710998535
+    ],
+    "d_loo_max": -0.27610039710998535,
+    "d_loo_cov": 0.0,
+    "d_loo_pos": 0.0,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "missouri river",
+    "idx": 10,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -0.31644272804260254
+    ],
+    "d_loo_max": -0.31644272804260254,
+    "d_loo_cov": 0.0,
+    "d_loo_pos": 0.0,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.0039680841832924665,
+   "pF": 0.41657238049912315,
+   "modules": {
+    "0": {
+     "d": 0.3353,
+     "l": 0.1855,
+     "f": 0.3634,
+     "p_minus": 0.231,
+     "p_alone": 0.3673,
+     "g": true,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    },
+    "1": {
+     "d": 0.03543,
+     "l": 0.07754,
+     "f": 0.2287,
+     "p_minus": 0.339,
+     "p_alone": 0.2327,
+     "g": false,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   -4.292745590209961
+  ],
+  "pF": [
+   -1.6748285293579102
+  ],
+  "pGstar": {
+   "Tempus Unbound": null,
+   "Missouri River": null
+  },
+  "branch_alone": {
+   "Tempus Unbound": [
+    -1.3600690364837646
+   ],
+   "Missouri River": [
+    -1.3850446939468384
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Tempus Unbound",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 1,
+    "branch": "Missouri River",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   }
+  ]
+ },
+ "WebQTrn-2576_872253e47dd6ddaa213ff31eeda8783b|s0": {
+  "gold": [
+   "Americas"
+  ],
+  "n_blocks": 3,
+  "branches": {
+   "Falkland Islands": [
+    0
+   ],
+   "Eastern Time Zone": [
+    1
+   ],
+   "United Kingdom, with Dependencies and Territories": [
+    2
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "falkland islands",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": true,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     0.14383268356323242
+    ],
+    "d_loo_max": 0.14383268356323242,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 0.14383268356323242,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "eastern time zone",
+    "idx": 9,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -0.5392613410949707
+    ],
+    "d_loo_max": -0.5392613410949707,
+    "d_loo_cov": 0.0,
+    "d_loo_pos": 0.0,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "2": {
+    "branch": "falkland islands",
+    "idx": 13,
+    "necessary": "no",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -1.2145304679870605
+    ],
+    "d_loo_max": -1.2145304679870605,
+    "d_loo_cov": 0.0,
+    "d_loo_pos": 0.0,
+    "d": [
+     4.013689994812012
+    ],
+    "d_max": 4.013689994812012,
+    "cov": 1.0,
+    "d_pos": 4.013689994812012,
+    "label": "informative",
+    "mixed": false,
+    "l_ref": [
+     -4.762002944946289
+    ],
+    "l_cf": [
+     -8.7756929397583
+    ],
+    "note": null,
+    "removed": false,
+    "d_fwd": 3.999958038330078,
+    "fwd_removed": false,
+    "d_rand": 4.065053304036458,
+    "rand_removed": true
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 6.859219728857705e-05,
+   "pF": 0.011564055573116887,
+   "modules": {
+    "0": {
+     "d": 0.008543,
+     "l": -0.01645,
+     "f": 0.008567,
+     "p_minus": 0.02801,
+     "p_alone": 0.008635,
+     "g": true,
+     "N": 1.0,
+     "lineage": true,
+     "cls": "effective"
+    },
+    "1": {
+     "d": -0.003714,
+     "l": 0.0002311,
+     "f": 0.007738,
+     "p_minus": 0.01133,
+     "p_alone": 0.007806,
+     "g": false,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    },
+    "2": {
+     "d": 0.006654,
+     "l": 0.006284,
+     "f": 0.07183,
+     "p_minus": 0.00528,
+     "p_alone": 0.0719,
+     "g": false,
+     "N": 0.948,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   -8.7756929397583
+  ],
+  "pF": [
+   -6.043115139007568
+  ],
+  "pGstar": {
+   "Falkland Islands": null,
+   "Eastern Time Zone": null,
+   "United Kingdom, with Dependencies and Territories": null
+  },
+  "branch_alone": {
+   "Falkland Islands": [
+    -7.019002914428711
+   ],
+   "Eastern Time Zone": [
+    -5.756673812866211
+   ],
+   "United Kingdom, with Dependencies and Territories": [
+    -4.762002944946289
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Falkland Islands",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 1,
+    "branch": "Eastern Time Zone",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 2,
+    "branch": "United Kingdom, with Dependencies and Territories",
+    "d": [
+     4.013689994812012
+    ],
+    "d_max": 4.013689994812012,
+    "cov": 1.0,
+    "d_pos": 4.013689994812012,
+    "label": "informative",
+    "mixed": false,
+    "verdict": "Informative → 保留"
+   }
+  ]
+ }
+}

@@ -1,5 +1,21 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-23 scorer v2.1(user/Codex 终版裁定:5% 规则精确换算,单条件 max 判定)
+- **τ 不新拍**:TAU_POS=−log(0.95)=0.0513(P_cf/P_ref≤0.95 的 log 域等价),
+  TAU_NEG=−log(1.05)=−0.0488(harmful 对称档)。**判定=∃g: d_g≥TAU_POS →
+  Informative**(单条件 max/any;coverage/D_pos 只做 credit 强度,不做判定
+  输入)。标签与 credit 量级分离。三档:informative/redundant(窄中性带)/
+  harmful + Mixed 子标(一 gold 正一 gold 负,记录不平均)。
+- **dump 口径**:per-gold 明细 logP(ref)→logP(cf)+Δ+drop%(1−e^−d;d<0 显
+  示反升倍数);verdict 行 max-drop/coverage/D_pos/label。
+- **12 案人审批**(specs/rscc_v21audit_*):informative=5/harmful=6/
+  redundant=0/mixed=0;removed-但-informative 不一致=0。1731 判决维持
+  反转(块#2 d=[+8.79,+3.15] informative 保留;块#1 d=[−3.78,−3.02]
+  harmful 移除)。中性带极窄(±5%)——多数块显著二分,符合 5% 规则本意。
+- **48×3 全量**(v24 轨迹,specs/rscc_v21fast_*):informative=68/harmful=64/
+  mixed=6/neutral=0;coverage 均值 0.489;D_pos 均值 2.75 nats。
+- RSCC_TAU_POS/RSCC_TAU_NEG env 可调;旧口径 RSCC_PREFIX=old 保留。
+
 ### 2026-09-23 scorer v2+通路隔离(user/Codex 审核,8 级优先级全落地):1731 判决反转
 - **读取 bug(Codex P0)**:旧 gold_logprob 取 list(top_logprobs[jj].values())[0]
   =该位置 top-1 token 的 logprob,gold token 非 top-1 时取错值。修:

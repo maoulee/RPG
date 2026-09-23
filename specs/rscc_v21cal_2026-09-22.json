@@ -1,0 +1,226 @@
+{
+ "WebQTrn-1731_4eea981607dbe17b040580ce4cd93ec4|s0": {
+  "gold": [
+   "Bass guitar",
+   "Vocals"
+  ],
+  "n_blocks": 3,
+  "branches": {
+   "Randy Jackson": [
+    0
+   ],
+   "Eclipse Tour": [
+    1,
+    2
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "randy jackson",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     7.761054689530283,
+     0.7387861146125942
+    ],
+    "d_loo_max": 7.761054689530283,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 4.249920402071439,
+    "d": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "l_ref": null,
+    "l_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "eclipse tour",
+    "idx": 12,
+    "necessary": "n/a",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -0.8699134974740446,
+     -1.9669565760996193
+    ],
+    "d_loo_max": -0.8699134974740446,
+    "d_loo_cov": 0.0,
+    "d_loo_pos": 0.0,
+    "d": [
+     -3.7768588420003653,
+     -3.0179274724796414
+    ],
+    "d_max": -3.0179274724796414,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "l_ref": [
+     -10.037528462707996,
+     -13.113158281194046
+    ],
+    "l_cf": [
+     -6.260669620707631,
+     -10.095230808714405
+    ],
+    "note": null,
+    "removed": true,
+    "d_fwd": -3.0179274724796414,
+    "fwd_removed": true,
+    "d_rand": -3.0179274724796414,
+    "rand_removed": false
+   },
+   "2": {
+    "branch": "eclipse tour",
+    "idx": 16,
+    "necessary": "n/a",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     1.8743709516711533,
+     1.1651807771995664
+    ],
+    "d_loo_max": 1.8743709516711533,
+    "d_loo_cov": 1.0,
+    "d_loo_pos": 1.5197758644353598,
+    "d": [
+     8.791108898818493,
+     3.1502612370532006
+    ],
+    "d_max": 8.791108898818493,
+    "cov": 1.0,
+    "d_pos": 5.970685067935847,
+    "label": "informative",
+    "mixed": false,
+    "l_ref": [
+     -10.037528462707996,
+     -13.113158281194046
+    ],
+    "l_cf": [
+     -18.82863736152649,
+     -16.263419518247247
+    ],
+    "note": null,
+    "removed": false,
+    "d_fwd": 3.6926264446228743,
+    "fwd_removed": false,
+    "d_rand": 5.392120596021414,
+    "rand_removed": true
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.0012557573388969452,
+   "pF": 0.20038961692515328,
+   "modules": {
+    "0": {
+     "d": 0.1999,
+     "l": 0.1002,
+     "f": 0.1999,
+     "p_minus": 0.1002,
+     "p_alone": 0.2011,
+     "g": true,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    },
+    "1": {
+     "d": -0.0277,
+     "l": -0.01264,
+     "f": -0.0005388,
+     "p_minus": 0.213,
+     "p_alone": 0.0007169,
+     "g": false,
+     "N": 1.0,
+     "lineage": true,
+     "cls": "effective"
+    },
+    "2": {
+     "d": 0.0126,
+     "l": 0.01539,
+     "f": 0.1094,
+     "p_minus": 0.185,
+     "p_alone": 0.1106,
+     "g": false,
+     "N": 0.9,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   -9.953296065330505,
+   -10.384208574425429
+  ],
+  "pF": [
+   -2.6583553734235466,
+   -12.374372166581452
+  ],
+  "pGstar": {
+   "Randy Jackson": null,
+   "Eclipse Tour": [
+    -6.260669620707631,
+    -10.095230808714405
+   ]
+  },
+  "branch_alone": {
+   "Randy Jackson": [
+    -3.738303653895855,
+    -13.111475510522723
+   ],
+   "Eclipse Tour": [
+    -10.037528462707996,
+    -13.113158281194046
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Randy Jackson",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 2,
+    "branch": "Eclipse Tour",
+    "d": [
+     8.791108898818493,
+     3.1502612370532006
+    ],
+    "d_max": 8.791108898818493,
+    "cov": 1.0,
+    "d_pos": 5.970685067935847,
+    "label": "informative",
+    "mixed": false,
+    "verdict": "Informative → 保留"
+   },
+   {
+    "blk": 1,
+    "branch": "Eclipse Tour",
+    "d": [
+     -3.7768588420003653,
+     -3.0179274724796414
+    ],
+    "d_max": -3.0179274724796414,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "harmful",
+    "mixed": false,
+    "verdict": "harmful → 移除"
+   }
+  ]
+ }
+}
