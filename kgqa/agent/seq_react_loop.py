@@ -1281,8 +1281,8 @@ class SeqReactCase:
         parent = {}
         seen = set(sa)
         frontier, cost = set(sa), 0
-        hit = None
-        while frontier and cost < max_hops and hit is None:
+        hits = []
+        while frontier and cost < max_hops and not hits:
             nxt = set()
             stack = list(frontier)
             while stack:
@@ -1293,41 +1293,79 @@ class SeqReactCase:
                     seen.add(other)
                     if other in sb:
                         parent[other] = i
-                        hit = other
-                        break
+                        hits.append(other)   # collect the whole landing layer
+                        continue
                     if _cvtl(other):
                         stack.append(other)
                         parent.setdefault(other, i)
                     else:
                         parent[other] = i
                         nxt.add(other)
-                if hit is not None:
-                    break
             frontier = nxt
             cost += 1
-        if hit is None:
+        if not hits:
             return None
-        # backtrack to the nearest A-side node, then render named hops
-        # WITH their relations — the full shortest-bridge path
-        path, node = [hit], hit
-        while node not in sa and node in parent:
-            node = parent[node]
-            path.append(node)
-        path.reverse()
-        named = [i for i in path if not _cvtl(i)]
-        if len(named) < 2:
-            return None
-        segs = [str(self.ctx.ents[named[0]])]
-        for a, b in zip(named, named[1:]):
-            _rel = None
+        # GTE SEMANTIC RANKING of the candidate bridges (user ruling
+        # 2026-09-23): hop count first (BFS layer), semantics WITHIN equal
+        # hops — the shortest bridge is only "best" when its relations
+        # actually encode the question's join. Sync embed call: the rescue
+        # fires at most once per case (empty-intersection only).
+        def _rel_between(a, b):
             for rr, other in (adj[a] if 0 <= a < len(adj) else ()):
                 if other == b:
-                    _rel = str(self.ctx.rels[rr]) if 0 <= rr < len(self.ctx.rels) else ""
-                    break
-            _rs = ".".join(_rel.rsplit(".", 2)[-2:]) if _rel else "?"
+                    return rr
+            return None
+
+        def _named_path(hit_n):
+            path, node = [hit_n], hit_n
+            while node not in sa and node in parent:
+                node = parent[node]
+                path.append(node)
+            path.reverse()
+            return [i for i in path if not _cvtl(i)]
+
+        cands = []
+        for h in hits[:12]:
+            named = _named_path(h)
+            if len(named) < 2:
+                continue
+            rels = [_rel_between(a, b) for a, b in zip(named, named[1:])]
+            if any(r is None for r in rels):
+                continue
+            cands.append((named, rels))
+        if not cands:
+            return None
+        _scores = None
+        try:
+            import requests as _rq
+            _txts = [" ⭢ ".join(
+                ".".join(str(self.ctx.rels[r]).rsplit(".", 2)[-2:])
+                for r in rels) for _, rels in cands]
+            _q = str(getattr(self.ctx, "question", "") or "")
+            _eb = _rq.post("http://127.0.0.1:8003/embed",
+                           json={"texts": [_q] + _txts}, timeout=10).json()["embeddings"]
+            import math as _m
+            def _cos(a, b):
+                d = sum(x * y for x, y in zip(a, b))
+                na = _m.sqrt(sum(x * x for x in a)) or 1.0
+                nb = _m.sqrt(sum(x * x for x in b)) or 1.0
+                return d / (na * nb)
+            _scores = [_cos(_eb[0], e) for e in _eb[1:]]
+        except Exception:
+            _scores = None
+        order = sorted(range(len(cands)),
+                       key=lambda k: (len(cands[k][0]) - 1,
+                                      -(_scores[k] if _scores else 0)))
+        named, rels = cands[order[0]]
+        segs = [str(self.ctx.ents[named[0]])]
+        for b, r in zip(named[1:], rels):
+            _rs = ".".join(str(self.ctx.rels[r]).rsplit(".", 2)[-2:])
             segs.append(f" --{_rs}--> {self.ctx.ents[b]}")
-        return "".join(segs)[:600] + (
-            f"  ({len(named)-1} hop(s); walk this bridge to merge the subgraphs)")
+        out = "".join(segs)[:600]
+        if _scores is not None:
+            out += f"  (GTE-ranked best of {len(cands)})"
+        return out + (f"  ({len(named)-1} hop(s); walk this bridge to "
+                      "merge the subgraphs)")
 
     def _name_idx(self, name):
         nm = str(name)
