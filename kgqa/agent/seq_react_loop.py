@@ -1292,14 +1292,14 @@ class SeqReactCase:
                         continue
                     seen.add(other)
                     if other in sb:
-                        parent[other] = i
+                        parent[other] = (i, _rr)
                         hits.append(other)   # collect the whole landing layer
                         continue
                     if _cvtl(other):
                         stack.append(other)
-                        parent.setdefault(other, i)
+                        parent.setdefault(other, (i, _rr))
                     else:
-                        parent[other] = i
+                        parent[other] = (i, _rr)
                         nxt.add(other)
             frontier = nxt
             cost += 1
@@ -1310,37 +1310,46 @@ class SeqReactCase:
         # hops — the shortest bridge is only "best" when its relations
         # actually encode the question's join. Sync embed call: the rescue
         # fires at most once per case (empty-intersection only).
-        def _rel_between(a, b):
-            for rr, other in (adj[a] if 0 <= a < len(adj) else ()):
-                if other == b:
-                    return rr
-            return None
-
-        def _named_path(hit_n):
+        def _full_path(hit_n):
+            # backtrack the RAW node chain (CVT segments kept) with the
+            # edge relation of each step — named-pair rendering failed on
+            # CVT-mediated bridges (no DIRECT edge between the named ends).
             path, node = [hit_n], hit_n
             while node not in sa and node in parent:
-                node = parent[node]
+                prev, _rel = parent[node]
                 path.append(node)
+                node = prev
+            if node in sa:
+                path.append(node)      # the A-side seed ends the chain
             path.reverse()
-            return [i for i in path if not _cvtl(i)]
+            if len(path) < 2:
+                return None, None
+            named = [i for i in path if not _cvtl(i)]
+            if len(named) < 2:
+                return None, None
+            return named, path
 
         cands = []
         for h in hits[:12]:
-            named = _named_path(h)
-            if len(named) < 2:
+            named, path = _full_path(h)
+            if not named:
                 continue
-            rels = [_rel_between(a, b) for a, b in zip(named, named[1:])]
-            if any(r is None for r in rels):
-                continue
-            cands.append((named, rels))
+            cands.append((named, path))
         if not cands:
             return None
         _scores = None
         try:
             import requests as _rq
-            _txts = [" ⭢ ".join(
-                ".".join(str(self.ctx.rels[r]).rsplit(".", 2)[-2:])
-                for r in rels) for _, rels in cands]
+            def _chain_txt(path):
+                segs_r = []
+                for a, b in zip(path, path[1:]):
+                    for rr, other in (adj[a] if 0 <= a < len(adj) else ()):
+                        if other == b:
+                            segs_r.append(
+                                ".".join(str(self.ctx.rels[rr]).rsplit(".", 2)[-2:]))
+                            break
+                return " ⭢ ".join(segs_r)
+            _txts = [_chain_txt(path) for _, path in cands]
             _q = str(getattr(self.ctx, "question", "") or "")
             _eb = _rq.post("http://127.0.0.1:8003/embed",
                            json={"texts": [_q] + _txts}, timeout=10).json()["embeddings"]
@@ -1356,11 +1365,20 @@ class SeqReactCase:
         order = sorted(range(len(cands)),
                        key=lambda k: (len(cands[k][0]) - 1,
                                       -(_scores[k] if _scores else 0)))
-        named, rels = cands[order[0]]
-        segs = [str(self.ctx.ents[named[0]])]
-        for b, r in zip(named[1:], rels):
-            _rs = ".".join(str(self.ctx.rels[r]).rsplit(".", 2)[-2:])
-            segs.append(f" --{_rs}--> {self.ctx.ents[b]}")
+        named, path = cands[order[0]]
+        segs = [str(self.ctx.ents[path[0]])]
+        for a, b in zip(path, path[1:]):
+            _rs = "?"
+            for rr, other in (adj[a] if 0 <= a < len(adj) else ()):
+                if other == b:
+                    _rs = ".".join(str(self.ctx.rels[rr]).rsplit(".", 2)[-2:])
+                    break
+            if _cvtl(b):
+                segs.append(f" --{_rs}-->")
+            elif _rs == "object.name" and str(self.ctx.ents[b]) == segs[0]:
+                continue          # id-node → same-name node tail, no info
+            else:
+                segs.append(f" --{_rs}--> {self.ctx.ents[b]}")
         out = "".join(segs)[:600]
         if _scores is not None:
             out += f"  (GTE-ranked best of {len(cands)})"
