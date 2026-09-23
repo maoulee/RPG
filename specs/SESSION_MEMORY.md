@@ -1,5 +1,23 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-23 快模式+人审dump(50c3456):80s 全量 144 Reverse 臂,累计 31×
+- **快模式**:RSCC_ARMS=rscc(关 Forward/Random×3/LOO/旧标记五族配对
+  ——后者是最大隐藏成本)+RSCC_PAR=12 轨迹级并行 → **80s**(
+  P2v2 2470s→P2v3 K+1 762s→80s);判决 vs P2v3 块级 311/317,
+  移除 87 vs 89(噪声底内)。日常用快模式,四臂对照才 RSCC_ARMS=all。
+- **人审 dump**:specs/rscc_fast_dump_2026-09-22.md(144 案全链路:
+  调用命令+完整结果+归属附注+旧标记+RSCC+倒序迹+双通道小结);
+  四臂对照版 specs/rscc_p2v3_dump_2026-09-22.md。
+- **速度层级语义**:80s=日常单臂;12.7min=四臂实验;异步 wavefront
+  原语已落(gold_logprob_async)未全量化,边际收益有限暂缓。
+
+### 2026-09-22(晚) K+1 链式(11cb951,user 裁定:只打反事实):762s,判决复现
+- 每步只打反事实一次,参考态携带(初始 p_full;移除后=该步 cf——
+  "一个状态一次测量");取舍:ref/cf 不再同批,边缘判决双 τ+重打分兜底。
+  墙钟 2470s→762s(3.2×);移除 89=89,块级 315/317,lift 0.2098 复现。
+  **K+1 为默认引擎**。
+
+
 ### 2026-09-22 logprob 提速与噪声分析(user/Codex wavefront 设计):APC 开启+顺序依赖实测
 - **现状对照**:已实现 K+1 缓存(链式复用)/teacher-forced prompt_logprobs
   (无生成)/token 平均/top-1 logprobs——Codex 清单的四项已在。
