@@ -1,5 +1,23 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-23 answer dispatch 崩溃修复(58d246a):124→0,v24c 距基线 -2.2pp
+- **Bug**:tools.py 2176 结构化收割 CVT 段 `_adj_hv.get(_cv,())`——_full_adj
+  是**索引键的 list 邻接表**且 _cv 是 CVT **名字**:list 无 .get →
+  AttributeError。触发=answer 时 accumulated_triples 含 CVT 端点;崩在
+  off-pool 修正反馈**之前**,错名直接定档(2152 标本:常识现名被锁)。
+  崩溃数 v23=5/v24b=124(渲染变化让 CVT 端点更常入集)→修复后 0。
+- **复现法**:build_context(2152)+accumulated_triples 含 m.端点+_do_answer
+  一发即崩;修法=name→idx 映射+索引访问。153 绿。
+- **v24c=0.647/74.3%**(v24b 0.615→+3.2pp;基线 0.669/75.0% 差 -2.2/-0.7;
+  gain15/loss15)。**剩余 loss 名单**(渲染证据层残余):2152(-1.00)/576
+  (-0.67)/1731(-0.50)/626(-0.45)/21_(-0.44)/537(-0.37)。
+- **作答指令观察**(user 人审 2152):v24 证据收缩→UNCHANGED EVIDENCE
+  repeat 反馈→模型被迫单点作答时用常识现名而非渲染名——off-pool 修正
+  本应拦(被此 bug 吃掉);修复后该路径恢复。
+- 21_ 待查:gpsh(有 direct 匹配)模式在 continuation 缺席(疑似层可行性
+  只认 frontier 直连,bridge 型关系被树更新丢弃)+ rr GTE 候选缺
+  jurisdiction_of_office(命中答案的关系没进 top-15)。
+
 ### 2026-09-23 长度优先修复+回退对齐勘误(1379 标本,user 两问题驱动)
 - **重大勘误**:v24 首跑漏带 CASE_FILTER(tmp/v21_cohort.txt),与 v23_final
   不同批 48 案——"+4.8pp"对比无效。对齐后 v24a(lane-2 删+bridge 修+事实
