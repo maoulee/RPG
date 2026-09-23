@@ -146,6 +146,7 @@ scripts/analyze_gold_vs_model.py
 scripts/measure_hint_starttype.py
 scripts/probe_multianchor_hinted.py
 scripts/probe_multianchor_model.py
+scripts/probe_ror_edge.py
 scripts/test_multi_target_cases.py
 scripts/test_parallel_decomp_stability.py
 scripts/verify_dual_chain_reachability.py

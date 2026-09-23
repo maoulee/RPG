@@ -1,5 +1,27 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-23 渲染 delta 双漏网(1731 标本,user 人审点出):逆关系+方向翻转
+- **现象**:层更新调用(块#2,msg16)渲染出 `Raised on Radio Tour
+  --concert_tour.artist--> Journey`——同事实上一轮已以
+  `Journey --artist.concert_tours--> Raised on Radio Tour` 交付;且
+  `Eclipse Tour --concert_tour.artist--> Journey` 旧边重复。探针
+  scripts/probe_ror_edge.py 重放 6 采样中 3 例复现(s0/s4/s5)。
+- **机制**(三因叠加):
+  ① SEQ_BRIDGE_TERMINAL=1(默认,6421697 实测必要:mismatch 39→1,
+  hit -6.2pp 才恢复 bridge 终端地位)把 bridge cat 注入 rel_idxs;
+  ② walk 无向(fwd∪rev),lane-1 模式索引链(act⭢cat / st⭢aa⭢cat)
+  和 lane-2(frontier 一跳)都能经反向 cat 边触达 ROR;数据侧不对称:
+  ctx 切片只给 2/5 巡演物化了 cat 方向边(Eclipse Tour,ROR),其余
+  只有 act 方向——所以恰好只多出一行;
+  ③ RENDER DELTA(_delta_new,seq_tools 4396)按 walk 记录方向精确键
+  (h,r,t) 对比 accumulated_triples:**逆关系同事实**(act vs cat,
+  不同关系 ID)与**方向翻转**(lane-2 记 (Journey,cat,Eclipse) vs
+  积累 (Eclipse,cat,Journey))双双漏网→判"新"→渲染;渲染层再翻回
+  真存储方向造成"实体中心是 Eclipse Tour 却出现 ROR 头"的观感。
+- **注意**:_canonicalize_triples 只翻方向不并逆关系;逆/变体塌缩只在
+  旧 _resolve_cvt_edges(CVT 扁平化路径)有。修复面=delta/积累键改用
+  事实键(方向归一+逆关系对映射),待 user 裁定。
+
 ### 2026-09-23 快模式+人审dump(50c3456):80s 全量 144 Reverse 臂,累计 31×
 - **快模式**:RSCC_ARMS=rscc(关 Forward/Random×3/LOO/旧标记五族配对
   ——后者是最大隐藏成本)+RSCC_PAR=12 轨迹级并行 → **80s**(
