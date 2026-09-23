@@ -2240,18 +2240,17 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
                 except Exception:
                     _bridge = None
                 if _bridge:
+                    # EXISTENCE ONLY (user ruling 2026-09-23): the harness's
+                    # mind-map search stays INTERNAL — the feedback states
+                    # that a connecting path exists, never the relations,
+                    # never the ranking, never the endpoint.
                     ctx._merge_bounced = True
                     return _json_result({
-                        "note": ("REMINDER (mind-map, not a verdict): your two "
-                                 "subgraphs have not merged — every constraint "
-                                 "of the question must hold on ONE entity. A "
-                                 "path EXISTS between their centers: "
-                                 + _bridge
-                                 + " — the endpoint is hidden: walk these "
-                                 "relations from your center to retrieve the "
-                                 "connecting entity, then answer from the "
-                                 "merged view."),
-                        "merge_hint": _bridge})
+                        "note": ("REMINDER: your two subgraphs have not "
+                                 "merged, yet a connecting path EXISTS "
+                                 "between their centers and was NOT "
+                                 "retrieved by your subgraphs. Retrieve it, "
+                                 "then answer from the merged view.")})
     ctx.llm_answer_preds = entities
     ctx.llm_answer_str = " | ".join(entities)
     return _json_result({"entities": entities})
