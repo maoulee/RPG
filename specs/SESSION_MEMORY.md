@@ -1,5 +1,28 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-23 rr 首屏桥型关系保底槽位(SEQ_RR_BRIDGE_SLOTS,21_ 标本根因关闭)
+- **根因**(上条遗留"rr GTE 候选缺 jurisdiction_of_office 仍待查"):21_
+  (Ethiopia 总理)center=Ethiopia,池=74 关系含全 government_position_held
+  家族;union-rank GTE 把 office_holder 排 #38、jurisdiction_of_office #51、
+  basic_title #52、governing_officials #60——全在 top-30 cands 切线下,首屏
+  整族缺席。标签"Ethiopia | government position held office holder | ?"
+  对问题是非切题句,GTE 系统性埋葬 CVT 中介关系;sg 侧 relation_expansion
+  只在首提失败后兜底。**扩容 top-15→top-20 无效**(连 top-30 都不进)。
+- **修法**(kgqa/agent/seq_tools.py):①union 调用 top_k 30→+30 分数窗
+  (服务端本就全池嵌入,尾部行只为保底打分;cands 仍取前 30,行为不变);
+  ②新 `_rr_bridge_reserved`:桥集=池中"边触及 center 一跳邻 CVT"的关系
+  (=sg 桥扫描会挂的 carrier),按 GTE 尾分排序取 top-N(默认 3,已在
+  cands 内的不占槽);③finalize 两条渲染路径把保底关系**追加在 15-cut
+  之后**(不挤占排名位),grouped 末尾加 ⚑ cvt-bridge 行。开关
+  SEQ_RR_BRIDGE_SLOTS(默认 3,=0 回到旧行为逐字节一致)。
+- **标本验证**(tmp/probe_rr_eth/repro.py,直载 test_v4_repaired.pkl 构
+  ctx):修复后候选含 office_holder+jurisdiction_of_office(+office_
+  position_or_title);前 15 排名位零变化。153 绿。
+- **陷阱**:pytest 必须**不带 SEQ_\* 环境变量**跑——带 SEQ_PROMPT=V23 时
+  test_commit_widening 2 例(test_self_analysis_same_turn_passes_gate /
+  test_placeholder_fid_declaration_commits_and_gates)因两阶段答案分析
+  词汇表(V21 vs V22/V23)不匹配而挂,与代码改动无关(基线同样挂)。
+
 ### 2026-09-23 桥接合法层回退(9b12d35,user 裁定:层关系允许桥接非直连)
 - **user 裁定**:层可行性=“两跳内以提交关系为最后一跳”(relation_
   expansion 的 direct+bridge 语义),**非 1-hop 直连**;直连不可达的提交

@@ -3058,6 +3058,48 @@ def _rr_prepare(args: Dict[str, Any], ctx) -> dict:
             "question": question, "nudge": _nudge}
 
 
+def _rr_bridge_reserved(ctx, reqs, cands, scored, top_n):
+    """CVT-BRIDGE reserved slots for the rr FIRST screen (Ethiopia specimen
+    21_660138373d19bbffdd3d3f7a30234e4a, 2026-09-23). A mediation CVT adjacent
+    to the center (leadership / government_position_held / …) is often the
+    ONLY route from the center to the answer, but every relation crossing it —
+    the center↔CVT edge (jurisdiction_of_office / governing_officials) AND the
+    CVT's terminal attributes (office_holder / basic_title) — labels as
+    "Ethiopia | government position held office holder | ?", a non-sequitur
+    the union-rank GTE buries (specimen: office_holder #38,
+    jurisdiction_of_office #51 of a 74 pool — all below the top-30 cands cut,
+    so the first screen misses the whole family and the model's first
+    submission can't reach the CVT). The subgraph side re-discovers them as
+    relation_expansion bridges only AFTER a failed walk; these slots surface
+    them up front.
+
+    Bridge set = pool relations on edges touching a 1-hop CVT of any request
+    center (the same carriers the sg-side bridge scan would attach). The GTE
+    tail scores order them; relations already ranked into cands consume no
+    slot. Pure CPU, bounded by the centers' adjacency."""
+    if top_n <= 0:
+        return []
+    from kgqa.agent.tools import _full_adj
+    adj = _full_adj(ctx)
+    n_ents = len(ctx.ents)
+    cand_set = set(cands)
+    bridge = set()
+    for ent, pool in reqs:
+        ci = _name_to_idx(ent, ctx)
+        if not (0 <= ci < len(adj)):
+            continue
+        for _r, nb in adj[ci]:
+            if not (0 <= nb < n_ents) or not is_cvt_like(ctx.ents[nb]):
+                continue
+            for r2, _o in adj[nb]:
+                if r2 in pool:
+                    bridge.add(r2)
+    scored_bridge = [(s, r) for r, s in scored.items()
+                     if r in bridge and r not in cand_set]
+    scored_bridge.sort(reverse=True)
+    return [r for _s, r in scored_bridge[:top_n]]
+
+
 async def _rr_execute(treq, ctx, session):
     """B段: the GTE correction (or the ranking awaits).
 
@@ -3093,10 +3135,17 @@ async def _rr_execute(treq, ctx, session):
         labeled = [f"{head_of.get(i, '?')} | {_rel_last2(ctx.rels[i])} | ?"
                    for i in pool_ids]
         name2pos = {n: k for k, n in enumerate(pool_names) if n}
+        # CVT-BRIDGE RESERVED SLOTS (Ethiopia specimen 21_6601…, 2026-09-23):
+        # one extra SCORE WINDOW beyond the top-30 that feeds cands — the
+        # server embeds the whole pool either way, the tail rows only score
+        # the bridge candidates (below). With slots off, top_k stays 30 and
+        # behavior is byte-identical to the pre-fix call.
+        _slots = int(os.environ.get("SEQ_RR_BRIDGE_SLOTS", "3") or 0)
         rows = await gte_retrieve(session, treq["question"], pool_names,
                                   candidate_texts=labeled,
-                                  top_k=30, instruct=_TRIPLE_GTE_INSTRUCT)
-        cands = []
+                                  top_k=30 + (30 if _slots > 0 else 0),
+                                  instruct=_TRIPLE_GTE_INSTRUCT)
+        cands, scored = [], {}
         for r in rows or []:
             pos = r.get("index")
             try:
@@ -3107,10 +3156,15 @@ async def _rr_execute(treq, ctx, session):
                 pos = name2pos.get(r.get("candidate"))
             if isinstance(pos, int) and 0 <= pos < len(pool_ids):
                 full = pool_ids[pos]
-                if full not in cands:
+                if full not in scored and r.get("score") is not None:
+                    scored[full] = float(r.get("score") or 0.0)
+                if len(cands) < 30 and full not in cands:
                     cands.append(full)
+        reserved = (_rr_bridge_reserved(ctx, treq["requests"], cands, scored,
+                                        _slots) if _slots > 0 else [])
     else:
         cands, seen = [], set()
+        reserved = []
         for ent, pool in treq["requests"]:
             ranked = await _gte_for_triple(ctx, session, ent, treq["question"], "",
                                            pool_relids=pool)
@@ -3152,9 +3206,10 @@ async def _rr_execute(treq, ctx, session):
         rel_ranked = [c for c in ranked_combined if c not in attr_set]
         attr_ranked += [a for a in attr_names if a not in set(attr_ranked)]
         rel_ranked += [r for r in merged_pool if r not in set(rel_ranked)]
-        return {"cands": cands, "attr_ranked": attr_ranked, "rel_ranked": rel_ranked}
+        return {"cands": cands, "attr_ranked": attr_ranked,
+                "rel_ranked": rel_ranked, "reserved": reserved}
     except Exception:
-        return {"cands": cands}
+        return {"cands": cands, "reserved": reserved}
 
 
 def _rr_finalize(treq, bres, ctx) -> str:
@@ -3257,6 +3312,19 @@ def _rr_finalize(treq, bres, ctx) -> str:
             _flat = sorted((str(ctx.rels[i]) for i in cands[:30]
                             if isinstance(i, int) and 0 <= i < len(ctx.rels)),
                            key=_order)[:15]
+            # CVT-BRIDGE RESERVED SLOTS (see _rr_bridge_reserved): guaranteed
+            # first-screen presence regardless of the second re-rank's
+            # opinion — appended AFTER the 15-cut, never displacing a ranked
+            # candidate. ⚑ tells the model these are the center's CVT
+            # mediator crossings: submit them WITH the family they carry.
+            _res = [str(ctx.rels[i]) for i in (bres.get("reserved") or [])
+                    if isinstance(i, int) and 0 <= i < len(ctx.rels)
+                    and str(ctx.rels[i]) not in _flat]
+            if _res:
+                _flat += _res
+                _grouped += ("\n  ⚑ cvt-bridge (reserved — paths through the "
+                             "center's CVT mediators; carry the answer behind "
+                             "them): " + ", ".join(_res))
             return _json_result({
                 "entities": treq["entities"], "question": treq["question"],
                 "candidate_relations": _flat,
@@ -3292,6 +3360,10 @@ def _rr_finalize(treq, bres, ctx) -> str:
     if _nudge:
         _note = _nudge + " " + _note
     cand_rel_names = [ctx.rels[i] for i in cands if 0 <= i < len(ctx.rels)]
+    # CVT-BRIDGE reserved slots — same guaranteed presence as the grouped path
+    cand_rel_names += [str(ctx.rels[i]) for i in (bres.get("reserved") or [])
+                       if isinstance(i, int) and 0 <= i < len(ctx.rels)
+                       and str(ctx.rels[i]) not in {str(n) for n in cand_rel_names}]
     return _json_result({
         "entities": treq["entities"], "question": treq["question"],
         "candidate_relations": cand_rel_names,
