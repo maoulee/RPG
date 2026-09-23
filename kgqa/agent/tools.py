@@ -2261,7 +2261,12 @@ def join_path_rescue(ctx, fids, max_hops=3, reveal=False):
     (JOIN-PATH RESCUE, user ruling 2026-09-23): bidirectional BFS over
     the case graph from side A's pool to side B's pool; returns a
     rendered 'A --rel--> ... --rel--> B' line, or None. CVT/id transit
-    nodes are transparent (same named-hop semantics as the pool)."""
+    nodes are transparent (same named-hop semantics as the pool).
+    FAIRNESS CONTRACT (user ruling 2026-09-23): the search is POOL-TO-POOL
+    shortest + GTE-on-question ranking — NEVER gold-anchored. The bridge
+    must not be constructed to pass through the answer; any landing near
+    the answer is the natural consequence of pool proximity, and the
+    external feedback carries existence only (no chain, no endpoint)."""
     def _name_idx(name):
         nm = str(name)
         for i, e in enumerate(ctx.ents):
