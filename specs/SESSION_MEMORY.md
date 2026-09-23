@@ -11410,3 +11410,12 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   v24 的 576 无裸标签(bridge 注入删除已修一层),v25 的 567/1171 仍有(此层)。
 - merge note 已迁推理时刻(499f683,两 ANSWER_ANALYSIS 入口一次性信息性);
   sg 侧逐子图触发已撤(过度提醒)。
+- **v26(全部修复:merge note 推理时刻+rr 保底+裸标签修)**:0.517/60.4%——
+  **三连降**(v24c 0.647→v25 0.601→v26 0.517)。嫌疑:裸标签修复把残段链
+  整链踢出渲染(边也是证据,567 msg5 的 award 行消失);merge note 推理版
+  待消融;rr ⚑ 行分心。**下轮第一优先:三开关消融**(SEQ_RR_BRIDGE_SLOTS=0
+  /merge note 禁用/残段链回滚)定位贡献,单变量跑。
+- **RSCC v3 on v26**(specs/rscc_v26v3_*):结构 122/abstain 87/informative 67/
+  removed 61/harmful 2/redundant 4——移除量比 v3fast(9)大涨(残段链被踢后
+  归属文本空→空块通道)。567_11fd 块#0/#1 双 redundant 保留(L≈0 合取型);
+  1731 五块判分分化;1171 块#0 harmful 保留。
