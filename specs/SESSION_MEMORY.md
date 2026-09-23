@@ -11359,3 +11359,8 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   Giants (GTE-ranked)"。**567 探针 f1=0.50 保持但真实轨迹 rescue 0 渲染**
   ——函数级 ✓、集成触发点未到(疑 _fcp 键/时序,ANSWER_READY 分支与
   join_flag 空交集分支的调用路径需日志),下轮第一优先。
+- **rescue 集成键修复**(88c7407,无 rollout 静态审计定位):join_flag 传
+  declared fid('sg2.f2'),池键是 fact_key_map canonical('f2')——真实轨迹
+  查池必 miss→rescue 静默 None(函数级早已验证正确)。修:键双向解析
+  (_fkm.get 双查);object.name 段渲染全跳。本地验证 'sg2.f2' 键下输出
+  正确合拢桥。待:下轮 rollout 复验 567 rescue 实际渲染。
