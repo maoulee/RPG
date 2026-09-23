@@ -2222,6 +2222,191 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
             # keep only the pool-hit entities (possibly []) and accept those.
             entities = [e for e in entities if e not in offpool]
 
+    # ANSWER-TIME MERGE CHECK (user ruling 2026-09-23): judge the ACTUAL
+    # walked variables, never message parsing. When >=2 subgraph pools
+    # exist, never intersected, and a bridge exists between them, bounce
+    # ONCE with the shortest bridge (same one-shot semantics as off-pool)
+    # — the model's two subgraphs get their connecting evidence at answer
+    # time, on every ANSWER_ANALYSIS / REMINDER / checkpoint path alike.
+    if not getattr(ctx, "_merge_bounced", False):
+        _fcp = getattr(ctx, "fact_candidate_pool", None) or {}
+        _keys = list(_fcp.keys())
+        if len(_keys) >= 2:
+            _s0 = set(_fcp.get(_keys[0]) or ())
+            _s1 = set(_fcp.get(_keys[1]) or ())
+            if not (_s0 & _s1):
+                try:
+                    _bridge = join_path_rescue(ctx, _keys[:2])
+                except Exception:
+                    _bridge = None
+                if _bridge:
+                    ctx._merge_bounced = True
+                    return _json_result({
+                        "error": ("The two subgraphs' walked candidate pools "
+                                  "never MERGED — every constraint must hold "
+                                  "on ONE entity. The shortest bridge between "
+                                  "them (walk it, then re-answer): "
+                                  + _bridge),
+                        "merge_bridge": _bridge})
     ctx.llm_answer_preds = entities
     ctx.llm_answer_str = " | ".join(entities)
     return _json_result({"entities": entities})
+
+
+def join_path_rescue(ctx, fids, max_hops=3):
+    """Shortest bridge between two subgraphs' walked endpoint sets
+    (JOIN-PATH RESCUE, user ruling 2026-09-23): bidirectional BFS over
+    the case graph from side A's pool to side B's pool; returns a
+    rendered 'A --rel--> ... --rel--> B' line, or None. CVT/id transit
+    nodes are transparent (same named-hop semantics as the pool)."""
+    def _name_idx(name):
+        nm = str(name)
+        for i, e in enumerate(ctx.ents):
+            if str(e) == nm:
+                return i
+        return None
+
+    if len(fids) < 2:
+        return None
+    from kgqa.agent.tools import _full_adj
+    adj = _full_adj(ctx)
+    n = len(ctx.ents)
+    import re as _re_id
+    def _cvtl(i):
+        nm = str(ctx.ents[i]) if 0 <= i < n else ""
+        return nm.startswith(("m.", "g.")) or (
+            len(nm) <= 24 and " " not in nm
+            and bool(_re_id.search(r"\d{2,}", nm)))
+    # KEY CANONICALIZATION (integration audit 2026-09-23): join_flag
+    # passes DECLARED fids ('sg2.f2') but the pools are keyed through
+    # fact_key_map's canonical fid ('f2') — the raw lookup missed every
+    # pool and the rescue silently returned None in real rollouts
+    # (function verified fine in isolation). Resolve both ways.
+    _fkm = getattr(ctx, "fact_key_map", None) or {}
+    _fcp = getattr(ctx, "fact_candidate_pool", None) or {}
+    _fev = getattr(ctx, "fact_evidence", None) or {}
+    pools = {}
+    for _fid in fids[:2]:
+        _key = _fkm.get(_fid, _fid)
+        pl = _fcp.get(_key) or _fcp.get(_fid)
+        if not pl:
+            pl = set(_fev.get(_key) or ()) or set(_fev.get(_fid) or ())
+        if pl:
+            pools[_fid] = {_name_idx(p) for p in pl}
+    if len(pools) < 2:
+        return None
+    (ka, sa), (kb, sb) = pools.items()
+    sa, sb = {i for i in sa if i is not None}, {i for i in sb if i is not None}
+    if sa & sb:
+        shared = sa & sb
+        return f"(pools already share: {' | '.join(str(ctx.ents[i]) for i in list(sorted(shared))[:5])})"
+    # BFS from A's pool, target B's pool; named-hop cost, transit free
+    parent = {}
+    seen = set(sa)
+    frontier, cost = set(sa), 0
+    hits = []
+    while frontier and cost < max_hops and not hits:
+        nxt = set()
+        stack = list(frontier)
+        while stack:
+            i = stack.pop()
+            for _rr, other in (adj[i] if 0 <= i < len(adj) else ()):
+                if other in seen or not (0 <= other < n):
+                    continue
+                seen.add(other)
+                if other in sb:
+                    parent[other] = (i, _rr)
+                    hits.append(other)   # collect the whole landing layer
+                    continue
+                if _cvtl(other):
+                    stack.append(other)
+                    parent.setdefault(other, (i, _rr))
+                else:
+                    parent[other] = (i, _rr)
+                    nxt.add(other)
+        frontier = nxt
+        cost += 1
+    if not hits:
+        return None
+    # GTE SEMANTIC RANKING of the candidate bridges (user ruling
+    # 2026-09-23): hop count first (BFS layer), semantics WITHIN equal
+    # hops — the shortest bridge is only "best" when its relations
+    # actually encode the question's join. Sync embed call: the rescue
+    # fires at most once per case (empty-intersection only).
+    def _full_path(hit_n):
+        # backtrack the RAW node chain (CVT segments kept) with the
+        # edge relation of each step — named-pair rendering failed on
+        # CVT-mediated bridges (no DIRECT edge between the named ends).
+        path, node = [hit_n], hit_n
+        while node not in sa and node in parent:
+            prev, _rel = parent[node]
+            path.append(node)
+            node = prev
+        if node in sa:
+            path.append(node)      # the A-side seed ends the chain
+        path.reverse()
+        if len(path) < 2:
+            return None, None
+        named = [i for i in path if not _cvtl(i)]
+        if len(named) < 2:
+            return None, None
+        return named, path
+
+    cands = []
+    for h in hits[:12]:
+        named, path = _full_path(h)
+        if not named:
+            continue
+        cands.append((named, path))
+    if not cands:
+        return None
+    _scores = None
+    try:
+        import requests as _rq
+        def _chain_txt(path):
+            segs_r = []
+            for a, b in zip(path, path[1:]):
+                for rr, other in (adj[a] if 0 <= a < len(adj) else ()):
+                    if other == b:
+                        segs_r.append(
+                            ".".join(str(ctx.rels[rr]).rsplit(".", 2)[-2:]))
+                        break
+            return " ⭢ ".join(segs_r)
+        _txts = [_chain_txt(path) for _, path in cands]
+        _q = str(getattr(ctx, "question", "") or "")
+        _eb = _rq.post("http://127.0.0.1:8003/embed",
+                       json={"texts": [_q] + _txts}, timeout=10).json()["embeddings"]
+        import math as _m
+        def _cos(a, b):
+            d = sum(x * y for x, y in zip(a, b))
+            na = _m.sqrt(sum(x * x for x in a)) or 1.0
+            nb = _m.sqrt(sum(x * x for x in b)) or 1.0
+            return d / (na * nb)
+        _scores = [_cos(_eb[0], e) for e in _eb[1:]]
+    except Exception:
+        _scores = None
+    order = sorted(range(len(cands)),
+                   key=lambda k: (len(cands[k][0]) - 1,
+                                  -(_scores[k] if _scores else 0)))
+    named, path = cands[order[0]]
+    segs = [str(ctx.ents[path[0]])]
+    for a, b in zip(path, path[1:]):
+        _rs = "?"
+        for rr, other in (adj[a] if 0 <= a < len(adj) else ()):
+            if other == b:
+                _rs = ".".join(str(ctx.rels[rr]).rsplit(".", 2)[-2:])
+                break
+        if _cvtl(b):
+            segs.append(f" --{_rs}-->")
+        elif _rs == "object.name":
+            continue          # id-node → same-name node, never info
+        else:
+            segs.append(f" --{_rs}--> {ctx.ents[b]}")
+    out = "".join(segs)[:600]
+    if _scores is not None:
+        out += f"  (GTE-ranked best of {len(cands)})"
+    return out + (f"  ({len(named)-1} hop(s); walk this bridge to "
+                  "merge the subgraphs)")
+
+
+
