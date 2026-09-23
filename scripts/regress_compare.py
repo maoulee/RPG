@@ -65,9 +65,12 @@ def dump_traj(L, tag, r):
             tool, cl = call_of(traj, j)
             L.append(f"\n--- msg{j} [tool:{tool}] {' / '.join(cl[1:4])}")
             L.append(c)
-        elif role == "assistant" and j >= len(traj) - 3:
-            L.append(f"\n--- msg{j} [assistant, final turns]")
-            L.append(c[:1500])
+        elif role == "assistant":
+            L.append(f"\n--- msg{j} [assistant: 思考+命令,完整] ---")
+            L.append(c)
+        elif role in ("user", "system"):
+            L.append(f"\n--- msg{j} [{role}: 环境消息,完整] ---")
+            L.append(c)
 
 def main():
     v23, v24 = load(V23), load(V24)
