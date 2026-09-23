@@ -66,7 +66,10 @@ def dump_traj(L, tag, r):
             L.append(f"\n--- msg{j} [tool:{tool}] {' / '.join(cl[1:4])}")
             L.append(c)
         elif role == "assistant":
-            L.append(f"\n--- msg{j} [assistant: 思考+命令,完整] ---")
+            rs = m.get("reasoning") or ""
+            L.append(f"\n--- msg{j} [assistant] 思考 ---")
+            L.append(rs if rs.strip() else "(无 reasoning 字段)")
+            L.append(f"--- msg{j} [assistant] 命令/输出 ---")
             L.append(c)
         elif role in ("user", "system"):
             L.append(f"\n--- msg{j} [{role}: 环境消息,完整] ---")
