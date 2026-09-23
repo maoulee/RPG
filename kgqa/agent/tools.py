@@ -787,6 +787,16 @@ def _reach2_relids(ctx, entity_set) -> set:
     def _adj(i):
         return _adj_full[i] if 0 <= i < len(_adj_full) else ()
 
+    import re as _re_idlike
+    def _id_like(name):
+        # ID-TYPE TRANSIT NODE (user ruling 2026-09-23, 25_db96 specimen):
+        # opaque code nodes (travel ids etc.) carry no answer semantics —
+        # they are transit surfaces exactly like CVTs. Without this they
+        # cost a NAMED hop, pushing their relations to the 3rd named hop,
+        # outside the pool (travelid's relations unreachable).
+        return (len(name) <= 24 and " " not in name
+                and bool(_re_idlike.search(r"\d{2,}", name)))
+
     def _expand(seed, cost_budget):
         seen, frontier, cost = set(seed), set(seed), 0
         while frontier and cost < cost_budget:
@@ -797,7 +807,8 @@ def _reach2_relids(ctx, entity_set) -> set:
                     if other in seen or not (0 <= other < len(ctx.ents)):
                         continue
                     seen.add(other)
-                    if str(ctx.ents[other]).startswith(("m.", "g.")):
+                    _nm = str(ctx.ents[other])
+                    if _nm.startswith(("m.", "g.")) or _id_like(_nm):
                         stack.append(other)     # transparent: same layer
                     else:
                         nxt.add(other)          # named: costs the next hop
