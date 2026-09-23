@@ -11344,3 +11344,10 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   0.67 持平(id 透明未改变该采样行为)。**JOIN-PATH RESCUE 0 触发**——本批
   无空交集场景,机制条件性未验证;下轮用 124 标本(历史 JOIN empty)构造
   验证。commit:3391914(id 透明)/fae69b8(join rescue)。
+- **join 自查+关系名桥**(3911ed7,567 标本):ANSWER_READY 分支加 pre-answer
+  join self-check(≥2 池未 join→交集/桥检索);rescue 渲染带关系名完整最短
+  路径。567 探针:f1 0.33→0.50,空交集 SYSTEM JOIN 消息 4/6 触发——但
+  **JOIN-PATH RESCUE 段未渲染**(图上 Ron Howard --actor.film--> Village
+  1 跳桥应命中;疑 _join_path_rescue 内异常被 except 吞或 pool 键
+  (f1/sg2.f2)与 fact_candidate_pool 键不匹配)。下轮第一步:rescue 调试
+  (去掉 except pass 打日志本地复现)。
