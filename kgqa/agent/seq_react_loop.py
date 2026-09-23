@@ -1263,11 +1263,20 @@ class SeqReactCase:
             return nm.startswith(("m.", "g.")) or (
                 len(nm) <= 24 and " " not in nm
                 and bool(_re_id.search(r"\d{2,}", nm)))
+        # KEY CANONICALIZATION (integration audit 2026-09-23): join_flag
+        # passes DECLARED fids ('sg2.f2') but the pools are keyed through
+        # fact_key_map's canonical fid ('f2') — the raw lookup missed every
+        # pool and the rescue silently returned None in real rollouts
+        # (function verified fine in isolation). Resolve both ways.
+        _fkm = getattr(self.ctx, "fact_key_map", None) or {}
+        _fcp = getattr(self.ctx, "fact_candidate_pool", None) or {}
+        _fev = getattr(self.ctx, "fact_evidence", None) or {}
         pools = {}
         for _fid in fids[:2]:
-            pl = (getattr(self.ctx, "fact_candidate_pool", None) or {}).get(_fid)
+            _key = _fkm.get(_fid, _fid)
+            pl = _fcp.get(_key) or _fcp.get(_fid)
             if not pl:
-                pl = set(getattr(self.ctx, "fact_evidence", {}).get(_fid, ()))
+                pl = set(_fev.get(_key) or ()) or set(_fev.get(_fid) or ())
             if pl:
                 pools[_fid] = {self._name_idx(p) for p in pl}
         if len(pools) < 2:
@@ -1375,8 +1384,8 @@ class SeqReactCase:
                     break
             if _cvtl(b):
                 segs.append(f" --{_rs}-->")
-            elif _rs == "object.name" and str(self.ctx.ents[b]) == segs[0]:
-                continue          # id-node → same-name node tail, no info
+            elif _rs == "object.name":
+                continue          # id-node → same-name node, never info
             else:
                 segs.append(f" --{_rs}--> {self.ctx.ents[b]}")
         out = "".join(segs)[:600]
