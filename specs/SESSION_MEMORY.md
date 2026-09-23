@@ -11364,3 +11364,11 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   查池必 miss→rescue 静默 None(函数级早已验证正确)。修:键双向解析
   (_fkm.get 双查);object.name 段渲染全跳。本地验证 'sg2.f2' 键下输出
   正确合拢桥。待:下轮 rollout 复验 567 rescue 实际渲染。
+- **567 机制复验(0/6 全灭,两个新发现)**:①ANSWER_READY 自查注入点不覆盖
+  msg12 的 ANSWER_ANALYSIS 入口——实际走的是 analysis_pending/REMINDER 路径
+  (msg13 REMINDER"answer from f1 bindings"),自查消息根本没发出;②新失败
+  模式:REMINDER 把模型导向单事实答案(答 f1 首项 A Beautiful Mind),模型
+  BASE_BINDINGS 漏写 sg2——行为+环境双因素。**修复方向**:自查移到
+  ANSWER_ANALYSIS 的所有解析入口(或 answer dispatch 前统一自查);
+  REMINDER 的"answer from f1"措辞改为含全部 fact 的 join 视角。机制未稳定,
+  信息排查(裸 bridge 标签/rr 召回)顺延。
