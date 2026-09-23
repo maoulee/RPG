@@ -5695,6 +5695,26 @@ def _sg_finalize(treq, bres, ctx) -> str:
     # question KEEPS actor= values — 1171's gold is one; a film question
     # DROPS character= names — 25 specimen). Display-only: the legality
     # pool (walk_seen_entities / all_candidates) is untouched.
+    # MERGE NOTE (user ruling 2026-09-23, information-not-interrupt): when
+    # the SECOND subgraph's retrieval completes and the two walked pools
+    # have not merged, append an EXISTENCE note to THIS subgraph's result —
+    # the model receives it in the normal flow (nothing is interrupted, no
+    # re-answer demanded; it may retrieve the bridge or answer as judged).
+    _merge_note = ""
+    try:
+        _fcp2 = getattr(ctx, "fact_candidate_pool", None) or {}
+        if len(_fcp2) >= 2 and not getattr(ctx, "_merge_noted", False):
+            _ks = list(_fcp2.keys())
+            if not (set(_fcp2.get(_ks[0]) or ())
+                    & set(_fcp2.get(_ks[1]) or ())):
+                if join_path_rescue(ctx, _ks[:2]):
+                    ctx._merge_noted = True
+                    _merge_note = ("NOTE: your two subgraphs have not merged; "
+                                   "an unretrieved connecting path EXISTS "
+                                   "between their centers. ")
+    except Exception:
+        pass
+
     _res = {
         "fact_id": fid,
         "entities": [e for e, _ in centers] if not _v36 else "",
@@ -5702,6 +5722,7 @@ def _sg_finalize(treq, bres, ctx) -> str:
 
         "skipped_centers": skipped,
         "note": ((_nudge + " ") if _nudge else "") +
+                (_merge_note) +
                 (("UNCHANGED EVIDENCE (repeat): these relations produced no NEW edges since "
                   "your previous subgraph — the same evidence is displayed again so it stays "
                   "in context. ACT on it (checkpoint / answer / move to the next fact); "

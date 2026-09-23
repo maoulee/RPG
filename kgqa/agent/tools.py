@@ -2222,35 +2222,6 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
             # keep only the pool-hit entities (possibly []) and accept those.
             entities = [e for e in entities if e not in offpool]
 
-    # ANSWER-TIME MERGE CHECK (user ruling 2026-09-23): judge the ACTUAL
-    # walked variables, never message parsing. When >=2 subgraph pools
-    # exist, never intersected, and a bridge exists between them, bounce
-    # ONCE with the shortest bridge (same one-shot semantics as off-pool)
-    # — the model's two subgraphs get their connecting evidence at answer
-    # time, on every ANSWER_ANALYSIS / REMINDER / checkpoint path alike.
-    if not getattr(ctx, "_merge_bounced", False):
-        _fcp = getattr(ctx, "fact_candidate_pool", None) or {}
-        _keys = list(_fcp.keys())
-        if len(_keys) >= 2:
-            _s0 = set(_fcp.get(_keys[0]) or ())
-            _s1 = set(_fcp.get(_keys[1]) or ())
-            if not (_s0 & _s1):
-                try:
-                    _bridge = join_path_rescue(ctx, _keys[:2])
-                except Exception:
-                    _bridge = None
-                if _bridge:
-                    # EXISTENCE ONLY (user ruling 2026-09-23): the harness's
-                    # mind-map search stays INTERNAL — the feedback states
-                    # that a connecting path exists, never the relations,
-                    # never the ranking, never the endpoint.
-                    ctx._merge_bounced = True
-                    return _json_result({
-                        "note": ("REMINDER: your two subgraphs have not "
-                                 "merged, yet a connecting path EXISTS "
-                                 "between their centers and was NOT "
-                                 "retrieved by your subgraphs. Retrieve it, "
-                                 "then answer from the merged view.")})
     ctx.llm_answer_preds = entities
     ctx.llm_answer_str = " | ".join(entities)
     return _json_result({"entities": entities})
