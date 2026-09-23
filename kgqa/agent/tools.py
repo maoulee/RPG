@@ -2242,18 +2242,22 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
                 if _bridge:
                     ctx._merge_bounced = True
                     return _json_result({
-                        "error": ("The two subgraphs' walked candidate pools "
-                                  "never MERGED — every constraint must hold "
-                                  "on ONE entity. The shortest bridge between "
-                                  "them (walk it, then re-answer): "
-                                  + _bridge),
-                        "merge_bridge": _bridge})
+                        "note": ("REMINDER (mind-map, not a verdict): your two "
+                                 "subgraphs have not merged — every constraint "
+                                 "of the question must hold on ONE entity. A "
+                                 "path EXISTS between their centers: "
+                                 + _bridge
+                                 + " — the endpoint is hidden: walk these "
+                                 "relations from your center to retrieve the "
+                                 "connecting entity, then answer from the "
+                                 "merged view."),
+                        "merge_hint": _bridge})
     ctx.llm_answer_preds = entities
     ctx.llm_answer_str = " | ".join(entities)
     return _json_result({"entities": entities})
 
 
-def join_path_rescue(ctx, fids, max_hops=3):
+def join_path_rescue(ctx, fids, max_hops=3, reveal=False):
     """Shortest bridge between two subgraphs' walked endpoint sets
     (JOIN-PATH RESCUE, user ruling 2026-09-23): bidirectional BFS over
     the case graph from side A's pool to side B's pool; returns a
