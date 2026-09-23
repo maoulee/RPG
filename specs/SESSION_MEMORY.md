@@ -1,5 +1,28 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-23 长度优先修复+回退对齐勘误(1379 标本,user 两问题驱动)
+- **重大勘误**:v24 首跑漏带 CASE_FILTER(tmp/v21_cohort.txt),与 v23_final
+  不同批 48 案——"+4.8pp"对比无效。对齐后 v24a(lane-2 删+bridge 修+事实
+  键)实为 **0.569/62.5%(-10pp/-12.5pp**,loss 19/gain 7)。教训:对比
+  run 必须 CASE_FILTER 对齐。
+- **1379 全链诊断(问题1=Priest 缺席)**:数据侧 Priest 挂 Life of FL
+  (虚构角色)的 person.profession;真人无 profession 边;结构连接存在
+  (based_on⭢profession 两跳)。缺席三因:①首调无树→step-coverage 全 0
+  退化;②选择层 key=(-cov,**GTE 序,长度**)——GTE 用模式串对问题文本,
+  题词(career/religious)相关的 3-hop 绕行占满 per-terminal 配额=3,
+  2-hop [based_on⭢profession] 出局;③唯一含 profession 跳的 3-hop 模式
+  through-chain 只留能走完三跳的链(Priest 无 pwtp 出边卡 hop2 被丢)。
+  **问题2 勘误**:employment_history 终点不违纪——模型自己提交的
+  (GTE rr 对'career'语义召回),渲染如实反映。
+- **修复(长度回位)**:选择 key 改 (-cov, len, gte)——等覆盖下短模式优先。
+  1379 探针:8/12 采样 Priest 进首调,f1 1.0×6。全量 v24b=**0.615/68.1%**
+  (v24a 0.569→+4.6pp,基线 0.669 仍差 -5.4pp;gain12/loss17)。
+- **残留回退根源待诊**(2152 -1.00/1171/576 -0.67 为首):through-chain
+  中间层丢弃(卡 hop 的 tails 如 Priest 类证据在其他 case 放大)/边级
+  去重误杀/continuation 的 frontier 直连一跳彻底消失(lane-2 删除后层
+  更新只走全链模式,若链不含 frontier 直连提交边则丢)。下一步:diff
+  top-loss case 轨迹。
+
 ### 2026-09-23 v3 abstain 人审摘要:57 通路=55 负 lift+2 零 lift(分野发现)
 - specs/rscc_v3_abstain_summary_2026-09-23.md:abstain 通路按 L 符号分组。
   **55/57 是负 lift**(通路完整证据把 gold 概率压到 p0 以下——v2.1 的

@@ -4667,9 +4667,19 @@ async def _sg_execute(treq, ctx, session):
             # patterns crowd the other out entirely)
             for (_ci, _s) in sorted(
                     _cmap,
+                    # ORDERING (user ruling 2026-09-23, design realignment):
+                    # step coverage first, then LENGTH (shorter patterns are
+                    # stronger — a 2-hop bridge⭢submitted beats a 3-hop
+                    # detour), GTE semantics WITHIN equal coverage+length.
+                    # The old key put GTE rank above length, so three
+                    # question-lexical 3-hop detours (topic.image⭢…⭢rel)
+                    # filled the per-terminal quota and crowded out the
+                    # direct 2-hop (1379: [based_on⭢profession] — the only
+                    # pattern carrying Priest — never rendered).
                     key=lambda k: (-_cov.get(k, 0),
+                                   len(_cmap[k]),
                                    _rank.get(k[1], 999),
-                                   len(_cmap[k]), k[1], k[0])):
+                                   k[1], k[0])):
                 _term = _cmap[(_ci, _s)][-1]     # terminal relation idx
                 n = _per_term.get((_ci, _term), 0)
                 if n >= 3:
