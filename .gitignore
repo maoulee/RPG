@@ -251,3 +251,4 @@ scripts/verify_walk_equivalence.py
 scripts/score_layer_op_probs.py
 scripts/rscc_credit.py
 scripts/regress_compare.py
+scripts/regress_fixloss.py
