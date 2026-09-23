@@ -58,6 +58,22 @@ def render_v38_ack(treq, bres, ctx):
     center_names = [e for e, _i in (treq.get("centers") or [])]
     sel_rels = {str(r) for r in (treq.get("rel_names") or [])}
 
+    # EDGE-LEVEL PRIOR DEDUP (user ruling 2026-09-23): paths stay whole —
+    # path adjudication keeps the chain connectivity — but an edge whose
+    # FACT was already delivered by a prior subgraph of this case renders no
+    # row. Keys are direction-normalized + inverse-folded facts; the
+    # comparison set is treq["prior"], the accumulation snapshot taken
+    # BEFORE this call's own edges joined it (render runs after
+    # _accumulate, so the live set would suppress this call's new edges
+    # too).
+    from kgqa.agent.seq_tools import _ctx_inverse_rels, _edge_fact_key
+    _inv = _ctx_inverse_rels(ctx)
+    _prior_facts = {_edge_fact_key(str(h), str(r), str(t), _inv)
+                    for (h, r, t) in (treq.get("prior") or ())}
+
+    def _edge_shown(hn, rn, tn):
+        return _edge_fact_key(hn, rn, tn, _inv) in _prior_facts
+
     def hop_dir(rname, a_name, b_name):
         if rname in rels:
             rid = rels.index(rname)
@@ -182,11 +198,13 @@ def render_v38_ack(treq, bres, ctx):
                 sh = _short(rname)
                 d = hop_dir(rname, key[i], key[i + 1])
                 if d == "r":
-                    edges.add((key[i + 1], sh, key[i]))
-                    anchored.add((key[i + 1], key[i]))
+                    if not _edge_shown(key[i + 1], rname, key[i]):
+                        edges.add((key[i + 1], sh, key[i]))
+                        anchored.add((key[i + 1], key[i]))
                 else:
-                    edges.add((key[i], sh, key[i + 1]))
-                    anchored.add((key[i], key[i + 1]))
+                    if not _edge_shown(key[i], rname, key[i + 1]):
+                        edges.add((key[i], sh, key[i + 1]))
+                        anchored.add((key[i], key[i + 1]))
 
     # CVT PENETRATION + CENTER-PARENTED SIBLINGS are part of the center's
     # pattern instantiation (pathcons rollout: demoting them cost -4.4pp —
@@ -219,6 +237,8 @@ def render_v38_ack(treq, bres, ctx):
                     continue
                 h, r, t = str(tr[0]), str(tr[1]), str(tr[2])
                 if _cvt(h) and not _cvt(t):
+                    if _edge_shown(h, r, t) or _edge_shown(t, r, h):
+                        continue
                     sh = _short(r)
                     d = hop_dir(r, h, t)
                     if d == "r":
@@ -226,6 +246,8 @@ def render_v38_ack(treq, bres, ctx):
                     else:
                         edges.add((h, sh, t))
                 elif not _cvt(h) and _cvt(t):
+                    if _edge_shown(h, r, t) or _edge_shown(t, r, h):
+                        continue
                     sh = _short(r)
                     d = hop_dir(r, h, t)
                     if d == "r":

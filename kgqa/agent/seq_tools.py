@@ -781,6 +781,63 @@ def _shown_edge_key(h: str, r: str, t: str) -> tuple:
     return (normalize(h), r, normalize(t))
 
 
+def _ctx_inverse_rels(ctx) -> dict:
+    """Per-case inverse-relation folding (user ruling 2026-09-23).
+
+    Freebase double-materializes many facts under BOTH direction relations
+    (music.artist.concert_tours vs music.concert_tour.artist): the same
+    (entity, entity) pair carries two raw edges with complementary
+    directions and different relation ids. Any dedup key comparing exact
+    (h, r, t) therefore misses the redelivery of an already-shown fact
+    under its inverse id (1731 specimen: `Journey --artist.concert_tours->
+    Raised on Radio Tour` delivered, later re-entered as `Raised on Radio
+    Tour --concert_tour.artist--> Journey`).
+
+    Derivation: relations that occur as direction-complementary edges on
+    >= 2 shared entity pairs AND on >= half of the smaller relation's edge
+    count are an inverse pair; both fold onto the lexicographically smaller
+    full name. Cached on ctx, keyed by the (immutable-per-case) edge count.
+    """
+    n_edges = len(ctx.h_ids)
+    cached = getattr(ctx, "_inv_rels_cache", None)
+    if cached is not None and cached[0] == n_edges:
+        return cached[1]
+    from collections import defaultdict
+    pair_edges = defaultdict(set)          # (min_idx, max_idx) -> {(h, t, r)}
+    for h, r, t in zip(ctx.h_ids, ctx.r_ids, ctx.t_ids):
+        if h != t:
+            pair_edges[(min(h, t), max(h, t))].add((h, t, r))
+    deg = defaultdict(int)
+    co = defaultdict(int)                  # sorted (r1, r2) -> complementary pairs
+    for members in pair_edges.values():
+        for (_h, _t, r) in members:
+            deg[r] += 1
+        ml = sorted(members)
+        for i in range(len(ml)):
+            for j in range(i + 1, len(ml)):
+                (h1, t1, r1), (h2, t2, r2) = ml[i], ml[j]
+                if r1 != r2 and h1 == t2 and t1 == h2:
+                    co[(min(r1, r2), max(r1, r2))] += 1
+    rep = {}
+    for (r1, r2), c in co.items():
+        if c >= 2 and c * 2 >= min(deg[r1], deg[r2]):
+            n1 = str(ctx.rels[r1]) if 0 <= r1 < len(ctx.rels) else str(r1)
+            n2 = str(ctx.rels[r2]) if 0 <= r2 < len(ctx.rels) else str(r2)
+            keep = min(n1, n2)
+            rep[n1] = keep
+            rep[n2] = keep
+    ctx._inv_rels_cache = (n_edges, rep)
+    return rep
+
+
+def _edge_fact_key(h: str, r: str, t: str, inv: dict) -> tuple:
+    """Direction-normalized + inverse-folded fact key: unordered endpoints
+    plus the relation pair's representative. (A,r,B) and (B,r,A) — the same
+    edge traversed from either side — key identically; so do (A,r1,B) and
+    (B,r2,A) for a folded inverse pair r1/r2."""
+    return (frozenset((normalize(h), normalize(t))), inv.get(r, r))
+
+
 def layer_evidence(fid, ctx, paths, all_triples, centers, entities):
     """EVIDENCE SEMANTIC LAYERS (user ruling 2026-08-24, V4 / Codex synthesis):
     the harness — not the model — knows which slot of the fact is the ANSWER
@@ -3787,19 +3844,17 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                 # bridges were attached (the surprising, audit-worthy case)
                 _fam_echo[rs] = {"direct": _dnames or [rs], "bridge": _bridges}
             _expanded.extend(_dnames if _dnames else [rs])
-            # BRIDGES = TRAVERSAL-ONLY (user design 2026-09-11, Ron-Howard
-            # awards specimen): a relation path must END with the SUBMITTED
-            # relation — bridge carrier edges are mid-segment hops, never
-            # segment termini. RPE's bridge hops already permit ANY non-
-            # target relation mid-path, so bridges need no rel_idxs entry
-            # for traversal; putting them there made every award edge in
-            # the 3-hop environment a legal TERMINATING segment (award
-            # sections rendered as "(retrieved)"). The echo still records
-            # them for audit. Prior A/Bs (direct-first -4.4pp etc.) removed
-            # bridges ENTIRELY; this keeps their traversal while stripping
-            # terminal status — a configuration not measured before.
-            if os.environ.get("SEQ_BRIDGE_TERMINAL", "1") == "1":
-                _expanded.extend(_bridges)
+            # BRIDGES NEVER ENTER rel_idxs (user ruling 2026-09-23): a bridge
+            # is a PATTERN-PATH mid-segment relation only. The old
+            # SEQ_BRIDGE_TERMINAL=1 injection (2026-09-11, measured on the
+            # pre-rebuild walk engine as the mismatch fix) put bridges into
+            # the submitted-relation set, where the rebuild era's lane-2
+            # walk consumed them as frontier one-hop termini — re-admitting
+            # already-delivered facts under their inverse relation id (1731
+            # specimen: Raised-on-Radio row). Reach on the rebuild lane is
+            # carried by the mseq pattern hops (the bridge IS hop-1 of the
+            # derived chain), so the injection has no remaining consumer.
+            # The expansion echo still records bridges for audit.
         rel_names = list(dict.fromkeys(_expanded))
         rel_idxs = [ctx.rels.index(r) for r in rel_names
                     if isinstance(r, str) and r in ctx.rels]
@@ -4380,9 +4435,15 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
     # chains whose every edge was already displayed by a prior subgraph of
     # this case render nothing. First calls (empty accumulation) render
     # everything; EXTEND naturally shows the new layer's chains.
-    _shown_triples = {(str(h), str(r), str(t))
-                      for (h, r, t) in (getattr(ctx, "accumulated_triples",
-                                                None) or set())}
+    # FACT KEYS (user ruling 2026-09-23): the comparison key is the FACT —
+    # direction-normalized endpoints + the inverse-folded relation — not the
+    # exact (h, r, t) walk record. Exact keys let the same fact re-enter as
+    # "new" under a reversed traversal direction or its inverse relation id
+    # (1731 specimen).
+    _inv = _ctx_inverse_rels(ctx)
+    _shown_facts = {_edge_fact_key(str(h), str(r), str(t), _inv)
+                    for (h, r, t) in (getattr(ctx, "accumulated_triples",
+                                              None) or set())}
     confirmed = {}
     out = []
     for (_cn, _ci) in treq["centers"]:
@@ -4400,8 +4461,9 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
             # new relation's context)
             return [ch for ch in chains
                     if not all(
-                        (str(ctx.ents[h]), str(ctx.rels[r]),
-                         str(ctx.ents[t])) in _shown_triples
+                        _edge_fact_key(str(ctx.ents[h]), str(ctx.rels[r]),
+                                       str(ctx.ents[t]), _inv)
+                        in _shown_facts
                         for (h, r, t) in ch["full_edges"])]
 
         def _assemble(names, chains):
@@ -4439,7 +4501,20 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
         # continuation shape) ride here too: a 1-layer chain IS one hop from
         # the root — the old len>1 guard dropped them entirely (block
         # renders empty).
-        for _pk, _seq in (_mseq.get(_ci) or {}).items():
+        # TRIVIAL FALLBACK (user ruling 2026-09-23): when derivation produced
+        # NO pattern for this center, the submitted relations themselves ride
+        # as 1-hop patterns FROM THE CENTER — the retired lane-2's first-call
+        # duty, now on the same single code path (root-anchored, like every
+        # other pattern). Lane-2's continuation duty (frontier-started,
+        # rel_idxs-including-injected-bridges one-hop walks) is DELETED: a
+        # continuation is a tree update followed by a re-walk of the FULL
+        # chain from the root, not a fresh retrieval seeded at the frontier.
+        _ms = dict(_mseq.get(_ci) or {})
+        if not _ms:
+            _ms = {(ri,): (frozenset({ri}),)
+                   for ri in sorted(set(treq["rel_idxs"]))
+                   if 0 <= ri < len(ctx.rels)}
+        for _pk, _seq in _ms.items():
             chains, _edges = _rebuild_paths(ctx, ix, _ci, _seq)
             if not chains:
                 continue
@@ -4457,38 +4532,11 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
                 continue
             _assemble(tuple(str(ctx.rels[r]) for r in _pk), _new)
 
-        # lane 2 — the trivial pattern: the submitted rel set, ONE hop from
-        # the step's starts (tree FRONTIER members on a continuation, else
-        # the center — the same targeting rule the old _ms_steps used).
-        # Grouped per first-hop relation; CONFIRMED KEY IS PER RELATION
-        # (not per frontier member — a 49-member frontier × 5 rels minted
-        # 245 keys and blew the render budget through sheer key count).
-        _fr = (treq.get("cont_frontier") or {}).get(_ci)
-        starts = [i for i in (_fr or [_ci]) if 0 <= i < len(ctx.ents)]
-        hop = frozenset(treq["rel_idxs"])
-        _direct_new, _direct_all = {}, {}
-        for _si in starts:
-            chains, _edges = _rebuild_paths(ctx, ix, _si, (hop,))
-            if not chains:
-                continue
-            for ch in chains:
-                if ch["edges"]:
-                    _direct_all.setdefault(ch["edges"][0][1], []).append(ch)
-            for ch in _delta_new(chains):
-                if ch["edges"]:
-                    _direct_new.setdefault(ch["edges"][0][1], []).append(ch)
-        for _r in sorted(_direct_new):
-            _assemble((str(ctx.rels[_r]),), _direct_new[_r])
-
-        # EMPTY-RENDER FALLBACK: the delta filter ate every chain of every
-        # lane but the walk DID produce chains — re-show the repeated
-        # evidence (first candidate, marked) instead of an empty render.
-        # Covers the trivial lane too: its all-old repeats used to fall
-        # through to a spurious NO_EVIDENCE — the walk had evidence, it was
-        # merely repeated.
-        if not combined and _raw_fallback is None and _direct_all:
-            _r0 = min(_direct_all)
-            _raw_fallback = (_direct_all[_r0], (str(ctx.rels[_r0]),))
+        # EMPTY-RENDER FALLBACK: the delta filter ate every chain but the
+        # walk DID produce chains — re-show the repeated evidence (first
+        # candidate, marked) instead of an empty render. All-old repeats
+        # used to fall through to a spurious NO_EVIDENCE — the walk had
+        # evidence, it was merely repeated.
         if not combined and _raw_fallback is not None:
             _assemble(_raw_fallback[1], _raw_fallback[0])
             treq["_repeat_evidence"] = True

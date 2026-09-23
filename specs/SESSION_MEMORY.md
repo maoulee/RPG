@@ -1,5 +1,32 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-23 lane-2 删除+bridge 不注入+事实键去重(user 四裁定):48×3 正向大胜
+- **裁定链**(1731 标本驱动):bridge 只是模式路径中间关系,从不进提交
+  关系集;模式路径 per-子图不跨子图继承;step 更新=树更新后**从 root
+  重走全链**(非 frontier 新检索——5 月版 k_queue 单 BFS+有序覆盖的
+  分轮化);新子图与前子图按**事实**去重("判别路径,去重展示")。
+- **实现**:① seq_tools 3801 bridge 注入删(SEQ_BRIDGE_TERMINAL 作废;
+  6421697 的 mismatch 实测是旧引擎前提,重建 lane 下 mseq hops 显式
+  携带桥,reach 不再依赖 rel_idxs 成员资格);② _rebuild_pe_list lane-2
+  整段删——continuation=树更新后 root 重走,lane-2 的首调职责收编为
+  lane-1 的 trivial 兜底(派生为空时提交关系按 1-hop 模式从 center 注
+  入 _ms);③ 事实键=_edge_fact_key(端点无序 frozenset+逆关系代表):
+  _ctx_inverse_rels 按 ctx 推导互逆对(同端点对互补方向≥2 次且≥较小
+  边数一半;Freebase 双向物化 act/cat 折叠);delta(_delta_new)与渲染
+  (render_v38 边级过滤,比较集=treq["prior"] 本轮前快照——渲染在
+  _accumulate 后跑,活集会误杀本轮新边)双落点。
+- **验证**:1731 原始形态(member 提交)cat 行+ROR 行消失;无空渲染;
+  pytest 153 绿;48×3(reports/v24_lanedel_48x3.json,logs/
+  rollout_v24_lanedel.log):**f1 0.710/hit 76.4%/NONE 15/turns 7.4/
+  mismatch 0**(v23_final 回填后 0.6616/74.3%/15/8.0/1)——f1 +4.8pp、
+  hit +2.1pp、mismatch 无回归。repeat-evidence 7→12(重复调用反馈
+  增加,设计语义)。
+- **残留现象**(行为层,待裁定):模型**主动提交** cat 型桥关系时(渲染
+  里见过关系名后模仿),[act⭢cat] 模式链首现 ROR 边仍渲染(探针新采样
+  4/6)——非重复(去重管不着首现),属提交侧桥关系识别问题。
+- 工作树注意:kgqa/agent/SEQ_AGENTS_V22.md 有 +1435 行未提交残留
+  (前段会话遗留,本波 commit 已排除)。
+
 ### 2026-09-23 渲染 delta 双漏网(1731 标本,user 人审点出):逆关系+方向翻转
 - **现象**:层更新调用(块#2,msg16)渲染出 `Raised on Radio Tour
   --concert_tour.artist--> Journey`——同事实上一轮已以
