@@ -5,15 +5,15 @@ result) plus an auto-diff of EVIDENCE LINES present in v23 but absent in
 v24b — aimed at the three regression suspects (through-chain mid-hop tail
 loss / edge-level dedup overkill / frontier direct-hop disappearance).
 Usage: python scripts/regress_compare.py
-Writes specs/regress_compare_2026-09-23.md
+Writes specs/regress_compare_v24d_2026-09-23.md
 """
 import json, re
 from collections import defaultdict
 
 V23 = "reports/v23_final_48x3.json"
-V24 = "reports/v24b_lenfirst_48x3.json"
-CASES = ["WebQTrn-2152", "WebQTest-1171", "WebQTest-576",
-         "WebQTrn-21_", "WebQTrn-25_", "WebQTrn-2540"]
+V24 = "reports/v24d_bridge_48x3.json"
+CASES = ["WebQTest-576", "WebQTrn-21_", "WebQTrn-1731",
+         "WebQTrn-2152", "WebQTest-1171", "WebQTrn-2540", "WebQTest-626"]
 
 def load(path):
     out = defaultdict(list)
@@ -106,8 +106,8 @@ def main():
         L.append(f"\n〔丢失证据行〕v23 有 / v24 无 (canonical, {len(lost)} 行):")
         for ln in lost[:40]:
             L.append(f"    - {ln[:150]}")
-    open("specs/regress_compare_2026-09-23.md", "w").write("\n".join(L) + "\n")
-    print("wrote specs/regress_compare_2026-09-23.md")
+    open("specs/regress_compare_v24d_2026-09-23.md", "w").write("\n".join(L) + "\n")
+    print("wrote specs/regress_compare_v24d_2026-09-23.md")
 
 if __name__ == "__main__":
     main()
