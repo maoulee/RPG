@@ -549,6 +549,16 @@ current fact.
 
 Select relations by SEMANTIC COVERAGE.
 
+Submit ALL semantically relevant relations, NOT the single best one —
+typically ≤3 (max 5) groups per fact. Answering a question needs
+CONTRAST evidence: one relation shows one facet, and the comparison
+values that decide the answer often live on a sibling relation you did
+not submit (576 specimen: only `countries_within` was submitted, so the
+continent roster rendered without the membership edges that identify
+which listed country belongs to the asked region). After reading the
+candidate list, ask "which OTHER relations also encode this fact?"
+before writing the `relations:` line.
+
 Ask:
 
 ```text
