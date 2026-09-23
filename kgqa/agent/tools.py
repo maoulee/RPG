@@ -2171,9 +2171,22 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
             else:
                 _named_extra.add(_xs)
     if _cvts:
+        # _full_adj is an INDEX-KEYED LIST adjacency (adj[ent_idx] = [(rel,
+        # other)...]), and _cvts holds CVT NAMES — map name→idx first. The
+        # old `.get(_cv, ())` treated the list as a dict and raised
+        # "'list' object has no attribute 'get'" on every answer whose
+        # delivered triples carried a CVT endpoint (124 crashes in the
+        # 2026-09-23 v24b run — the answer dispatch died BEFORE the
+        # off-pool corrective feedback, locking wrong names in).
         _adj_hv = _full_adj(ctx)
+        _n2i = {}
+        for _i, _e in enumerate(ctx.ents):
+            _n2i.setdefault(str(_e), _i)
         for _cv in _cvts:
-            for _r2, _w in _adj_hv.get(_cv, ()):
+            _ci2 = _n2i.get(_cv)
+            if _ci2 is None or not (0 <= _ci2 < len(_adj_hv)):
+                continue
+            for _r2, _w in _adj_hv[_ci2]:
                 _wn = ctx.ents[_w] if 0 <= _w < len(ctx.ents) else ""
                 if _wn and not _icl_hv(str(_wn)):
                     _named_extra.add(str(_wn))
