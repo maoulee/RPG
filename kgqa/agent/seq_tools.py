@@ -3888,6 +3888,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
     _seq_echo = ""
     _cont_compare = False
     _cont_frontier = {}
+    _infeas_map = {}
     _layer_action = ""
     if centers and os.environ.get("SEQ_MULTISTEP", "0") == "1":
         try:
@@ -4049,6 +4050,21 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                         _up, _acts, _comps2 = _classify_seq_submit(
                             ctx, _ix, _a, _layers, _new)
                         _layer_action = "extend"
+                        # BRIDGE-LEGAL FALLBACK (user ruling 2026-09-23):
+                        # the layer-assignment feasibility above is 1-hop
+                        # DIRECT reach and used to DISCARD the rest — but the
+                        # design allows a BRIDGE: every layer's relation only
+                        # needs to be reachable "within two hops, ENDING in
+                        # the submitted relation" (the relation_expansion
+                        # direct+bridge semantics). A frontier-bridged
+                        # submission (21_ specimen: government_positions_held
+                        # from Ethiopia via jurisdiction_of_office) is NOT
+                        # droppable — collect it for free derivation at the
+                        # multistep pass below.
+                        _inf = {r for r, _ax in _acts.items()
+                                if _ax == "infeasible"}
+                        if _inf:
+                            _infeas_map[_a] = _inf
                     _ast[_a] = _up
                     # FRONTIER for the plain direct step = the PRE-update
                     # last layer's completions (the members the new relation
@@ -4125,6 +4141,21 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                 # applies to first-call anchors only.
                 if _ci in _declared:
                     _multistep[_ci] = _declared[_ci]
+                    _inf = _infeas_map.get(_ci)
+                    if _inf:
+                        # BRIDGE-LEGAL FALLBACK (user ruling 2026-09-23): the
+                        # direct-unreachable submissions ride FREE DERIVATION
+                        # — 1..3-hop patterns ENDING in the submitted relation
+                        # (the design's "two hops, submitted relation last"
+                        # semantics) — sharing the render with the declared
+                        # chain instead of being silently dropped.
+                        try:
+                            _der_i, _ = _derive_multistep_seq(
+                                _ix, ctx, _ci, _inf, topk=0)
+                        except Exception:
+                            _der_i = None
+                        if _der_i:
+                            _multistep[_ci].update(_der_i)
                     continue
                 _sem = os.environ.get("SEQ_PAT_SEMANTIC", "1") == "1"
                 # STEP-COVERAGE (user ruling 2026-09-22): the ranking's
