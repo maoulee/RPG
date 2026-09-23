@@ -1,5 +1,16 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-23 v3 abstain 人审摘要:57 通路=55 负 lift+2 零 lift(分野发现)
+- specs/rscc_v3_abstain_summary_2026-09-23.md:abstain 通路按 L 符号分组。
+  **55/57 是负 lift**(通路完整证据把 gold 概率压到 p0 以下——v2.1 的
+  harmful 家族,证据净干扰),仅 2 个零 lift(真·合取型,1731 同型)。
+- **语义分野待裁定**:abstain-keep 对零 lift(合取)合理;但负 lift 通路
+  方向明确(净有害),现也整条弃权保留——55 条干扰通路逃脱裁决。候选:
+  负 lift 通路段走 branch 级裁决(整段判干扰)而非块级 abstain;或块级
+  恢复"移除后升=清干扰"判据。人审材料:v3fast dump+本摘要。
+- 人审 dump 三份:rscc_v3cal(1731)/rscc_v3audit(12 案)/rscc_v3fast
+  (48×3 全量,13523 行)。
+
 ### 2026-09-23 scorer v3(user/Codex 终版:绝对 Δp+固定 lift 锚双门槛+abstain 弃权)
 - **p 语义**:p_g=exp(mean token logprob)=归一化答案支持概率(token 几何
   平均,非序列概率——长实体下统一 τ=0.05 才可用;读取修正 token_logprobs
