@@ -1,5 +1,31 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-23 scorer v2+通路隔离(user/Codex 审核,8 级优先级全落地):1731 判决反转
+- **读取 bug(Codex P0)**:旧 gold_logprob 取 list(top_logprobs[jj].values())[0]
+  =该位置 top-1 token 的 logprob,gold token 非 top-1 时取错值。修:
+  token_logprobs 直取 gold span。三层分离:token 层=SUM(同 gold 同长度,
+  RSCC 即 log-likelihood ratio,无需长度归一;mean 会把首 token 集中的
+  证据效应除以 L);gold 层=不压缩保 per-gold d 向量;答案集层=决策点算
+  D_max/D_mean/Coverage。**移除判据=D_max≤τ_e 且 D_mean≤τ_s**
+  (τ=0.5 nats 起,RSCC_TAU_ENTITY/SET env)。MAX_ENTITIES=8 采样截断
+  删(唯一贡献 gold 未被采样→块假阴性);RSCC_MAX_GOLDS=0 默认全测。
+- **通路隔离(user 裁定)**:_arm_pass per-branch 化——分支 B 起始
+  l_ref=branch_alone[B](本通路独立向量),收缩只在 B 内,他分支全程
+  屏蔽;V3 护栏 per-branch(b_alone vs b_terminal 的 D_max)。
+  prompt v2:one-valid-answer-entity 口径(去 submit-all/cite/
+  partial-beats-none——与单 gold teacher-force 一致);RSCC_PREFIX=
+  v2(默认)/old(旧口径对照)/proto。
+- **1731 标定判决反转**:旧口径(全轨迹+mean)块#1/#2 全判冗余移除;
+  v2:块#2(member 层,role=Bass guitar|Vocals)d=[+8.79,+3.15] 强保留;
+  块#1(其余巡演列表)d=[-3.78,-3.02] **负贡献**(干扰项,移除反升)→移除。
+  pF per-gold=[-2.66,-12.37]:Vocals 单测极低=组合偏置直接实证。
+- **48×3 全量分布**(v24_lanedel 轨迹,specs/rscc_v2fast_*):d_max
+  p10=-5.83/median=0.13/p90=+10.03;负 d_mean 块 65/132(49%,旧口径
+  全被压平);D_max-only 保住 5 块;guard 0 回退;unscored 0。
+- 旧标记(score_case)保持旧口径不动(对照);异步版 gold_ll_sum 待
+  全量化时同步改。方案 B(Yes/No candidate-support log-odds)留作
+  对照实验未实现。
+
 ### 2026-09-23 lane-2 删除+bridge 不注入+事实键去重(user 四裁定):48×3 正向大胜
 - **裁定链**(1731 标本驱动):bridge 只是模式路径中间关系,从不进提交
   关系集;模式路径 per-子图不跨子图继承;step 更新=树更新后**从 root
