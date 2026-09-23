@@ -3262,7 +3262,10 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 "candidate_relations": _flat,
                 "grouped_relations": _grouped,
                 "note": ("Identify ALL question-relevant groups below — typically "
-                         "≤3, max 5. Submit the TYPED NAME (e.g. relations: "
+                         "≤3, max 5. Do NOT pick only the single best: one "
+                         "relation shows one facet, and the contrast values "
+                         "that decide the answer often live on a sibling "
+                         "relation you skipped. Submit the TYPED NAME (e.g. relations: "
                          "baseball_division.teams | producer.film) — it expands "
                          "to that group's relations. ≡ marks semantic equivalents: "
                          "submit them TOGETHER. A BARE attribute (relations: teams) "
@@ -5710,7 +5713,10 @@ def _sg_finalize(treq, bres, ctx) -> str:
                   "ids) and declare the values the evidence supports (any non-empty count). "
                   "Final discrimination happens at answer analysis. "
                   "Mid-chain entities are HOPS, not answers. ") if treq.get("cont_compare") else "") +
-                ("Evidence blocks group triples by entity: 'h --rel--> t1 | "
+                ("Centers and relations are FIXED per call — re-calling the "
+                 "same center with the same relations returns NOTHING new; "
+                 "to see more, choose DIFFERENT relations. "
+                 "Evidence blocks group triples by entity: 'h --rel--> t1 | "
                   "t2' merges tails, 'h1 | h2 --rel--> t' merges heads. "
                   "m.xxx/g.xxx are EVENT nodes — NEVER answer or bind them; "
                   "use their named ATTRIBUTES (actor, character, office "
