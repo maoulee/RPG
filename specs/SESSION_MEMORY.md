@@ -11379,3 +11379,11 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   存在性提醒把模型从"池内合法答案"推向重试摆动。候选修法:bounce 只在
   答案 offpool/明显单侧时触发;或 bounce 后保留原答案作 fallback(重答更
   差时记原答案)。下轮:1171/567 v25 轨迹 diff + bounce 语义修正。
+- **裸 bridge 标签根因收窄**(v25 实锤 567/1171):mseq 干净(探针证实
+  award_* 全是合规 2-hop 的 hop-1),裸段产于渲染层 collect_pattern_triples
+  (seq_triples.py:100-180)——label=实际走边序列(doubled rels included),
+  chains 序列经 _collapse_rt/_pkey 折叠后某些段变单段 bridge。修点:
+  collapse 不得把多跳链折成 bridge 单段;或 label 用模式 key 而非 walked 序列。
+  v24 的 576 无裸标签(bridge 注入删除已修一层),v25 的 567/1171 仍有(此层)。
+- merge note 已迁推理时刻(499f683,两 ANSWER_ANALYSIS 入口一次性信息性);
+  sg 侧逐子图触发已撤(过度提醒)。
