@@ -11323,3 +11323,14 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   founders 旧链不再重复)。
 - 验证:153 绿;144 重放 67s;fidelity 持平;pattern-lines 331;
   残留 crashes 1/empty-sg 5。
+
+### 2026-09-23 提示语关系多选规则(§17,user 裁定:不能只选最佳)
+- **定位**:多选规则(≤3 相关组)只在工具 note 侧(rr note/plan ack),V23
+  提示语无对应措辞——模型第一轮 rr 只按先验选单一最佳(576:只提交
+  countries_within,对照证据没走)。§17 加要求式规则+576 标本。
+- **576 渲染勘误(user 复核)**:contains ⭢ countries.continent ⭢
+  countries_within 三跳实例化渲染正确,非 bug;裸 containedby/contains
+  标签疑为渲染组装层(seq_rows pattern_labels←store)引入,mseq 层干净,
+  待追。
+- 探针初验:部分采样双关系提交(s0 f1=1.0),多数仍单选——概率性遵守,
+  48×3 待跑。
