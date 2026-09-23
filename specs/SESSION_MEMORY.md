@@ -1,6 +1,25 @@
 # Session Memory — subgraph (KGQA agent)
 
-### 2026-09-23 scorer v2.1(user/Codex 终版裁定:5% 规则精确换算,单条件 max 判定)
+### 2026-09-23 scorer v3(user/Codex 终版:绝对 Δp+固定 lift 锚双门槛+abstain 弃权)
+- **p 语义**:p_g=exp(mean token logprob)=归一化答案支持概率(token 几何
+  平均,非序列概率——长实体下统一 τ=0.05 才可用;读取修正 token_logprobs
+  保留)。判定:∃g:[Δp≥0.05(强效) 或 (Δp>τ_noise=0.01 且 R=Δp/L>τ_share
+  =0.10)];**L=通路固定锚 p_F(本通路)−p0,全程不变**(移动分母会重引入顺
+  序尺度漂移);harmful 记录 Δp≤−5pp。
+- **ABSTAIN 弃权语义**(1731 发现的重要边界):L<τ_lift=0.02(任何 gold)
+  → 本通路概率通道不可靠 → **弃权保留**(非移除许可,交结构通道)。1731
+  Eclipse 通路 p_alone=[0.01,0.00]≈p0——**合取型问题单通路 lift 结构性
+  ≈0**(答案=person通路×tour通路合取),隔离评估下该通路整条 abstain;
+  块#2/#1 弃权保留,块#0 结构必要。v2.1 里块#2 的 d=+8.79(sum 口径)
+  在 mean 口径=0.65pp——口径差异的全景实证。
+- **48×3 分布**(specs/rscc_v3fast_*):结构保护 173/abstain 64/
+  informative 61/harmful 1/redundant 6/removed 3——概率通道裁决范围
+  大幅收缩(vs v2.1: harmful 64),结构通道成为实际主力;d_max 中位
+  0.17pp/p90 52pp 两极化。**待裁定**:τ_lift=0.02 在 mean 口径是否过严
+  (64 abstain 的 L 分布需人审 dump 复核);null 噪声带 95 分位定标
+  τ_noise 的采样路径(L_ok 且无 hit 块过少,未采到足量)待补。
+- 12 案 audit(specs/rscc_v3audit_*):结构 17/abstain 8/informative 3,
+  无 removed-but-informative 不一致。env:RSCC_TAU_ABS/NOISE/SHARE/LIFT。
 - **τ 不新拍**:TAU_POS=−log(0.95)=0.0513(P_cf/P_ref≤0.95 的 log 域等价),
   TAU_NEG=−log(1.05)=−0.0488(harmful 对称档)。**判定=∃g: d_g≥TAU_POS →
   Informative**(单条件 max/any;coverage/D_pos 只做 credit 强度,不做判定

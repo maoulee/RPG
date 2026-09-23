@@ -1,0 +1,258 @@
+{
+ "WebQTrn-1731_4eea981607dbe17b040580ce4cd93ec4|s0": {
+  "gold": [
+   "Bass guitar",
+   "Vocals"
+  ],
+  "n_blocks": 3,
+  "branches": {
+   "Randy Jackson": [
+    0
+   ],
+   "Eclipse Tour": [
+    1,
+    2
+   ]
+  },
+  "empty_channel": [],
+  "modules": {
+   "0": {
+    "branch": "randy jackson",
+    "idx": 5,
+    "necessary": "yes",
+    "lineage": false,
+    "gold_first": true,
+    "empty_channel": false,
+    "d_loo": [
+     0.2580821404890009,
+     0.0007256237426468786
+    ],
+    "d_loo_max": 0.2580821404890009,
+    "d_loo_cov": 0.5,
+    "d_loo_pos": 0.1294038821158239,
+    "D": null,
+    "R": null,
+    "hits": null,
+    "L": null,
+    "d_max": null,
+    "cov": null,
+    "d_pos": null,
+    "label": null,
+    "mixed": null,
+    "p_ref": null,
+    "p_cf": null,
+    "note": "structure-protected",
+    "removed": false,
+    "d_fwd": null,
+    "fwd_removed": false,
+    "d_rand": null,
+    "rand_removed": false
+   },
+   "1": {
+    "branch": "eclipse tour",
+    "idx": 12,
+    "necessary": "n/a",
+    "lineage": true,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     -0.14196161735161217,
+     -0.003440545084753623
+    ],
+    "d_loo_max": -0.003440545084753623,
+    "d_loo_cov": 0.0,
+    "d_loo_pos": 0.0,
+    "D": [
+     -0.03709046911026157,
+     -0.005003897801751297
+    ],
+    "R": [
+     null,
+     null
+    ],
+    "hits": [
+     false,
+     false
+    ],
+    "L": [
+     -0.0002844494298431645,
+     -0.0041395564897811375
+    ],
+    "d_max": -0.005003897801751297,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "redundant",
+    "mixed": false,
+    "p_ref": [
+     0.006612693421387923,
+     0.0014207375502922684
+    ],
+    "p_cf": [
+     0.04370316253164949,
+     0.006424635352043565
+    ],
+    "note": "prob-channel-abstain",
+    "removed": false,
+    "d_fwd": -0.005003897801751297,
+    "fwd_removed": false,
+    "d_rand": -0.005003897801751297,
+    "rand_removed": false
+   },
+   "2": {
+    "branch": "eclipse tour",
+    "idx": 16,
+    "necessary": "n/a",
+    "lineage": false,
+    "gold_first": false,
+    "empty_channel": false,
+    "d_loo": [
+     0.16100624015867254,
+     0.0008738240779727745
+    ],
+    "d_loo_max": 0.16100624015867254,
+    "d_loo_cov": 0.5,
+    "d_loo_pos": 0.08094003211832265,
+    "D": [
+     0.0065311454154132155,
+     0.0011266725598484864
+    ],
+    "R": [
+     null,
+     null
+    ],
+    "hits": [
+     false,
+     false
+    ],
+    "L": [
+     -0.0002844494298431645,
+     -0.0041395564897811375
+    ],
+    "d_max": 0.0065311454154132155,
+    "cov": 0.0,
+    "d_pos": 0.003828908987630851,
+    "label": "redundant",
+    "mixed": false,
+    "p_ref": [
+     0.006612693421387923,
+     0.0014207375502922684
+    ],
+    "p_cf": [
+     8.154800597470715e-05,
+     0.000294064990443782
+    ],
+    "note": "prob-channel-abstain",
+    "removed": false,
+    "d_fwd": 0.0065311454154132155,
+    "fwd_removed": false,
+    "d_rand": 0.0065311454154132155,
+    "rand_removed": false
+   }
+  },
+  "gold_sampled": false,
+  "old_markers": {
+   "p0": 0.0012557573388969452,
+   "pF": 0.20038961692515328,
+   "modules": {
+    "0": {
+     "d": 0.1999,
+     "l": 0.1002,
+     "f": 0.2023,
+     "p_minus": 0.1002,
+     "p_alone": 0.2036,
+     "g": true,
+     "N": 1.0,
+     "lineage": false,
+     "cls": "effective"
+    },
+    "1": {
+     "d": -0.0277,
+     "l": -0.0002852,
+     "f": -0.0005388,
+     "p_minus": 0.2007,
+     "p_alone": 0.0007169,
+     "g": false,
+     "N": 1.0,
+     "lineage": true,
+     "cls": "effective"
+    },
+    "2": {
+     "d": 0.0126,
+     "l": 0.01539,
+     "f": 0.1094,
+     "p_minus": 0.185,
+     "p_alone": 0.1106,
+     "g": false,
+     "N": 0.9,
+     "lineage": false,
+     "cls": "effective"
+    }
+   }
+  },
+  "p0": [
+   0.0068971428512310876,
+   0.005560294040073406
+  ],
+  "pF": [
+   0.26469483391038884,
+   0.0020556029180403028
+  ],
+  "pGstar": {
+   "Randy Jackson": null,
+   "Eclipse Tour": null
+  },
+  "branch_alone": {
+   "Randy Jackson": [
+    0.1542544408055373,
+    0.001421933441064837
+   ],
+   "Eclipse Tour": [
+    0.006612693421387923,
+    0.0014207375502922684
+   ]
+  },
+  "trace": [
+   {
+    "blk": 0,
+    "branch": "Randy Jackson",
+    "note": "结构必要(删除断链) → 结构优先保留"
+   },
+   {
+    "blk": 2,
+    "branch": "Eclipse Tour",
+    "D": [
+     0.0065311454154132155,
+     0.0011266725598484864
+    ],
+    "R": [
+     null,
+     null
+    ],
+    "d_max": 0.0065311454154132155,
+    "cov": 0.0,
+    "d_pos": 0.003828908987630851,
+    "label": "redundant",
+    "mixed": false,
+    "verdict": "概率通道不可靠(通路lift<τ) → 弃权保留(交结构通道)"
+   },
+   {
+    "blk": 1,
+    "branch": "Eclipse Tour",
+    "D": [
+     -0.03709046911026157,
+     -0.005003897801751297
+    ],
+    "R": [
+     null,
+     null
+    ],
+    "d_max": -0.005003897801751297,
+    "cov": 0.0,
+    "d_pos": 0.0,
+    "label": "redundant",
+    "mixed": false,
+    "verdict": "概率通道不可靠(通路lift<τ) → 弃权保留(交结构通道)"
+   }
+  ]
+ }
+}
