@@ -1,5 +1,19 @@
 # Session Memory — subgraph (KGQA agent)
 
+### 2026-09-23 桥接合法层回退(9b12d35,user 裁定:层关系允许桥接非直连)
+- **user 裁定**:层可行性=“两跳内以提交关系为最后一跳”(relation_
+  expansion 的 direct+bridge 语义),**非 1-hop 直连**;直连不可达的提交
+  关系不可丢弃。实现:_classify_seq_submit 判 infeasible 的关系收集
+  (per anchor),declared 分支 merge 进 _derive_multistep_seq(fam=
+  infeasible 集,depth-2 枚举即桥接语义)。
+- **21_ 标本验证**:gpsh 模式从完全缺席→每采样都有[jurisdiction_of_
+  office ⭢ gpsh]桥模式+office_holder CVT 记录渲染;21_ f1 0.33→**1.00**
+  (超基线 0.78);1731 0.50→0.83;2152 0→0.33。
+- **v24d 全量=0.630/72.9%**(v24c 0.647/74.3%;gain12/loss14 vs v23)——
+  整体在采样噪声带(±1.7pp)内,目标 case 大幅恢复。**576 恶化
+  (0.33→0.00)**:through-chain 大段证据丢失型(continents.countries_
+  within 28 行),下一目标。rr GTE 候选缺 jurisdiction_of_office 仍待查。
+
 ### 2026-09-23 answer dispatch 崩溃修复(58d246a):124→0,v24c 距基线 -2.2pp
 - **Bug**:tools.py 2176 结构化收割 CVT 段 `_adj_hv.get(_cv,())`——_full_adj
   是**索引键的 list 邻接表**且 _cv 是 CVT **名字**:list 无 .get →
