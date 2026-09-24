@@ -3325,10 +3325,19 @@ def _rr_finalize(treq, bres, ctx) -> str:
                 _grouped += ("\n  ⚑ cvt-bridge (reserved — paths through the "
                              "center's CVT mediators; carry the answer behind "
                              "them): " + ", ".join(_res))
+            if _res:
+                # reserved cvt-bridge slots: marker folds into the note
+                # (grouped_relations removed — it duplicated
+                # candidate_relations; the grouping was a legacy GTE
+                # optimization with little value, user ruling 2026-09-23)
+                _bridge_note = ("  ⚑ the last relations listed are reserved "
+                                "cvt-bridge slots (paths through the "
+                                "center's CVT mediators).")
+            else:
+                _bridge_note = ""
             return _json_result({
                 "entities": treq["entities"], "question": treq["question"],
                 "candidate_relations": _flat,
-                "grouped_relations": _grouped,
                 "note": ("Identify ALL question-relevant groups below — typically "
                          "≤3, max 5. Do NOT pick only the single best: one "
                          "relation shows one facet, and the contrast values "
