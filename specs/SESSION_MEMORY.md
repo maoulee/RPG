@@ -11497,3 +11497,39 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   gain/loss 待记)。Eleanor 双断点:①入边形不行层不走括号(源侧 CVT 属性
   一直在 pe.triples);②终跳 parented 节点不记边→残段→FULL-DEPTH 全拒→
   六个 2-hop 模式静默消失。重放验证 7 模式+内联+campuses 全链。
+
+### 2026-09-24 Caribbean-1812 断点:终跳行有 store 无 lane(修,seq_rows 上下文尾巴放行带属性 CVT 尾)
+- **背景**:v27/v28 sample(WebQTrn-1812,加勒比兵力题,3/3 全灭,用户人审
+  实锤)。continuation 调用 center=?country,relations=size_of_armed_forces
+  | force_strength.combatant | military_conflict.force_strengths。渲染症状:
+  patterns 行 30 个模式(containedby ⭢ size_of_armed_forces 等正确终点
+  模式在列),但边行全是第一跳桥边(languages_spoken/continent/currency),
+  一条终跳边都没有;anchor_sequence 尾层 `size_of_armed_forces (0)`。
+- **预设双嫌皆不成立**(离线重放 tmp/replay_1812.py 四段复现:plan→rr→
+  sg1→checkpoint→rr→sg2,真 GTE,无 LLM):a) `_rebuild_paths` 最后 hop 落
+  纯字面值 CVT 时 found 不灭——字面值("610"/"1000"/"600")是 ctx.ents 里
+  的**非 CVT 实体**,穿透分支照常 parent 进 nxt;b) 终跳边+CVT 属性边**都
+  在**链的 full_edges 里([Caribbean > Barbados > g.12cp_jhfr] 实证,
+  (g.12cp_jhfr, number, 610) 随链)。seq_triples 的 store section 也完整
+  (terminal hop {'Barbados': [g.12cp_jhfr, g.1hhc485cc, g.1hhc4y0z9]} +
+  attrs=[number: 610/1000/600])——walk/链/三段全对。
+- **真断点在 render_rows 的 lane 准入**(seq_rows.py 上下文尾巴):
+  ①Barbados 被 REL_SEQ 根折叠出 centers(它映射到 Caribbean 树根,
+  seq_tools.py:4066 塌并;21 个非树国家各成新根);②block 预算
+  _GROUP_CAP=10 被 21 个 center 全占(centers 排序优先),Barbados 度数
+  12 仍排 20;③唯一兜底 lane(上下文尾巴)显式拒 CVT 尾(`not _cvt(t)`)
+  ——提交关系的终跳行**没有任何 lane**,patterns 行承诺了它、边行永远
+  不出现。
+- **修法(最小)**:上下文尾巴准入**带已走属性的 CVT 尾**(`t in cvt_kv
+  and cvt_kv[t]`),渲染走 `_tail_str` 括号内联;裸 mid(无属性)照旧拒。
+  修后:`Barbados --statistical_region.size_of_armed_forces--> g.12cp_jhfr
+  [number: 610] | g.1hhc485cc [number: 1000] | g.1hhc4y0z9 [number: 600]`
+  出现(与 v23 正确形态一致,值型答案 610/1000/600 可读),且
+  `Quasi-War --military_conflict.force_strengths--> m.02kljy2 [...]` 同乘
+  放行。153 测试绿;Eleanor-1392 重放无回退(内联+campuses 全链仍在)。
+- **陷阱记**:根折叠设计下,**树内终跳源实体不再是 center**——它的行
+  只能走 block 或上下文尾巴;凡是"patterns 有标签、边行缺终跳"先查
+  render_rows 的 lane 准入,别再查 _rebuild_paths(链是对的)。
+  另:SEQ_PROMPT=V23 下 tests/test_commit_widening.py 有 2 例 pre-existing
+  失败(V21 词表 ANSWER_ANALYSIS 被 V23 门拒;净 env 下 153 绿,stash
+  HEAD 验证与本修无关)。
