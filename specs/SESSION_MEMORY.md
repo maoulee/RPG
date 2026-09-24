@@ -11567,3 +11567,63 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   (confirmed 链→结构化边/端点/记录/fact 键);_do_answer 答案池优先读
   EvidenceLog(端点+CVT 记录值),旧多源拼凑留兜底。v32=0.707/77.1%
   (v31 0.708 持平,结构化池无回归)。153 绿+重放器完好。
+
+### 2026-09-24 WebQTrn-2540 全灭归因(v31 0/3 vs v23_final 3/3 hit):三处复合,非 top-5 单因
+- **标本**:WebQTrn-2540_1af5(gold=Camille Pissarro|Pierre-Auguste Renoir,
+  "influenced by Delacroix AND inspired Monet")。图里判别事实**只存**
+  `Pissarro/Renoir --influence.influence_node.influenced--> Claude Monet`——
+  Monet 无出边 influenced_by(除→Delacroix 一条),从 Monet 侧只能靠
+  influenced **反向**取。重放工具 tmp/audit_2540_v31.py(R1=v31-s0 实际
+  调用,R2=v23-s1 原调用在 v31 代码下重放;plan→rr→sg1→sg2 全链,GTE
+  活调;渲染与 live msg5/msg10 逐行一致)。离线重放坑:center 必须
+  list 形(字符串会被逐字符拆),plan 实体需 seed 进 ctx.subgraph_entities
+  否则 prepare 走 corr 纠正直接返错。
+- **R2 判决:v23 的取胜调用序列在 v31 机制下同样 gold 0/2——回归是机制侧,
+  非模型调用侧。**三层复合,任一层单独都足以杀死 gold:
+  1. **选择层(全局 top-5,47594c7)**:sg1 派生 47 条多跳候选,**18 条携带
+     gold 边**——最优 rank5 `artwork.artist ⭢ art_subject.artwork_on_the_
+     subject ⭢ influenced`(len=3,GTE=2),其余 9/10/13/15/21(artwork 系)
+     与 32-46(kwconnection/kwtopic hub 系)。top-5 仅有的两个 3 跳槽被
+     GTE=0/1 的 `art_forms ⭢ topic.subject_of/subjects ⭢ influenced` 占据
+     (各自只走 2 链/4 边,Dante/Botticelli 无关证据)——**被挤,差 2 个
+     GTE 位;但 v30 的 per-terminal×3 同样只取 rank0-2,载体一样不进**,
+     故 top-5 不是本 case 回归的引入点(v25/v30 已 0/3)。
+  2. **walk 层断边(_rebuild_paths 单亲 DAG)**:CHOSEN 模式 `(influenced_by
+     ⭢ influenced)` 首跳经 rev `X--influenced_by-->Delacroix` 到 Monet,
+     末跳把 Monet 的 18 条 influenced 邻接**全部枚举为链端(含两个 gold)**,
+     但 Pissarro/Renoir/Degas/vanGogh 首跳已被 parent——末跳重发现的
+     **入边形状不 materialize**(seq_tools.py:4582 `_te[0] == end` 只盖出边
+     形状;caea2b4 Eleanor 修只盖自环/CVT 回指),断成 1 边链后被 license
+     (末跳须=提交关系)再杀。实测 18 边中 12 walked+rendered,断掉的 6 条
+     含**两条 gold**,渲染只剩 `Boudin|Courbet|Mallarmé --influenced-->
+     Monet` 3 头行(live msg5 原样);Daubigny→Monet 系单亲归属(Pissarro
+     先到)丢边,同族。
+  3. **续走层(sg2)结构性死路**:模型提交 influenced_by("谁启发 Monet"
+     的语义正确名)——7d8ee88 后 bridge 不进 rel_idxs、lane-2(frontier
+     起步+桥注入 1-hop,v23 msg10 富 per-candidate 行的产源)已删,
+     continuation=从 Delacroix root 重走、终端=仅提交关系,候选仅 1 条
+     `(influenced ⭢ influenced_by)`,gold 不可派生;其 76 链再被 RENDER
+     DELTA 事实键(逆向折叠 influenced↔influenced_by,与 sg1 已显示的
+     Monet 出边撞键)削到 3 链——`── Claude Monet ──` 块整个消失(live
+     msg10 3 边渲染原样)。
+- **侧发现**:①**cov 键型死键**:prepare 写 `_ms_cov[(ci, pk元组)]`
+  (seq_tools.py:4273),B 相读 `_cov.get((ci, 模式串))`(:4862)——恒 0,
+  step 覆盖主键(bde6591)实际未生效;本 case 单提交关系无差,多关系
+  提交时粗排退化为 (len, GTE)。②kwconnection/kwtopic hub 模式仍可枚举
+  且携带 gold 反向边——c6b1539 类型中段禁令(上轮 2540 诊断把 Sisley→
+  Monet 家族当噪声)没盖住这两族;该家族里就有 gold,修法勿一刀切。
+  ③跨版本震荡:v23_final 3/3 → v25(09-23)0/3 → v26 1/3 → v27 2/3 →
+  v28 0/3 → v29 1/3 → v30 0/3 → v31 0/3(v38_perffinal 系 9 月 9 日旧跑,
+  其 s2=1.00 走 ?artist 变量展开调用,该通路也已不存在)——**回归窗口=
+  09-23 裁定波(7d8ee88 lane-2 删除+bridge 禁入最相关)**,v31 的 A+B
+  只是没救回;topk=5 vs ×3 对本 case sg1 选择无差异。
+- **修法建议(仅报告,未动管线)**,按杠杆排序:①`_rebuild_paths` 末跳
+  重发现的入边形状也 materialize(term_edge 记 (u,r,end) 且链短于模式
+  深度时补边)——单独此修即可让 R1.sg1/R2.sg2 双双浮出 gold(两 gold
+  实体本就是链端);②续走终端允许逆关系(事实键层已认定 influenced/
+  influenced_by 互逆,walk 末跳可匹配提交关系或其 _ctx_inverse_rels
+  伙伴),或提交关系直走 0 链时允许其 expansion bridge 搭终端;③RENDER
+  DELTA 对 layer_action=extend 改边级去重而非链级丢弃(per-candidate
+  compare 行本就是要重复展示的判别面);④粗排修 cov 键型+(可选)topk=6
+  或同长度内按链产出量打破 GTE 对关系名词面的偏好(rank5 差 2 个 GTE 位,
+  topk=6 即入)。
