@@ -4374,8 +4374,25 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3, steps=None):
         return any(f in fams and (node in ix.fwd[f] or node in ix.rev[f])
                    for f in fams)
 
+    # TYPE-POINTER RELATIONS NEVER TRANSIT (user audit 2026-09-24, 2540
+    # per-pattern diagnosis): notable_types / characters_with_this_occupation
+    # etc. are entity→type-class POINTERS, not path carriers — used as a
+    # mid-hop they mint hub mega-patterns ('Visual Artist --notable_types-->
+    # every visual artist', 74-86 chains) whose mid-edges then render as
+    # edges with no (sane) pattern correspondence. Mid-hop exclusion only;
+    # the submitted relation itself is unaffected.
+    import re as _re_type
+    _TYPE_MID_RE = _re_type.compile(
+        r"notable_types$|characters_with_this_occupation$|type\.object|"
+        r"\.type$|\.types$")
+
+    def _mid_ok(ri):
+        return not _TYPE_MID_RE.search(str(ctx.rels[ri]))
+
     # depth 2: (r1, fam)
     for r1, reach in hop1.items():
+        if not _mid_ok(r1):
+            continue
         for node in reach:
             if not (0 <= node < n) or node == ci:
                 continue
@@ -4388,13 +4405,15 @@ def _derive_multistep_seq(ix, ctx, ci, fam_idxs, topk=3, steps=None):
     # depth 3: (r1, r2, fam) — hop2 named reach from hop1 nodes, bounded
     hop2_cache = {}
     for r1, reach in hop1.items():
+        if not _mid_ok(r1):
+            continue
         for node in reach:
             if not (0 <= node < n) or node == ci:
                 continue
             if node not in hop2_cache:
                 hop2_cache[node] = _reach({node})
             for r2, reach2 in hop2_cache[node].items():
-                if r2 == r1:
+                if r2 == r1 or not _mid_ok(r2):
                     continue
                 for node2 in reach2:
                     if node2 == ci or node2 == node:
