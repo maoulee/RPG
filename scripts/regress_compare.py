@@ -48,9 +48,11 @@ def canon(line):
     return " ".join(sorted(p.strip() for p in parts if p.strip()))
 
 def pick_pair(v23rs, v24rs):
-    """v23 best-f1 sample vs v24 worst-f1 sample of the case."""
+    """SAME-SAMPLE pairing (user ruling 2026-09-23: best-vs-worst inflated
+    the apparent gap — audit the environment, not the sampling spread)."""
+    b_by = {r.get("sample_idx"): r for r in v24rs}
     a = max(v23rs, key=lambda r: r.get("f1") or 0)
-    b = min(v24rs, key=lambda r: r.get("f1") or 0)
+    b = b_by.get(a.get("sample_idx")) or v24rs[0]
     return a, b
 
 def dump_traj(L, tag, r):

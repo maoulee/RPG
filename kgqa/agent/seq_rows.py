@@ -39,12 +39,17 @@ def _short_rel(r):
 
 
 def render_rows(store):
+    # ECHO BUDGET (user ruling 2026-09-23): the center/frontier echo is a
+    # locator, not evidence — long lists (a 32-movie binding set echoed in
+    # the call AND again here) are pure duplication. Cap both at 5 + count.
+    _cap5 = lambda xs: (list(xs[:5]) + [f"…(+{len(xs) - 5} more)"]
+                        if len(xs) > 5 else list(xs))
     if store.get("frontier"):
-        L = [f"entities: {' | '.join(store['centers'])}  "
-             f"(sequence root; this layer applies to the frontier: "
-             f"{' | '.join(store['frontier'])})"]
+        L = [f"entities: {' | '.join(_cap5(store['centers']))}"
+             + (f"  (sequence root; layer applies to the frontier: "
+                f"{' | '.join(_cap5(store['frontier']))})")]
     else:
-        L = [f"entities: {' | '.join(store['centers'])}"]
+        L = [f"entities: {' | '.join(_cap5(store['centers']))}"]
 
     # ── flatten + dedup all edges ──
     _seen_e = set()
