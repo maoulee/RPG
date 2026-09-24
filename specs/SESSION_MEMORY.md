@@ -11549,3 +11549,12 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **2540 剩余两泄漏(待修)**:①类型补充边(topic.notable_types/
   character_occupation)渲染但无 pattern 对应——"渲染了不走路的东西";
   ②peer 回环残段(peers→peers 两跳回环被渲染,pattern 三跳未完成)。
+- **模式vs证据对账工具+2540 判决(用户方法:展示模式单独走 vs 渲染边精确diff)**:
+  tmp/audit_2540_modes.py(全链重放,label 反查单走,边级对账)。2540 结果:
+  A(4 展示模式并集)=100 边, B(渲染)=72; **B−A 65 条"模式外"真相=非渲染层
+  造边,是"显示外"——运行时选中集>patterns 行显示集(显示cap)+(修复前)
+  类型中段 hub 模式的边(Alfred Sisley→Monet 等无关艺术家对,经 Visual
+  Artist hub);c6b1539 已消灭其产生源**。A−B 93 条=walk 走了渲染丢弃
+  (ADMIT_TOTAL=24/per-key 3 渲染cap)——C2 删 cap 的直接实证。2 个 peers
+  展示模式在当前派生集消失(类型排除的回归副作用,待查)。
+  **结论:固定跳数模式本身没漏——偏差全在选择/显示/渲染三层 cap 错配。**
