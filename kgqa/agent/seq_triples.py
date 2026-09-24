@@ -129,7 +129,16 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
                 # submitted relation — 567: [award_winner⭢directed_by]'s
                 # hop-1-only chain minted the bare `award_winner` label).
                 # Remnants never become independent render groups.
-                if _rel_t and len(_rel_t) == len(_names):
+                # LONGER sequences stay admitted (537 specimen, 2026-09-24):
+                # the extra edges are MID-CHAIN CVT pass-throughs (root
+                # --actor.film--> m.xxx --performance.film--> film
+                # --netflix_id--> id = 3 edges for the 2-hop pattern) — the
+                # bridge-legal instantiation the design demands. Trailing
+                # passthroughs are already excluded upstream (_last_pat in
+                # _rebuild_paths), so > hop-count length can ONLY be the
+                # mid-chain bridge form; the equality used to zero the
+                # whole continuation render (triples: (empty)).
+                if _rel_t and len(_rel_t) >= len(_names):
                     _s.add(_rel_t)
     _key_count = {}
     _shown = []

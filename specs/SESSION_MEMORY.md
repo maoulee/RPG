@@ -11428,3 +11428,30 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
 - **重复展示修正(用户纠偏)**:①sg 结果 center 回显行整个删除(命令已有,
   非截断问题——5+count 方案撤销);②rr grouped_relations 段删除(与
   candidate_relations 重叠,旧 GTE 优化产物),cvt-bridge 保底标记折进 note。
+
+### 2026-09-24 537 第二断点:渲染层 FULL-DEPTH 等长校验误杀 CVT 桥链(修)
+- **背景**:a07add4(树键归一)修好 s0 后,s1-s5 各仍有 1 次空渲染 sg 调用
+  (fact_id 开头但 triples 段无 '-->' 行),netflix_id 证据缺失。case=
+  WebQTest-537(Charlie Hunnam 电影+最小 netflix_id,gold=Abandon)。
+- **证据链**:walk 内部日志(tmp/probe_537.log call #7/#9/#11)显示 confirmed
+  链完整(Abandon --netflix_id--> 60023647 在内),license filter 出口
+  pe_list 路径也完好——断点不在 walk/许可层。离线重放(tmp/replay_537.py,
+  无 LLM 回放录制命令)复现:v38 两层渲染 render_rows 返回空串。
+  根因在 seq_triples.py collect_pattern_triples 的 RECONSTRUCTION 通道:
+  `_rt_of_key` 只收 len(_rel_t)==len(_names) 的链(FULL-DEPTH ONLY,567
+  残段防护,2026-09-23)——但**从树 root 重走的链**带 MID-CHAIN CVT
+  pass-through 边(root --actor.film--> m.xxx --performance.film--> film
+  --netflix_id--> id = 3 边 vs 2 hop 名),3≠2 全部拒收→_owner 全
+  miss→patterns=[]→整调用空渲染。s0 侥幸通过:其 sg2 以 m.xxx 为新根,
+  链内无中段 pass-through(starring/performance.film 直落命名节点,2=2)。
+- **修法**(最小,单行语义:== → >=):尾部 pass-through 早已被
+  _rebuild_paths 的 _last_pat 截掉,>hop 数只可能是中段桥形;<
+  hop 数仍是 567 残段,照旧拒。与 v26 三连降的"残段链整链踢出渲染"
+  嫌疑直接相关——本修恢复合法桥链入场,残段防护不变。
+- **验证**:探针 6×1(scripts/probe_537.py,输出改 v2 名)前
+  f1=1.0/0/0/0/0.167/0.167(均 0.222),空渲染 5,netflix_id 证据 s1-s5
+  全缺;后 **6/6 全 f1=1.0(答案全 Abandon),空渲染 0,每个采样
+  netflix_id 证据行都在**,n_turns 6-10(原 6-14)。153 测试绿。
+- 离线重放器 tmp/replay_537.py(回放 rollout 录制的工具命令,无 LLM)
+  可复用为该类渲染断点的定位工具;probe_537.py 输出名已改
+  tmp/probe_537_{v2.log,rollout_v2.json}避免 RESUME 混淆。
