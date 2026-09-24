@@ -2152,9 +2152,18 @@ def _do_answer(args: Dict[str, Any], ctx) -> str:
     # enumerated is retrieved evidence and is a legal answer (1171:s2
     # specimen: James Earl Jones arrived on a wandered servicemembers edge,
     # filtered from the display yet the correct answer).
-    pool = list(getattr(ctx, "all_candidates", []) or [])
-    pool += [e for e in (getattr(ctx, "walk_seen_entities", []) or [])
-             if e not in pool]
+    # STRUCTURED SOURCE FIRST (redesign ZEROETH RULE 2026-09-24): the
+    # answer-legal surface is the EvidenceLog's structured pool (endpoints
+    # + CVT record values, walked edges' named endpoints). The legacy
+    # multi-source assembly below stays as fallback until the log's
+    # coverage is verified on the cohort.
+    _elog = getattr(ctx, "evidence_log", None)
+    if _elog is not None and _elog.calls:
+        pool = _elog.answer_pool()
+    else:
+        pool = list(getattr(ctx, "all_candidates", []) or [])
+        pool += [e for e in (getattr(ctx, "walk_seen_entities", []) or [])
+                 if e not in pool]
     # STRUCTURED HARVEST (user ruling 2026-09-22, revision — never parse
     # rendered text): the pool is built from the TRIPLES the text layer
     # renders. Sources: (a) the accumulated delivered triples — including

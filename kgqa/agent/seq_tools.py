@@ -5509,6 +5509,46 @@ def _sg_finalize(treq, bres, ctx) -> str:
             for c in (pf.candidates or []):
                 if not is_cvt_like(c) and c not in candidates:
                     candidates.append(c)
+    # EVIDENCE-LOG APPEND (redesign ZEROETH RULE, first wiring 2026-09-24):
+    # one EvidenceSet per call, built from the confirmed chains (structured
+    # edge/record ownership). Downstream consumers migrate onto it — the
+    # answer pool reads it FIRST (tools._do_answer), idempotency and RSCC
+    # attribution follow. The rendered text is a projection; nothing reads
+    # it back.
+    try:
+        from kgqa.agent.evidence import EvidenceSet, EvidenceLog
+        _chains_flat = []
+        for _pw, _chs in (treq.get("confirmed") or {}).items():
+            _chains_flat.extend(_chs)
+        _ev = EvidenceSet()
+        _ev.root = str(ents_ := ctx.ents[treq["centers"][0][1]]
+                       ) if treq.get("centers") else ""
+        for _pk, _ev_pat in (treq.get("multistep") or {}).items():
+            _ev.patterns.append(" ⭢ ".join(
+                ".".join(str(ctx.rels[_r]).rsplit(".", 2)[-2:])
+                for _r in _pk))
+        for _ch in _chains_flat:
+            for (_h, _r, _t) in (_ch.get("full_edges") or ()):
+                _hname, _rname, _tname = (str(ctx.ents[_h]),
+                                          str(ctx.rels[_r]), str(ctx.ents[_t]))
+                if (_hname, _rname, _tname) not in _ev.edges:
+                    _ev.edges.append((_hname, _rname, _tname))
+                from kgqa.agent.entity_kinds import entity_kind as _ek2
+                for _nm in (_hname, _tname):
+                    if _ek2(_nm) == "NAMED":
+                        _ev.endpoints.add(_nm)
+                if _rname.rsplit(".", 1)[-1] not in ("type", "types") \
+                        and _ek2(_tname) == "LITERAL":
+                    _ev.records.setdefault(_hname, {}).setdefault(
+                        _rname.rsplit(".", 1)[-1], []).append(_tname)
+        _ev.delivered_keys = {_edge_fact_key(h, r, t, _inv)
+                              for (h, r, t) in _ev.edges}
+        _log = getattr(ctx, "evidence_log", None)
+        if _log is None:
+            _log = ctx.evidence_log = EvidenceLog()
+        _log.append(_ev)
+    except Exception:
+        pass
     # NOTE: leaf-set full enumeration now lives in the evidence builder
     # (build_pattern_evidence_triples, Option B) — same-prefix/different-leaf
     # paths are one pattern with N leaves; the support-path cap no longer

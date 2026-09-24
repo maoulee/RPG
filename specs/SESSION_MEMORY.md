@@ -11563,3 +11563,7 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   (SEQ_PAT_TOPK=5,粗排=step覆盖→长度→GTE 组内;terminal 保底 1)替代
   per-terminal×3 配额栈。**v31=0.708/77.8%——超基线 +3.9pp/+2.8pp**
   (gain16/loss13)。153 绿+三重放器完好。
+- **EvidenceSet 接线第一刀+v32**:sg finalize 构建并 append EvidenceSet
+  (confirmed 链→结构化边/端点/记录/fact 键);_do_answer 答案池优先读
+  EvidenceLog(端点+CVT 记录值),旧多源拼凑留兜底。v32=0.707/77.1%
+  (v31 0.708 持平,结构化池无回归)。153 绿+重放器完好。
