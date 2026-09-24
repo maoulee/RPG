@@ -252,3 +252,4 @@ scripts/score_layer_op_probs.py
 scripts/rscc_credit.py
 scripts/regress_compare.py
 scripts/regress_fixloss.py
+scripts/regress_v26.py
