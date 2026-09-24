@@ -4223,9 +4223,17 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                 # DERIVE ALWAYS (user audit 2026-09-12, Belgium/GMT specimen):
                 # the top-K PATTERN PATHS ending in the submitted relation —
                 # applies to first-call anchors only.
-                if _ci in _declared:
-                    _multistep[_ci] = _declared[_ci]
-                    _inf = _infeas_map.get(_ci)
+                # TREE-KEYED RESOLUTION (user ruling 2026-09-23, design
+                # realignment): _declared/_infeas_map are keyed on the TREE
+                # ROOT — a continuation whose center is a FRONTIER entity
+                # (Andorra, a movie) used to miss both lookups and fall into
+                # per-center free derivation (the execute truncation: the
+                # layer's re-walk never ran; 537/241 specimens). The center
+                # confirms RELATIONS only; the walk starts at the root.
+                _ci_r = _root_of.get(_ci, _ci) if isinstance(_root_of, dict) else _ci
+                if _ci_r in _declared:
+                    _multistep[_ci_r] = _declared[_ci_r]
+                    _inf = _infeas_map.get(_ci_r)
                     if _inf:
                         # BRIDGE-LEGAL FALLBACK (user ruling 2026-09-23): the
                         # direct-unreachable submissions ride FREE DERIVATION
@@ -4235,11 +4243,11 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
                         # chain instead of being silently dropped.
                         try:
                             _der_i, _ = _derive_multistep_seq(
-                                _ix, ctx, _ci, _inf, topk=0)
+                                _ix, ctx, _ci_r, _inf, topk=0)
                         except Exception:
                             _der_i = None
                         if _der_i:
-                            _multistep[_ci].update(_der_i)
+                            _multistep[_ci_r].update(_der_i)
                     continue
                 _sem = os.environ.get("SEQ_PAT_SEMANTIC", "1") == "1"
                 # STEP-COVERAGE (user ruling 2026-09-22): the ranking's
@@ -4267,6 +4275,7 @@ def _sg_prepare(args: Dict[str, Any], ctx) -> dict:
             "multistep_cov": _ms_cov,
             "anchor_seq": _seq_echo, "cont_compare": _cont_compare,
             "cont_frontier": _cont_frontier, "layer_action": _layer_action,
+            "root_of": dict(_root_of),
             "prior": set(getattr(ctx, "accumulated_triples", set()) or set())}
 
 
@@ -4555,13 +4564,22 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
     # exact (h, r, t) walk record. Exact keys let the same fact re-enter as
     # "new" under a reversed traversal direction or its inverse relation id
     # (1731 specimen).
+    _root_of = treq.get("root_of") or {}
     _inv = _ctx_inverse_rels(ctx)
     _shown_facts = {_edge_fact_key(str(h), str(r), str(t), _inv)
                     for (h, r, t) in (getattr(ctx, "accumulated_triples",
                                               None) or set())}
     confirmed = {}
     out = []
+    _seen_roots = set()
     for (_cn, _ci) in treq["centers"]:
+        # TREE-KEYED (execute side): resolve to the walk root; duplicate
+        # centers collapsing onto one root walk once.
+        _ci = _root_of.get(_ci, _ci)
+        if _ci in _seen_roots:
+            out.append({})
+            continue
+        _seen_roots.add(_ci)
         combined = {}
         if not (0 <= _ci < len(ctx.ents)):
             out.append({})
