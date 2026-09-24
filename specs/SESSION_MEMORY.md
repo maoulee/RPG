@@ -11460,3 +11460,36 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   全灭簇恢复:537/626/2784=1.00,372=1.00(超基线);1171 0.67/25_892 0.33
   仍摆(采样敏感)。第二断点=残段校验==过严拒收合法中段桥链(子智能体
   定位+修复,离线重放器 tmp/replay_537.py 复现)。
+
+### 2026-09-24 Eleanor-1392 双断点:终跳重发现无边 + 入边行 CVT 头裸印(修,caea2b4)
+- **背景**:v27 sample_idx=27(WebQTrn-1392,Eleanor Roosevelt 教育 case,
+  用户人审实锤)。首个 sg 调用 center=Eleanor Roosevelt,relations=
+  education.education.student | education.educational_institution.campuses,
+  渲染只有 `▸ patterns: education.student` + 两条裸 mid 行(campuses
+  全无、CVT 属性全无)。
+- **Bug 1(CVT 起点侧不展开)**:断点不在 walk——_rebuild_paths 对
+  (student,) 链 full_edges 已含 institution 边(m.03j_v30 --institution-->
+  Allenswood Academy),pe.triples、store attrs 也都在([STORE] attrs 实证)。
+  丢在 seq_rows.py render_rows 的**入边行**:出边行走 _tail_str 括号
+  (`--person.education--> m.xxx [institution: …]`),入边行(h1|h2 --r--> t
+  与 singleton 行、context tail)直接印裸 h——CVT 处于链**来源侧**
+  (m.xxx --student--> person)时恰好全走入边行,属性内联整条丢失。
+  修:入边两车道+context tail 的头过同一 _tail_str 括号。
+- **Bug 2(campuses 零游走)**:derive 已枚举 (student ⭢ campuses)、B 段
+  已选中(重放 [TREQ]/[SELECTED] 实证)——断点在 _rebuild_paths 的
+  **终跳重发现**:576/1812 的 terminal re-discovery 让已 parented 节点进
+  末层时只置 found=True 不记边。本例 campuses 在子图里是**自环**(campus
+  CVT 被折叠进机构实体:The New School --campuses--> The New School),
+  hop-2 靠重发现"成功"而链上没有 campuses 边→1 边残段链→seq_triples.py
+  FULL-DEPTH(len>=hop 数)全拒→六个选中的 2-hop 模式全静默消失(也无
+  mismatch 反馈)。修:记录重发现的发现边 (src,rel,tgt),当链实边数<
+  hop 数且边头==链尾(自环,或 CVT 属性边指回源,如教育 CVT 的 student
+  边)时补挂为终跳——完整链(576/1812 名册)不受影响。
+- **验证**:离线重放 tmp/replay_1392.py(plan→rr→sg 三段,真 GTE session,
+  无 LLM)。修后 patterns 含 education.student ⭢ education.institution ⭢
+  educational_institution.campuses(The New School --campuses--> The New
+  School 自环实例可见),且 `m.03j_v30 [institution: Allenswood Academy]
+  --education.student--> Eleanor Roosevelt` 内联。153 测试绿。
+- **陷阱记**:CWQ 子图存在**CVT 折叠成自环**的边(campuses/institution
+  同名实体两端)——枚举/可达判断正常,但链重建的边记录路径会把这类跳
+  变成无边残段;凡"解析成功却零渲染"先查 term 重发现是否吞边。
