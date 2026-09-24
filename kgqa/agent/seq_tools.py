@@ -4847,38 +4847,33 @@ async def _sg_execute(treq, ctx, session):
                 _rank = {r.get("candidate"): i
                          for i, r in enumerate(_rows or [])}
             _sel = {}
-            _per_term = {}
             _cov = treq.get("multistep_cov") or {}
-            # ranking = STEP COVERAGE first (user ruling 2026-09-22: a
-            # pattern hitting step1 AND step2 outranks one hitting only
-            # step2 — layer-2 calls have no direct connection so multi-hop
-            # is the norm and through-chain coverage is the signal), then
-            # GTE semantics WITHIN equal coverage, then length; 顺延 = walk
-            # down the ranking until the quota fills. QUOTA IS PER
-            # SUBMITTED TERMINAL RELATION (user ruling 2026-09-13,
-            # Charlie-Hunnam specimen: two submitted relations must EACH
-            # get their share — a per-center quota let one relation's
-            # patterns crowd the other out entirely)
-            for (_ci, _s) in sorted(
-                    _cmap,
-                    # ORDERING (user ruling 2026-09-23, design realignment):
-                    # step coverage first, then LENGTH (shorter patterns are
-                    # stronger — a 2-hop bridge⭢submitted beats a 3-hop
-                    # detour), GTE semantics WITHIN equal coverage+length.
-                    # The old key put GTE rank above length, so three
-                    # question-lexical 3-hop detours (topic.image⭢…⭢rel)
-                    # filled the per-terminal quota and crowded out the
-                    # direct 2-hop (1379: [based_on⭢profession] — the only
-                    # pattern carrying Priest — never rendered).
-                    key=lambda k: (-_cov.get(k, 0),
-                                   len(_cmap[k]),
-                                   _rank.get(k[1], 999),
-                                   k[1], k[0])):
-                _term = _cmap[(_ci, _s)][-1]     # terminal relation idx
-                n = _per_term.get((_ci, _term), 0)
-                if n >= 3:
+            # GLOBAL TOP-5 BY TOTAL ORDER (user directive 2026-09-24): one
+            # leaderboard after the coarse pass (step coverage -> length ->
+            # GTE semantics within equal length) — the most valuable
+            # patterns live in the top five; top-5 bounds the render. ONE
+            # narrowing point (selection), replacing the per-terminal x3
+            # quota stack. FLOOR: each submitted terminal relation keeps
+            # its single best pattern even outside the top-5 (Charlie-
+            # Hunnam specimen: a relation crowded to zero lost its lane).
+            _TOP = int(os.environ.get("SEQ_PAT_TOPK", "5"))
+            _ranked = sorted(
+                _cmap,
+                key=lambda k: (-_cov.get(k, 0),
+                               len(_cmap[k]),
+                               _rank.get(k[1], 999),
+                               k[1], k[0]))
+            _chosen = list(_ranked[:_TOP])
+            _floors = set()
+            for (_ci, _s) in _ranked[_TOP:]:
+                _term = _cmap[(_ci, _s)][-1]
+                if any(_cmap[k][-1] == _term for k in _chosen):
                     continue
-                _per_term[(_ci, _term)] = n + 1
+                if (_ci, _term) in _floors:
+                    continue
+                _floors.add((_ci, _term))
+                _chosen.append((_ci, _s))
+            for (_ci, _s) in _chosen:
                 _sel.setdefault(_ci, {})[_cmap[(_ci, _s)]] = _mseq[_ci][_cmap[(_ci, _s)]]
             # 1-hop direct patterns always survive (first-class, no quota)
             for _ci, _pats in _mseq.items():

@@ -156,10 +156,11 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
             if _owner is not None:
                 if _rtc in _a_seen:
                     continue
-                if _key_count.get(_owner, 0) >= ADMIT_PER_TERM \
-                        or len(_shown) >= ADMIT_TOTAL:
-                    continue
-                _key_count[_owner] = _key_count.get(_owner, 0) + 1
+                # RENDER=SELECTED (user directive 2026-09-24): every
+                # SELECTED pattern renders; the old ADMIT_PER_TERM/
+                # ADMIT_TOTAL caps made displayed ⊂ selected (65
+                # 'outside-every-displayed-pattern' edges) — selection
+                # alone decides, the render layer adds nothing.
                 _a_seen.add(_rtc)
                 _shown.append(rt)
                 continue
@@ -176,14 +177,6 @@ def collect_pattern_triples(treq, bres, ctx, kept, edges, hop_dir,
         if rt in _selected or _rtc in _selected_c:
             if _rtc in _a_seen:
                 continue            # collapse-variant of an already-shown
-            # GLOBAL TERMINAL BUDGET covers selected patterns: the B-phase
-            # quota is per (CENTER, terminal) — a multi-center call stacks
-            # 3×N per terminal (Colorado-River specimen). The budget keeps
-            # the selected SET itself within the per-terminal design count.
-            _term = rt[-1]
-            if _admit_count.get(_term, 0) >= ADMIT_PER_TERM:
-                continue
-            _admit_count[_term] = _admit_count.get(_term, 0) + 1
             _a_seen.add(_rtc)
             _shown.append(rt)
             continue
