@@ -11533,3 +11533,9 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   另:SEQ_PROMPT=V23 下 tests/test_commit_widening.py 有 2 例 pre-existing
   失败(V21 词表 ANSWER_ANALYSIS 被 V23 门拒;净 env 下 153 绿,stash
   HEAD 验证与本修无关)。
+- **v29(渲染车道准入修复,d9a7175)**:0.667/75.0%——**追平基线 0.669/75.0**
+  (差距 -0.2pp/0.0pp,gain13/loss13)。25_892 0.36→**1.00**(车道修复直接
+  受益);1392/1171 维持 1.00。残余:1812/2576 仍 0(同 case 采样敏感),
+  1797 0.33。第三断点=render lane 准入(根折叠+GROUP_CAP+尾车道拒 CVT 尾
+  三重堵)——修复一行,CVT 值型终跳恢复内联。诊断陷阱已记:patterns 有
+  标签但边行缺终跳→先查 lane 准入非 _rebuild_paths。
