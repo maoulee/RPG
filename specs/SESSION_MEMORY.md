@@ -11419,3 +11419,9 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   removed 61/harmful 2/redundant 4——移除量比 v3fast(9)大涨(残段链被踢后
   归属文本空→空块通道)。567_11fd 块#0/#1 双 redundant 保留(L≈0 合取型);
   1731 五块判分分化;1171 块#0 harmful 保留。
+- **用户审 v26 对比 dump 三裁定(9d9e4b0+待办)**:①dump 采样配对改同 idx
+  (best-vs-worst 放大差距误导审核);②sg 结果 entities/frontier 回显截断
+  5+count(31 部电影双重复述);③grouped_relations 的 group 机制不再适配
+  ——待用户细化修法。2784 判读:答 NONE=模型判别行为(日期精确匹配未中),
+  但丢失行含大段电影列表(残段链过滤嫌疑加重, Juice 的 1992-01-01 日期
+  可能就在被踢证据里)——消融优先级升高。
