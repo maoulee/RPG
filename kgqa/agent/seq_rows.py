@@ -21,10 +21,6 @@ _GROUP_CAP = 10
 _MULTI_MIN = 3
 
 
-def _cvt(n):
-    s = str(n)
-    return s[:2] in ("m.", "g.") and len(s) > 4
-
 
 def _is_value(n):
     s = str(n)

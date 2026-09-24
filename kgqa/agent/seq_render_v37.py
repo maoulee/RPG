@@ -37,10 +37,6 @@ _VAL_RE = re.compile(
     r"^\d{4}-\d{2}|^\d{2}:\d{2}|^[+-]?[\d.,]+$|^\d{4}s?$")
 
 
-def _cvt(n):
-    s = str(n)
-    return s[:2] in ("m.", "g.") and len(s) > 4
-
 
 def _val(n):
     return bool(_VAL_RE.match(str(n).strip()))

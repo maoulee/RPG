@@ -788,14 +788,8 @@ def _reach2_relids(ctx, entity_set) -> set:
         return _adj_full[i] if 0 <= i < len(_adj_full) else ()
 
     import re as _re_idlike
-    def _id_like(name):
-        # ID-TYPE TRANSIT NODE (user ruling 2026-09-23, 25_db96 specimen):
-        # opaque code nodes (travel ids etc.) carry no answer semantics —
-        # they are transit surfaces exactly like CVTs. Without this they
-        # cost a NAMED hop, pushing their relations to the 3rd named hop,
-        # outside the pool (travelid's relations unreachable).
-        return (len(name) <= 24 and " " not in name
-                and bool(_re_idlike.search(r"\d{2,}", name)))
+    from kgqa.agent.entity_kinds import is_id_node as _id_like
+
 
     def _expand(seed, cost_budget):
         seen, frontier, cost = set(seed), set(seed), 0
@@ -2252,10 +2246,10 @@ def join_path_rescue(ctx, fids, max_hops=3, reveal=False):
     n = len(ctx.ents)
     import re as _re_id
     def _cvtl(i):
+        # C1 single-source: CVT-or-ID transit — entity_kinds.is_transit
+        from kgqa.agent.entity_kinds import is_transit as _ek_tr
         nm = str(ctx.ents[i]) if 0 <= i < n else ""
-        return nm.startswith(("m.", "g.")) or (
-            len(nm) <= 24 and " " not in nm
-            and bool(_re_id.search(r"\d{2,}", nm)))
+        return _ek_tr(nm)
     # KEY CANONICALIZATION (integration audit 2026-09-23): join_flag
     # passes DECLARED fids ('sg2.f2') but the pools are keyed through
     # fact_key_map's canonical fid ('f2') — the raw lookup missed every

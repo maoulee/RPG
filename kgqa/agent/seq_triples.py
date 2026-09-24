@@ -11,10 +11,6 @@ Output (the "store") is consumed exclusively by the row layer (seq_rows.py).
 from collections import defaultdict
 
 
-def _cvt(n):
-    s = str(n)
-    return s[:2] in ("m.", "g.") and len(s) > 4
-
 
 def _short_r(rname):
     return ".".join(str(rname).rsplit(".", 2)[-2:])

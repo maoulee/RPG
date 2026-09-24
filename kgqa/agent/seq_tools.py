@@ -3473,9 +3473,15 @@ def _anchor_seq_layers(ctx) -> dict:
     return st
 
 
+from kgqa.agent.entity_kinds import (
+    is_cvt as _ek_is_cvt, is_transit as _ek_is_transit, entity_kind as _ek_kind)
+
+
 def _cvt_like_name(n) -> bool:
-    s = str(n)
-    return s[:2] in ("m.", "g.") and len(s) > 4
+    """C1 single-source: delegate to entity_kinds (the authoritative
+    four-kind classifier) — this file's old inline copy was one of five
+    divergent CVT predicates."""
+    return _ek_is_cvt(n)
 
 
 def _trans_named_step(ctx, ix, cur, rels) -> set:

@@ -9,10 +9,6 @@ _NOISY_ATTR = {"type", "types", "instance", "instances", "notable_types",
                "key", "keys", "permission", "is_reviewed", "article",
                "description", "alias", "name"}
 
-def _cvt(n):
-    s = str(n)
-    return s[:2] in ("m.", "g.") and len(s) > 4
-
 def _short(rels, rid):
     return rels[rid].rsplit(".", 1)[-1] if 0 <= rid < len(rels) else "?"
 

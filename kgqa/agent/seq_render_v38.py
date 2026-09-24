@@ -21,6 +21,7 @@ rows by construction).
 Gate: SEQ_RENDER_V38=1"""
 import os
 import re
+from kgqa.agent.entity_kinds import is_cvt as _cvt
 from collections import defaultdict
 
 _VAL_RE = re.compile(
@@ -30,10 +31,6 @@ _NOISY_ATTR = {"type", "types", "instance", "instances", "notable_types",
                "key", "keys", "permission", "is_reviewed", "article",
                "description", "alias", "name"}
 
-
-def _cvt(n):
-    s = str(n)
-    return s[:2] in ("m.", "g.") and len(s) > 4
 
 
 def _parse_node(s):
