@@ -28,10 +28,13 @@ def entity_kind(name) -> str:
     s = str(name)
     if s[:2] in ("m.", "g.") and len(s) > 4:
         return "CVT"
-    if len(s) <= 24 and " " not in s and _ID_RE.search(s):
-        return "ID_NODE"
     if _is_literal(s):
         return "LITERAL"
+    # ID code nodes carry LETTERS + digits (travelid, TAC123, kr1206);
+    # pure numbers/dates are LITERALs (checked above).
+    if (len(s) <= 24 and " " not in s and _ID_RE.search(s)
+            and re.search(r"[A-Za-z]", s)):
+        return "ID_NODE"
     return "NAMED"
 
 
