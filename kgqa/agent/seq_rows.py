@@ -212,9 +212,18 @@ def render_rows(store):
     # endpoint are ADMITTED (audit ③ specimen 241): Monaco's only edge was
     # CVT-headed and had no lane anywhere; the non-CVT endpoint is a real
     # walked entity, so the edge is evidence, not noise.
+    # CVT-TAILED edges whose CVT carries WALKED ATTRS are admitted too
+    # (user ruling 2026-09-24, 1812 specimen): a pure-literal terminal CVT
+    # (Barbados --size_of_armed_forces--> g.xxx [number: 610]) is a legal
+    # VALUE-ANSWER shape. When its owner missed the block budget (root-
+    # collapsed off the center list; 21 centers filled all 10 blocks), the
+    # old `not _cvt(t)` left the submitted relation's terminal hop with NO
+    # lane — patterns row promised it, no edge row ever showed it. Bare
+    # mids without attrs stay excluded (a bare id is noise, not evidence).
     ctx = [(h, r, t) for h, r, t in all_edges
            if (str(h), _short_rel(r), str(t)) not in rendered_edges
-           and not _cvt(t) and not _is_value(t)]
+           and (not _cvt(t) or (t in cvt_kv and cvt_kv[t]))
+           and not _is_value(t)]
     if ctx:
         _ctx_by = defaultdict(list)
         for h, r, t in ctx[:_GROUP_CAP * 3]:
@@ -222,7 +231,9 @@ def render_rows(store):
         for (h, _), rts in sorted(_ctx_by.items()):
             r0 = rts[0][0]
             ts_u = sorted(set(t for _, t in rts))
-            shown = " | ".join(str(t) for t in ts_u[:_TAIL_CAP])
+            # _tail_str: the admitted CVT tails carry their attr bracket
+            # inline ([number: 610]) — the value-answer's display form
+            shown = " | ".join(_tail_str(t) for t in ts_u[:_TAIL_CAP])
             L.append(f"    {_tail_str(h)} --{r0}--> {shown}")
     # ownerless CVT discriminator values (no named owner block to ride on)
     for mid, srs in sorted(val_by_mid.items()):
