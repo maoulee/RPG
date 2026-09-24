@@ -2,6 +2,7 @@
 每个候选标注从起点到它的完整模式路径。按模式分组渲染,叶=候选(◂),
 CVT 属性内联,关系名在每个连接符上。门控: SEQ_RENDER_V36=1"""
 import itertools
+from kgqa.agent.entity_kinds import is_cvt as _cvt
 from collections import defaultdict
 
 _NOISY_ATTR = {"type", "types", "instance", "instances", "notable_types",

@@ -8,6 +8,7 @@ as an index line only. Within each entity block:
 Two rules (user): ① related attributes together, ② no duplicate rendering.
 """
 from collections import defaultdict
+from kgqa.agent.entity_kinds import is_cvt as _cvt
 
 # NOTE CONSOLIDATED (user request 2026-09-20): the two per-message notes
 # (block-formatting + triple-grammar) merged into ONE compact note emitted

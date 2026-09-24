@@ -9,6 +9,7 @@ knows NOTHING about rows or display.
 Output (the "store") is consumed exclusively by the row layer (seq_rows.py).
 """
 from collections import defaultdict
+from kgqa.agent.entity_kinds import is_cvt as _cvt
 
 
 

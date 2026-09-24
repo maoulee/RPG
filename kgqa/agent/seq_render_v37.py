@@ -31,6 +31,7 @@ Mechanics (folding is structure-only; entity names are never folded):
 
 Gate: SEQ_RENDER_V37=1"""
 import re
+from kgqa.agent.entity_kinds import is_cvt as _cvt
 from collections import defaultdict
 
 _VAL_RE = re.compile(
