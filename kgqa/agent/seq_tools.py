@@ -4538,8 +4538,13 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
                             parents[v] = (u, r, False)
                         else:
                             # last-hop re-discovery of an already-parented
-                            # named node (self-loop shape: v == u) — record
-                            # the discovering edge for materialization below
+                            # named node — record the discovering edge for
+                            # materialization below. BOTH shapes: outgoing
+                            # (self-loop v==u) and INCOMING (2540: Monet's
+                            # 18 influenced in-neighbors re-discovered on
+                            # the last hop — their discovering edge
+                            # (u --r--> v) heads into the chain's end v,
+                            # materialized as the mirror contiguity rule).
                             term_edge.setdefault(v, (u, r, v))
                         nxt.add(v)
                         found = True
@@ -4579,9 +4584,13 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
         # append it so the last hop materializes. Complete chains (576/1812
         # rosters) are untouched.
         _te = term_edge.get(end)
-        if (_te is not None and _te[0] == end
+        if (_te is not None
                 and sum(1 for e in edges if not e[3]) < len(hops)):
-            edges.append((_te[0], _te[1], _te[2], False))
+            # mirror contiguity: OUTGOING (edge head == chain end:
+            # self-loop / CVT attr pointing back) or INCOMING (edge
+            # TAIL == chain end: the re-discovered neighbor's hop).
+            if _te[0] == end or _te[2] == end:
+                edges.append((_te[0], _te[1], _te[2], False))
         # PATTERN HOPS end at the last submitted-relation edge: passthrough
         # edges beyond it are expansion context (triples/candidates only)
         _last_pat = max((i for i, e in enumerate(edges) if not e[3]),
