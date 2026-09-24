@@ -4449,6 +4449,16 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
     adj_all = _full_adj(ctx)
     n = len(ctx.ents)
     parents = {}                        # node -> (prev, rel_idx, passthru)
+    # LAST-HOP RE-DISCOVERY EDGE (user ruling 2026-09-24, Eleanor specimen
+    # 1392): an already-parented terminal re-discovered on the last hop
+    # satisfies `found` without recording the discovering edge — the campus
+    # CVT collapsed into its institution (campuses is a SELF-LOOP on The New
+    # School) let hop-2 "succeed" while no campuses edge ever entered the
+    # chain, and the degenerate 1-edge chain then died at the render layer's
+    # full-depth check (campuses parsed, selected, and silently gone).
+    # Remember the discovering (src, rel, tgt) for such terminals so chain
+    # assembly can materialize the submitted relation's terminal hop.
+    term_edge = {}                      # end -> (src, rel_idx, tgt)
     level = {start_idx}
     for hop in hops:
         _last_hop = hop is hops[-1]
@@ -4491,9 +4501,21 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
                                 # original (real) parent path.
                                 nxt.add(w)
                                 found = True
+                                # the discovering submitted-rel edge heads
+                                # OUT of u; when the CVT's own attr edge
+                                # points BACK at u (w == u — the education
+                                # CVT's student edge), that edge can
+                                # materialize the terminal hop (see below)
+                                if w == u:
+                                    term_edge.setdefault(w, (u, r, v))
                     elif v not in parents or _last_hop:
                         if v not in parents:
                             parents[v] = (u, r, False)
+                        else:
+                            # last-hop re-discovery of an already-parented
+                            # named node (self-loop shape: v == u) — record
+                            # the discovering edge for materialization below
+                            term_edge.setdefault(v, (u, r, v))
                         nxt.add(v)
                         found = True
         if not found:
@@ -4521,6 +4543,20 @@ def _rebuild_paths(ctx, ix, start_idx, hops, budget=_REBUILD_BUDGET):
         edges = list(reversed(rev_edges))
         if not edges:
             continue
+        # LAST-HOP MATERIALIZATION (user ruling 2026-09-24): a terminal
+        # re-discovered on the last hop reached this level WITHOUT its
+        # discovering edge — the submitted relation's terminal hop is then
+        # missing from the chain and the render layer's full-depth check
+        # drops it (the relation parsed, selected, and silently vanished).
+        # When the chain is otherwise SHORTER than the pattern's hop count
+        # and the remembered discovering edge heads OUT of the chain's end
+        # (contiguity — self-loop, or a CVT whose attr edge points back),
+        # append it so the last hop materializes. Complete chains (576/1812
+        # rosters) are untouched.
+        _te = term_edge.get(end)
+        if (_te is not None and _te[0] == end
+                and sum(1 for e in edges if not e[3]) < len(hops)):
+            edges.append((_te[0], _te[1], _te[2], False))
         # PATTERN HOPS end at the last submitted-relation edge: passthrough
         # edges beyond it are expansion context (triples/candidates only)
         _last_pat = max((i for i, e in enumerate(edges) if not e[3]),

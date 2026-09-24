@@ -174,8 +174,13 @@ def render_rows(store):
             by_rt[(_short_rel(r), t)].append((h, r))
         for (_, t), hrs in sorted(by_rt.items()):
             if len(hrs) >= _MULTI_MIN:
+                # CVT heads carry their attrs bracket too (audit 2026-09-24,
+                # Eleanor-1392 specimen): the incoming lane rendered bare
+                # mids while the outgoing lane (_tail_str) bracketed them —
+                # a CVT at a chain's SOURCE side (m.xxx --student--> person)
+                # lost its institution/degree attributes entirely.
                 hs_u = sorted(set(h for h, _ in hrs))
-                shown_h = " | ".join(hs_u[:_HEAD_CAP])
+                shown_h = " | ".join(_tail_str(h) for h in hs_u[:_HEAD_CAP])
                 more = (f" …(+{len(hs_u) - _HEAD_CAP})" if len(hs_u) > _HEAD_CAP else "")
                 # ANSWER-EXPANSION ESCAPE (user audit 2026-09-19): the legacy
                 # +N-more lines advertise the "#name::rel" completion; this
@@ -188,7 +193,7 @@ def render_rows(store):
                 L.append(f"    {shown_h}{more} --{hrs[0][1]}--> {t}")
             else:
                 for h, r in sorted(hrs):
-                    L.append(f"    {h} --{r}--> {t}")
+                    L.append(f"    {_tail_str(h)} --{r}--> {t}")
         # discriminator value rows for this block's owned CVTs
         for mid, ent2 in sorted(cvt_owner.items(), key=lambda kv: str(kv[0])):
             if ent2 != ent or mid not in val_by_mid:
@@ -218,7 +223,7 @@ def render_rows(store):
             r0 = rts[0][0]
             ts_u = sorted(set(t for _, t in rts))
             shown = " | ".join(str(t) for t in ts_u[:_TAIL_CAP])
-            L.append(f"    {h} --{r0}--> {shown}")
+            L.append(f"    {_tail_str(h)} --{r0}--> {shown}")
     # ownerless CVT discriminator values (no named owner block to ride on)
     for mid, srs in sorted(val_by_mid.items()):
         if mid in cvt_owner:
