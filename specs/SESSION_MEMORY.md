@@ -11539,3 +11539,13 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   1797 0.33。第三断点=render lane 准入(根折叠+GROUP_CAP+尾车道拒 CVT 尾
   三重堵)——修复一行,CVT 值型终跳恢复内联。诊断陷阱已记:patterns 有
   标签但边行缺终跳→先查 lane 准入非 _rebuild_paths。
+- **branch-ref 广告删除(user 裁定 2026-09-24,重设计纲领)**:历史=V2 重写孤立
+  →C5 有意恢复;现废弃——答案合法性由 EvidenceSet 全量池保证(结构化,视觉
+  折叠不再影响答案合法性),文本补偿机制不再需要。seq_rows 两处广告删
+  (#X::ref);tools 侧 _expand_branch_refs 保留(模型写了仍展开,兼容无害)。
+- **GPT 方向澄清固化为正式语义(2026-09-24)**:pattern=关系序列约束
+  (无向)——A--R-->B 与 B--R-->A 等价;验收/审计工具用
+  edge_relation_sequence_match() 而非 edge_direction_match()。
+- **2540 剩余两泄漏(待修)**:①类型补充边(topic.notable_types/
+  character_occupation)渲染但无 pattern 对应——"渲染了不走路的东西";
+  ②peer 回环残段(peers→peers 两跳回环被渲染,pattern 三跳未完成)。

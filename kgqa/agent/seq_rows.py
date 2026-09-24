@@ -157,9 +157,6 @@ def render_rows(store):
             rendered = [_tail_str(t) for t in ts[:_TAIL_CAP]]
             shown_s = " | ".join(rendered)
             more = (f" …(+{len(ts) - _TAIL_CAP})" if len(ts) > _TAIL_CAP else "")
-            if more:
-                more += (f" (to answer with ALL of them, include "
-                         f"\"#{h}::{_short_rel(r)}\" as one answer entity)")
             L.append(f"    --{r}--> {shown_s}{more}")
         # incoming: skip shown, head-merge many→one
         by_rt = defaultdict(list)
@@ -179,14 +176,6 @@ def render_rows(store):
                 hs_u = sorted(set(h for h, _ in hrs))
                 shown_h = " | ".join(_tail_str(h) for h in hs_u[:_HEAD_CAP])
                 more = (f" …(+{len(hs_u) - _HEAD_CAP})" if len(hs_u) > _HEAD_CAP else "")
-                # ANSWER-EXPANSION ESCAPE (user audit 2026-09-19): the legacy
-                # +N-more lines advertise the "#name::rel" completion; this
-                # rows-renderer cap did not — a capped list with no pointer
-                # to the mechanism that answers with ALL of them.
-                if more:
-                    more += (f" (to answer with ALL of them, include "
-                             f"\"#{hs_u[0]}::{_short_rel(hrs[0][1])}\" "
-                             f"as one answer entity)")
                 L.append(f"    {shown_h}{more} --{hrs[0][1]}--> {t}")
             else:
                 for h, r in sorted(hrs):
