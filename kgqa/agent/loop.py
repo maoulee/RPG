@@ -373,6 +373,9 @@ def _step_dict(fid: str, ctx: CaseContext) -> Dict[str, Any]:
     return step
 
 
+from kgqa.agent.evidence import EvidenceLog
+
+
 def _ctx_to_result_dict(ctx: CaseContext, state, agent_failed: bool,
                         failure_reason: str) -> Dict[str, Any]:
     preds = ctx.llm_answer_preds
@@ -441,6 +444,16 @@ def _ctx_to_result_dict(ctx: CaseContext, state, agent_failed: bool,
         "agent_failure_reason": failure_reason,
         "agent_state": state.state,
         "agent_trajectory": ctx.trajectory,
+        # EVIDENCE LOG SERIALIZATION (redesign ZEROETH RULE, 2026-09-24):
+        # per-call structured evidence for offline consumers (RSCC
+        # attribution reads THIS, never re-parsing rendered text).
+        "evidence_log": [
+            {"root": ev.root, "patterns": ev.patterns,
+             "edges": ev.edges,
+             "records": {k: v for k, v in ev.records.items()},
+             "endpoints": sorted(ev.endpoints)}
+            for ev in (getattr(ctx, "evidence_log", None) or EvidenceLog()).calls
+        ] if getattr(ctx, "evidence_log", None) else [],
         "stage_times": ctx.stage_times,
         "error": failure_reason if agent_failed else None,
     }
