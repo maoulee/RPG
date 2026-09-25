@@ -164,12 +164,16 @@ def _update_var_bindings(ctx, content: str) -> None:
         cvt_bound = [p for p in parts if _is_cvt(p)]
         _all_cvt = False
         if cvt_bound:
-            # carry (fid_raw, var) so the reminder can quote the standing
-            # ledger for the affected fact (submission-first rule 2026-09-21)
-            ctx.cvt_binding_flag = ((_fid_raw, var) if (var or _fid_raw)
-                                    else True)
-            parts = [p for p in parts if not _is_cvt(p)]
-            _all_cvt = not parts and var.startswith("?")
+            # CVT-BINDING LEGAL (user ruling 2026-09-24): event nodes MAY
+            # bind variables — they are legitimate MID-CHAIN references
+            # (a bound CVT can center later retrievals within its 2-hop
+            # relation pool; the pool's CVT/id transparency handles the
+            # reach). They are NEVER the final ANSWER — the answer tool's
+            # mid-strip (§7.5) stays the only gate. The old strip+warn
+            # (2026-08-21) cost a re-declare round on every CVT binding
+            # (537 specimen: 12 performance CVTs bound, rejected, re-typed).
+            parts = parts          # binding kept as declared
+            _all_cvt = False
         # PER-SUBGRAPH HALLUCINATION CHECK (2026-08-21, user proposal): every
         # binding of [fid ✓] must have appeared in THAT subgraph's displayed
         # evidence (ctx.fact_evidence[fid]). Entities from other subgraphs or
