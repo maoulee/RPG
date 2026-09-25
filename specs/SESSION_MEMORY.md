@@ -11646,3 +11646,8 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   符(微妙:模型以为自己探索过);②机制侧——center=?college 的 date_founded
   层只渲染了 faculty 的 3-hop 链,Amherst/McGill/Columbia 主校区直连
   date_founded 未出(链断或 top-5 选择,待对账归因)。
+- **Drew(1557)归因闭合(user 判决证实)**:gold=McGill Faculty of Medicine
+  ——恰是 3-hop 链走到 1829 的实体,信息全程在场;失败根因=模型 f1 绑定
+  把候选锁死 Amherst/McGill/Columbia 漏 gold(语义:"faculty≠college"与
+  标注口径不一致),s2 把 faculty 日期误归主校。v33 三采样 2 对——渲染
+  判别材料已生效,属 gold 口径边界 case,机制侧无需修(25_db96 同类)。
