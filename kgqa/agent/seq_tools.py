@@ -4635,8 +4635,14 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
     # "new" under a reversed traversal direction or its inverse relation id
     # (1731 specimen).
     _root_of = treq.get("root_of") or {}
+    # EXACT-TRIPLE DELTA (user realignment 2026-09-24): a prior call's
+    # (h, r, t) suppresses ONLY the same exact triple (direction-
+    # normalized — the same edge walked from either side). The inverse-
+    # fold merged act/cat storage twins as one fact and re-killed
+    # sg2's 76 chains (2540); '完全对应' is the charter.
     _inv = _ctx_inverse_rels(ctx)
-    _shown_facts = {_edge_fact_key(str(h), str(r), str(t), _inv)
+    _shown_facts = {(frozenset((normalize(str(h)), normalize(str(t)))),
+                     str(r))
                     for (h, r, t) in (getattr(ctx, "accumulated_triples",
                                               None) or set())}
     confirmed = {}
@@ -4664,9 +4670,9 @@ def _rebuild_pe_list(ctx, treq, _mseq, _ms_map):
             # new relation's context)
             return [ch for ch in chains
                     if not all(
-                        _edge_fact_key(str(ctx.ents[h]), str(ctx.rels[r]),
-                                       str(ctx.ents[t]), _inv)
-                        in _shown_facts
+                        (frozenset((normalize(str(ctx.ents[h])),
+                                    normalize(str(ctx.ents[t])))),
+                         str(ctx.rels[r])) in _shown_facts
                         for (h, r, t) in ch["full_edges"])]
 
         def _assemble(names, chains):
@@ -4866,9 +4872,17 @@ async def _sg_execute(treq, ctx, session):
             # its single best pattern even outside the top-5 (Charlie-
             # Hunnam specimen: a relation crowded to zero lost its lane).
             _TOP = int(os.environ.get("SEQ_PAT_TOPK", "5"))
+            # COV KEY ALIGNMENT (user mechanism realignment 2026-09-24):
+            # step coverage = the pattern path walked FRONT TO BACK —
+            # step1's relation set matched, then step2's; both hit =
+            # coverage 2. The write keyed (center, idx-tuple) while the
+            # read keyed (center, name-string) — the primary sort key
+            # NEVER fired since introduction. Resolve through cmap's pk.
+            _cov_of = {k: _cov.get((k[0], tuple(_cmap[k])), 0)
+                       for k in _cmap}
             _ranked = sorted(
                 _cmap,
-                key=lambda k: (-_cov.get(k, 0),
+                key=lambda k: (-_cov_of.get(k, 0),
                                len(_cmap[k]),
                                _rank.get(k[1], 999),
                                k[1], k[0]))
