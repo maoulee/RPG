@@ -11636,3 +11636,13 @@ Giants,D3 选择层,非机制问题);1171 候选词法脆弱(审计 P6 未修)�
   (未全恢复——②③续走层死路与 delta 边级待修),1812 维持 1.00。
   v33=0.693/77.1%(v31 0.708 波动带内,gain14/loss13)。待:修法②(逆关系
   续走终端)③(delta 边级)④(cov 死键+topk tiebreak)。
+- **CVT 绑定合法化(086ece5,user 裁定 2026-09-24)**:checkpoint 绑 m./g. 事件
+  节点不再 strip+warn——CVT 是合法中间链引用(绑定后可作后续检索 center,
+  池的 CVT/id 透明承担可达);answer 侧 mid-strip 仍是唯一闸(提示语 §7.5/
+  §23 本就只限 answer)。旧机制每个 CVT 绑定烧一轮 re-declare(537 标本:
+  12 个 performance CVT 全拒重打)。
+- **Drew case 双问题(用户审出,待归因)**:①模型认知截断——msg8 思考自称
+  "date_founded which I already used"但从未提交过其他关系,与实际检索史不
+  符(微妙:模型以为自己探索过);②机制侧——center=?college 的 date_founded
+  层只渲染了 faculty 的 3-hop 链,Amherst/McGill/Columbia 主校区直连
+  date_founded 未出(链断或 top-5 选择,待对账归因)。
